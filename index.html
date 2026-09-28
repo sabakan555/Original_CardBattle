@@ -1288,6 +1288,7 @@ function renderPlay(){
   $("#deckSel").innerHTML = opts.map(d => `<option value="${esc(d.id)}">${esc(d.name)}${d.mana && !d.builtin ? "【コスト】" : ""}（${d.cards.length}枚）</option>`).join("");
   $("#deckSel").value = opts.some(d => d.id === want) ? want : "starter";
   $("#offlineNote").hidden = !!S.db;
+  if (!S.db) $("#offlineNote").textContent = (S.connErr ? "⚠ " + S.connErr + "。" : "サーバーにつながっていません。") + "いまはこのブラウザだけに保存され、CPU練習ができます。";
   $("#btnCreate").disabled = $("#btnJoin").disabled = !S.db;
   const lastG = ls.get("cb_last3", null), rj = $("#rejoin");
   if (S.db && lastG && Date.now() - lastG.t < 6 * 3600e3){ rj.hidden = false; rj.innerHTML = `<button class="small" id="btnRejoin">部屋 ${esc(lastG.code)} にもどる</button><span class="note">前回の対戦のつづき</span>`; }
@@ -2143,16 +2144,17 @@ $("#board").addEventListener("keydown", e => { const h = e.target.closest("[role
 async function connectFirebase(){
   // accepts either window.FIREBASE_CONFIG or the "const firebaseConfig = {...}" block pasted as-is from the Firebase console
   const cfg = window.FIREBASE_CONFIG || (typeof firebaseConfig !== "undefined" ? firebaseConfig : null);
-  if (!cfg || !window.firebase){ return; }
+  if (!cfg){ S.connErr = "config.js に Firebase の設定が見つかりません"; return; }
+  if (!window.firebase){ S.connErr = "Firebase の読みこみに失敗しました（広告ブロッカーなどの拡張機能を止めて再読み込みしてね）"; return; }
   try{
     firebase.initializeApp(cfg);
     const fs = firebase.firestore();
     try{ fs.settings({ ignoreUndefinedProperties: true, merge: true }); }catch(e){}
     const cred = await (firebase.auth().currentUser ? Promise.resolve({ user: firebase.auth().currentUser }) : new Promise(res => {
       const off = firebase.auth().onAuthStateChanged(u => { if (u){ off(); res({ user: u }); } });
-      firebase.auth().signInAnonymously().catch(() => res({ user: null }));
+      firebase.auth().signInAnonymously().catch(err => { S.authErr = err && err.code; res({ user: null }); });
     }));
-    if (!cred.user){ toast("サーバーにつながりませんでした"); return; }
+    if (!cred.user){ S.connErr = "匿名ログインに失敗しました（Firebase の Authentication で「匿名」が有効になっているか確認してね）" + (S.authErr ? "［" + S.authErr + "］" : ""); return; }
     S.uid = cred.user.uid;
     // no passcode: anyone who has the URL can join (signed in anonymously)
     // Firestore waits forever when it can't reach the database, so probe once with a timeout
@@ -2160,11 +2162,11 @@ async function connectFirebase(){
     const ok = await Promise.race([probe.then(() => "ok", e => "err:" + (e && e.code)), new Promise(r => setTimeout(() => r("timeout"), 10000))]);
     if (ok !== "ok"){
       console.error("Firestore probe:", ok);
-      toast(ok === "timeout" ? "データベースにつながりません（Firestoreの作成・設定を確認してね）" : ok.includes("permission") ? "データベースの権限エラー（ルールを確認してね）" : "データベースにつながりません（" + ok + "）");
+      S.connErr = ok === "timeout" ? "データベースにつながりません（Firestore Database が作成されているか、データベースIDが (default) になっているか確認してね）" : ok.includes("permission") ? "データベースの権限エラー（Firestore のルールに firestore.rules の中身を貼って「公開」したか確認してね）［" + ok + "］" : "データベースにつながりません［" + ok + "］";
       return;
     }
     S.db = fs;
-  }catch(e){ console.error(e); toast("サーバーにつながりませんでした"); }
+  }catch(e){ console.error(e); S.connErr = "サーバーにつながりませんでした［" + (e && (e.code || e.message)) + "］"; }
 }
 function passGate(fs){
   return new Promise(resolve => {
