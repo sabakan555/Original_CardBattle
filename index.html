@@ -346,9 +346,9 @@ nav.tabs button{position:relative}
 .trade-box h2{margin:0}
 .tr-item{display:flex;flex-direction:column;gap:8px;border-top:2px dashed var(--line);padding-top:10px}
 .tr-item:first-child{border-top:none;padding-top:0}
-.tr-pair{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.tr-pair{display:flex;align-items:center;gap:4px;flex-wrap:wrap}
 .tr-pair .lbl{font-size:12px;color:var(--muted);text-align:center;margin-bottom:4px}
-.tr-arrow{font-size:22px;font-weight:700;color:var(--muted)}
+.tr-arrow{font-size:18px;font-weight:700;color:var(--muted);padding-top:18px}
 .tr-gone{width:112px;height:156px;display:grid;place-items:center;border:2px dashed var(--line);border-radius:10px;color:var(--muted);font-size:12px;text-align:center}
 .tr-hist{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;font-size:13px}
 .owned-tag{font-size:12px;font-weight:700;color:var(--accent,#5fe0d2)}
@@ -871,14 +871,18 @@ const owns = id => S.owned.has(id);
 
 /* ================= data layer ================= */
 const local = { cards(){ return ls.get("cb_cards", []); }, decks(){ return ls.get("cb_decks", []); } };
-// card art: WebP when the browser can make it (about 30% smaller than JPEG), otherwise JPEG.
-// Quality steps down until the picture fits the size budget, so busy drawings stay small too.
-const ART_BUDGET = 48000; // characters of the data URL (about 36KB)
+// card art: tries WebP and JPEG at the same quality and keeps whichever is smaller
+// (WebP wins on simple line drawings, JPEG on busy ones). Quality steps down until the
+// picture fits the size budget, so heavily drawn cards stay small too.
+const ART_BUDGET = 40000; // characters of the data URL (about 29KB)
 function encodeArt(c){
   const webp = c.toDataURL("image/webp", .5).startsWith("data:image/webp");
-  const fmt = webp ? "image/webp" : "image/jpeg";
   let url = "";
-  for (const q of [.86, .78, .7, .62, .54, .46, .38]){ url = c.toDataURL(fmt, q); if (url.length <= ART_BUDGET) break; }
+  for (const q of [.8, .72, .64, .56, .48, .4]){
+    const j = c.toDataURL("image/jpeg", q), w = webp ? c.toDataURL("image/webp", q) : j;
+    url = w.length < j.length ? w : j;
+    if (url.length <= ART_BUDGET) break;
+  }
   return url;
 }
 async function saveCardDoc(id, doc){
