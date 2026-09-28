@@ -1288,7 +1288,7 @@ function renderPlay(){
   $("#deckSel").innerHTML = opts.map(d => `<option value="${esc(d.id)}">${esc(d.name)}${d.mana && !d.builtin ? "【コスト】" : ""}（${d.cards.length}枚）</option>`).join("");
   $("#deckSel").value = opts.some(d => d.id === want) ? want : "starter";
   $("#offlineNote").hidden = !!S.db;
-  if (!S.db) $("#offlineNote").textContent = (S.connErr ? "⚠ " + S.connErr + "。" : "サーバーにつながっていません。") + "いまはこのブラウザだけに保存され、CPU練習ができます。";
+  if (!S.db) $("#offlineNote").textContent = S.connecting ? "サーバーに接続中…（10秒ほどかかることがあります）" : (S.connErr ? "⚠ " + S.connErr + "。" : "サーバーにつながっていません。") + "いまはこのブラウザだけに保存され、CPU練習ができます。";
   $("#btnCreate").disabled = $("#btnJoin").disabled = !S.db;
   const lastG = ls.get("cb_last3", null), rj = $("#rejoin");
   if (S.db && lastG && Date.now() - lastG.t < 6 * 3600e3){ rj.hidden = false; rj.innerHTML = `<button class="small" id="btnRejoin">部屋 ${esc(lastG.code)} にもどる</button><span class="note">前回の対戦のつづき</span>`; }
@@ -2142,6 +2142,10 @@ $("#board").addEventListener("keydown", e => { const h = e.target.closest("[role
 // The passcode itself lives only in firestore.rules (server side). A browser becomes a member by
 // creating members/<uid> with the right passcode; every other read/write requires membership.
 async function connectFirebase(){
+  S.connecting = true; renderAll();
+  try{ await connectFirebase2(); } finally{ S.connecting = false; }
+}
+async function connectFirebase2(){
   // accepts either window.FIREBASE_CONFIG or the "const firebaseConfig = {...}" block pasted as-is from the Firebase console
   const cfg = window.FIREBASE_CONFIG || (typeof firebaseConfig !== "undefined" ? firebaseConfig : null);
   if (!cfg){ S.connErr = "config.js に Firebase の設定が見つかりません"; return; }
@@ -2153,7 +2157,9 @@ async function connectFirebase(){
     const cred = await (firebase.auth().currentUser ? Promise.resolve({ user: firebase.auth().currentUser }) : new Promise(res => {
       const off = firebase.auth().onAuthStateChanged(u => { if (u){ off(); res({ user: u }); } });
       firebase.auth().signInAnonymously().catch(err => { S.authErr = err && err.code; res({ user: null }); });
+      setTimeout(() => { S.authErr = S.authErr || "timeout"; res({ user: null }); }, 12000);
     }));
+    if (!cred.user && S.authErr === "timeout"){ S.connErr = "匿名ログインが終わりません（Firebase の Authentication →「設定」→「承認済みドメイン」に sabakan555.github.io を追加してみてね）"; return; }
     if (!cred.user){ S.connErr = "匿名ログインに失敗しました（Firebase の Authentication で「匿名」が有効になっているか確認してね）" + (S.authErr ? "［" + S.authErr + "］" : ""); return; }
     S.uid = cred.user.uid;
     // no passcode: anyone who has the URL can join (signed in anonymously)
