@@ -338,6 +338,22 @@ body{background:#232842 var(--bgimg,linear-gradient(90deg,#232842 0%,#2f3659 65.
   .home-foot{grid-row:4;flex-wrap:wrap}
 }
 @media (prefers-reduced-motion:reduce){.showcase .card{animation:none}.hbtn{transition:none}}
+
+/* trade */
+nav.tabs button{position:relative}
+.tbadge{position:absolute;top:-6px;right:-6px;min-width:20px;height:20px;border-radius:10px;background:#ff5d73;color:#fff;font:700 12px/20px var(--ui);text-align:center;padding:0 5px;border:2px solid var(--deep,#1b1f3b)}
+.trade-box{display:flex;flex-direction:column;gap:12px}
+.trade-box h2{margin:0}
+.tr-item{display:flex;flex-direction:column;gap:8px;border-top:2px dashed var(--line);padding-top:10px}
+.tr-item:first-child{border-top:none;padding-top:0}
+.tr-pair{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.tr-pair .lbl{font-size:12px;color:var(--muted);text-align:center;margin-bottom:4px}
+.tr-arrow{font-size:22px;font-weight:700;color:var(--muted)}
+.tr-gone{width:112px;height:156px;display:grid;place-items:center;border:2px dashed var(--line);border-radius:10px;color:var(--muted);font-size:12px;text-align:center}
+.tr-hist{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;font-size:13px}
+.owned-tag{font-size:12px;font-weight:700;color:var(--accent,#5fe0d2)}
+#tradeDlg .gallery [data-give]{cursor:pointer;border-radius:12px;outline:3px solid transparent;outline-offset:3px}
+#tradeDlg .gallery [data-give][aria-pressed="true"]{outline-color:var(--accent,#5fe0d2)}
 </style>
 <style>html,body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
 </head>
@@ -372,6 +388,7 @@ body{background:#232842 var(--bgimg,linear-gradient(90deg,#232842 0%,#2f3659 65.
       <button role="tab" data-tab="play" aria-selected="true">Battle<small>対戦</small></button>
       <button role="tab" data-tab="make" aria-selected="false">Card<small>カード工房</small></button>
       <button role="tab" data-tab="deck" aria-selected="false">Deck<small>デッキ</small></button>
+      <button role="tab" data-tab="trade" aria-selected="false">Trade<small>交換</small><span class="tbadge" id="tradeBadge" hidden></span></button>
       <button role="tab" data-tab="rules" aria-selected="false">Guide<small>ルール</small></button>
     </nav>
   </header>
@@ -502,6 +519,22 @@ body{background:#232842 var(--bgimg,linear-gradient(90deg,#232842 0%,#2f3659 65.
     <div class="deck-pool" id="deckPool"></div>
   </section>
 
+  <!-- TRADE -->
+  <section id="tab-trade" hidden>
+    <div id="tradeOffline" class="offline" hidden>カード交換はサーバーにつながっているときだけ使えます。</div>
+    <div class="grid2" style="margin-bottom:22px">
+      <div class="box trade-box"><h2>届いた申し込み</h2><div id="tradeIn"></div></div>
+      <div class="box trade-box"><h2>送った申し込み</h2><div id="tradeOut"></div></div>
+    </div>
+    <div class="row" style="justify-content:space-between;margin-bottom:6px">
+      <h2 style="margin:0">交換できるカード</h2>
+      <span class="note">ほかの人が描いたカードのうち、まだ持っていないもの。自分で描いたカード1枚と交換を申し込めます</span>
+    </div>
+    <div class="filters" id="tradeFilters"></div>
+    <div class="gallery" id="tradePool"></div>
+    <details class="box" style="margin-top:22px"><summary style="cursor:pointer;font-weight:700">交換の記録</summary><div id="tradeHist" style="margin-top:10px"></div></details>
+  </section>
+
   <!-- RULES -->
   <section id="tab-rules" class="rules" hidden>
     <div class="grid2">
@@ -560,6 +593,8 @@ body{background:#232842 var(--bgimg,linear-gradient(90deg,#232842 0%,#2f3659 65.
         <ul>
           <li>20枚以上なら上限なし。モンスターは最低1枚</li>
           <li>同じカードを何枚入れられるかは、カードを作った人が決める</li>
+          <li>デッキに入れられるのは「持っているカード」だけ：スターター、自分で描いたカード、交換でもらったカード</li>
+          <li>交換は Trade タブから。自分で描いたカード1枚と、相手のカード1枚をお互いにコピーで渡し合う（渡しても自分の手元からは減らない）</li>
           <li>ATKは0〜500（50きざみ）</li>
         </ul>
       </div>
@@ -567,6 +602,7 @@ body{background:#232842 var(--bgimg,linear-gradient(90deg,#232842 0%,#2f3659 65.
   </section>
 </div>
 <div id="overlay" class="overlay" hidden></div>
+<div id="tradeDlg" class="overlay" hidden></div>
 <div id="detailPop" class="pop" role="dialog" aria-label="カード詳細" hidden></div>
 <div id="toast" hidden></div>
 
@@ -789,6 +825,7 @@ function starterDeck(){ const ids = []; STARTERS.forEach((s, i) => { for (let k 
 function starterManaDeck(){ return { ...starterDeck(), id: "starter-mana", name: "スターターデッキ【コスト】", mana: true }; }
 function rebuildCards(){
   S.cards = new Map([...S.starters, ...S.userCards].map(c => [c.id, c]));
+  rebuildOwned();
   const dl = document.getElementById("cardNames");
   if (dl) dl.innerHTML = [...new Set([...S.cards.values()].map(c => c.name))].map(n => `<option value="${esc(n)}"></option>`).join("");
 }
@@ -821,9 +858,31 @@ function isMine(x, nameKey = "author"){
   return x[nameKey] === S.name;
 }
 
+// cards you can put in a deck: starters, cards you drew, and cards you got by trading
+S.trades = { in: [], out: [] }; S.tradesReady = false; S.owned = new Set();
+function allTrades(){ const m = new Map(); [...S.trades.in, ...S.trades.out].forEach(t => m.set(t.id, t)); return [...m.values()]; }
+function rebuildOwned(){
+  const o = new Set(S.starters.map(c => c.id));
+  S.userCards.forEach(c => { if (!S.db || isMine(c)) o.add(c.id); });
+  if (S.uid) allTrades().forEach(t => { if (t.status !== "accepted") return; if (t.from === S.uid) o.add(t.want); if (t.to === S.uid) o.add(t.give); });
+  S.owned = o;
+}
+const owns = id => S.owned.has(id);
+
 /* ================= data layer ================= */
 const local = { cards(){ return ls.get("cb_cards", []); }, decks(){ return ls.get("cb_decks", []); } };
+// card art: WebP when the browser can make it (about 30% smaller than JPEG), otherwise JPEG.
+// Quality steps down until the picture fits the size budget, so busy drawings stay small too.
+const ART_BUDGET = 48000; // characters of the data URL (about 36KB)
+function encodeArt(c){
+  const webp = c.toDataURL("image/webp", .5).startsWith("data:image/webp");
+  const fmt = webp ? "image/webp" : "image/jpeg";
+  let url = "";
+  for (const q of [.86, .78, .7, .62, .54, .46, .38]){ url = c.toDataURL(fmt, q); if (url.length <= ART_BUDGET) break; }
+  return url;
+}
 async function saveCardDoc(id, doc){
+  if (JSON.stringify(doc).length > 900000) throw { code: "too-big" };
   if (S.db){ await S.db.doc("cards/" + id).set(doc); }
   else { const a = local.cards().filter(c => c.id !== id); a.push({ id, ...doc }); ls.set("cb_cards", a); S.userCards = a; rebuildCards(); renderAll(); }
 }
@@ -843,9 +902,10 @@ function subscribeData(){
   if (S.db){
     S.db.collection("cards").onSnapshot(snap => { S.userCards = snap.docs.map(d => ({ id: d.id, ...d.data() })); rebuildCards(); renderAll(); }, () => toast("カードの読みこみが止まりました。ページを開きなおしてね"));
     S.db.collection("decks").onSnapshot(snap => { S.decks = snap.docs.map(d => ({ id: d.id, ...d.data() })); renderAll(); }, () => {});
+    subscribeTrades();
   } else { S.userCards = local.cards(); S.decks = local.decks(); rebuildCards(); renderAll(); }
 }
-const writeErr = e => toast(e && (e.code === "permission-denied" || e.code === "invalid_argument") ? "保存できませんでした（権限がありません）。自分のカード以外は変更できないよ" : e && e.code === "quota_exceeded" ? "保存容量がいっぱいです。古いカードを消してね" : "保存できませんでした。もう一度ためしてね");
+const writeErr = e => toast(e && e.code === "too-big" ? "カードのデータが大きすぎて保存できません。効果の文章を短くしてみてね" : e && (e.code === "permission-denied" || e.code === "invalid_argument") ? "保存できませんでした（権限がありません）。自分のカード以外は変更できないよ" : e && e.code === "quota_exceeded" ? "保存容量がいっぱいです。古いカードを消してね" : "保存できませんでした。もう一度ためしてね");
 
 /* ================= crystal background & title screen ================= */
 // low-poly "crystal" texture: a Voronoi pattern drawn once at low resolution
@@ -900,17 +960,19 @@ function renderAll(){
   $("#home").hidden = S.tab !== "home"; $("#sheet").hidden = S.tab === "home";
   if (S.tab === "home"){ renderHome(); renderOverlay(); return; }
   document.querySelectorAll("nav.tabs button").forEach(b => b.setAttribute("aria-selected", b.dataset.tab === S.tab));
-  for (const t of ["play", "make", "deck", "rules"]) $("#tab-" + t).hidden = S.tab !== t;
+  for (const t of ["play", "make", "deck", "trade", "rules"]) $("#tab-" + t).hidden = S.tab !== t;
   if (S.tab === "play") renderPlay();
   if (S.tab === "make") renderGallery();
   if (S.tab === "deck") renderDeck();
+  if (S.tab === "trade") renderTrade();
+  renderTradeBadge();
   renderOverlay();
 }
 
 /* ================= search & filters ================= */
 const kata2hira = t => t.replace(/[\u30a1-\u30f6]/g, ch => String.fromCharCode(ch.charCodeAt(0) - 0x60));
 const normQ = t => kata2hira(String(t || "").toLowerCase().normalize("NFKC"));
-S.filt = { gal: { q: "", type: "all", fx: "", sort: "new" }, deck: { q: "", type: "all", fx: "", sort: "new" } };
+S.filt = { gal: { q: "", type: "all", fx: "", sort: "new" }, deck: { q: "", type: "all", fx: "", sort: "new" }, trade: { q: "", type: "all", fx: "", sort: "new" } };
 const SORTS = { new: "新しい順", atkDesc: "ATKが高い順", atkAsc: "ATKが低い順", costAsc: "コストが低い順", costDesc: "コストが高い順", name: "名前順" };
 // list is already in "new" order (user cards newest first, then starters)
 function sortCards(list, how){
@@ -1172,7 +1234,7 @@ $("#btnSave").addEventListener("click", async () => {
   const prev = S.cards.get(id);
   let eqN = Math.round((+$("#mkEq").value || 0) / 50) * 50; eqN = Math.max(-MAX_ATK, Math.min(MAX_ATK, eqN)); $("#mkEq").value = eqN;
   const doc = { type: MK.type, name, atk: MK.type === "monster" ? atk : 0, eqN: MK.type === "equip" ? eqN : 0, eqAb: MK.type === "equip" ? $("#mkEqAb").value : "none", effect: $("#mkEff").value.trim(), fx: readFx(), combo: readCombo(), font: $("#mkFont").value, quick: MK.type === "magic" && $("#mkQuick").checked, cost: $("#mkCost").value === "" ? null : +$("#mkCost").value, limit: +$("#mkLimit").value,
-    img: out.toDataURL("image/jpeg", .82), author: S.name, ownerId: prev?.ownerId || S.uid || null, updatedAt: Date.now() };
+    img: encodeArt(out), author: S.name, ownerId: prev?.ownerId || S.uid || null, updatedAt: Date.now() };
   $("#btnSave").disabled = true;
   try{ await saveCardDoc(id, doc); toast(S.editId ? "カードを更新しました" : "カードを保存しました！"); resetMaker(); }
   catch(e){ writeErr(e); }
@@ -1193,11 +1255,12 @@ function renderGallery(){
   const items2 = list.map(c => {
     if (c.starter) return `<div class="g-item">${cardHTML(c, "sm")}<div class="meta">${esc(c.author)}</div></div>`;
     const mine = isMine(c);
-    return `<div class="g-item">${cardHTML(c, "sm")}<div class="meta">by ${esc(c.author || "？")}</div>${mine ? `<div class="row" style="gap:6px"><button class="small" data-edit="${esc(c.id)}">編集</button><button class="small danger" data-del="${esc(c.id)}">${delArm === c.id ? "本当に消す" : "消す"}</button></div>` : ""}</div>`;
+    return `<div class="g-item">${cardHTML(c, "sm")}<div class="meta">by ${esc(c.author || "？")}</div>${!mine && S.db ? tradeBtnHTML(c) : ""}${mine ? `<div class="row" style="gap:6px"><button class="small" data-edit="${esc(c.id)}">編集</button><button class="small danger" data-del="${esc(c.id)}">${delArm === c.id ? "本当に消す" : "消す"}</button></div>` : ""}</div>`;
   });
   $("#gallery").innerHTML = items2.join("") || (total ? `<p class="muted">条件に合うカードがありません。</p>` : `<p class="muted">まだ自分のカードはありません。上で描いてみよう！</p>`);
 }
 $("#gallery").addEventListener("click", async e => {
+  const tb = e.target.closest("[data-trade]"); if (tb){ openTradeDlg(tb.dataset.trade); return; }
   const ed = e.target.closest("[data-edit]"), del = e.target.closest("[data-del]");
   if (ed){
     const c = S.cards.get(ed.dataset.edit); if (!c || !isMine(c)) return;
@@ -1229,7 +1292,7 @@ function renderDeck(){
   const n = deckCount(), ok = n >= MIN_DECK && deckMonsters() > 0;
   const m = $("#deckMeter"); m.textContent = `${n}枚（モンスター ${deckMonsters()}）`; m.className = "meter " + (ok ? "ok" : "ng");
   $("#btnDeckDel").hidden = !S.deckEdit.id;
-  const pool0 = [...S.userCards].sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0)).concat(S.starters);
+  const pool0 = [...S.userCards].filter(c => owns(c.id) || S.deckEdit.cards[c.id]).sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0)).concat(S.starters);
   const pool = sortCards(pool0.filter(c => matchCard(c, S.filt.deck)), S.filt.deck.sort);
   setCount("deck", pool.length, pool0.length);
   $("#deckPool").innerHTML = (pool.length ? "" : `<p class="muted">条件に合うカードがありません。</p>`) + pool.map(c => {
@@ -1275,7 +1338,7 @@ $("#joinCode").addEventListener("keydown", e => { if (e.key === "Enter") $("#btn
 function chosenMana(){ const id = $("#deckSel").value; const d = allDeckOptions().find(x => x.id === id); return !!(d && d.mana); }
 function chosenDeckIds(){
   const id = $("#deckSel").value; const d = allDeckOptions().find(x => x.id === id) || starterDeck();
-  return d.cards.filter(c => S.cards.has(c));
+  return d.cards.filter(c => S.cards.has(c) && (!S.tradesReady || owns(c)));
 }
 function deckOk(ids){
   if (ids.length < MIN_DECK){ toast(`デッキのカードが足りません（${MIN_DECK}枚以上）`); return false; }
@@ -2138,6 +2201,119 @@ $("#board").addEventListener("click", e => {
 $("#board").addEventListener("keydown", e => { const h = e.target.closest("[role=button]"); if (h && (e.key === "Enter" || e.key === " ")){ e.preventDefault(); h.click(); } });
 
 /* ================= boot ================= */
+/* ================= card trading =================
+   trades/<id> = { from, to, fromName, toName, give (a card "from" drew), want (a card "to" drew), status, createdAt, doneAt }
+   Trading hands over copies: nobody loses a card. Accepted trades add the cards to each side's collection. */
+function subscribeTrades(){
+  if (!S.uid) return;
+  const first = { in: true, out: true };
+  const listen = (key, field) => S.db.collection("trades").where(field, "==", S.uid).onSnapshot(snap => {
+    const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    if (!first[key]) notifyTrades(key, list);
+    first[key] = false;
+    S.trades[key] = list; S.tradesReady = !first.in && !first.out;
+    rebuildOwned(); renderAll();
+  }, err => console.error("trades:", err && err.code));
+  listen("in", "to"); listen("out", "from");
+}
+const cardName = id => (S.cards.get(id) || {}).name || "消されたカード";
+function notifyTrades(key, list){
+  const prev = new Map(S.trades[key].map(t => [t.id, t.status]));
+  for (const t of list){
+    if (key === "in" && t.status === "pending" && !prev.has(t.id)) toast(`${t.fromName || "だれか"}さんから交換の申し込みが届いたよ`);
+    if (key === "out" && prev.get(t.id) === "pending" && t.status === "accepted") toast(`${t.toName || "相手"}さんが交換してくれた！「${cardName(t.want)}」が手に入ったよ`);
+    if (key === "out" && prev.get(t.id) === "pending" && t.status === "declined") toast(`${t.toName || "相手"}さんに交換をことわられました`);
+  }
+}
+function renderTradeBadge(){
+  const n = S.trades.in.filter(t => t.status === "pending").length, b = $("#tradeBadge");
+  b.hidden = !n; b.textContent = n;
+}
+function tradeBtnHTML(c){
+  if (owns(c.id)) return `<span class="owned-tag">✓ 持ってる</span>`;
+  if (!c.ownerId || !S.uid) return "";
+  if (S.trades.out.some(t => t.status === "pending" && t.want === c.id)) return `<span class="note">申し込み中</span>`;
+  return `<button class="small" data-trade="${esc(c.id)}">交換を申し込む</button>`;
+}
+const tradeCard = id => S.cards.get(id) ? cardHTML(S.cards.get(id), "sm") : `<div class="tr-gone">消された<br>カード</div>`;
+const byNew = (a, b) => (b.doneAt || b.createdAt || 0) - (a.doneAt || a.createdAt || 0);
+function renderTrade(){
+  $("#tradeOffline").hidden = !!S.db;
+  const pin = S.trades.in.filter(t => t.status === "pending").sort(byNew);
+  $("#tradeIn").innerHTML = pin.length ? pin.map(t => {
+    const gone = !S.cards.has(t.give) || !S.cards.has(t.want);
+    return `<div class="tr-item"><div><b>${esc(t.fromName || "？")}</b> さんから</div>
+      <div class="tr-pair"><div><div class="lbl">もらう</div>${tradeCard(t.give)}</div><span class="tr-arrow">⇄</span><div><div class="lbl">渡す（コピー）</div>${tradeCard(t.want)}</div></div>
+      <div class="row" style="gap:6px"><button class="small primary" data-acc="${esc(t.id)}" ${gone ? "disabled" : ""}>交換する</button><button class="small ghost" data-dec="${esc(t.id)}">ことわる</button></div></div>`;
+  }).join("") : `<p class="muted" style="margin:0">いまは届いていません。</p>`;
+  const pout = S.trades.out.filter(t => t.status === "pending").sort(byNew);
+  $("#tradeOut").innerHTML = pout.length ? pout.map(t => `<div class="tr-item"><div><b>${esc(t.toName || "？")}</b> さんへ（返事待ち）</div>
+      <div class="tr-pair"><div><div class="lbl">渡す（コピー）</div>${tradeCard(t.give)}</div><span class="tr-arrow">⇄</span><div><div class="lbl">もらう</div>${tradeCard(t.want)}</div></div>
+      <div class="row"><button class="small ghost" data-can="${esc(t.id)}">とりけす</button></div></div>`).join("") : `<p class="muted" style="margin:0">送った申し込みはありません。下のカードから選んでね。</p>`;
+  const pool0 = S.db ? S.userCards.filter(c => c.ownerId && c.ownerId !== S.uid && !owns(c.id)) : [];
+  const pool = sortCards(pool0.filter(c => matchCard(c, S.filt.trade)), S.filt.trade.sort);
+  setCount("trade", pool.length, pool0.length);
+  $("#tradePool").innerHTML = pool.map(c => `<div class="g-item">${cardHTML(c, "sm")}<div class="meta">by ${esc(c.author || "？")}</div>${tradeBtnHTML(c)}</div>`).join("")
+    || `<p class="muted">${pool0.length ? "条件に合うカードがありません。" : "いまは交換できるカードがありません（ほかの人のカードは全部持ってるよ）。"}</p>`;
+  const hist = allTrades().filter(t => t.status !== "pending").sort(byNew).slice(0, 30);
+  $("#tradeHist").innerHTML = hist.length ? `<ul class="tr-hist">${hist.map(t => {
+    const d = new Date(t.doneAt || t.createdAt || 0), when = `${d.getMonth() + 1}/${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2, "0")}`;
+    const who = t.from === S.uid ? `${esc(t.toName || "？")}さんへ` : `${esc(t.fromName || "？")}さんから`;
+    const what = t.status === "accepted" ? "交換成立" : t.status === "declined" ? "ことわられた" : "とりけし";
+    return `<li><span class="muted">${when}</span>　${who}：「${esc(cardName(t.give))}」⇄「${esc(cardName(t.want))}」…<b>${what}</b></li>`;
+  }).join("")}</ul>` : `<p class="muted" style="margin:0">まだ記録はありません。</p>`;
+}
+async function setTradeStatus(id, status){
+  try{ await S.db.doc("trades/" + id).update({ status, doneAt: Date.now() }); }
+  catch(e){ writeErr(e); return false; }
+  return true;
+}
+$("#tab-trade").addEventListener("click", async e => {
+  const acc = e.target.closest("[data-acc]"), dec = e.target.closest("[data-dec]"), can = e.target.closest("[data-can]"), tb = e.target.closest("[data-trade]");
+  if (tb){ openTradeDlg(tb.dataset.trade); return; }
+  const b = acc || dec || can; if (!b || !S.db) return;
+  b.disabled = true;
+  if (acc){ const t = S.trades.in.find(x => x.id === acc.dataset.acc); if (await setTradeStatus(acc.dataset.acc, "accepted")) toast(`交換成立！「${cardName(t && t.give)}」が手に入ったよ。デッキに入れられます`); }
+  if (dec && await setTradeStatus(dec.dataset.dec, "declined")) toast("ことわりました");
+  if (can && await setTradeStatus(can.dataset.can, "cancelled")) toast("申し込みをとりけしました");
+  b.disabled = false;
+});
+let tradePick = null, tradeWant = null;
+function openTradeDlg(wantId){
+  const c = S.cards.get(wantId); if (!c || !c.ownerId || !S.db) return;
+  tradeWant = wantId; tradePick = null;
+  const mine = S.userCards.filter(x => x.ownerId === S.uid).sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+  $("#tradeDlg").innerHTML = `<div class="box" role="dialog" aria-label="交換を申し込む">
+    <h2 style="margin:0">交換を申し込む</h2>
+    <div class="tr-pair"><div><div class="lbl">もらう（${esc(c.author || "？")}さんのカード）</div>${cardHTML(c, "sm")}</div></div>
+    ${mine.length ? `<p style="margin:0"><b>渡すカードを1枚選んでね。</b><span class="note">　コピーを渡すので、あなたの手元からは減りません</span></p>
+    <div class="gallery">${mine.map(x => `<div class="g-item" data-give="${esc(x.id)}" role="button" tabindex="0" aria-pressed="false">${cardHTML(x, "sm")}</div>`).join("")}</div>
+    <div class="row"><button class="primary" data-send disabled>申し込む</button><button class="ghost" data-close>やめる</button></div>`
+    : `<p style="margin:0">交換に出せるのは<b>自分で描いたカード</b>だけ。まずはカード工房で1枚描いてみよう！</p>
+    <div class="row"><button class="primary" data-go="make">カードを描きにいく</button><button class="ghost" data-close>やめる</button></div>`}
+  </div>`;
+  $("#tradeDlg").hidden = false;
+}
+function closeTradeDlg(){ $("#tradeDlg").hidden = true; $("#tradeDlg").innerHTML = ""; tradePick = tradeWant = null; }
+$("#tradeDlg").addEventListener("click", async e => {
+  if (e.target === e.currentTarget || e.target.closest("[data-close]") || e.target.closest("[data-go]")){ closeTradeDlg(); return; }
+  const g = e.target.closest("[data-give]");
+  if (g){ tradePick = g.dataset.give; $("#tradeDlg").querySelectorAll("[data-give]").forEach(x => x.setAttribute("aria-pressed", x === g)); $("#tradeDlg [data-send]").disabled = false; return; }
+  const send = e.target.closest("[data-send]");
+  if (send && tradePick && tradeWant){
+    const c = S.cards.get(tradeWant);
+    send.disabled = true;
+    try{
+      await S.db.doc("trades/" + uid("t")).set({ from: S.uid, to: c.ownerId, fromName: S.name, toName: c.author || "？", give: tradePick, want: tradeWant, status: "pending", createdAt: Date.now() });
+      toast(`申し込みました！${c.author || "相手"}さんが「交換する」を押すと成立します`); closeTradeDlg();
+    }catch(err){ writeErr(err); send.disabled = false; }
+  }
+});
+$("#tradeDlg").addEventListener("keydown", e => {
+  if (e.key === "Escape") closeTradeDlg();
+  if ((e.key === "Enter" || e.key === " ") && e.target.closest("[data-give]")){ e.preventDefault(); e.target.click(); }
+});
+
 /* ================= Firebase: anonymous sign-in + members-only passcode ================= */
 // The passcode itself lives only in firestore.rules (server side). A browser becomes a member by
 // creating members/<uid> with the right passcode; every other read/write requires membership.
@@ -2154,6 +2330,8 @@ async function connectFirebase2(){
     firebase.initializeApp(cfg);
     const fs = firebase.firestore();
     try{ fs.settings({ ignoreUndefinedProperties: true, merge: true }); }catch(e){}
+    // keep a copy of the cards in this browser, so reopening the page shows them right away
+    try{ fs.enablePersistence({ synchronizeTabs: true }).catch(() => {}); }catch(e){}
     const cred = await (firebase.auth().currentUser ? Promise.resolve({ user: firebase.auth().currentUser }) : new Promise(res => {
       const off = firebase.auth().onAuthStateChanged(u => { if (u){ off(); res({ user: u }); } });
       firebase.auth().signInAnonymously().catch(err => { S.authErr = err && err.code; res({ user: null }); });
@@ -2195,6 +2373,7 @@ async function boot(){
   buildStarters(); rebuildCards();
   initFilters("gal", () => renderGallery());
   initFilters("deck", () => renderDeck());
+  initFilters("trade", () => renderTrade());
   S.name = ls.get("cb_name", "") || "プレイヤー";
   S.tab = "home";
   buildTheme();
