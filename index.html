@@ -7,7 +7,7 @@
 <title>カードバトルしようぜ</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Oxanium:wght@600;700;800&family=Dela+Gothic+One&family=Klee+One:wght@600&family=Zen+Maru+Gothic:wght@500;700&family=Yusei+Magic&family=Hachi+Maru+Pop&family=DotGothic16&family=Kaisei+Decol:wght@700&family=Reggae+One&family=Yomogi&family=M+PLUS+Rounded+1c:wght@800&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Oxanium:wght@600;700;800&family=Dela+Gothic+One&family=Klee+One:wght@600&family=Zen+Maru+Gothic:wght@500;700&family=Yusei+Magic&family=Hachi+Maru+Pop&family=DotGothic16&family=Kaisei+Decol:wght@700&family=Reggae+One&family=Yomogi&family=M+PLUS+Rounded+1c:wght@800&family=WDXL+Lubrifont+JP+N&display=swap">
 <style>
 :root{
   color-scheme: light;
@@ -677,7 +677,8 @@ const FONTS = {
   pop:    { label: "まるポップ", css: `"Hachi Maru Pop",var(--ui)` },
   reggae: { label: "ギザギザ", css: `"Reggae One",var(--ui)` },
   dot:    { label: "ドット", css: `"DotGothic16",var(--ui)` },
-  decol:  { label: "おしゃれ明朝", css: `"Kaisei Decol",var(--hand)` }
+  decol:  { label: "おしゃれ明朝", css: `"Kaisei Decol",var(--hand)` },
+  lubri:  { label: "シャープ（Lubrifont）", css: `"WDXL Lubrifont JP N",var(--ui)` }
 };
 const fontCss = c => FONTS[c && c.font] ? FONTS[c.font].css : "";
 const cardType = c => (c && (c.type === "magic" || c.type === "trap" || c.type === "equip")) ? c.type : "monster";
