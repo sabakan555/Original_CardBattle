@@ -183,6 +183,10 @@ ruby rt{font-size:.5em;line-height:1;font-style:normal}
 .filters .count{font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums;margin-left:auto}
 .gallery{display:flex;flex-wrap:wrap;gap:18px 14px}
 .g-item{display:flex;flex-direction:column;gap:6px;align-items:center}
+.roomlist{display:flex;flex-direction:column;gap:6px}
+.roomlist h3{font-size:14px;color:var(--accent,var(--ink))}
+.room{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px 10px;border:1px solid var(--line);border-radius:10px;background:rgba(255,255,255,.04)}
+.room .note{margin-left:4px}
 .g-item .g-btns{gap:6px;flex-wrap:nowrap;justify-content:center}
 .g-item .g-wide{max-width:124px;white-space:normal;line-height:1.3;font-size:11.5px}
 .g-item .meta{font-size:12px;color:var(--muted);max-width:112px;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -624,9 +628,11 @@ nav.tabs button{position:relative}
         </div>
         <div class="box" style="display:flex;flex-direction:column;gap:14px">
           <h2>オンライン対戦</h2>
-          <div class="row"><button class="primary" id="btnCreate">部屋を作る</button><span class="note">部屋コードを友達に伝えよう</span></div>
+          <div class="row"><button class="primary" id="btnCreate">部屋を作る</button><span class="note">部屋一覧に出るので、だれでも入れます</span></div>
+          <label class="row" style="gap:6px;font-size:13px;cursor:pointer"><input type="checkbox" id="roomPrivate"> 部屋一覧に出さない（部屋コードを知ってる人だけ）</label>
           <div class="row"><input type="text" class="code-in" id="joinCode" maxlength="4" placeholder="ABCD" autocomplete="off"><button id="btnJoin">部屋に入る</button></div>
           <div id="rejoin" class="row" hidden></div>
+          <div id="roomList" class="roomlist"></div>
           <hr style="border:none;border-top:2px dashed var(--line);width:100%;margin:2px 0">
           <div class="row"><button id="btnCpu">CPUと練習する</button><span class="note">ルールやカードのお試しに</span></div>
           <label class="f">CPUが使うデッキ<select id="cpuDeckSel"></select></label>
@@ -1429,7 +1435,44 @@ function renderHome(){
 /* ================= tabs ================= */
 document.querySelectorAll("nav.tabs button").forEach(b => b.addEventListener("click", () => { S.tab = b.dataset.tab; ls.set("cb_tab", S.tab); renderAll(); }));
 document.addEventListener("click", e => { const g = e.target.closest("[data-go]"); if (!g) return; S.tab = g.dataset.go; if (S.tab !== "home") ls.set("cb_tab", S.tab); renderAll(); window.scrollTo(0, 0); });
+/* ---- room list (lobby): open rooms to join, running games to watch ---- */
+function watchRooms(on){
+  if (on && !S.roomsUnsub && S.db){
+    const col = S.db.collection("rooms"), since = Date.now() - 3 * 3600e3;
+    const q = typeof col.where === "function" ? col.where("updatedAt", ">", since) : col;
+    S.roomsUnsub = q.onSnapshot(snap => { S.rooms = snap.docs.map(d => ({ code: d.id, ...d.data() })); if (S.tab === "play" && !G) renderRoomList(); }, () => {});
+  }
+  if (!on && S.roomsUnsub){ S.roomsUnsub(); S.roomsUnsub = null; }
+}
+function renderRoomList(){
+  const box = $("#roomList"); if (!box) return;
+  if (!S.db){ box.innerHTML = ""; return; }
+  const now = Date.now(), ago = t => { const m = Math.max(0, Math.round((now - (t || 0)) / 60000)); return m < 1 ? "いま" : m < 60 ? `${m}分前` : `${Math.floor(m / 60)}時間前`; };
+  const list = (S.rooms || []).filter(r => !r.hidden && r.players && r.players.a);
+  const mine = code => ls.get("cb_slot3_" + code, null);
+  const waiting = list.filter(r => !r.started && !r.players.b && now - (r.updatedAt || 0) < 30 * 60e3).sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+  const playing = list.filter(r => r.started && !r.winner && r.players.b && now - (r.updatedAt || 0) < 2 * 3600e3).sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+  box.innerHTML = `<h3 style="margin:0">対戦相手を募集中の部屋</h3>`
+    + (waiting.map(r => `<div class="room"><div><b>${esc(r.players.a.name)}</b> の部屋<span class="note">${r.players.a.mana ? "コストデッキ・" : ""}${ago(r.updatedAt)}</span></div>${mine(r.code) ? `<button class="small" data-room="${esc(r.code)}">もどる</button>` : `<button class="small primary" data-room="${esc(r.code)}">入る</button>`}</div>`).join("") || `<p class="note" style="margin:0">いまは募集中の部屋はありません。「部屋を作る」で作ってみよう</p>`)
+    + (playing.length ? `<h3 style="margin:6px 0 0">対戦中</h3>` + playing.map(r => `<div class="room"><div><b>${esc(r.players.a.name)}</b> vs <b>${esc(r.players.b.name)}</b><span class="note">ターン${r.turnNo || 1}</span></div>${mine(r.code) ? `<button class="small" data-room="${esc(r.code)}">もどる</button>` : `<button class="small" data-watch="${esc(r.code)}">観戦する</button>`}</div>`).join("") : "");
+}
+$("#roomList").addEventListener("click", e => {
+  const j = e.target.closest("[data-room]"); if (j){ joinRoom(j.dataset.room); return; }
+  const w = e.target.closest("[data-watch]"); if (w) watchRoom(w.dataset.watch);
+});
+// watch someone's game: read-only, hands and set cards stay hidden
+function watchRoom(code){
+  leaveGame();
+  G = { mode: "online", code, slot: "a", spectate: true, st: null, sel: null, atkFrom: null, chooseQ: [], q: Promise.resolve(), evSeen: 0 };
+  G.unsub = S.db.doc("rooms/" + code).onSnapshot(snap => {
+    if (!G || G.code !== code || !snap.exists) return;
+    const first = !G.st; G.st = clone(snap.data()); if (first) G.evSeen = G.st.evn || 0;
+    after(false);
+  }, () => toast("通信が切れました"));
+  S.tab = "play"; renderAll();
+}
 function renderAll(){
+  watchRooms(S.tab === "play" && !G && !!S.db);
   $("#home").hidden = S.tab !== "home"; $("#sheet").hidden = S.tab === "home";
   if (S.tab === "home"){ renderHome(); renderOverlay(); return; }
   document.querySelectorAll("nav.tabs button").forEach(b => b.setAttribute("aria-selected", b.dataset.tab === S.tab));
@@ -2026,7 +2069,7 @@ const DEFAULT_AV = `<svg width="60%" height="60%" viewBox="0 0 24 24" aria-hidde
 function myIcon(){ const c = S.cards && S.cards.get(ls.get("cb_icon", "")); return (c && c.img) || S.avatar || ""; }
 // wins / losses are kept in this browser; an online game is counted once even if you come back to the room
 function recordResult(){
-  if (!G || !G.st || !G.st.winner || G.recorded) return;
+  if (!G || !G.st || !G.st.winner || G.recorded || G.spectate) return;
   G.recorded = true;
   const r = ls.get("cb_record", null) || { cpu: { w: 0, l: 0, d: 0 }, online: { w: 0, l: 0, d: 0 }, seen: [] };
   const key = G.mode === "online" ? `on:${G.code}:${(G.st.log[0] || {}).t || ""}` : null;
@@ -2393,6 +2436,7 @@ function renderPlay(){
   if (S.db && lastG && Date.now() - lastG.t < 6 * 3600e3){ rj.hidden = false; rj.innerHTML = `<button class="small" id="btnRejoin">部屋 ${esc(lastG.code)} にもどる</button><span class="note">前回の対戦のつづき</span>`; }
   else rj.hidden = true;
   const started = G && G.st && G.st.started;
+  if (!G) renderRoomList();
   $("#lobby").hidden = !!G;
   $("#waiting").hidden = !(G && !started);
   $("#board").hidden = !started;
@@ -2403,7 +2447,7 @@ $("#rejoin").addEventListener("click", e => { if (e.target.closest("#btnRejoin")
 
 function newPlayer(deckIds, name, mana){
   const deck = shuffle([...deckIds]); const hand = deck.splice(0, 5);
-  return { name: name || S.name, lp: START_LP, deck, hand, grave: [], mz: Array(ZONES).fill(null), sz: Array(ZONES).fill(null), mana: mana ? { max: 0, cur: 0 } : null, sleeve: name ? null : (mySleeve() || null) };
+  return { name: name || S.name, lp: START_LP, deck, hand, grave: [], mz: Array(ZONES).fill(null), sz: Array(ZONES).fill(null), mana: mana ? { max: 0, cur: 0 } : null, sleeve: name ? null : (mySleeve() || null), deckIds: [...deckIds] };
 }
 function makeCode(){ const a = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; let s = ""; for (let i = 0; i < 4; i++) s += a[Math.floor(Math.random() * a.length)]; return s; }
 function startState(pa, pb){
@@ -2415,7 +2459,7 @@ function startState(pa, pb){
 $("#btnCreate").addEventListener("click", async () => {
   const ids = chosenDeckIds(); if (!deckOk(ids)) return;
   const code = makeCode();
-  const st = { v: 3, started: false, players: { a: newPlayer(ids, null, chosenMana()) }, log: [], createdAt: Date.now() };
+  const st = { v: 3, started: false, players: { a: newPlayer(ids, null, chosenMana()) }, log: [], createdAt: Date.now(), updatedAt: Date.now(), hidden: $("#roomPrivate").checked };
   try{ await S.db.doc("rooms/" + code).set(st); } catch(e){ writeErr(e); return; }
   startOnline(code, "a", st);
 });
@@ -2430,6 +2474,7 @@ async function joinRoom(code){
     if (st.players && st.players.b){ toast("この部屋はもう2人そろっています"); return; }
     const ids = chosenDeckIds(); if (!deckOk(ids)) return;
     const full = startState(st.players.a, newPlayer(ids, null, chosenMana()));
+    full.updatedAt = Date.now(); full.hidden = !!st.hidden;
     await S.db.doc("rooms/" + code).set(full);
     startOnline(code, "b", full);
   } catch(e){ writeErr(e); }
@@ -2440,7 +2485,9 @@ function startOnline(code, slot, st){
   G = { mode: "online", code, slot, st, sel: null, atkFrom: null, chooseQ: [], q: Promise.resolve(), evSeen: st.evn || 0 };
   G.unsub = S.db.doc("rooms/" + code).onSnapshot(snap => {
     if (!G || G.code !== code || !snap.exists) return;
+    const prevNo = (G.st && G.st.gameNo) || 1;
     G.st = clone(snap.data());
+    if ((G.st.gameNo || 1) !== prevNo){ resetLocal(); G.evSeen = G.st.evn || 0; }
     if (maybeTurnStart()) return;
     after(false);
   }, () => toast("通信が切れました。「部屋にもどる」で再接続してね"));
@@ -2455,13 +2502,43 @@ $("#btnCpu").addEventListener("click", () => {
   G = { mode: "cpu", slot: "a", st: startState(newPlayer(ids, null, chosenMana()), newPlayer(cpuIds, cd ? `CPU（${cd.name}）` : "CPU", cpuMana)), sel: null, atkFrom: null, chooseQ: [], evSeen: 0 };
   after(false);
 });
+/* ---- rematch: same players, same decks, fresh game (online: both have to say yes) ---- */
+function allCardsOf(st, s){
+  const p = P(st, s), out = [...p.deck, ...p.hand, ...p.grave];
+  p.sz.forEach(z => { if (z) out.push(z.c); });
+  for (const o of ["a", "b"]) P(st, o).mz.forEach(m => { if (!m) return; if (o === s) out.push(m.c); eqsOf(m).forEach(e => { if (e.o === s) out.push(e.c); }); });
+  return out;
+}
+function freshFrom(st, s){
+  const p = P(st, s), ids = p.deckIds && p.deckIds.length ? p.deckIds : allCardsOf(st, s);
+  const n = newPlayer(ids, p.name, !!p.mana); n.sleeve = p.sleeve || null; return n;
+}
+function resetLocal(){ Object.assign(G, { sel: null, atkFrom: null, chooseQ: [], evSeen: 0, recorded: false, prevLp: null, eqPlace: null, ssPick: null, view: null, graveHand: false, detailOpen: false, detailBack: null, lastDetail: null }); renderDetail(null); }
+function rematch(){
+  if (!G || !G.st || !G.st.winner || G.spectate) return;
+  if (G.mode !== "online"){
+    const old = G.st; clearTimeout(G.cpuT); G.cpuT = null;
+    G.st = startState(freshFrom(old, "a"), freshFrom(old, "b")); resetLocal(); after(false); return;
+  }
+  const me = G.slot;
+  act(st => {
+    st.rematch = { ...(st.rematch || {}), [me]: true };
+    if (st.rematch.a && st.rematch.b){
+      const f = startState(freshFrom(st, "a"), freshFrom(st, "b"));
+      f.gameNo = (st.gameNo || 1) + 1; f.hidden = !!st.hidden;
+      Object.keys(st).forEach(k => delete st[k]); Object.assign(st, f);
+      resetLocal();
+    }
+  });
+}
 function leaveGame(){ if (G){ G.unsub && G.unsub(); clearTimeout(G.cpuT); } G = null; renderDetail(null); }
 function renderWaiting(){
+  if (G.spectate){ $("#waiting").innerHTML = `<h2 style="margin:0">観戦の準備中…</h2><button class="small ghost" id="btnLeave1">やめる</button>`; return; }
   $("#waiting").innerHTML = `<h2 style="margin:0">友達を待っています…</h2><p class="muted" style="margin:0">この部屋コードを伝えてね</p><div class="code">${esc(G.code)}</div><div class="row" style="justify-content:center"><button class="small" id="btnCopy">コードをコピー</button><button class="small ghost" id="btnLeave1">やめる</button></div><p class="note" style="margin:0">相手はこのページを開いて「部屋に入る」にコードを入力します。</p>`;
 }
 $("#waiting").addEventListener("click", e => {
   if (e.target.closest("#btnCopy")){ const t = G.code; navigator.clipboard?.writeText(t).then(() => toast("コピーしました"), () => toast("コード: " + t)); }
-  if (e.target.closest("#btnLeave1")){ leaveGame(); renderAll(); }
+  if (e.target.closest("#btnLeave1")){ const code = G && !G.spectate && G.st && !G.st.started && G.slot === "a" ? G.code : null; leaveGame(); if (code && S.db) S.db.doc("rooms/" + code).delete().catch(() => {}); renderAll(); }
 });
 
 /* ================= game engine (pure-ish over st) ================= */
@@ -2736,7 +2813,7 @@ function trigger(st, s, c, trig, ctx){ if (cardType(c) === "monster") runCard(st
 function canPay(st, s, c){ const m = P(st, s).mana; return !m || m.cur >= costOf(c); }
 function pay(st, s, c){ const m = P(st, s).mana; if (!m) return true; const k = costOf(c); if (m.cur < k) return false; m.cur -= k; return true; }
 function canSummonNow(st, s){ return P(st, s).mana ? true : !st.summoned; }
-function canAct(st, s){ return st.turn === s && !st.pending && !st.winner && !(G && G.chooseQ.length); }
+function canAct(st, s){ return !(G && G.spectate) && st.turn === s && !st.pending && !st.winner && !(G && G.chooseQ.length); }
 function summon(st, s, hi, zi){
   const p = P(st, s), id = p.hand[hi], z = (zi != null && !p.mz[zi]) ? zi : freeZone(p.mz);
   if (!canSummonNow(st, s) || z < 0 || cardType(card(id)) !== "monster" || !canPay(st, s, card(id)) || (ssOf(card(id)) || {}).only) return false;
@@ -3003,7 +3080,7 @@ function passTurn(st, s){
 }
 function maybeTurnStart(){
   const st = G && G.st;
-  if (!st || G.mode !== "online" || !st.tsPending || st.tsPending !== st.turnNo || st.turn !== G.slot || st.winner) return false;
+  if (!st || G.mode !== "online" || G.spectate || !st.tsPending || st.tsPending !== st.turnNo || st.turn !== G.slot || st.winner) return false;
   act(st => { st.tsPending = 0; fireTurn(st, st.turn, "turnStart", null); });
   return true;
 }
@@ -3011,11 +3088,11 @@ function maybeTurnStart(){
 /* ================= glue: act / persist / cpu ================= */
 function persist(){
   if (G.mode !== "online") return;
-  const body = clone(G.st), code = G.code;
+  const body = clone(G.st), code = G.code; body.updatedAt = Date.now();
   G.q = G.q.then(() => S.db.doc("rooms/" + code).set(body)).catch(writeErr);
 }
 function act(fn){
-  if (!G) return;
+  if (!G || G.spectate) return;
   const ok = fn(G.st);
   if (ok === false) return;
   checkEnd(G.st);
@@ -3122,7 +3199,7 @@ function renderBoard(){
     const cls = `pick ${selected ? "sel" : ""} ${isTarget ? "target" : ""}`;
     if (kind === "sz"){
       if (z.face) return cardHTML(card(z.c), cls, attrs, mOpt(s));
-      if (!mine) return backHTML(cls, attrs, P(st, s).sleeve);
+      if (!mine || G.spectate) return backHTML(cls, attrs, P(st, s).sleeve);
       return cardHTML(card(z.c), `${cls} isset`, attrs, mOpt(s));
     }
     const es = eqsOf(z), cap = eqCapOf(card(z.c));
@@ -3135,8 +3212,14 @@ function renderBoard(){
   // action bar
   let acts = "", hint = "";
   if (st.winner){
-    hint = `<span class="big">${st.winner === "draw" ? "引き分け" : st.winner === me ? "あなたの勝ち！" : "あなたの負け…"}</span><br>${esc(st.why)}`;
-    acts = `<button class="primary" data-act="leave">ロビーにもどる</button>`;
+    hint = `<span class="big">${st.winner === "draw" ? "引き分け" : G.spectate ? `${esc(nm(st, st.winner))} の勝ち！` : st.winner === me ? "あなたの勝ち！" : "あなたの負け…"}</span><br>${esc(st.why)}`;
+    const rm = st.rematch || {};
+    if (G.spectate) acts = `<button class="primary" data-act="leave">観戦をやめる</button>`;
+    else if (G.mode !== "online") acts = `<button class="primary" data-act="rematch">再戦する</button><button data-act="leave">ロビーにもどる</button>`;
+    else {
+      acts = `<button class="primary" data-act="rematch" ${rm[me] ? "disabled" : ""}>${rm[me] ? "相手の返事を待っています…" : rm[op] ? "再戦を受ける！" : "再戦をもうしこむ"}</button><button data-act="leave">ロビーにもどる</button>`;
+      if (rm[op] && !rm[me]) hint += `<br><b>${esc(po.name)} が再戦をもうしこんでいます！</b>`;
+    }
   } else if (st.pending){
     hint = st.pending.type === "chain" ? (st.pending.by === me ? "相手がチェーンするか考えています…" : "チェーンするか選んでね") : st.pending.by === me ? (st.pending.type === "end" ? "ターン終了前に、相手が速攻魔法・罠を使うか考えています…" : "相手が罠・速攻魔法を使うか考えています…") : (st.pending.type === "end" ? "相手のターン終了前です" : "攻撃されています！");
   } else if (!myTurn){
@@ -3183,8 +3266,9 @@ function renderBoard(){
       manual = `<div class="row" style="justify-content:center;gap:6px"><span class="note">手動：「${esc(card(z.c).name)}」</span>${sel.z === "mz" ? `<button class="small" data-man="atk" data-d="-50">ATK−50</button><button class="small" data-man="atk" data-d="50">ATK+50</button>${eqsOf(z).map((e, k) => `<button class="small" data-man="uneq" data-k="${k}">「${esc(card(e.c).name)}」を外す</button>`).join("")}` : ""}<button class="small danger" data-man="grave">墓地へ送る</button>${sel.s === "me" ? `<button class="small" data-man="hand">手札に戻す</button>` : ""}</div>`;
     }
   }
+  if (G.spectate && !st.winner){ hint = `観戦中：${esc(pm.name)} vs ${esc(po.name)}`; acts = `<button class="ghost" data-act="leave">観戦をやめる</button>`; manual = ""; }
   const last = st.log[st.log.length - 1];
-  const handHTML = pm.hand.map((id, i) => cardHTML(card(id), `pick ${sel && sel.z === "hand" && sel.i === i ? "sel" : ""} ${pm.mana && !canPay(st, me, card(id)) && cardType(card(id)) !== "trap" ? "dim" : ""}`, `data-z="hand" data-s="me" data-i="${i}" tabindex="0" role="button"`, mOpt(me))).join("") || `<p class="muted">手札なし</p>`;
+  const handHTML = G.spectate ? (pm.hand.map(() => backHTML("", "", pm.sleeve)).join("") || `<p class="muted">手札なし</p>`) : pm.hand.map((id, i) => cardHTML(card(id), `pick ${sel && sel.z === "hand" && sel.i === i ? "sel" : ""} ${pm.mana && !canPay(st, me, card(id)) && cardType(card(id)) !== "trap" ? "dim" : ""}`, `data-z="hand" data-s="me" data-i="${i}" tabindex="0" role="button"`, mOpt(me))).join("") || `<p class="muted">手札なし</p>`;
   const logHTML = st.log.slice(-60).reverse().map(l => `<li>${l.s ? `<b>${esc(nm(st, l.s))}</b>：` : ""}${esc(l.m)}</li>`).join("");
   const prev = G.prevLp || {}; G.prevLp = { me: pm.lp, op: po.lp };
   const manaBox = (p, who) => p.mana ? `<div class="manabar" title="${who}のマナ"><span class="lbl">${who}のマナ</span><b>${p.mana.cur}<small>/${p.mana.max}</small></b><span class="gems">${Array.from({ length: Math.max(p.mana.max, p.mana.cur) }, (_, k) => `<i class="${k < p.mana.cur ? "" : "off"}"></i>`).join("")}${Array.from({ length: Math.max(0, MAX_MANA - Math.max(p.mana.max, p.mana.cur)) }, () => `<i class="lock"></i>`).join("")}</span></div>` : "";
@@ -3202,7 +3286,7 @@ function renderBoard(){
       <div class="zones">${zoneHTML(op, "mz")}</div>
       <div class="bz">
         <h2>バトルゾーン</h2>
-        <div class="turnline">ターン${st.turnNo}・${myTurn ? `<span class="me">あなたのターン</span>` : `<span class="op">${esc(po.name)} のターン</span>`}${myTurn && !pm.mana && !st.summoned ? "（召喚できる）" : ""}</div>
+        <div class="turnline">ターン${st.turnNo}・${G.spectate ? `<span class="me">${esc(P(st, st.turn).name)} のターン</span>` : myTurn ? `<span class="me">あなたのターン</span>` : `<span class="op">${esc(po.name)} のターン</span>`}${myTurn && !pm.mana && !st.summoned ? "（召喚できる）" : ""}</div>
         <div class="lastlog">${last ? esc((last.s ? nm(st, last.s) + "：" : "") + last.m) : ""}</div>
         <div class="msg">${hint}</div>
         <div class="actions">${acts}</div>
@@ -3212,7 +3296,7 @@ function renderBoard(){
       <div class="zones">${zoneHTML(me, "mz")}</div>
       <span class="zlabel">自分の魔法・罠ゾーン</span>
       <div class="zones">${zoneHTML(me, "sz")}</div>
-      <div class="mstat"><span class="who">${esc(pm.name)}（あなた）</span><span>山札 ${pm.deck.length}</span><span>墓地 ${pm.grave.length}</span><span class="lpv ${pm.lp <= 300 ? "low" : ""}"><small>LP</small>${pm.lp}</span></div>
+      <div class="mstat"><span class="who">${esc(pm.name)}${G.spectate ? "" : "（あなた）"}</span><span>山札 ${pm.deck.length}</span><span>墓地 ${pm.grave.length}</span><span class="lpv ${pm.lp <= 300 ? "low" : ""}"><small>LP</small>${pm.lp}</span></div>
       <span class="zlabel">手札</span>
       <div class="hand">${handHTML}</div>
       ${manaBox(pm, "あなた")}
@@ -3220,7 +3304,7 @@ function renderBoard(){
     <aside class="side">
       <div class="box" style="display:flex;flex-direction:column;gap:12px">
         <div class="pl"><div><div class="nm">${esc(po.name)}</div><div class="pile">山札 ${po.deck.length}<button class="chip" data-grave="op">墓地 ${po.grave.length}</button></div></div>${lpBox(po, "op")}</div>
-        <div class="pl"><div><div class="nm">${esc(pm.name)}（あなた）</div><div class="pile">山札 ${pm.deck.length}<button class="chip" data-grave="me">墓地 ${pm.grave.length}</button></div></div>${lpBox(pm, "me")}</div>
+        <div class="pl"><div><div class="nm">${esc(pm.name)}${G.spectate ? "" : "（あなた）"}</div><div class="pile">山札 ${pm.deck.length}<button class="chip" data-grave="me">墓地 ${pm.grave.length}</button></div></div>${lpBox(pm, "me")}</div>
         ${G.mode === "online" ? `<div class="note">部屋 ${esc(G.code)}</div>` : ""}
       </div>
       <div class="box">
@@ -3303,9 +3387,10 @@ function animateEvent(e){
 function detailInfo(z, s, i){
   if (!G || !G.st || !G.st.started) return null;
   const owner = s === "me" ? G.slot : O(G.slot), X = P(G.st, owner);
+  if (z === "hand" && G.spectate) return null;
   if (z === "hand") return X.hand[i] ? { id: X.hand[i], where: "手札", mana: !!X.mana } : null;
   const slot = X[z] && X[z][i]; if (!slot) return null;
-  if (z === "sz" && s === "op" && !slot.face) return { hidden: true, sleeve: X.sleeve };
+  if (z === "sz" && (s === "op" || G.spectate) && !slot.face) return { hidden: true, sleeve: X.sleeve };
   const info = { mana: !!X.mana, id: slot.c, mod: z === "mz" ? modOf(slot) : 0, attacked: slot.attacked, where: z === "mz" ? (s === "me" ? "自分の場" : "相手の場") : (slot.face ? "魔法・罠ゾーン" : "セット中"), setTurn: z === "sz" ? slot.turn : null };
   if (z === "mz"){
     const es = eqsOf(slot);
@@ -3392,7 +3477,7 @@ function renderOverlay(){
       return cardHTML(card(X.mz[o].c), "sm pick", `data-opt="${o}" tabindex="0" role="button"`, { mod: modOf(X.mz[o]), ...mOpt(t === "opp" ? O(q.s) : q.s) });
     }).join("");
     html = `<div class="box"><h2 style="margin:0">「${esc(q.c.name)}」の対象をえらぶ</h2><p class="muted" style="margin:0">${esc(KINDS[q.fx.kind].text(q.fx.n))}</p><div class="gallery">${list || '<p class="muted">対象がいません</p>'}</div><div class="row"><button class="ghost" data-close="choose">使わない</button></div></div>`;
-  } else if (st.pending && st.pending.wait && st.pending.by !== me && !st.winner){
+  } else if (st.pending && st.pending.wait && st.pending.by !== me && !st.winner && !G.spectate){
     const pd = st.pending, A = P(st, pd.by);
     const win = chainWindow(st);
     const opts = responseOptions(st, me, win);
@@ -3510,6 +3595,7 @@ $("#board").addEventListener("click", e => {
   const a = e.target.closest("[data-act]"); if (!a) return;
   const k = a.dataset.act, sel = G.sel;
   if (k === "leave"){ leaveGame(); renderAll(); return; }
+  if (k === "rematch"){ rematch(); return; }
   if (k === "surrender"){ if (!G.surArm){ G.surArm = true; renderAll(); setTimeout(() => { if (G){ G.surArm = false; renderAll(); } }, 3000); return; } act(st => { st.winner = O(me); st.why = `${nm(st, me)} が投了`; log(st, me, "投了した"); }); return; }
   if (k === "draw"){ act(st => drawN(st, me, 1, "（手動）")); return; }
   if (k === "graveHand"){ G.graveHand = true; renderAll(); return; }
