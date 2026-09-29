@@ -108,7 +108,7 @@ label.f{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:13p
 .editor .c-text{min-height:150px;padding-bottom:calc(var(--w)*.14)}
 .editor .fxline{font-size:14px;color:#1b5e8a;min-height:1.4em}
 .editor textarea{font-size:14px;resize:none;height:56px;line-height:1.4}
-.editor .c-atk input{width:4.2em;text-align:right;font-size:inherit;border:none;padding:0}
+.editor .c-atk input{width:5em;text-align:right;font-size:inherit;border:none;padding:0}
 .tools-col{display:flex;flex-direction:column;gap:14px;min-width:240px;flex:1}
 .swatches{display:flex;flex-wrap:wrap;gap:8px}
 .sw{width:34px;height:34px;border-radius:50%;border:2px solid var(--ink);padding:0;box-shadow:none}
@@ -426,8 +426,8 @@ nav.tabs button{position:relative}
         <div class="c-text">
           <div class="fxline" id="mkFxLine"></div>
           <textarea id="mkEff" maxlength="60" placeholder="自由に書く効果（なくてもいい）"></textarea>
-          <div class="c-atk" id="atkRow">ATK <input type="number" id="mkAtk" min="0" max="500" step="1" value="300"></div>
-          <div class="c-atk" id="eqRow" hidden>ATK ± <input type="number" id="mkEq" min="-500" max="500" step="1" value="200"></div>
+          <div class="c-atk" id="atkRow">ATK <input type="text" inputmode="numeric" id="mkAtk" value="300" aria-label="ATK（∞も入力できます）"></div>
+          <div class="c-atk" id="eqRow" hidden>ATK ± <input type="number" id="mkEq" step="1" value="200"></div>
         </div>
       </div></div>
       <div class="tools-col">
@@ -435,6 +435,7 @@ nav.tabs button{position:relative}
         <div><h3>カードの種類</h3><div class="seg" id="mkType"><button data-t="monster" aria-pressed="true">モンスター</button><button data-t="magic" aria-pressed="false">魔法</button><button data-t="equip" aria-pressed="false">装備魔法</button><button data-t="trap" aria-pressed="false">罠</button></div></div>
         <label class="row" id="quickRow" hidden style="gap:6px;font-weight:700;cursor:pointer"><input type="checkbox" id="mkQuick"> 速攻魔法（相手のターンにも使える）</label>
         <div><h3>文字のフォント</h3><select id="mkFont" aria-label="カードのフォント"></select></div>
+        <div class="row" id="infRow" style="gap:8px"><button class="small" id="mkInf" type="button">ATKを∞にする</button><span class="note">ATKは上限なし。欄に「∞」と打ってもOK</span></div>
         <div><h3>ペンの色</h3><div class="swatches" id="swatches"></div></div>
         <div><h3>太さ</h3><div class="seg" id="sizes"></div></div>
         <div class="row">
@@ -564,7 +565,8 @@ nav.tabs button{position:relative}
         <ul>
           <li>表示形式はなし。全部ATKだけで戦う</li>
           <li>ATKが高いほうが勝ち。負けたモンスターは破壊されて、差分がそのプレイヤーのダメージ</li>
-          <li>ATKが同じなら両方破壊、ダメージなし</li>
+          <li>ATKが同じなら両方破壊、ダメージなし（∞どうしも相打ち）</li>
+          <li>∞のダメージを受けるとLPは0になる</li>
           <li>相手の場にモンスターがいなければ直接攻撃できる</li>
           <li>攻撃されたとき、セットしてある罠を発動できる</li>
         </ul>
@@ -595,7 +597,7 @@ nav.tabs button{position:relative}
           <li>同じカードを何枚入れられるかは、カードを作った人が決める</li>
           <li>デッキに入れられるのは「持っているカード」だけ：スターター、自分で描いたカード、交換でもらったカード</li>
           <li>交換は Trade タブから。自分で描いたカード1枚と、相手のカード1枚をお互いにコピーで渡し合う（渡しても自分の手元からは減らない）</li>
-          <li>ATKは0〜500（1きざみ）</li>
+          <li>ATKは0以上なら上限なし（1きざみ）。「∞」にもできる</li>
         </ul>
       </div>
     </div>
@@ -625,7 +627,12 @@ const uid = p => p + Date.now().toString(36) + Math.random().toString(36).slice(
 const shuffle = a => { for (let i = a.length - 1; i > 0; i--){ const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
 const clone = o => JSON.parse(JSON.stringify(o));
 
-const START_LP = 1000, MAX_ATK = 500, MIN_DECK = 20, ZONES = 5;
+const START_LP = 1000, MIN_DECK = 20, ZONES = 5;
+// ATK has no upper limit and can be ∞ (stored as atkInf: true, since JSON can't hold Infinity)
+const INF_WORDS = ["∞", "inf", "infinity", "無限", "むげん"];
+const baseAtk = c => c && c.atkInf ? Infinity : (c && +c.atk) || 0;
+const fmtN = n => n === Infinity ? "∞" : n === -Infinity ? "−∞" : String(n);
+const cmpNum = (a, b) => a === b ? 0 : a < b ? -1 : 1;
 const S = { db: null, name: "", tab: "play", starters: [], userCards: [], cards: new Map(), decks: [], galF: "all" };
 let G = null;
 
@@ -841,8 +848,8 @@ function cardHTML(c, cls = "", attrs = "", opts = {}){
   let atk = "";
   if (t === "equip" && c.eqN){ const n = c.eqN; atk = `<div class="c-atk">ATK <span class="${n >= 0 ? "up" : "dn"}">${n >= 0 ? "+" : "−"}${Math.abs(n)}</span></div>`; }
   if (t === "monster"){
-    const base = c.atk || 0, mod = opts.mod || 0;
-    atk = `<div class="c-atk">ATK ${mod ? `<span class="${mod > 0 ? "up" : "dn"}">${Math.max(0, base + mod)}</span>` : base}</div>`;
+    const base = baseAtk(c), mod = opts.mod || 0;
+    atk = `<div class="c-atk">ATK ${mod ? `<span class="${mod > 0 ? "up" : "dn"}">${fmtN(Math.max(0, base + mod))}</span>` : fmtN(base)}</div>`;
   }
   const eqTxt = t === "equip" ? `<span class="fx">${esc(eqText(c))}</span> ` : "";
   const fc = fontCss(c);
@@ -988,7 +995,7 @@ function sortCards(list, how){
     if (how === "name") return String(x.name).localeCompare(String(y.name), "ja") || i - j;
     if (how === "costAsc" || how === "costDesc"){ const d = costOf(x) - costOf(y); return (how === "costDesc" ? -d : d) || i - j; }
     if (isMon(x) !== isMon(y)) return isMon(x) ? -1 : 1; // spells/traps go last
-    const d = (x.atk || 0) - (y.atk || 0);
+    const d = cmpNum(baseAtk(x), baseAtk(y));
     return (how === "atkDesc" ? -d : d) || i - j;
   });
   return a.map(([c]) => c);
@@ -1146,13 +1153,14 @@ syncCost();
 $("#mkFont").innerHTML = Object.entries(FONTS).map(([k, v]) => `<option value="${k}" style='font-family:${v.css}'>${v.label}</option>`).join("");
 function syncFont(){ const k = $("#mkFont").value; $("#editCard").style.setProperty("--cf", FONTS[k] ? FONTS[k].css : ""); $("#mkFont").style.fontFamily = FONTS[k] ? FONTS[k].css : ""; }
 $("#mkFont").addEventListener("change", syncFont);
+$("#mkInf").addEventListener("click", () => { $("#mkAtk").value = $("#mkAtk").value.trim() === "∞" ? "300" : "∞"; });
 $("#fxCond").innerHTML = Object.entries(CONDS).map(([k, v]) => `<option value="${k}">${v.label}</option>`).join("");
 function setMkType(t){
   MK.type = t;
   document.querySelectorAll("#mkType button").forEach(b => b.setAttribute("aria-pressed", b.dataset.t === t));
   const ec = $("#editCard"); ec.classList.remove("monster", "magic", "trap"); ec.classList.add(t);
   $("#mkTab").textContent = TYPE_LABEL[t];
-  $("#atkRow").hidden = t !== "monster";
+  $("#atkRow").hidden = $("#infRow").hidden = t !== "monster";
   $("#quickRow").hidden = t !== "magic";
   $("#mkTab").textContent = t === "magic" && $("#mkQuick").checked ? "速攻魔法" : TYPE_LABEL[t];
   if (typeof syncCost === "function" && $("#mkCost").options.length) syncCost();
@@ -1231,14 +1239,16 @@ $("#btnNew").addEventListener("click", resetMaker);
 $("#btnSave").addEventListener("click", async () => {
   const name = $("#mkName").value.trim();
   if (!name){ toast("カード名を書いてね"); $("#mkName").focus(); return; }
-  let atk = Math.round(+$("#mkAtk").value || 0); atk = Math.max(0, Math.min(MAX_ATK, atk)); $("#mkAtk").value = atk;
+  const atkRaw = $("#mkAtk").value.trim().toLowerCase().replace(/[０-９]/g, ch => String.fromCharCode(ch.charCodeAt(0) - 0xFEE0));
+  const atkInf = MK.type === "monster" && INF_WORDS.includes(atkRaw);
+  const atk = atkInf ? 0 : Math.max(0, Math.round(+atkRaw || 0)); $("#mkAtk").value = atkInf ? "∞" : atk;
   const wasMode = MK.mode; MK.mode = "draw"; composite();
   const out = document.createElement("canvas"); out.width = 336; out.height = 240; out.getContext("2d").drawImage(cv, 0, 0, 336, 240);
   MK.mode = wasMode; composite();
   const id = S.editId || uid("c");
   const prev = S.cards.get(id);
-  let eqN = Math.round(+$("#mkEq").value || 0); eqN = Math.max(-MAX_ATK, Math.min(MAX_ATK, eqN)); $("#mkEq").value = eqN;
-  const doc = { type: MK.type, name, atk: MK.type === "monster" ? atk : 0, eqN: MK.type === "equip" ? eqN : 0, eqAb: MK.type === "equip" ? $("#mkEqAb").value : "none", effect: $("#mkEff").value.trim(), fx: readFx(), combo: readCombo(), font: $("#mkFont").value, quick: MK.type === "magic" && $("#mkQuick").checked, cost: $("#mkCost").value === "" ? null : +$("#mkCost").value, limit: +$("#mkLimit").value,
+  let eqN = Math.round(+$("#mkEq").value || 0); $("#mkEq").value = eqN;
+  const doc = { type: MK.type, name, atk: MK.type === "monster" ? atk : 0, atkInf, eqN: MK.type === "equip" ? eqN : 0, eqAb: MK.type === "equip" ? $("#mkEqAb").value : "none", effect: $("#mkEff").value.trim(), fx: readFx(), combo: readCombo(), font: $("#mkFont").value, quick: MK.type === "magic" && $("#mkQuick").checked, cost: $("#mkCost").value === "" ? null : +$("#mkCost").value, limit: +$("#mkLimit").value,
     img: encodeArt(out), author: S.name, ownerId: prev?.ownerId || S.uid || null, updatedAt: Date.now() };
   $("#btnSave").disabled = true;
   try{ await saveCardDoc(id, doc); toast(S.editId ? "カードを更新しました" : "カードを保存しました！"); resetMaker(); }
@@ -1269,7 +1279,7 @@ $("#gallery").addEventListener("click", async e => {
   const ed = e.target.closest("[data-edit]"), del = e.target.closest("[data-del]");
   if (ed){
     const c = S.cards.get(ed.dataset.edit); if (!c || !isMine(c)) return;
-    S.editId = c.id; $("#mkName").value = c.name; $("#mkEff").value = c.effect || ""; $("#mkAtk").value = c.atk || 0; $("#mkLimit").value = String(cardLimit(c));
+    S.editId = c.id; $("#mkName").value = c.name; $("#mkEff").value = c.effect || ""; $("#mkAtk").value = c.atkInf ? "∞" : (c.atk || 0); $("#mkLimit").value = String(cardLimit(c));
     $("#mkQuick").checked = !!c.quick; setMkType(cardType(c)); loadFxForm(c); $("#mkFont").value = FONTS[c.font] ? c.font : "klee"; syncFont(); $("#mkCost").value = c.cost == null ? "" : String(c.cost); syncCost(); $("#mkEq").value = c.eqN || 0; $("#mkEqAb").value = c.eqAb || "none"; syncEqLine();
     const im = new Image(); im.onload = () => { clearCanvas(); setPhoto(im); setMode("draw"); composite(); undoStack = []; }; im.src = c.img;
     $("#mkTitle").textContent = "カードを編集中"; $("#btnNew").hidden = false; $("#btnSave").textContent = "変更を保存";
@@ -1433,7 +1443,9 @@ $("#waiting").addEventListener("click", e => {
 const O = s => s === "a" ? "b" : "a";
 const P = (st, s) => st.players[s];
 const card = id => S.cards.get(id) || { id, name: "？", type: "monster", atk: 0 };
-const atkOf = m => Math.max(0, (card(m.c).atk || 0) + (m.mod || 0));
+const atkOf = m => Math.max(0, baseAtk(card(m.c)) + (m.mod || 0));
+// ∞ damage just brings LP to 0 (LP never holds Infinity, so the room state stays plain JSON)
+function dealDmg(st, s, n){ const p = P(st, s); p.lp = n === Infinity ? Math.min(0, p.lp) : p.lp - n; }
 function log(st, s, m){ st.log.push({ t: Date.now(), s: s || "", m }); if (st.log.length > 80) st.log.splice(0, st.log.length - 80); }
 const nm = (st, s) => P(st, s).name;
 const isHumanHere = s => G && s === G.slot;
@@ -1466,7 +1478,7 @@ function autoTarget(st, s, kind, opts){
   const t = KINDS[kind].target;
   if (t === "opp") return opts.slice().sort((a, b) => atkOf(P(st, O(s)).mz[b]) - atkOf(P(st, O(s)).mz[a]))[0];
   if (t === "mine") return opts.slice().sort((a, b) => atkOf(P(st, s).mz[b]) - atkOf(P(st, s).mz[a]))[0];
-  if (t === "grave") return opts.slice().sort((a, b) => (card(b).atk || 0) - (card(a).atk || 0))[0];
+  if (t === "grave") return opts.slice().sort((a, b) => cmpNum(baseAtk(card(b)), baseAtk(card(a))))[0];
 }
 // equip cards pointing at monster (s,i) go to their owner's graveyard
 function detachEquips(st, s, i){
@@ -1589,7 +1601,7 @@ function summon(st, s, hi, zi){
   if (!canSummonNow(st, s) || z < 0 || cardType(card(id)) !== "monster" || !canPay(st, s, card(id))) return false;
   pay(st, s, card(id));
   p.hand.splice(hi, 1); if (!p.mana) st.summoned = true;
-  const label = `「${card(id).name}」（ATK ${card(id).atk || 0}）を召喚${p.mana ? `（コスト${costOf(card(id))}）` : ""}`;
+  const label = `「${card(id).name}」（ATK ${fmtN(baseAtk(card(id)))}）を召喚${p.mana ? `（コスト${costOf(card(id))}）` : ""}`;
   // the opponent gets a window only if they hold something that can counter it
   if (responseOptions(st, O(s), "summon").length){
     st.chain = [{ s, c: id, summon: true, z, ctx: { zone: z } }];
@@ -1724,15 +1736,15 @@ function resolveAttack(st){
   if (pd.negated){ checkEnd(st); return; }
   if (!am){ log(st, A, "攻撃モンスターがいなくなった"); checkEnd(st); return; }
   if (pd.to === "direct"){
-    const a = atkOf(am); P(st, D).lp -= a; log(st, A, `${nm(st, D)} に直接 ${a} ダメージ！`);
+    const a = atkOf(am); dealDmg(st, D, a); log(st, A, `${nm(st, D)} に直接 ${fmtN(a)} ダメージ！`);
   } else {
     const dm = P(st, D).mz[pd.to];
     if (!dm){ log(st, A, "攻撃対象がいなくなった"); checkEnd(st); return; }
     const a = atkOf(am), d = atkOf(dm);
     const battleKill = (s2, i2) => { if (hasAb(st, s2, i2, "guard")){ log(st, s2, `「${card(P(st, s2).mz[i2].c).name}」は装備の力で戦闘では破壊されない！`); return false; } destroyMonster(st, s2, i2, "戦闘"); return true; };
-    if (a > d){ P(st, D).lp -= a - d; log(st, A, `バトル ${a} vs ${d}：${nm(st, D)} に ${a - d} ダメージ`); if (battleKill(D, pd.to)) trigger(st, A, card(am.c), "kill", { zone: pd.from }); }
-    else if (a < d){ P(st, A).lp -= d - a; log(st, A, `バトル ${a} vs ${d}：${nm(st, A)} に ${d - a} ダメージ`); if (battleKill(A, pd.from)) trigger(st, D, card(dm.c), "kill", { zone: pd.to }); }
-    else { log(st, A, `バトル ${a} vs ${d}：相打ち！`); battleKill(A, pd.from); battleKill(D, pd.to); }
+    if (a > d){ dealDmg(st, D, a - d); log(st, A, `バトル ${fmtN(a)} vs ${fmtN(d)}：${nm(st, D)} に ${fmtN(a - d)} ダメージ`); if (battleKill(D, pd.to)) trigger(st, A, card(am.c), "kill", { zone: pd.from }); }
+    else if (a < d){ dealDmg(st, A, d - a); log(st, A, `バトル ${fmtN(a)} vs ${fmtN(d)}：${nm(st, A)} に ${fmtN(d - a)} ダメージ`); if (battleKill(A, pd.from)) trigger(st, D, card(dm.c), "kill", { zone: pd.to }); }
+    else { log(st, A, `バトル ${fmtN(a)} vs ${fmtN(d)}：相打ち！`); battleKill(A, pd.from); battleKill(D, pd.to); }
   }
   checkEnd(st);
 }
@@ -1803,7 +1815,7 @@ function cpuStep(st, s){
   }
   // 2. summon strongest
   if (canSummonNow(st, s) && freeZone(p.mz) >= 0){
-    const mons = p.hand.map((id, i) => [i, card(id)]).filter(([, c]) => cardType(c) === "monster" && canPay(st, s, c)).sort((a, b) => (b[1].atk || 0) - (a[1].atk || 0));
+    const mons = p.hand.map((id, i) => [i, card(id)]).filter(([, c]) => cardType(c) === "monster" && canPay(st, s, c)).sort((a, b) => cmpNum(baseAtk(b[1]), baseAtk(a[1])));
     if (mons.length){ summon(st, s, mons[0][0]); return; }
   }
   // 3. set traps
@@ -2051,8 +2063,8 @@ function renderDetail(info, anim){
   const rows = [["種類", isQuick(c) ? "速攻魔法（相手のターンにも使える）" : TYPE_LABEL[t]]];
   if (hasCost(c)) rows.push(["コスト", String(costOf(c))]);
   if (t === "monster"){
-    const base = c.atk || 0, now = Math.max(0, base + (info.mod || 0));
-    rows.push(["ATK", info.mod ? `${now}（もとは ${base}、${info.mod > 0 ? "+" : ""}${info.mod}）` : String(base)]);
+    const base = baseAtk(c), now = Math.max(0, base + (info.mod || 0));
+    rows.push(["ATK", info.mod ? `${fmtN(now)}（もとは ${fmtN(base)}、${info.mod > 0 ? "+" : ""}${info.mod}）` : fmtN(base)]);
   }
   if (t === "equip") rows.push(["装備の効果", eqText(c)]);
   if (info.eqTo) rows.push(["装備先", info.eqTo]);
@@ -2101,7 +2113,7 @@ function renderOverlay(){
     if (win === "attack"){
       const am = A.mz[pd.from];
       const tgt = pd.to === "direct" ? "あなたに直接攻撃" : `「${card(P(st, me).mz[pd.to]?.c).name}」に攻撃`;
-      head = "攻撃されています！"; msg = `${A.name} の「${am ? card(am.c).name : "？"}」（ATK ${am ? atkOf(am) : 0}）が${tgt}してきた。罠か速攻魔法を使う？`;
+      head = "攻撃されています！"; msg = `${A.name} の「${am ? card(am.c).name : "？"}」（ATK ${am ? fmtN(atkOf(am)) : 0}）が${tgt}してきた。罠か速攻魔法を使う？`;
     } else if (win === "end"){ head = `${A.name} がターンを終えようとしています`; msg = "ターンが変わる前に、速攻魔法か罠を使う？"; }
     else {
       const top = st.chain[st.chain.length - 1];
