@@ -426,8 +426,8 @@ nav.tabs button{position:relative}
         <div class="c-text">
           <div class="fxline" id="mkFxLine"></div>
           <textarea id="mkEff" maxlength="60" placeholder="自由に書く効果（なくてもいい）"></textarea>
-          <div class="c-atk" id="atkRow">ATK <input type="number" id="mkAtk" min="0" max="500" step="50" value="300"></div>
-          <div class="c-atk" id="eqRow" hidden>ATK ± <input type="number" id="mkEq" min="-500" max="500" step="50" value="200"></div>
+          <div class="c-atk" id="atkRow">ATK <input type="number" id="mkAtk" min="0" max="500" step="1" value="300"></div>
+          <div class="c-atk" id="eqRow" hidden>ATK ± <input type="number" id="mkEq" min="-500" max="500" step="1" value="200"></div>
         </div>
       </div></div>
       <div class="tools-col">
@@ -595,7 +595,7 @@ nav.tabs button{position:relative}
           <li>同じカードを何枚入れられるかは、カードを作った人が決める</li>
           <li>デッキに入れられるのは「持っているカード」だけ：スターター、自分で描いたカード、交換でもらったカード</li>
           <li>交換は Trade タブから。自分で描いたカード1枚と、相手のカード1枚をお互いにコピーで渡し合う（渡しても自分の手元からは減らない）</li>
-          <li>ATKは0〜500（50きざみ）</li>
+          <li>ATKは0〜500（1きざみ）</li>
         </ul>
       </div>
     </div>
@@ -1231,13 +1231,13 @@ $("#btnNew").addEventListener("click", resetMaker);
 $("#btnSave").addEventListener("click", async () => {
   const name = $("#mkName").value.trim();
   if (!name){ toast("カード名を書いてね"); $("#mkName").focus(); return; }
-  let atk = Math.round((+$("#mkAtk").value || 0) / 50) * 50; atk = Math.max(0, Math.min(MAX_ATK, atk)); $("#mkAtk").value = atk;
+  let atk = Math.round(+$("#mkAtk").value || 0); atk = Math.max(0, Math.min(MAX_ATK, atk)); $("#mkAtk").value = atk;
   const wasMode = MK.mode; MK.mode = "draw"; composite();
   const out = document.createElement("canvas"); out.width = 336; out.height = 240; out.getContext("2d").drawImage(cv, 0, 0, 336, 240);
   MK.mode = wasMode; composite();
   const id = S.editId || uid("c");
   const prev = S.cards.get(id);
-  let eqN = Math.round((+$("#mkEq").value || 0) / 50) * 50; eqN = Math.max(-MAX_ATK, Math.min(MAX_ATK, eqN)); $("#mkEq").value = eqN;
+  let eqN = Math.round(+$("#mkEq").value || 0); eqN = Math.max(-MAX_ATK, Math.min(MAX_ATK, eqN)); $("#mkEq").value = eqN;
   const doc = { type: MK.type, name, atk: MK.type === "monster" ? atk : 0, eqN: MK.type === "equip" ? eqN : 0, eqAb: MK.type === "equip" ? $("#mkEqAb").value : "none", effect: $("#mkEff").value.trim(), fx: readFx(), combo: readCombo(), font: $("#mkFont").value, quick: MK.type === "magic" && $("#mkQuick").checked, cost: $("#mkCost").value === "" ? null : +$("#mkCost").value, limit: +$("#mkLimit").value,
     img: encodeArt(out), author: S.name, ownerId: prev?.ownerId || S.uid || null, updatedAt: Date.now() };
   $("#btnSave").disabled = true;
