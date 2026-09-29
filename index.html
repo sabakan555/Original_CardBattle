@@ -224,6 +224,15 @@ ruby rt{font-size:.5em;line-height:1;font-style:normal}
 @media (min-width:961px){.side{position:sticky;top:calc(12px + env(safe-area-inset-top,0px));align-self:start;max-height:calc(100vh - 24px);overflow:auto;padding:2px 4px 4px 2px}}
 .pop{position:fixed;top:calc(16px + env(safe-area-inset-top,0px));right:16px;width:min(280px,calc(100vw - 32px));max-height:calc(100vh - 32px);overflow:auto;z-index:10;background:var(--paper);border:2px solid var(--ink);border-radius:18px;padding:14px 16px 16px;box-shadow:0 10px 30px rgba(30,35,40,.3),0 3px 0 var(--ink);display:flex;flex-direction:column;gap:10px}
 .pop h3{margin:0;padding-right:36px}
+.pop .eqrow{display:flex;flex-direction:column;gap:4px;border-top:1px solid var(--line);border-bottom:1px solid var(--line);padding:6px 0}
+.pop .eqlbl{font-size:12px;font-weight:700;color:var(--muted)}
+.pop .eqlist{display:flex;align-items:center;gap:4px;overflow-x:auto;padding:4px 2px 6px;-webkit-overflow-scrolling:touch}
+.pop .eqi{position:relative;flex:none;padding:0;border:none;background:none;box-shadow:none;border-radius:6px;cursor:pointer}
+.pop .eqi .card{--w:64px}
+.pop .eqi:active{transform:scale(.96)}
+.pop .eqtag{position:absolute;left:50%;bottom:-6px;transform:translateX(-50%);white-space:nowrap;background:var(--accent,#4fd1c5);color:var(--deep,#10132a);font-size:10px;font-weight:700;border-radius:99px;padding:0 6px}
+.pop .eqarr{flex:none;color:var(--muted);font-size:14px}
+.pop .eqback{align-self:flex-start}
 .pop .x{position:absolute;top:8px;right:8px;width:32px;height:32px;padding:0;border-radius:50%;box-shadow:none;font-size:18px;line-height:1;display:grid;place-items:center}
 @keyframes popin{from{opacity:0;transform:translateY(-6px) scale(.97)}to{opacity:1;transform:none}}
 .pop.anim{animation:popin .16s ease-out}
@@ -539,6 +548,11 @@ nav.tabs button{position:relative}
   .pop .card.detail{--w:62px!important}
   .pop .dl{font-size:11.5px;gap:1px 8px;line-height:1.45}
   .pop .note{font-size:11.5px;margin:0}
+  .pop .eqrow{grid-column:2;padding:0 0 4px;border-top:none}
+  .pop .eqlbl{font-size:11px}
+  .pop .eqi .card{--w:48px}
+  .pop .eqback{grid-column:1/-1;order:-1}
+  .card .eqb{font-size:9.5px;padding:0 5px;line-height:1.4}
   .pop .x{top:6px;right:6px;width:30px;height:30px;font-size:16px}
   /* title screen */
   .hbtn{height:76px}
@@ -2986,18 +3000,19 @@ function detailInfo(z, s, i){
     const es = eqsOf(slot);
     info.equips = es.map((e, k) => `「${card(e.c).name}」${eqMult(es, k) > 1 ? "（×2）" : ""}${e.o !== owner ? "（相手の）" : ""}${e.used ? "（使用ずみ）" : ""}`);
     info.cap = `${eqUsed(slot)} / ${eqCapOf(card(slot.c))}`;
-    info.abs = [...new Set(monAbs(G.st, owner, i).map(a => ABS[a.k].text && ABS[a.k].n ? ABS[a.k].text((a.n || 0) * a.mult, a.name || "") : ABS[a.k].label))];
+    info.abs = [...new Set(monAbs(G.st, owner, i).filter(a => a.eqU).map(a => ABS[a.k].text && ABS[a.k].n ? ABS[a.k].text((a.n || 0) * a.mult, a.name || "") : ABS[a.k].label))];
+    info.eqList = es.map((e, k) => ({ c: e.c, mult: eqMult(es, k), used: !!e.used, opp: e.o !== owner, mana: !!P(G.st, e.o).mana }));
     if (charmActive(G.st, slot)) info.charm = `魅了されている（「${card(slot.charm.c).name}」）`;
   }
   return info;
 }
 function currentDetail(){
   if (!G || !G.lastDetail) return null;
-  if (G.lastDetail[0] === "id") return { id: G.lastDetail[1], where: "墓地" };
+  if (G.lastDetail[0] === "id") return { id: G.lastDetail[1], where: G.lastDetail[2] || "墓地" };
   return detailInfo(...G.lastDetail);
 }
 const CLOSE = `<button class="x ghost" data-popclose aria-label="とじる">×</button>`;
-function openDetail(key){ if (!G) return; const was = G.detailOpen; G.lastDetail = key; G.detailOpen = true; renderDetail(currentDetail(), !was); }
+function openDetail(key, keepBack){ if (!G) return; const was = G.detailOpen; if (!keepBack) G.detailBack = null; G.lastDetail = key; G.detailOpen = true; renderDetail(currentDetail(), !was); }
 function renderDetail(info, anim){
   const box = $("#detailPop"); if (!box) return;
   if (!G || !G.detailOpen || !info){ box.hidden = true; box.innerHTML = ""; return; }
@@ -3014,9 +3029,9 @@ function renderDetail(info, anim){
   if (t === "equip"){ const et = eqText(c); if (et) rows.push(["装備の効果", et]); rows.push(["装備コスト", String(eqCostOf(c))]); }
   if (info.eqTo) rows.push(["装備先", info.eqTo]);
   if (info.cap) rows.push(["装備キャパ", info.cap]);
-  if (info.equips && info.equips.length) rows.push(["装備（左から）", info.equips.join(" → ")]);
+
   if (info.charm) rows.push(["状態", info.charm]);
-  if (info.abs && info.abs.length) rows.push(["能力", info.abs.join("／")]);
+  if (info.abs && info.abs.length) rows.push(["装備でついた能力", info.abs.join("／")]);
   if (ft) rows.push(["自動の効果", ft]);
   if (c.effect) rows.push(["効果", plainRuby(c.effect)]);
   if (c.flavor) rows.push(["フレーバー", plainRuby(c.flavor)]);
@@ -3027,9 +3042,18 @@ function renderDetail(info, anim){
   if (t === "trap" && info.setTurn != null) rows.push(["発動", info.setTurn < G.st.turnNo ? "いま発動できる" : "次のターンから発動できる"]);
   rows.push(["デッキ上限", lim ? `${lim}枚まで` : "制限なし"]);
   rows.push(["作った人", c.author || "？"]);
-  box.innerHTML = `${CLOSE}<h3>カード詳細</h3><div class="detailcard">${cardHTML(c, "detail", "", { mod: info.mod, mana: info.mana })}</div><dl class="dl">${rows.map(([k, v]) => `<dt>${k}</dt><dd>${esc(v)}</dd>`).join("")}</dl>`;
+  // equips stuck on this monster, shown as cards from left to right (tap one to read it)
+  const eqRow = info.eqList && info.eqList.length ? `<div class="eqrow"><div class="eqlbl">装備（左から順）　${esc(info.cap || "")}</div><div class="eqlist">${info.eqList.map((e, k) => `${k ? `<span class="eqarr">→</span>` : ""}<button class="eqi" data-eqcid="${esc(e.c)}" aria-label="「${esc(card(e.c).name)}」の詳細">${cardHTML(card(e.c), "xs", "", { mana: e.mana })}${e.mult > 1 || e.used || e.opp ? `<span class="eqtag">${[e.mult > 1 ? "×2" : "", e.used ? "使用ずみ" : "", e.opp ? "相手の" : ""].filter(Boolean).join("・")}</span>` : ""}</button>`).join("")}</div></div>` : "";
+  const back = G.detailBack ? `<button class="small ghost eqback" data-detailback>← もどる</button>` : "";
+  box.innerHTML = `${CLOSE}<h3>カード詳細</h3>${back}<div class="detailcard">${cardHTML(c, "detail", "", { mod: info.mod, mana: info.mana })}</div>${eqRow}<dl class="dl">${rows.map(([k, v]) => `<dt>${k}</dt><dd>${esc(v)}</dd>`).join("")}</dl>`;
 }
-$("#detailPop").addEventListener("click", e => { if (e.target.closest("[data-popclose]") && G){ G.detailOpen = false; renderDetail(null); } });
+$("#detailPop").addEventListener("click", e => {
+  if (!G) return;
+  if (e.target.closest("[data-popclose]")){ G.detailOpen = false; G.detailBack = null; renderDetail(null); return; }
+  const q = e.target.closest("[data-eqcid]");
+  if (q){ e.stopPropagation(); const prev = G.lastDetail; G.detailBack = prev; openDetail(["id", q.dataset.eqcid, "装備中（" + card(prev && prev[0] !== "id" ? (detailInfo(...prev) || {}).id : "").name + "に付いている）"], true); return; }
+  if (e.target.closest("[data-detailback]") && G.detailBack){ e.stopPropagation(); const b = G.detailBack; G.detailBack = null; openDetail(b, true); }
+});
 document.addEventListener("keydown", e => { if (e.key === "Escape" && G && G.detailOpen){ G.detailOpen = false; renderDetail(null); } });
 // close the popup when clicking anywhere except the popup itself or another card
 document.addEventListener("click", e => {
