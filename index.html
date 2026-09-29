@@ -501,7 +501,14 @@ nav.tabs button{position:relative}
   .dk-tile{height:84px}
   .deck-float{display:flex;position:sticky;bottom:calc(84px + env(safe-area-inset-bottom,0px));z-index:5;align-items:center;justify-content:space-between;gap:10px;margin-top:14px;padding:8px 10px 8px 14px;background:rgba(14,16,36,.94);border:1px solid var(--line);border-radius:14px;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);font-weight:700}
   .deck-float.ng span{color:var(--hit)}
-  .pop{top:auto!important;bottom:calc(84px + env(safe-area-inset-bottom,0px))!important;right:12px!important;max-height:60vh}
+  /* battle card details: a slim bar at the top instead of a big panel */
+  .pop{top:calc(8px + env(safe-area-inset-top,0px))!important;bottom:auto!important;left:8px;right:8px!important;width:auto!important;max-height:30vh;padding:8px 42px 8px 8px!important;display:grid!important;grid-template-columns:auto minmax(0,1fr);gap:4px 10px;align-items:start;border-radius:14px!important;box-shadow:0 8px 24px rgba(0,0,0,.45)!important}
+  .pop h3{display:none}
+  .pop .detailcard{grid-row:span 3}
+  .pop .card.detail{--w:62px!important}
+  .pop .dl{font-size:11.5px;gap:1px 8px;line-height:1.45}
+  .pop .note{font-size:11.5px;margin:0}
+  .pop .x{top:6px;right:6px;width:30px;height:30px;font-size:16px}
   /* title screen */
   .hbtn{height:76px}
   .hbtn .en{font-size:40px}
