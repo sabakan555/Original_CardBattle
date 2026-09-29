@@ -55,6 +55,13 @@ label.f{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:13p
 .card.trap{--cbg:var(--c-trap)}
 .card.equip{--cbg:var(--c-mag)}
 .card.equip .c-tab{color:var(--magic)}
+.c-eqc{position:absolute;right:3%;top:4%;z-index:2;min-width:calc(var(--w)*.12);height:calc(var(--w)*.12);padding:0 calc(var(--w)*.02);box-sizing:border-box;border-radius:99px;background:#fff;border:var(--lw) solid var(--cframe);display:grid;place-items:center;font:700 calc(var(--w)*.07)/1 var(--en,var(--ui));color:#1e2328;box-shadow:0 1px 2px rgba(0,0,0,.25)}
+.c-eqc.cost{background:#c4f0e6}
+.eqplace{display:flex;align-items:center;gap:6px;overflow-x:auto;padding:6px 2px}
+.eqplace .ins{flex:none;min-width:44px;height:64px;border:2px dashed var(--magic);border-radius:10px;background:transparent;font-size:12px;padding:0 4px}
+.abs-list{display:flex;flex-direction:column;gap:4px}
+.abs-list label{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:14px}
+.abs-list input[type=number]{width:80px}.abs-list input[type=text]{width:120px}
 .card .eqb{position:absolute;top:-8px;left:-6px;background:var(--magic);color:#fff;font-family:var(--ui);font-size:11px;padding:0 7px;border-radius:99px;z-index:1}
 .c-in{height:100%;background:var(--cbg);border-radius:calc(var(--w)*.028);display:flex;flex-direction:column;overflow:hidden;position:relative}
 /* mana cards: a cost box cut into the top-left corner of the frame (club design) */
@@ -594,7 +601,7 @@ nav.tabs button{position:relative}
       </div></div>
       <div class="tools-col">
         <h2 id="mkTitle">カードを描く</h2>
-        <div><h3>カードの種類</h3><div class="seg" id="mkType"><button data-t="monster" aria-pressed="true">モンスター</button><button data-t="magic" aria-pressed="false">魔法</button><button data-t="equip" aria-pressed="false">装備魔法</button><button data-t="trap" aria-pressed="false">罠</button></div></div>
+        <div><h3>カードの種類</h3><div class="seg" id="mkType"><button data-t="monster" aria-pressed="true">モンスター</button><button data-t="magic" aria-pressed="false">魔法</button><button data-t="equip" aria-pressed="false">装備</button><button data-t="trap" aria-pressed="false">罠</button></div></div>
         <label class="row" id="quickRow" hidden style="gap:6px;font-weight:700;cursor:pointer"><input type="checkbox" id="mkQuick"> 速攻魔法（相手のターンにも使える）</label>
         <label class="row" style="gap:6px;font-weight:700;cursor:pointer"><input type="checkbox" id="mkFrameless"> 半フレームレス（絵を下の文字の欄まで広げる）</label>
         <div><h3>文字のフォント</h3><select id="mkFont" aria-label="カードのフォント"></select></div>
@@ -618,9 +625,18 @@ nav.tabs button{position:relative}
           <div class="row"><button class="small" id="phFit">枠に合わせる</button><button class="small danger" id="phDel">写真を消す</button><button class="small primary" id="phDone">決定して描く</button></div>
         </div>
         <div class="fxform" id="eqNote" hidden>
-          <h3 style="margin:0">装備の効果</h3>
-          <p class="note" style="margin:0">えらんだモンスター（相手のでもOK）にくっつきます。右下の「ATK ±」に上げる量（下げるならマイナス、変えないなら0）を入れてね。</p>
-          <label class="f">装備したモンスターに付く能力<select id="mkEqAb"></select></label>
+          <h3 style="margin:0">装備</h3>
+          <p class="note" style="margin:0">場のモンスター（相手のでもOK）にくっつきます。いつでも何枚でも付けられるけど、モンスターの「装備キャパ」をこえる分は付けられません。右下の「ATK ±」に上げる量（下げるならマイナス、変えないなら0）を入れてね。</p>
+          <label class="f">装備コスト（キャパをいくつ使うか）<input type="number" id="mkEqCost" min="0" max="20" value="1"></label>
+          <select id="mkEqAb" hidden></select>
+        </div>
+        <div class="fxform" id="capRow">
+          <h3 style="margin:0">装備キャパ</h3>
+          <label class="f">付けられる装備コストの合計<input type="number" id="mkEqCap" min="0" max="99" placeholder="空欄ならATK÷100"></label>
+        </div>
+        <div class="fxform" id="absBox">
+          <h3 style="margin:0" id="absHead">能力</h3>
+          <div class="abs-list" id="mkAbs"></div>
         </div>
         <div class="fxform" id="fxForm">
           <h3 style="margin:0">自動で処理される効果</h3>
@@ -629,6 +645,8 @@ nav.tabs button{position:relative}
             <label class="f">なにをする<select id="fxKind"></select></label>
             <label class="f" id="fxNWrap">数<input type="number" id="fxN" min="1" max="9999" value="100"></label>
           </div>
+          <label class="row" style="gap:6px;cursor:pointer"><input type="checkbox" id="fxAskOn"> 使う前に質問する（「はい」のときだけ効果が出る）</label>
+          <label class="f" id="fxAskWrap" hidden>質問<input type="text" id="fxAsk" maxlength="40" placeholder="例: 物理学実験を履修していますか？"></label>
           <div class="row" id="condRow" hidden>
             <label class="f">勝利の条件<select id="fxCond"></select></label>
             <label class="f" id="fxCnWrap">数<input type="number" id="fxCn" min="1" max="9999" value="3"></label>
@@ -743,7 +761,7 @@ nav.tabs button{position:relative}
         <ol>
           <li>モンスターの召喚は1ターンに1回だけ</li>
           <li>魔法は手札から発動するか、セットしてあとで発動</li>
-          <li>装備魔法は、場のモンスター（相手のでもOK）に装備してATKを上げ下げしたり、「2回攻撃」「直接攻撃」「戦闘で破壊されない」の能力を付けたりする。装備したモンスターが場を離れると一緒に墓地へ</li>
+          <li>装備は、場のモンスター（相手のでもOK）にいつでもくっつけられる。ATKを上げ下げしたり、能力や効果を付けたりする。モンスターごとに「装備キャパ」があって、付いている装備コストの合計がキャパまでしか付けられない（キャパの指定がなければATK÷100）。装備は左から並んでいて、「左どなりに効く」装備もある。モンスターが場を離れると装備も持ち主の墓地へ</li>
           <li>罠はセットする。次の相手ターン以降に発動できる</li>
           <li>モンスターの召喚も、相手が「打ち消し」を持っていればチェーンできる。打ち消されたモンスターは墓地へ（召喚の権利・マナは戻らない）</li>
           <li>魔法・罠が発動されたら、相手は罠か速攻魔法で「チェーン」できる。チェーンは交互に何回でも続けられて、あとから発動したものから順に処理する</li>
@@ -777,7 +795,7 @@ nav.tabs button{position:relative}
           <li>デッキ編集で「コストデッキ」にしたデッキは、マナを使って遊ぶ（使う人だけのルール）</li>
           <li>自分のターンのはじめに最大マナが+1（最大10）されて全回復。先攻の1ターン目は1マナ</li>
           <li>マナが足りれば、モンスターを1ターンに何体でも召喚できる</li>
-          <li>魔法・罠・装備魔法は、発動するときにコストを払う。セットするのはタダ</li>
+          <li>魔法・罠・装備は、使うときにコストを払う。セットするのはタダ</li>
           <li>残したマナで、相手のターンに罠を発動できる</li>
           <li>カードを作るときに「使えるデッキ」を選ぶ：ふつうのデッキ／コストデッキ／どちらでも。コストは左上の青い丸</li>
           <li>コストデッキを編集するときは、コストデッキ用と「どちらでも」のカードだけが出てくる（ふつうのデッキはその逆）</li>
@@ -835,8 +853,12 @@ const S = { db: null, name: "", tab: "play", starters: [], userCards: [], cards:
 let G = null;
 
 /* ================= effect catalog ================= */
-const TYPE_LABEL = { monster: "モンスター", magic: "魔法", equip: "装備魔法", trap: "罠" };
-const TRIGS = { summon: "召喚したとき", kill: "戦闘で相手を破壊したとき", destroyed: "破壊されたとき", use: "発動したとき" };
+const TYPE_LABEL = { monster: "モンスター", magic: "魔法", equip: "装備", trap: "罠" };
+const TRIGS = { summon: "召喚したとき", kill: "戦闘で相手を破壊したとき", destroyed: "破壊されたとき", battleLose: "バトルに負けたとき", turnStart: "自分のターンのはじめ", turnEnd: "自分のターンの終わり", attach: "装備したとき", use: "発動したとき" };
+const MON_TRIGS = ["summon", "kill", "destroyed", "battleLose", "turnStart", "turnEnd"];
+const EQ_TRIGS = ["attach", "turnStart", "turnEnd", "destroyed", "battleLose"];
+const EQ_TRIG_LABEL = { destroyed: "装備したモンスターが破壊されたとき", battleLose: "装備したモンスターがバトルに負けたとき" };
+const trigLabel = (t, k) => (t === "equip" && EQ_TRIG_LABEL[k]) || TRIGS[k];
 const OLD_TRIG = { open: "summon", win: "kill", lose: "destroyed" };
 const KINDS = {
   none:       { label: "なし" },
@@ -847,6 +869,10 @@ const KINDS = {
   destroy:    { label: "相手モンスター1体を破壊", target: "opp", text: () => `相手のモンスター1体を破壊` },
   destroyAll: { label: "相手モンスターを全部破壊", text: () => `相手のモンスターをすべて破壊` },
   selfAtk:    { label: "このモンスターのATKアップ", n: true, mon: true, text: n => `このモンスターのATK+${n}` },
+  moveEquips: { label: "装備を別のモンスターに付けかえる", mon: true, target: "any", text: () => `このモンスターの装備（このカード以外）をすべて、ほかのモンスター1体（相手のでもOK）に付けかえる` },
+  equipsToHand: { label: "ほかの装備を手札に戻す", mon: true, text: () => `いっしょに付いていたほかの装備を、持ち主の手札に戻す` },
+  blast:      { label: "自爆（装備の枚数×○以下を全部破壊）", n: true, mon: true, text: n => `付いていた装備の枚数×${n}以下のATKのモンスターをすべて破壊し、破壊したうち一番低いATKぶんのダメージを相手に与える` },
+  charm:      { label: "相手モンスター1体を魅了（攻撃できなくする）", target: "opp", mon: true, text: () => `相手のモンスター1体を魅了する（このカードが場にある間、そのモンスターは攻撃できない）` },
   atkUp:      { label: "自分のモンスターのATKアップ", n: true, target: "mine", text: n => `自分のモンスター1体のATK+${n}` },
   atkDown:    { label: "相手のモンスターのATKダウン", n: true, target: "opp", text: n => `相手のモンスター1体のATK−${n}` },
   revive:     { label: "墓地から手札に戻す", target: "grave", text: () => `墓地のモンスター1体を手札に戻す` },
@@ -866,12 +892,45 @@ const CONDS = {
   hand:  { label: "手札にこのカードが○枚", n: true, text: n => `手札にこのカードが${n}枚そろっていたら、` }
 };
 const EQ_AB = { none: "なし", twice: "1ターンに2回攻撃できる", direct: "相手の場にモンスターがいても直接攻撃できる", guard: "戦闘では破壊されない" };
+// abilities: stuck on a monster (its own, or given by an equip). only: "mon" = monster cards only, "eq" = equip cards only.
+// self: the text is about this card itself, not "the monster"
+const ABS = {
+  twice:      { label: "1ターンに2回攻撃できる" },
+  direct:     { label: "相手の場にモンスターがいても直接攻撃できる" },
+  guard:      { label: "戦闘では破壊されない" },
+  noEffect:   { label: "効果では破壊されない" },
+  noAttack:   { label: "攻撃できない" },
+  taunt:      { label: "相手に狙われる（ほかのモンスターは攻撃・効果の対象にされない）" },
+  dmgCut:     { label: "戦闘で受けるダメージを減らす", n: 300, text: n => `戦闘で受けるダメージが${n}減る` },
+  substitute: { label: "破壊されるとき、かわりにほかの装備を1枚墓地へ", only: "eq", self: true, text: () => `装備したモンスターが破壊されるとき、かわりにほかの装備1枚を墓地へ送る` },
+  negateOnce: { label: "1回だけ、相手の発動・召喚を打ち消せる", only: "eq", self: true, text: () => `1回だけ、相手の魔法・罠の発動かモンスターの召喚を打ち消せる` },
+  double:     { label: "左どなりの装備の効果を2倍にする", only: "eq", self: true, text: () => `このカードの左どなりの装備の効果は2倍になる` },
+  eqBonus:    { label: "特定の名前の装備1枚ごとにATKアップ", only: "mon", n: 300, name: true, text: (n, nm) => `名前に「${nm || "？"}」が入った装備1枚につきATK+${n}` }
+};
+const absOf = c => !c ? [] : Array.isArray(c.abs) ? c.abs.filter(a => a && ABS[a.k]) : (c.eqAb && c.eqAb !== "none" && ABS[c.eqAb] ? [{ k: c.eqAb }] : []);
+const abPhrase = a => ABS[a.k].text ? ABS[a.k].text(a.n || 0, a.name || "") : ABS[a.k].label;
+function absText(c, who){
+  const L = absOf(c), mon = L.filter(a => !ABS[a.k].self), self = L.filter(a => ABS[a.k].self);
+  const parts = [];
+  if (mon.length) parts.push(`${who}は${mon.map(abPhrase).join("、")}`);
+  self.forEach(a => parts.push(abPhrase(a)));
+  return parts.join("。");
+}
 function eqText(c){
   const n = c.eqN || 0, parts = [];
   if (n) parts.push(`装備したモンスターのATK${n > 0 ? "+" : "−"}${Math.abs(n)}`);
-  if (c.eqAb && c.eqAb !== "none" && EQ_AB[c.eqAb]) parts.push(`${parts.length ? "" : "装備したモンスターは"}${EQ_AB[c.eqAb]}`);
-  return parts.join("。") || "装備するだけ";
+  const ab = absText(c, "装備したモンスター"); if (ab) parts.push(ab);
+  return parts.join("。");
 }
+const monAbsText = c => absText(c, "このモンスター");
+// equip capacity: a monster holds equips whose costs add up to its capacity (blank = ATK÷100)
+const eqCostOf = c => Math.max(0, Math.round(+(c && c.eqCost) || 0));
+const hasEqCap = c => !!c && c.eqCap != null && c.eqCap !== "" && !isNaN(+c.eqCap);
+function eqCapOf(c){ if (hasEqCap(c)) return Math.max(0, Math.round(+c.eqCap)); const b = baseAtk(c); return isFinite(b) ? Math.floor(b / 100) : 99; }
+const eqsOf = m => (m && m.eqs) || [];
+// a 化身-type equip doubles the equip on its left
+const eqMult = (list, k) => 1 + (list[k + 1] && absOf(card(list[k + 1].c)).some(a => a.k === "double") ? 1 : 0);
+const eqUsed = m => eqsOf(m).reduce((t, e) => t + eqCostOf(card(e.c)), 0);
 const FONTS = {
   klee:   { label: "手書き（標準）", css: `"Klee One",var(--hand)` },
   maru:   { label: "まるゴシック", css: `"Zen Maru Gothic",var(--ui)` },
@@ -908,24 +967,27 @@ const cardLimit = c => (c && c.limit != null) ? +c.limit : 3;
 function normFx(c){
   const fx = c && c.fx; if (!fx || !fx.kind || fx.kind === "none" || !KINDS[fx.kind]) return null;
   const t = cardType(c);
-  if (t === "equip") return null;
-  const trig = t === "monster" ? (OLD_TRIG[fx.trig] || (TRIGS[fx.trig] && fx.trig !== "use" ? fx.trig : "summon")) : "use";
+  let trig = "use";
+  if (t === "monster"){ const k = OLD_TRIG[fx.trig] || fx.trig; trig = MON_TRIGS.includes(k) ? k : "summon"; }
+  if (t === "equip") trig = EQ_TRIGS.includes(fx.trig) ? fx.trig : "attach";
   return { ...fx, trig };
 }
 const WHERE = { field: "場", grave: "墓地", hand: "手札", any: "場か墓地" };
 function normCombo(c){
   const cb = c && c.combo; if (!cb || !cb.name || !cb.kind || cb.kind === "none" || !KINDS[cb.kind]) return null;
   const t = cardType(c); if (t === "equip") return null;
-  const trig = t === "monster" ? (TRIGS[cb.trig] && cb.trig !== "use" ? cb.trig : (normFx(c) || {}).trig || "summon") : "use";
+  const trig = t === "monster" ? (MON_TRIGS.includes(cb.trig) ? cb.trig : (normFx(c) || {}).trig || "summon") : "use";
   return { ...cb, where: WHERE[cb.where] ? cb.where : "field", match: cb.match === "part" ? "part" : "exact", trig };
 }
 function fxText(c){
   const fx = normFx(c), cb = normCombo(c); if (!fx && !cb) return "";
-  const isMon = cardType(c) === "monster";
+  const t = cardType(c), isMon = t === "monster" || t === "equip";
   let out = "";
   if (fx){
     const cond = fx.kind === "win" && fx.cond && CONDS[fx.cond] ? CONDS[fx.cond].text(fx.cn) : "";
-    out = (isMon ? `【${TRIGS[fx.trig]}】` : "") + cond + KINDS[fx.kind].text(fx.n);
+    const ask = fx.ask ? `「${fx.ask}」に「はい」なら、` : "";
+    out = (isMon ? `【${trigLabel(t, fx.trig)}】` : "") + ask + cond + KINDS[fx.kind].text(fx.n);
+    if (t === "equip") out = out.replace(/このモンスター/g, "装備したモンスター");
   }
   if (cb){
     const head = fx ? (fx.trig === cb.trig ? "。さらに" : `。【${TRIGS[cb.trig]}】`) : (isMon ? `【${TRIGS[cb.trig]}】` : "");
@@ -1063,14 +1125,16 @@ function cardHTML(c, cls = "", attrs = "", opts = {}){
     const base = baseAtk(c), mod = opts.mod || 0;
     atk = `<div class="c-atk">ATK ${mod ? `<span class="${mod > 0 ? "up" : "dn"}">${fmtN(Math.max(0, base + mod))}</span>` : fmtN(base)}</div>`;
   }
-  const eqTxt = t === "equip" ? `<span class="fx">${esc(eqText(c))}</span> ` : "";
+  const eqT = t === "equip" ? eqText(c) : t === "monster" ? monAbsText(c) : "";
+  const eqTxt = eqT ? `<span class="fx">${esc(eqT)}</span> ` : "";
+  const eqc = t === "monster" && hasEqCap(c) ? `<span class="c-eqc" title="装備キャパ">${eqCapOf(c)}</span>` : t === "equip" && eqCostOf(c) ? `<span class="c-eqc cost" title="装備コスト">−${eqCostOf(c)}</span>` : "";
   const fc = fontCss(c);
   const showCost = hasCost(c) && opts.mana !== false;
   const fl = !!(c.frameless && c.img);
   const flv = c.flavor ? plainRuby(c.flavor).trim() && c.flavor : "";
   const cl = (flv ? { s: 4, m: 3, l: 2 } : { s: 6, m: 5, l: 4 })[SIZES_T[c.textSize] ? c.textSize : "m"];
   const sv = []; if (fc) sv.push(`--cf:${fc}`); if (c.nameSize && c.nameSize !== "m") sv.push(`--nk:${sizeK(c.nameSize)}`); if (c.textSize && c.textSize !== "m") sv.push(`--tk:${sizeK(c.textSize)}`); if (cl !== 5) sv.push(`--cl:${cl};--cls:${cl}`);
-  return `<div class="card ${t}${showCost ? " costed" : ""}${fl ? " frameless" : ""} ${cls}" ${attrs}${sv.length ? ` style='${sv.join(";")}'` : ""}>${opts.done ? `<span class="done">${opts.done}</span>` : ""}${opts.eq ? `<span class="eqb">装備${opts.eq > 1 ? "×" + opts.eq : ""}</span>` : ""}<div class="c-in">${fl ? `<div class="c-bgart">${art}</div>` : ""}${showCost ? `<span class="c-cost" title="コスト">${costOf(c)}</span>` : ""}<div class="c-name">${rubyHTML(c.nameRuby || c.name)}</div><div class="c-art">${fl ? "" : art}<div class="c-tab">${isQuick(c) ? "速攻魔法" : TYPE_LABEL[t]}</div></div><div class="c-text${atk ? " ha" : ""}"><div class="body">${eqTxt}${ft ? `<span class="fx">${esc(ft)}</span> ` : ""}${rubyHTML(c.effect || "")}</div>${flv ? `<div class="flv">${rubyHTML(flv)}</div>` : ""}${c.id ? `<span class="c-lim">${lim ? "×" + lim : "∞"}</span>` : ""}${atk}</div></div></div>`;
+  return `<div class="card ${t}${showCost ? " costed" : ""}${fl ? " frameless" : ""} ${cls}" ${attrs}${sv.length ? ` style='${sv.join(";")}'` : ""}>${opts.done ? `<span class="done">${opts.done}</span>` : ""}${opts.eq ? `<span class="eqb">${esc(opts.eq)}</span>` : ""}<div class="c-in">${fl ? `<div class="c-bgart">${art}</div>` : ""}${showCost ? `<span class="c-cost" title="コスト">${costOf(c)}</span>` : ""}<div class="c-name">${rubyHTML(c.nameRuby || c.name)}</div><div class="c-art">${fl ? "" : art}${eqc}<div class="c-tab">${isQuick(c) ? "速攻魔法" : TYPE_LABEL[t]}</div></div><div class="c-text${atk ? " ha" : ""}"><div class="body">${eqTxt}${ft ? `<span class="fx">${esc(ft)}</span> ` : ""}${rubyHTML(c.effect || "")}</div>${flv ? `<div class="flv">${rubyHTML(flv)}</div>` : ""}${c.id ? `<span class="c-lim">${lim ? "×" + lim : "∞"}</span>` : ""}${atk}</div></div></div>`;
 }
 const backHTML = (cls = "", attrs = "") => `<div class="card back ${cls}" ${attrs}><div class="c-in"><span>?</span></div></div>`;
 
@@ -1222,14 +1286,14 @@ function sortCards(list, how){
 }
 function fxOptionsHTML(){
   const kinds = Object.entries(KINDS).filter(([k]) => k !== "none").map(([k, v]) => `<option value="k:${k}">${v.label.replace("（罠）", "")}</option>`).join("");
-  const trigs = ["summon", "kill", "destroyed"].map(k => `<option value="t:${k}">${TRIGS[k]}</option>`).join("");
-  const abs = Object.entries(EQ_AB).filter(([k]) => k !== "none").map(([k, v]) => `<option value="a:${k}">${v}</option>`).join("");
-  return `<option value="">効果：指定なし</option><option value="any">自動の効果・装備の効果あり</option><option value="none">効果なし</option><option value="combo">追加効果（特定のカードがあるとき）あり</option><optgroup label="効果の中身">${kinds}</optgroup><optgroup label="モンスターの発動タイミング">${trigs}</optgroup><optgroup label="装備の能力">${abs}</optgroup>`;
+  const trigs = MON_TRIGS.map(k => `<option value="t:${k}">${TRIGS[k]}</option>`).join("");
+  const abs = Object.entries(ABS).map(([k, v]) => `<option value="a:${k}">${v.label}</option>`).join("");
+  return `<option value="">効果：指定なし</option><option value="any">自動の効果・装備の効果あり</option><option value="none">効果なし</option><option value="combo">追加効果（特定のカードがあるとき）あり</option><optgroup label="効果の中身">${kinds}</optgroup><optgroup label="モンスターの発動タイミング">${trigs}</optgroup><optgroup label="能力">${abs}</optgroup>`;
 }
 function initFilters(key, onChange){
   const box = $("#" + key + "Filters");
   box.innerHTML = `<input type="search" id="${key}Q" placeholder="カード名・効果でさがす" aria-label="カード検索">
-    <div class="seg" id="${key}Type">${[["all", "すべて"], ["monster", "モンスター"], ["magic", "魔法"], ["quick", "速攻魔法"], ["equip", "装備魔法"], ["trap", "罠"]].map(([v, l]) => `<button data-v="${v}" aria-pressed="${v === "all"}">${l}</button>`).join("")}</div>
+    <div class="seg" id="${key}Type">${[["all", "すべて"], ["monster", "モンスター"], ["magic", "魔法"], ["quick", "速攻魔法"], ["equip", "装備"], ["trap", "罠"]].map(([v, l]) => `<button data-v="${v}" aria-pressed="${v === "all"}">${l}</button>`).join("")}</div>
     <select id="${key}Fx" aria-label="効果で絞り込み">${fxOptionsHTML()}</select>
     <select id="${key}Sort" aria-label="並べ替え">${Object.entries(SORTS).map(([k, v]) => `<option value="${k}">${v}</option>`).join("")}</select>
     <span class="count" id="${key}Count"></span>`;
@@ -1243,18 +1307,18 @@ function matchCard(c, f){
   const t = cardType(c), nf = normFx(c);
   if (f.type === "quick" ? !isQuick(c) : (f.type !== "all" && t !== f.type)) return false;
   if (f.q){
-    const hay = normQ([c.name, plainRuby(c.effect), plainRuby(c.flavor), fxText(c), t === "equip" ? eqText(c) : "", TYPE_LABEL[t], c.author].join(" "));
+    const hay = normQ([c.name, plainRuby(c.effect), plainRuby(c.flavor), fxText(c), t === "equip" ? eqText(c) : monAbsText(c), TYPE_LABEL[t], c.author].join(" "));
     if (!normQ(f.q).split(/\s+/).filter(Boolean).every(w => hay.includes(w))) return false;
   }
   if (f.fx){
-    const hasEq = t === "equip";
+    const hasEq = t === "equip" || absOf(c).length > 0;
     const nc = normCombo(c);
     if (f.fx === "any" && !nf && !nc && !hasEq) return false;
     if (f.fx === "none" && (nf || nc || hasEq || c.effect)) return false;
     if (f.fx === "combo" && !nc) return false;
     if (f.fx.startsWith("k:") && !((nf && nf.kind === f.fx.slice(2)) || (nc && nc.kind === f.fx.slice(2)))) return false;
     if (f.fx.startsWith("t:") && (!nf || t !== "monster" || nf.trig !== f.fx.slice(2))) return false;
-    if (f.fx.startsWith("a:") && c.eqAb !== f.fx.slice(2)) return false;
+    if (f.fx.startsWith("a:") && !absOf(c).some(a => a.k === f.fx.slice(2))) return false;
   }
   return true;
 }
@@ -1376,7 +1440,38 @@ $("#mkFile").addEventListener("change", e => {
 composite();
 $("#mkEqAb").innerHTML = Object.entries(EQ_AB).map(([k, v]) => `<option value="${k}">${v}</option>`).join("");
 $("#mkEqAb").addEventListener("input", syncEqLine); $("#mkEq").addEventListener("input", syncEqLine);
-function syncEqLine(){ if (MK.type === "equip") $("#mkFxLine").textContent = eqText({ eqN: Math.round(+$("#mkEq").value || 0), eqAb: $("#mkEqAb").value }); }
+function syncEqLine(){
+  if (MK.type !== "equip" && MK.type !== "monster") return;
+  const c = { type: MK.type, eqN: Math.round(+$("#mkEq").value || 0), abs: readAbs(), fx: readFx(), combo: readCombo() };
+  $("#mkFxLine").textContent = [MK.type === "equip" ? eqText(c) : monAbsText(c), fxText(c)].filter(Boolean).join("。");
+}
+function renderAbsForm(t){
+  const cur = readAbs();
+  $("#mkAbs").innerHTML = Object.entries(ABS).filter(([, v]) => !v.only || v.only === (t === "equip" ? "eq" : "mon")).map(([k, v]) =>
+    `<label><input type="checkbox" data-ab="${k}"> ${v.label}${v.name ? ` 名前<input type="text" data-abname="${k}" maxlength="20" placeholder="例: ただの">` : ""}${v.n ? ` 数<input type="number" data-abn="${k}" min="1" max="9999" value="${v.n}">` : ""}</label>`).join("");
+  loadAbs(cur);
+}
+function readAbs(){
+  if (!document.querySelector("#mkAbs [data-ab]")) return [];
+  return [...document.querySelectorAll("#mkAbs [data-ab]")].filter(x => x.checked).map(x => {
+    const k = x.dataset.ab, a = { k };
+    if (ABS[k].n){ const el = document.querySelector(`#mkAbs [data-abn="${k}"]`); a.n = Math.max(1, Math.round(+(el && el.value) || ABS[k].n)); }
+    if (ABS[k].name){ const el = document.querySelector(`#mkAbs [data-abname="${k}"]`); a.name = (el && el.value.trim()) || ""; }
+    return a;
+  });
+}
+function loadAbs(list){
+  document.querySelectorAll("#mkAbs [data-ab]").forEach(x => { x.checked = false; });
+  (list || []).forEach(a => {
+    const x = document.querySelector(`#mkAbs [data-ab="${a.k}"]`); if (!x) return; x.checked = true;
+    const n = document.querySelector(`#mkAbs [data-abn="${a.k}"]`); if (n && a.n) n.value = a.n;
+    const m = document.querySelector(`#mkAbs [data-abname="${a.k}"]`); if (m && a.name) m.value = a.name;
+  });
+  syncEqLine();
+}
+$("#mkAbs").addEventListener("input", syncEqLine); $("#mkAbs").addEventListener("change", syncEqLine);
+$("#fxAskOn").addEventListener("change", () => { $("#fxAskWrap").hidden = !$("#fxAskOn").checked; syncFxForm(); });
+$("#fxAsk").addEventListener("input", () => syncFxForm());
 MK.deck = "normal";
 function syncCost(){
   const v = MK.deck === "normal" ? "" : $("#mkCost").value;
@@ -1417,21 +1512,25 @@ $("#fxCond").innerHTML = Object.entries(CONDS).map(([k, v]) => `<option value="$
 function setMkType(t){
   MK.type = t;
   document.querySelectorAll("#mkType button").forEach(b => b.setAttribute("aria-pressed", b.dataset.t === t));
-  const ec = $("#editCard"); ec.classList.remove("monster", "magic", "trap"); ec.classList.add(t);
+  const ec = $("#editCard"); ec.classList.remove("monster", "magic", "trap", "equip"); ec.classList.add(t);
   $("#mkTab").textContent = TYPE_LABEL[t];
   $("#atkRow").hidden = $("#infRow").hidden = t !== "monster";
   $("#quickRow").hidden = t !== "magic";
   $("#mkTab").textContent = t === "magic" && $("#mkQuick").checked ? "速攻魔法" : TYPE_LABEL[t];
   if (typeof syncCost === "function" && $("#mkCost").options.length) syncCost();
   $("#eqRow").hidden = $("#eqNote").hidden = t !== "equip";
-  $("#fxForm").hidden = t === "equip";
-  const trigs = t === "monster" ? ["summon", "kill", "destroyed"] : ["use"];
+  $("#capRow").hidden = t !== "monster";
+  $("#absBox").hidden = t !== "monster" && t !== "equip";
+  $("#absHead").textContent = t === "equip" ? "装備したモンスターに付く能力" : "このモンスターの能力";
+  renderAbsForm(t);
+  $("#cbBox").hidden = t === "equip";
+  const trigs = t === "monster" ? MON_TRIGS : t === "equip" ? EQ_TRIGS : ["use"];
   const cur = $("#fxTrig").value;
-  $("#fxTrig").innerHTML = trigs.map(k => `<option value="${k}">${TRIGS[k]}</option>`).join("");
+  $("#fxTrig").innerHTML = trigs.map(k => `<option value="${k}">${trigLabel(t, k)}</option>`).join("");
   if (trigs.includes(cur)) $("#fxTrig").value = cur;
-  $("#trigWrap").hidden = t !== "monster";
+  $("#trigWrap").hidden = t !== "monster" && t !== "equip";
   const curK = $("#fxKind").value, curCb = $("#cbKind").value;
-  const kinds = Object.entries(KINDS).filter(([, v]) => (!v.trap || t === "trap") && (!v.mon || t === "monster") && (!v.chain || t === "trap" || t === "magic"));
+  const kinds = Object.entries(KINDS).filter(([, v]) => (!v.trap || t === "trap") && (!v.mon || t === "monster" || t === "equip") && (!v.chain || t === "trap" || t === "magic"));
   const opts = kinds.map(([k, v]) => `<option value="${k}">${v.label}</option>`).join("");
   $("#fxKind").innerHTML = opts; $("#cbKind").innerHTML = opts;
   $("#fxKind").value = kinds.some(([k]) => k === curK) ? curK : "none";
@@ -1439,9 +1538,9 @@ function setMkType(t){
   syncFxForm();
 }
 function readFx(){
-  if (MK.type === "equip") return null;
   const kind = $("#fxKind").value; if (!kind || kind === "none") return null;
-  const fx = { trig: MK.type === "monster" ? $("#fxTrig").value : "use", kind };
+  const fx = { trig: MK.type === "monster" || MK.type === "equip" ? $("#fxTrig").value : "use", kind };
+  if ($("#fxAskOn").checked && $("#fxAsk").value.trim()) fx.ask = $("#fxAsk").value.trim();
   if (KINDS[kind].n) fx.n = Math.max(1, Math.round(+$("#fxN").value || 1));
   if (kind === "win"){ fx.cond = $("#fxCond").value; if (CONDS[fx.cond].n) fx.cn = Math.max(1, Math.round(+$("#fxCn").value || 1)); }
   return fx;
@@ -1461,6 +1560,7 @@ function syncFxForm(){
   $("#condRow").hidden = kind !== "win";
   $("#fxCnWrap").hidden = !(CONDS[$("#fxCond").value] || {}).n;
   $("#mkFxLine").textContent = fxText({ type: MK.type, fx: readFx(), combo: readCombo() });
+  $("#fxAskWrap").hidden = !$("#fxAskOn").checked;
   $("#cbState").textContent = readCombo() ? "（設定あり）" : "";
   syncEqLine();
 }
@@ -1479,7 +1579,8 @@ $("#cbWhere").innerHTML = Object.entries(WHERE).map(([k, v]) => `<option value="
 function loadFxForm(c){
   const fx = normFx(c);
   $("#fxKind").value = fx ? fx.kind : "none";
-  if (fx && MK.type === "monster") $("#fxTrig").value = fx.trig;
+  if (fx && (MK.type === "monster" || MK.type === "equip")) $("#fxTrig").value = fx.trig;
+  $("#fxAskOn").checked = !!(fx && fx.ask); $("#fxAsk").value = fx && fx.ask ? fx.ask : "";
   $("#fxN").value = fx && fx.n ? fx.n : 100;
   $("#fxCond").value = fx && fx.cond ? fx.cond : "none";
   $("#fxCn").value = fx && fx.cn ? fx.cn : 3;
@@ -1489,8 +1590,8 @@ function loadFxForm(c){
   syncFxForm();
 }
 function resetMaker(){
-  S.editId = null; setFrameless(false); $("#mkName").value = ""; $("#mkEff").value = ""; $("#mkFlv").value = ""; $("#mkNameSize").value = $("#mkTextSize").value = "m"; syncSizes(); $("#mkAtk").value = 300; $("#mkEq").value = 200; $("#mkEqAb").value = "none"; $("#mkFont").value = "klee"; syncFont(); $("#mkQuick").checked = false; $("#mkCost").value = "1"; setMkDeck("normal"); $("#mkLimit").value = "3"; clearCanvas(); undoStack = [];
-  setMkType("monster"); loadFxForm(null);
+  S.editId = null; setFrameless(false); $("#mkName").value = ""; $("#mkEff").value = ""; $("#mkFlv").value = ""; $("#mkNameSize").value = $("#mkTextSize").value = "m"; syncSizes(); $("#mkAtk").value = 300; $("#mkEq").value = 200; $("#mkEqAb").value = "none"; $("#mkEqCost").value = "1"; $("#mkEqCap").value = ""; $("#mkFont").value = "klee"; syncFont(); $("#mkQuick").checked = false; $("#mkCost").value = "1"; setMkDeck("normal"); $("#mkLimit").value = "3"; clearCanvas(); undoStack = [];
+  setMkType("monster"); loadFxForm(null); loadAbs([]);
   $("#mkTitle").textContent = "カードを描く"; $("#btnNew").hidden = true; $("#btnSave").textContent = "カードを保存";
 }
 setMkType("monster"); loadFxForm(null);
@@ -1507,7 +1608,7 @@ $("#btnSave").addEventListener("click", async () => {
   const id = S.editId || uid("c");
   const prev = S.cards.get(id);
   let eqN = Math.round(+$("#mkEq").value || 0); $("#mkEq").value = eqN;
-  const doc = { type: MK.type, name, atk: MK.type === "monster" ? atk : 0, atkInf, eqN: MK.type === "equip" ? eqN : 0, eqAb: MK.type === "equip" ? $("#mkEqAb").value : "none", effect: $("#mkEff").value.trim(), flavor: $("#mkFlv").value.trim(), nameSize: $("#mkNameSize").value, textSize: $("#mkTextSize").value, fx: readFx(), combo: readCombo(), font: $("#mkFont").value, quick: MK.type === "magic" && $("#mkQuick").checked, cost: MK.deck === "normal" ? null : +$("#mkCost").value, deckMode: MK.deck, limit: +$("#mkLimit").value,
+  const doc = { type: MK.type, name, atk: MK.type === "monster" ? atk : 0, atkInf, eqN: MK.type === "equip" ? eqN : 0, eqAb: "none", eqCost: MK.type === "equip" ? Math.max(0, Math.round(+$("#mkEqCost").value || 0)) : null, eqCap: MK.type === "monster" && $("#mkEqCap").value.trim() !== "" ? Math.max(0, Math.round(+$("#mkEqCap").value || 0)) : null, abs: MK.type === "monster" || MK.type === "equip" ? readAbs() : [], effect: $("#mkEff").value.trim(), flavor: $("#mkFlv").value.trim(), nameSize: $("#mkNameSize").value, textSize: $("#mkTextSize").value, fx: readFx(), combo: readCombo(), font: $("#mkFont").value, quick: MK.type === "magic" && $("#mkQuick").checked, cost: MK.deck === "normal" ? null : +$("#mkCost").value, deckMode: MK.deck, limit: +$("#mkLimit").value,
     img: prev && prev.img && !MK.artDirty ? prev.img : encodeArt(out), frameless: MK.frameless, author: S.name, ownerId: prev?.ownerId || S.uid || null, updatedAt: Date.now() };
   $("#btnSave").disabled = true;
   try{ await saveCardDoc(id, doc); toast(S.editId ? "カードを更新しました" : "カードを保存しました！"); resetMaker(); }
@@ -1540,7 +1641,7 @@ $("#gallery").addEventListener("click", async e => {
   if (ed){
     const c = S.cards.get(ed.dataset.edit); if (!c || !isMine(c)) return;
     S.editId = c.id; setFrameless(!!c.frameless); MK.artDirty = false; $("#mkName").value = c.nameRuby || c.name; $("#mkEff").value = c.effect || ""; $("#mkFlv").value = c.flavor || ""; $("#mkNameSize").value = SIZES_T[c.nameSize] ? c.nameSize : "m"; $("#mkTextSize").value = SIZES_T[c.textSize] ? c.textSize : "m"; syncSizes(); $("#mkAtk").value = c.atkInf ? "∞" : (c.atk || 0); $("#mkLimit").value = String(cardLimit(c));
-    $("#mkQuick").checked = !!c.quick; setMkType(cardType(c)); loadFxForm(c); $("#mkFont").value = FONTS[c.font] ? c.font : "klee"; syncFont(); $("#mkCost").value = hasCost(c) ? String(costOf(c)) : "1"; setMkDeck(deckModeOf(c)); $("#mkEq").value = c.eqN || 0; $("#mkEqAb").value = c.eqAb || "none"; syncEqLine();
+    $("#mkQuick").checked = !!c.quick; setMkType(cardType(c)); loadFxForm(c); $("#mkFont").value = FONTS[c.font] ? c.font : "klee"; syncFont(); $("#mkCost").value = hasCost(c) ? String(costOf(c)) : "1"; setMkDeck(deckModeOf(c)); $("#mkEq").value = c.eqN || 0; $("#mkEqAb").value = "none"; $("#mkEqCost").value = String(eqCostOf(c)); $("#mkEqCap").value = hasEqCap(c) ? String(+c.eqCap) : ""; loadAbs(absOf(c)); syncEqLine();
     const im = new Image(); im.onload = () => { clearCanvas(); setPhoto(im); setMode("draw"); composite(); undoStack = []; MK.artDirty = false; }; im.src = c.img;
     $("#mkTitle").textContent = "カードを編集中"; $("#btnNew").hidden = false; $("#btnSave").textContent = "変更を保存";
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -1619,13 +1720,14 @@ function renderCardView(){
   const t = cardType(c), mana = CV.ctx === "deck" ? $("#deckMana").checked : undefined, ft = fxText(c), lim = cardLimit(c), rows = [];
   rows.push(["種類", isQuick(c) ? "速攻魔法" : TYPE_LABEL[t]]);
   if (t === "monster") rows.push(["ATK", fmtN(baseAtk(c))]);
-  if (t === "equip") rows.push(["ATK", `${(c.eqN || 0) >= 0 ? "+" : "−"}${Math.abs(c.eqN || 0)}`]);
+  if (t === "equip") rows.push(["ATK", `${(c.eqN || 0) >= 0 ? "+" : "−"}${Math.abs(c.eqN || 0)}`], ["装備コスト", String(eqCostOf(c))]);
+  if (t === "monster") rows.push(["装備キャパ", String(eqCapOf(c)) + (hasEqCap(c) ? "" : "（ATK÷100）")]);
   if (hasCost(c) && mana !== false) rows.push(["コスト", String(costOf(c))]);
   if (!c.starter) rows.push(["使えるデッキ", DECK_LABEL[deckModeOf(c)]]);
   rows.push(["デッキ上限", lim ? `${lim}枚まで` : "制限なし"]);
   rows.push(["作った人", c.author || "？"]);
   let text = "";
-  if (t === "equip") text += `<p class="cv-fx">${esc(eqText(c))}</p>`;
+  { const et = t === "equip" ? eqText(c) : monAbsText(c); if (et) text += `<p class="cv-fx">${esc(et)}</p>`; }
   if (ft) text += `<p class="cv-fx">${esc(ft)}</p>`;
   if (c.effect) text += `<p>${rubyHTML(c.effect)}</p>`;
   if (!text) text = `<p class="muted">効果なし</p>`;
@@ -1774,7 +1876,7 @@ function renderDeckList(){
         <div class="dk-title"><h2>${esc(d.name)}${d.mana ? `<span class="note">　コストデッキ</span>` : ""}</h2><span class="dk-total">${cs.length}<small> 枚</small></span></div>
         <div class="dk-stats">
           <div><div class="dk-cap">${cap}</div><div class="dk-bars">${buckets.map(([l, n]) => `<div class="dk-bar"><b>${n}</b><i style="height:${Math.round(n / mx * 82)}%"></i><span>${l}</span></div>`).join("")}</div></div>
-          <dl class="dk-types"><dt>モンスター</dt><dd>${cnt.monster}</dd><dt>魔法</dt><dd>${cnt.magic}</dd><dt>装備魔法</dt><dd>${cnt.equip}</dd><dt>罠</dt><dd>${cnt.trap}</dd></dl>
+          <dl class="dk-types"><dt>モンスター</dt><dd>${cnt.monster}</dd><dt>魔法</dt><dd>${cnt.magic}</dd><dt>装備</dt><dd>${cnt.equip}</dd><dt>罠</dt><dd>${cnt.trap}</dd></dl>
         </div>
       </div>
       ${picker}
@@ -1981,6 +2083,7 @@ function startOnline(code, slot, st){
   G.unsub = S.db.doc("rooms/" + code).onSnapshot(snap => {
     if (!G || G.code !== code || !snap.exists) return;
     G.st = clone(snap.data());
+    if (maybeTurnStart()) return;
     after(false);
   }, () => toast("通信が切れました。「部屋にもどる」で再接続してね"));
   S.tab = "play"; renderAll();
@@ -2007,7 +2110,15 @@ $("#waiting").addEventListener("click", e => {
 const O = s => s === "a" ? "b" : "a";
 const P = (st, s) => st.players[s];
 const card = id => S.cards.get(id) || { id, name: "？", type: "monster", atk: 0 };
-const atkOf = m => Math.max(0, baseAtk(card(m.c)) + (m.mod || 0));
+function atkOf(m){
+  if (!m) return 0;
+  const c = card(m.c), es = eqsOf(m); let v = baseAtk(c) + (m.mod || 0);
+  es.forEach((e, k) => { v += (card(e.c).eqN || 0) * eqMult(es, k); });
+  absOf(c).forEach(a => { if (a.k === "eqBonus" && a.name){ const w = normQ(a.name); es.forEach(e => { if (normQ(card(e.c).name).includes(w)) v += a.n || 0; }); } });
+  return Math.max(0, v);
+}
+// ATK change to show on the card face
+const modOf = m => { const b = baseAtk(card(m.c)); return isFinite(b) ? atkOf(m) - b : 0; };
 // ∞ damage just brings LP to 0 (LP never holds Infinity, so the room state stays plain JSON)
 function dealDmg(st, s, n){ const p = P(st, s); p.lp = n === Infinity ? Math.min(0, p.lp) : p.lp - n; }
 function log(st, s, m){ st.log.push({ t: Date.now(), s: s || "", m }); if (st.log.length > 80) st.log.splice(0, st.log.length - 80); }
@@ -2028,9 +2139,17 @@ function drawN(st, s, n, why){
   if (got < n) log(st, s, "山札がなくて引けなかった");
 }
 function freeZone(arr){ return arr.findIndex(x => !x); }
-function targetOptions(st, s, kind){
+const tauntIdx = (st, s) => P(st, s).mz.map((m, i) => m && hasAb(st, s, i, "taunt") ? i : -1).filter(i => i >= 0);
+function targetOptions(st, s, kind, ctx = {}){
   const t = KINDS[kind] && KINDS[kind].target;
-  if (t === "opp") return P(st, O(s)).mz.map((m, i) => m ? i : -1).filter(i => i >= 0);
+  if (t === "opp"){ const tt = tauntIdx(st, O(s)); return tt.length ? tt : P(st, O(s)).mz.map((m, i) => m ? i : -1).filter(i => i >= 0); }
+  if (t === "any"){
+    const src = ctx.mon && monAt(st, ctx.mon);
+    if (kind === "moveEquips" && (!src || !eqsOf(src).some(e => e.u !== ctx.eqU))) return [];
+    const out = [];
+    for (const o of [s, O(s)]) P(st, o).mz.forEach((m, i) => { if (m && m !== src) out.push(`${o}:${i}`); });
+    return out;
+  }
   if (t === "mine") return P(st, s).mz.map((m, i) => m ? i : -1).filter(i => i >= 0);
   if (t === "grave"){
     if (kind === "reborn" && freeZone(P(st, s).mz) < 0) return [];
@@ -2043,44 +2162,107 @@ function autoTarget(st, s, kind, opts){
   if (t === "opp") return opts.slice().sort((a, b) => atkOf(P(st, O(s)).mz[b]) - atkOf(P(st, O(s)).mz[a]))[0];
   if (t === "mine") return opts.slice().sort((a, b) => atkOf(P(st, s).mz[b]) - atkOf(P(st, s).mz[a]))[0];
   if (t === "grave") return opts.slice().sort((a, b) => cmpNum(baseAtk(card(b)), baseAtk(card(a))))[0];
+  if (t === "any") return opts.find(o => o.startsWith(s + ":")) || opts[0];
 }
-// equip cards pointing at monster (s,i) go to their owner's graveyard
+/* ---- equips stick to a monster: m.eqs = [{ c, o (owner), u }] from left to right ---- */
+function mkMon(st, id){ st.un = (st.un || 0) + 1; return { c: id, mod: 0, attacked: false, eqs: [], u: st.un }; }
+const monAt = (st, ref) => { const m = ref && P(st, ref.s).mz[ref.i]; return m && m.u === ref.u ? m : null; };
+function findEq(st, u){ for (const s of ["a", "b"]){ const mz = P(st, s).mz; for (let i = 0; i < mz.length; i++){ const k = eqsOf(mz[i]).findIndex(e => e.u === u); if (k >= 0) return { s, i, k, e: mz[i].eqs[k] }; } } return null; }
+// all equips on monster (s,i) go to their owners' graveyards
 function detachEquips(st, s, i){
-  for (const o of ["a", "b"]){
-    const p = P(st, o);
-    p.sz.forEach((z, k) => { if (z && z.eq && z.eq.s === s && z.eq.i === i){ p.sz[k] = null; p.grave.push(z.c); log(st, o, `装備していた「${card(z.c).name}」も墓地へ`); } });
-  }
+  const m = P(st, s).mz[i]; if (!m) return;
+  eqsOf(m).forEach(e => { P(st, e.o).grave.push(e.c); log(st, e.o, `装備していた「${card(e.c).name}」も墓地へ`); });
+  m.eqs = [];
 }
-// an equip card leaving the field removes its ATK change
-function unequip(st, owner, k){
-  const z = P(st, owner).sz[k]; if (!z || !z.eq) return;
-  const m = P(st, z.eq.s).mz[z.eq.i]; if (m) m.mod = (m.mod || 0) - z.eq.n;
+function unequip(){}
+// abilities of monster (s,i): its own + the ones its equips give (a 化身 doubles numbers)
+function monAbs(st, s, i){
+  const m = P(st, s).mz[i]; if (!m) return [];
+  const out = absOf(card(m.c)).map(a => ({ ...a, mult: 1 }));
+  const es = eqsOf(m);
+  es.forEach((e, k) => absOf(card(e.c)).forEach(a => { if (a.k !== "double") out.push({ ...a, mult: eqMult(es, k), eqU: e.u }); }));
+  return out;
 }
-function hasAb(st, s, i, ab){ return equipsOn(st, s, i).some(id => card(id).eqAb === ab); }
+function hasAb(st, s, i, ab){ return monAbs(st, s, i).some(a => a.k === ab); }
+const abN = (st, s, i, ab) => monAbs(st, s, i).filter(a => a.k === ab).reduce((t, a) => t + (a.n || 0) * a.mult, 0);
 const maxAttacks = (st, s, i) => hasAb(st, s, i, "twice") ? 2 : 1;
-function equipsOn(st, s, i){ const out = []; for (const o of ["a", "b"]) P(st, o).sz.forEach(z => { if (z && z.eq && z.eq.s === s && z.eq.i === i) out.push(z.c); }); return out; }
-function equip(st, s, from, i, ts, ti){
-  const p = P(st, s), id = from === "hand" ? p.hand[i] : p.sz[i] && p.sz[i].c;
-  if (!id || cardType(card(id)) !== "equip") return false;
+function equipsOn(st, s, i){ return eqsOf(P(st, s).mz[i]).map(e => e.c); }
+function charmActive(st, m){
+  const ch = m && m.charm; if (!ch) return false;
+  if (ch.eu) return !!findEq(st, ch.eu);
+  return ["a", "b"].some(s => P(st, s).mz.some(x => x && x.u === ch.mu));
+}
+function canAttack(st, s, i){
+  const m = P(st, s).mz[i];
+  return !!m && !m.attacked && st.turnNo > 1 && !hasAb(st, s, i, "noAttack") && !charmActive(st, m);
+}
+function canEquipOn(st, id, ts, ti){
+  const m = P(st, ts).mz[ti]; if (!m || cardType(card(id)) !== "equip") return false;
+  return eqUsed(m) + eqCostOf(card(id)) <= eqCapOf(card(m.c));
+}
+// trigger list for monster (s,i): the monster itself, then each equip (doubled by a 化身) — equip effects belong to the equip's owner
+function monTrigList(st, s, i, trig, m, extra = {}){
+  m = m || P(st, s).mz[i]; if (!m) return [];
+  const base = { zone: i, mon: { s, i, u: m.u }, ...extra };
+  const L = [{ s, c: card(m.c), trig, ctx: base }];
+  const es = eqsOf(m);
+  es.forEach((e, k) => { const n = eqMult(es, k); for (let r = 0; r < n; r++) L.push({ s: e.o, c: card(e.c), trig, ctx: { ...base, zone: e.o === s ? i : null, eqU: e.u } }); });
+  return L;
+}
+function runList(st, L, then){
+  const step = (st2, k) => { if (k >= L.length){ then && then(st2); return; } const x = L[k]; runCard(st2, x.s, x.c, x.trig, x.ctx, st3 => step(st3, k + 1)); };
+  step(st, 0);
+}
+// turn start / end: every monster of `who`, and every equip `who` owns (wherever it's stuck)
+function fireTurn(st, who, trig, then){
+  const L = [];
+  for (const o of ["a", "b"]) P(st, o).mz.forEach((m, i) => { if (m) monTrigList(st, o, i, trig).forEach(x => { if (x.s === who && (normFx(x.c) || {}).trig === trig || x.s === who && (normCombo(x.c) || {}).trig === trig) L.push(x); }); });
+  runList(st, L, then);
+}
+// stick equip hand[hi] of player s onto monster (ts,ti) at position pos (default: rightmost)
+function equip(st, s, hi, ts, ti, pos){
+  const p = P(st, s), id = p.hand[hi], c = card(id);
+  if (!id || cardType(c) !== "equip") return false;
   const m = P(st, ts).mz[ti]; if (!m) return false;
-  if (from === "hand" && freeZone(p.sz) < 0) return false;
-  if (!pay(st, s, card(id))) return false;
-  let z = i;
-  if (from === "hand"){ z = freeZone(p.sz); p.hand.splice(i, 1); }
-  const n = card(id).eqN || 0;
-  m.mod = (m.mod || 0) + n;
-  p.sz[z] = { c: id, turn: st.turnNo, face: true, eq: { s: ts, i: ti, n } };
+  if (!canEquipOn(st, id, ts, ti) || !pay(st, s, c)) return false;
+  p.hand.splice(hi, 1);
+  if (!m.eqs) m.eqs = [];
+  const k = pos == null ? m.eqs.length : Math.max(0, Math.min(+pos, m.eqs.length));
+  st.un = (st.un || 0) + 1;
+  const e = { c: id, o: s, u: st.un };
+  m.eqs.splice(k, 0, e);
   ev(st, { type: "equip", s: ts, z: ti });
-  log(st, s, `装備魔法「${card(id).name}」を${ts === s ? "" : "相手の"}「${card(m.c).name}」に装備${n ? `（ATK${n > 0 ? "+" : "−"}${Math.abs(n)}）` : ""}${card(id).eqAb && card(id).eqAb !== "none" ? `：${EQ_AB[card(id).eqAb]}` : ""}`);
+  const n = c.eqN || 0, ab = absOf(c).map(a => ABS[a.k].label).join("・");
+  log(st, s, `「${c.name}」を${ts === s ? "" : "相手の"}「${card(m.c).name}」に装備${n ? `（ATK${n > 0 ? "+" : "−"}${Math.abs(n)}）` : ""}${ab ? `：${ab}` : ""}（キャパ ${eqUsed(m)}/${eqCapOf(card(m.c))}）`);
+  const mult = eqMult(m.eqs, k), L = [];
+  for (let r = 0; r < mult; r++) L.push({ s, c, trig: "attach", ctx: { zone: ts === s ? ti : null, mon: { s: ts, i: ti, u: m.u }, eqU: e.u } });
+  runList(st, L, null);
   return true;
 }
 // visual events, stored in the game state so both players see the same animations
 function ev(st, e){ st.evn = (st.evn || 0) + 1; (st.ev || (st.ev = [])).push({ ...e, n: st.evn }); if (st.ev.length > 30) st.ev.splice(0, st.ev.length - 30); }
-function destroyMonster(st, s, i, why){
-  const p = P(st, s), m = p.mz[i]; if (!m) return;
-  p.mz[i] = null; p.grave.push(m.c); ev(st, { type: "destroy", s, z: i }); detachEquips(st, s, i);
-  log(st, s, `「${card(m.c).name}」が破壊された${why ? "（" + why + "）" : ""}`);
-  trigger(st, s, card(m.c), "destroyed");
+// returns true if the monster actually left the field. opt.battle: destroyed by battle; opt.force: manual (no protection)
+function destroyMonster(st, s, i, why, opt = {}){
+  const p = P(st, s), m = p.mz[i]; if (!m) return false;
+  const name = card(m.c).name;
+  if (!opt.force){
+    if (!opt.battle && hasAb(st, s, i, "noEffect")){ log(st, s, `「${name}」は効果では破壊されない！`); return false; }
+    const es = eqsOf(m);
+    if (es.some(e => absOf(card(e.c)).some(a => a.k === "substitute"))){
+      let k = es.findIndex(e => !absOf(card(e.c)).some(a => a.k === "substitute"));
+      if (k < 0) k = es.findIndex(e => absOf(card(e.c)).some(a => a.k === "substitute"));
+      const [e] = es.splice(k, 1); P(st, e.o).grave.push(e.c);
+      log(st, s, `「${name}」は「${card(e.c).name}」を身代わりにして破壊をまぬがれた！`);
+      return false;
+    }
+  }
+  const es = eqsOf(m);
+  p.mz[i] = null; p.grave.push(m.c); ev(st, { type: "destroy", s, z: i });
+  log(st, s, `「${name}」が破壊された${why ? "（" + why + "）" : ""}`);
+  es.forEach(e => P(st, e.o).grave.push(e.c));
+  if (es.length) log(st, s, `付いていた装備${es.map(e => `「${card(e.c).name}」`).join("")}も墓地へ`);
+  runList(st, monTrigList(st, s, i, "destroyed", m, { eqs: es.map(e => ({ c: e.c, o: e.o, u: e.u })), eqCount: es.length }), opt.then);
+  return true;
 }
 // apply effect of card c for player s. target resolved already (or undefined for untargeted)
 function applyEffect(st, s, c, target, ctx = {}, fx = normFx(c)){
@@ -2097,14 +2279,44 @@ function applyEffect(st, s, c, target, ctx = {}, fx = normFx(c)){
     case "destroy": if (op.mz[target]) destroyMonster(st, O(s), target, src); break;
     case "destroyAll": { const idx = op.mz.map((m, i) => m ? i : -1).filter(i => i >= 0); log(st, s, `${src}で相手のモンスターをすべて破壊！`); idx.forEach(i => destroyMonster(st, O(s), i, src)); break; }
     case "selfAtk": {
-      const m = ctx.zone != null ? me.mz[ctx.zone] : null;
-      if (m && m.c === c.id){ m.mod = (m.mod || 0) + n; log(st, s, `${src}のATK+${n}`); } else log(st, s, `${src}：場にいないのでATKは上がらない`);
+      const m = ctx.mon ? monAt(st, ctx.mon) : ctx.zone != null ? me.mz[ctx.zone] : null;
+      if (m && (ctx.mon || m.c === c.id)){ m.mod = (m.mod || 0) + n; log(st, s, `${src}で「${card(m.c).name}」のATK+${n}`); } else log(st, s, `${src}：場にいないのでATKは上がらない`);
+      break;
+    }
+    case "moveEquips": {
+      const srcM = ctx.mon && monAt(st, ctx.mon), [ts, ti] = String(target).split(":"), tm = (ts === "a" || ts === "b") ? P(st, ts).mz[+ti] : null;
+      if (!srcM || !tm){ log(st, s, `${src}：付けかえる先がいない`); break; }
+      const mv = eqsOf(srcM).filter(e => e.u !== ctx.eqU);
+      srcM.eqs = eqsOf(srcM).filter(e => e.u === ctx.eqU);
+      tm.eqs = eqsOf(tm).concat(mv);
+      ev(st, { type: "equip", s: ts, z: +ti });
+      log(st, s, `${src}で装備${mv.map(e => `「${card(e.c).name}」`).join("")}を${ts === s ? "" : "相手の"}「${card(tm.c).name}」に付けかえた`);
+      break;
+    }
+    case "equipsToHand": {
+      const back = [];
+      (ctx.eqs || []).forEach(e => { if (e.u === ctx.eqU) return; const g = P(st, e.o).grave, k = g.lastIndexOf(e.c); if (k >= 0){ g.splice(k, 1); P(st, e.o).hand.push(e.c); back.push(e.c); } });
+      log(st, s, back.length ? `${src}で装備${back.map(id => `「${card(id).name}」`).join("")}が手札に戻った` : `${src}：手札に戻す装備がない`);
+      break;
+    }
+    case "blast": {
+      const X = (ctx.eqCount || 0) * n, hit = [];
+      for (const o of [s, O(s)]) P(st, o).mz.forEach((m, i) => { if (m && atkOf(m) <= X) hit.push([o, i, atkOf(m)]); });
+      log(st, s, `${src}が自爆！ ATK${X}以下のモンスターをすべて破壊`);
+      const dead = hit.filter(([o, i]) => destroyMonster(st, o, i, src)).map(h => h[2]);
+      if (dead.length){ const d = Math.min(...dead); dealDmg(st, O(s), d); log(st, s, `${src}：${op.name}に${fmtN(d)}ダメージ（破壊したうち一番低いATK）`); }
+      else log(st, s, `${src}：破壊されたモンスターはいなかった`);
+      break;
+    }
+    case "charm": {
+      const m = op.mz[target];
+      if (m){ m.charm = { eu: ctx.eqU || null, mu: ctx.mon ? ctx.mon.u : null, c: c.id }; log(st, s, `${src}で「${card(m.c).name}」を魅了した（攻撃できない）`); }
       break;
     }
     case "atkUp": if (me.mz[target]){ me.mz[target].mod = (me.mz[target].mod || 0) + n; log(st, s, `${src}で「${card(me.mz[target].c).name}」のATK+${n}`); } break;
     case "atkDown": if (op.mz[target]){ op.mz[target].mod = (op.mz[target].mod || 0) - n; log(st, s, `${src}で「${card(op.mz[target].c).name}」のATK−${n}`); } break;
     case "revive": { const gi = me.grave.indexOf(target); if (gi >= 0){ me.grave.splice(gi, 1); me.hand.push(target); log(st, s, `${src}で墓地の「${card(target).name}」を手札に戻した`); } break; }
-    case "reborn": { const gi = me.grave.indexOf(target), z = freeZone(me.mz); if (gi >= 0 && z >= 0){ me.grave.splice(gi, 1); me.mz[z] = { c: target, mod: 0, attacked: false }; ev(st, { type: "summon", s, z }); log(st, s, `${src}で墓地の「${card(target).name}」を場に出した`); } break; }
+    case "reborn": { const gi = me.grave.indexOf(target), z = freeZone(me.mz); if (gi >= 0 && z >= 0){ me.grave.splice(gi, 1); me.mz[z] = mkMon(st, target); ev(st, { type: "summon", s, z }); log(st, s, `${src}で墓地の「${card(target).name}」を場に出した`); } break; }
     case "manaNow": if (me.mana){ me.mana.cur += n; log(st, s, `${src}でマナを${n}回復（${me.mana.cur}/${me.mana.max}）`); } else log(st, s, `${src}：マナを使わないデッキなので効果なし`); break;
     case "manaMax": if (me.mana){ const add = Math.min(n, MAX_MANA - me.mana.max); me.mana.max += add; me.mana.cur += n; log(st, s, `${src}で最大マナ+${add}、マナ+${n}（${me.mana.cur}/${me.mana.max}）`); } else log(st, s, `${src}：マナを使わないデッキなので効果なし`); break;
     case "manaDrain": if (op.mana){ const k = Math.min(n, op.mana.cur); op.mana.cur -= k; log(st, s, `${src}で${op.name}のマナを${k}減らした`); } else log(st, s, `${src}：相手はマナを使わないデッキなので効果なし`); break;
@@ -2124,7 +2336,14 @@ function applyEffect(st, s, c, target, ctx = {}, fx = normFx(c)){
 // resolve an effect that may need a target; `then` runs after (for attack responses)
 function runEffect(st, s, c, ctx = {}, then, fx = normFx(c)){
   if (!fx){ then && then(st); return; }
-  const opts = targetOptions(st, s, fx.kind);
+  if (fx.ask){
+    if (isHumanHere(s)){ G.chooseQ.push({ ask: true, s, c, fx, ctx, then }); return; }
+    const yes = Math.random() < .5;
+    log(st, s, `「${c.name}」：「${fx.ask}」→ ${yes ? "はい" : "いいえ"}`);
+    if (!yes){ then && then(st); return; }
+    fx = { ...fx, ask: "" };
+  }
+  const opts = targetOptions(st, s, fx.kind, ctx);
   if (opts === null){ applyEffect(st, s, c, undefined, ctx, fx); then && then(st); return; }
   if (!opts.length){ log(st, s, `「${c.name}」：対象がいない`); then && then(st); return; }
   if (isHumanHere(s)){
@@ -2135,7 +2354,7 @@ function runEffect(st, s, c, ctx = {}, then, fx = normFx(c)){
 function comboMet(st, s, cb, ctx = {}){
   const p = P(st, s), want = normQ(cb.name).trim();
   const is = cb.match === "part" ? (id => normQ(card(id).name).includes(want)) : (id => normQ(card(id).name).trim() === want);
-  const field = () => p.mz.some((m, i) => m && !(ctx.zone != null && i === ctx.zone) && is(m.c)) || p.sz.some(z => z && is(z.c));
+  const field = () => p.mz.some((m, i) => m && !(ctx.zone != null && i === ctx.zone) && is(m.c)) || p.sz.some(z => z && is(z.c)) || ["a", "b"].some(o => P(st, o).mz.some(m => eqsOf(m).some(e => e.o === s && e.u !== ctx.eqU && is(e.c))));
   const grave = () => p.grave.some(is);
   if (cb.where === "field") return field();
   if (cb.where === "grave") return grave();
@@ -2173,14 +2392,14 @@ function summon(st, s, hi, zi){
     st.pending = { type: "chain", by: s, wait: true, resume: null };
     return true;
   }
-  p.mz[z] = { c: id, mod: 0, attacked: false };
+  p.mz[z] = mkMon(st, id);
   log(st, s, label); ev(st, { type: "summon", s, z });
-  trigger(st, s, card(id), "summon", { zone: z });
+  trigger(st, s, card(id), "summon", { zone: z, mon: { s, i: z, u: p.mz[z].u } });
   return true;
 }
 function setCard(st, s, hi, zi){
   const p = P(st, s), id = p.hand[hi], z = (zi != null && !p.sz[zi]) ? zi : freeZone(p.sz);
-  if (z < 0 || cardType(card(id)) === "monster") return false;
+  if (z < 0 || cardType(card(id)) === "monster" || cardType(card(id)) === "equip") return false;
   p.hand.splice(hi, 1); p.sz[z] = { c: id, turn: st.turnNo };
   log(st, s, `魔法・罠ゾーンにカードをセット`);
   return true;
@@ -2188,6 +2407,13 @@ function setCard(st, s, hi, zi){
 // activate magic/trap from hand (magic only) or from set zone
 function activate(st, s, from, i, ctx = {}){
   const p = P(st, s);
+  if (from === "eq"){
+    const f = findEq(st, i); if (!f || f.e.o !== s || f.e.used || !absOf(card(f.e.c)).some(a => a.k === "negateOnce")) return false;
+    f.e.used = true;
+    ev(st, { type: "spell", s, c: f.e.c });
+    pushChain(st, s, f.e.c, ctx, `装備「${card(f.e.c).name}」の打ち消し`, { cancel: true });
+    return true;
+  }
   const id = from === "hand" ? p.hand[i] : p.sz[i] && p.sz[i].c; if (!id) return false;
   const c = card(id), t = cardType(c);
   if (t === "monster" || t === "equip") return false;
@@ -2206,11 +2432,11 @@ function chainWindow(st){
   if (pd.type === "chain") return pd.resume && pd.resume.type === "attack" ? "chainAttack" : "chain";
   return pd.type;
 }
-function pushChain(st, s, id, ctx, label){
+function pushChain(st, s, id, ctx, label, extra){
   const resume = st.pending ? (st.pending.type === "chain" ? st.pending.resume : st.pending) : null;
   if (!st.chain) st.chain = [];
-  const link = { s, c: id, ctx: ctx || {} };
-  if ((normFx(card(id)) || {}).kind === "cancel") link.target = st.chain.length - 1;
+  const link = { s, c: id, ctx: ctx || {}, ...(extra || {}) };
+  if (link.cancel || (normFx(card(id)) || {}).kind === "cancel") link.target = st.chain.length - 1;
   st.chain.push(link);
   log(st, s, st.chain.length > 1 ? `チェーン${st.chain.length}：${label}を発動！` : `${label}を発動！`);
   const other = O(s);
@@ -2229,13 +2455,13 @@ function resolveChain(st, resume){
       if (link.negated){ p.grave.push(link.c); log(st2, link.s, `「${c.name}」の召喚は打ち消された！`); step(st2); return; }
       let z = p.mz[link.z] ? freeZone(p.mz) : link.z;
       if (z < 0){ p.grave.push(link.c); log(st2, link.s, `場がいっぱいで「${c.name}」は出られなかった`); step(st2); return; }
-      p.mz[z] = { c: link.c, mod: 0, attacked: false };
+      p.mz[z] = mkMon(st2, link.c);
       log(st2, link.s, `「${c.name}」の召喚に成功！`); ev(st2, { type: "summon", s: link.s, z });
-      runCard(st2, link.s, c, "summon", { zone: z }, step);
+      runCard(st2, link.s, c, "summon", { zone: z, mon: { s: link.s, i: z, u: p.mz[z].u } }, step);
       return;
     }
     if (link.negated){ log(st2, link.s, `「${c.name}」の発動は無効になった`); step(st2); return; }
-    if ((normFx(c) || {}).kind === "cancel"){
+    if (link.cancel || (normFx(c) || {}).kind === "cancel"){
       const t = chain[link.target];
       if (t){ t.negated = true; ev(st2, { type: "counter", s: link.s }); log(st2, link.s, `「${c.name}」で「${card(t.c).name}」の${t.summon ? "召喚" : "発動"}を打ち消す！`); }
       else log(st2, link.s, `「${c.name}」：無効にするカードがない`);
@@ -2261,17 +2487,27 @@ function usableIn(st, s, c, win){
   const opts = fx ? targetOptions(st, s, fx.kind) : null;
   return !(opts && !opts.length);
 }
+// equips with the "cancel once" ability that player s owns
+function eqCancelOptions(st, s, win){
+  if (win !== "chain" && win !== "chainAttack" && win !== "summon") return [];
+  const out = [];
+  for (const o of ["a", "b"]) P(st, o).mz.forEach(m => eqsOf(m).forEach(e => { if (e.o === s && !e.used && absOf(card(e.c)).some(a => a.k === "negateOnce")) out.push({ from: "eq", i: e.u, c: card(e.c) }); }));
+  return out;
+}
 // everything player s may activate in a response window: set traps, set quick spells, quick spells in hand
 function responseOptions(st, s, win){
   const p = P(st, s), out = [];
   p.sz.forEach((z, i) => { if (!z || z.face) return; const c = card(z.c); if ((cardType(c) === "trap" || isQuick(c)) && z.turn < st.turnNo && canPay(st, s, c) && usableIn(st, s, c, win)) out.push({ from: "sz", i, c }); });
   p.hand.forEach((id, i) => { const c = card(id); if (isQuick(c) && canPay(st, s, c) && usableIn(st, s, c, win)) out.push({ from: "hand", i, c }); });
-  return out;
+  return out.concat(eqCancelOptions(st, s, win));
 }
 function usableTraps(st, s){ return responseOptions(st, s, "attack").filter(o => o.from === "sz").map(o => o.i); }
 function declareAttack(st, s, from, to){
-  const m = P(st, s).mz[from]; if (!m || m.attacked || st.turnNo === 1) return false;
+  const m = P(st, s).mz[from]; if (!m || !canAttack(st, s, from)) return false;
+  const tt = tauntIdx(st, O(s));
+  if (tt.length && (to === "direct" || !tt.includes(to))) return false;
   if (to === "direct" && P(st, O(s)).mz.some(Boolean) && !hasAb(st, s, from, "direct")) return false;
+  if (to !== "direct" && !P(st, O(s)).mz[to]) return false;
   m.atkCount = (m.atkCount || 0) + 1;
   m.attacked = m.atkCount >= maxAttacks(st, s, from);
   ev(st, { type: "attack", s, from, to, c: m.c });
@@ -2305,10 +2541,26 @@ function resolveAttack(st){
     const dm = P(st, D).mz[pd.to];
     if (!dm){ log(st, A, "攻撃対象がいなくなった"); checkEnd(st); return; }
     const a = atkOf(am), d = atkOf(dm);
-    const battleKill = (s2, i2) => { if (hasAb(st, s2, i2, "guard")){ log(st, s2, `「${card(P(st, s2).mz[i2].c).name}」は装備の力で戦闘では破壊されない！`); return false; } destroyMonster(st, s2, i2, "戦闘"); return true; };
-    if (a > d){ dealDmg(st, D, a - d); log(st, A, `バトル ${fmtN(a)} vs ${fmtN(d)}：${nm(st, D)} に ${fmtN(a - d)} ダメージ`); if (battleKill(D, pd.to)) trigger(st, A, card(am.c), "kill", { zone: pd.from }); }
-    else if (a < d){ dealDmg(st, A, d - a); log(st, A, `バトル ${fmtN(a)} vs ${fmtN(d)}：${nm(st, A)} に ${fmtN(d - a)} ダメージ`); if (battleKill(A, pd.from)) trigger(st, D, card(dm.c), "kill", { zone: pd.to }); }
-    else { log(st, A, `バトル ${fmtN(a)} vs ${fmtN(d)}：相打ち！`); battleKill(A, pd.from); battleKill(D, pd.to); }
+    // damage to a player is cut by the losing monster's 鉄壁-type ability
+    const hurt = (s2, i2, x) => { const cut = abN(st, s2, i2, "dmgCut"), y = x === Infinity ? x : Math.max(0, x - cut); dealDmg(st, s2, y); return [y, cut]; };
+    const losers = [];
+    if (a > d){ const [y, cut] = hurt(D, pd.to, a - d); log(st, A, `バトル ${fmtN(a)} vs ${fmtN(d)}：${nm(st, D)} に ${fmtN(y)} ダメージ${cut ? `（${cut}へった）` : ""}`); losers.push([D, pd.to, dm.u]); }
+    else if (a < d){ const [y, cut] = hurt(A, pd.from, d - a); log(st, A, `バトル ${fmtN(a)} vs ${fmtN(d)}：${nm(st, A)} に ${fmtN(y)} ダメージ${cut ? `（${cut}へった）` : ""}`); losers.push([A, pd.from, am.u]); }
+    else { log(st, A, `バトル ${fmtN(a)} vs ${fmtN(d)}：相打ち！`); losers.push([A, pd.from, am.u], [D, pd.to, dm.u]); }
+    const W = a > d ? [A, pd.from, am.u] : a < d ? [D, pd.to, dm.u] : null;
+    // "when it loses a battle" effects first, then the losers are destroyed
+    const L = [].concat(...losers.map(([s2, i2]) => monTrigList(st, s2, i2, "battleLose")));
+    runList(st, L, st2 => {
+      let killed = false;
+      losers.forEach(([s2, i2, u]) => {
+        const m2 = P(st2, s2).mz[i2]; if (!m2 || m2.u !== u) return;
+        if (hasAb(st2, s2, i2, "guard")){ log(st2, s2, `「${card(m2.c).name}」は戦闘では破壊されない！`); return; }
+        if (destroyMonster(st2, s2, i2, "戦闘", { battle: true })) killed = true;
+      });
+      if (W && killed){ const wm = P(st2, W[0]).mz[W[1]]; if (wm && wm.u === W[2]) runList(st2, monTrigList(st2, W[0], W[1], "kill"), null); }
+      checkEnd(st2);
+    });
+    return;
   }
   checkEnd(st);
 }
@@ -2319,13 +2571,25 @@ function endTurn(st, s){
 }
 function finishEndTurn(st){ const pd = st.pending; st.pending = null; checkEnd(st); if (!st.winner && pd) passTurn(st, pd.by); }
 function passTurn(st, s){
-  P(st, s).mz.forEach(m => { if (m){ m.attacked = false; m.atkCount = 0; } });
-  st.turn = O(s); st.turnNo++; st.summoned = false;
-  const np = P(st, st.turn);
-  if (np.mana){ np.mana.max = Math.min(MAX_MANA, np.mana.max + 1); np.mana.cur = np.mana.max; }
-  log(st, st.turn, `ターン${st.turnNo}：${np.name} のターン${np.mana ? `（マナ ${np.mana.max}）` : ""}`);
-  if (!np.deck.length){ st.winner = s; st.why = `${np.name} の山札がなくなった`; log(st, st.turn, "引くカードがない！"); return; }
-  np.hand.push(np.deck.shift());
+  fireTurn(st, s, "turnEnd", st => {
+    checkEnd(st); if (st.winner) return;
+    P(st, s).mz.forEach(m => { if (m){ m.attacked = false; m.atkCount = 0; } });
+    st.turn = O(s); st.turnNo++; st.summoned = false;
+    const np = P(st, st.turn);
+    if (np.mana){ np.mana.max = Math.min(MAX_MANA, np.mana.max + 1); np.mana.cur = np.mana.max; }
+    log(st, st.turn, `ターン${st.turnNo}：${np.name} のターン${np.mana ? `（マナ ${np.mana.max}）` : ""}`);
+    if (!np.deck.length){ st.winner = s; st.why = `${np.name} の山札がなくなった`; log(st, st.turn, "引くカードがない！"); return; }
+    np.hand.push(np.deck.shift());
+    // online: the new player's own screen runs their turn-start effects (so they can choose targets)
+    if (G && G.mode === "online" && st.turn !== G.slot) st.tsPending = st.turnNo;
+    else fireTurn(st, st.turn, "turnStart", null);
+  });
+}
+function maybeTurnStart(){
+  const st = G && G.st;
+  if (!st || G.mode !== "online" || !st.tsPending || st.tsPending !== st.turnNo || st.turn !== G.slot || st.winner) return false;
+  act(st => { st.tsPending = 0; fireTurn(st, st.turn, "turnStart", null); });
+  return true;
 }
 
 /* ================= glue: act / persist / cpu ================= */
@@ -2368,14 +2632,12 @@ function cpuStep(st, s){
     if (fx && fx.kind === "atkUp" && !p.mz.some(Boolean)) continue;
     if (Math.random() < .7){ activate(st, s, "hand", i); return; }
   }
-  // 1b. equip
-  if (freeZone(p.sz) >= 0){
-    const ei = p.hand.findIndex(id => cardType(card(id)) === "equip" && canPay(st, s, card(id)));
-    if (ei >= 0 && Math.random() < .7){
-      const n = card(p.hand[ei]).eqN || 0, side = n >= 0 ? s : O(s);
-      const ms = P(st, side).mz.map((m, j) => m ? j : -1).filter(j => j >= 0).sort((a, b) => atkOf(P(st, side).mz[b]) - atkOf(P(st, side).mz[a]));
-      if (ms.length){ equip(st, s, "hand", ei, side, ms[0]); return; }
-    }
+  // 1b. equip (bad ones go on the opponent)
+  for (let ei = 0; ei < p.hand.length; ei++){
+    const id = p.hand[ei], c = card(id); if (cardType(c) !== "equip" || !canPay(st, s, c) || Math.random() > .75) continue;
+    const bad = (c.eqN || 0) < 0 || absOf(c).some(a => a.k === "noAttack"), side = bad ? O(s) : s;
+    const ms = P(st, side).mz.map((m, j) => m && canEquipOn(st, id, side, j) ? j : -1).filter(j => j >= 0).sort((a, b) => atkOf(P(st, side).mz[b]) - atkOf(P(st, side).mz[a]));
+    if (ms.length){ equip(st, s, ei, side, ms[0]); return; }
   }
   // 2. summon strongest
   if (canSummonNow(st, s) && freeZone(p.mz) >= 0){
@@ -2388,9 +2650,10 @@ function cpuStep(st, s){
   // 4. attack
   if (st.turnNo > 1){
     for (let i = 0; i < ZONES; i++){
-      const m = p.mz[i]; if (!m || m.attacked) continue;
-      const opMons = op.mz.map((x, j) => x ? j : -1).filter(j => j >= 0);
-      if (!opMons.length || hasAb(st, s, i, "direct")){ declareAttack(st, s, i, "direct"); return; }
+      const m = p.mz[i]; if (!m || !canAttack(st, s, i)) continue;
+      const tt = tauntIdx(st, O(s));
+      const opMons = tt.length ? tt : op.mz.map((x, j) => x ? j : -1).filter(j => j >= 0);
+      if (!tt.length && (!opMons.length || hasAb(st, s, i, "direct"))){ declareAttack(st, s, i, "direct"); return; }
       const beat = opMons.filter(j => atkOf(op.mz[j]) < atkOf(m)).sort((a, b) => atkOf(op.mz[b]) - atkOf(op.mz[a]));
       if (beat.length){ declareAttack(st, s, i, beat[0]); return; }
     }
@@ -2403,15 +2666,14 @@ function cpuStep(st, s){
 // equip mode: a selected equip card (hand, or activating a set one) waits for a monster click
 function equipMode(st, me){
   if (!canAct(st, me)) return null;
-  if (G.equipFrom) return G.equipFrom;
-  if (G.sel && G.sel.z === "hand" && cardType(card(P(st, me).hand[G.sel.i])) === "equip" && freeZone(P(st, me).sz) >= 0 && canPay(st, me, card(P(st, me).hand[G.sel.i]))) return { from: "hand", i: G.sel.i };
+  if (G.sel && G.sel.z === "hand" && cardType(card(P(st, me).hand[G.sel.i])) === "equip" && canPay(st, me, card(P(st, me).hand[G.sel.i]))) return { from: "hand", i: G.sel.i, id: P(st, me).hand[G.sel.i] };
   return null;
 }
 function dropTarget(st, me){
   if (!G.sel || G.sel.z !== "hand" || !canAct(st, me)) return null;
   const t = cardType(card(P(st, me).hand[G.sel.i]));
   if (t === "monster") return canSummonNow(st, me) && canPay(st, me, card(P(st, me).hand[G.sel.i])) ? "mz" : null;
-  return "sz";
+  return t === "equip" ? null : "sz";
 }
 const mOpt = s => ({ mana: !!(G && G.st && G.st.players[s] && G.st.players[s].mana) });
 function renderBoard(){
@@ -2424,7 +2686,8 @@ function renderBoard(){
   const zoneHTML = (s, kind) => P(st, s)[kind].map((z, i) => {
     const mine = s === me;
     const attrs = `data-z="${kind}" data-s="${s === me ? "me" : "op"}" data-i="${i}"`;
-    const isTarget = (atkFrom != null && !mine && kind === "mz" && z) || (eqMode && kind === "mz" && z);
+    const tt = atkFrom != null ? tauntIdx(st, op) : [];
+    const isTarget = (atkFrom != null && !mine && kind === "mz" && z && (!tt.length || tt.includes(i))) || (eqMode && kind === "mz" && z && canEquipOn(st, eqMode.id, s, i));
     const pendSummon = !z && kind === "mz" && st.chain && st.chain.find(l => l.summon && l.s === s && l.z === i);
     if (pendSummon) return cardHTML(card(pendSummon.c), "dim", attrs.replace('data-z="mz"', 'data-z="pending"'), { done: "召喚中…", ...mOpt(s) });
     if (!z) return `<div class="slot ${mine && dropKind === kind ? "drop" : ""}" ${attrs}></div>`;
@@ -2435,7 +2698,11 @@ function renderBoard(){
       if (!mine) return backHTML(cls, attrs);
       return cardHTML(card(z.c), `${cls} isset`, attrs, mOpt(s));
     }
-    return cardHTML(card(z.c), cls, attrs, { mod: z.mod, done: z.attacked && s === st.turn ? "攻撃済" : (z.atkCount && s === st.turn ? "あと1回" : ""), eq: equipsOn(st, s, i).length, ...mOpt(s) });
+    const es = eqsOf(z), cap = eqCapOf(card(z.c));
+    const eqB = es.length ? `装備${es.length} ${eqUsed(z)}/${cap}` : "";
+    const ttl = es.length ? ` title="${esc("装備（左から）：" + es.map(e => card(e.c).name).join("→"))}"` : "";
+    const stt = z.attacked && s === st.turn ? "攻撃済" : (z.atkCount && s === st.turn ? "あと1回" : "") || (charmActive(st, z) ? "魅了" : "");
+    return cardHTML(card(z.c), cls, attrs + ttl, { mod: modOf(z), done: stt, eq: eqB, ...mOpt(s) });
   }).join("");
 
   // action bar
@@ -2447,12 +2714,9 @@ function renderBoard(){
     hint = st.pending.type === "chain" ? (st.pending.by === me ? "相手がチェーンするか考えています…" : "チェーンするか選んでね") : st.pending.by === me ? (st.pending.type === "end" ? "ターン終了前に、相手が速攻魔法・罠を使うか考えています…" : "相手が罠・速攻魔法を使うか考えています…") : (st.pending.type === "end" ? "相手のターン終了前です" : "攻撃されています！");
   } else if (!myTurn){
     hint = `${esc(po.name)} のターンです`;
-  } else if (G.equipFrom){
-    hint = "装備するモンスターをクリックしてね（相手のモンスターでもOK）";
-    acts = `<button class="ghost" data-act="cancelEq">やめる</button>`;
   } else if (atkFrom != null){
-    const noMons = !po.mz.some(Boolean), canDirect = noMons || hasAb(st, me, atkFrom, "direct");
-    hint = noMons ? "相手の場にモンスターがいない！" : canDirect ? "攻撃する相手モンスターをえらぶか、直接攻撃！" : "攻撃する相手モンスターをえらんでね";
+    const noMons = !po.mz.some(Boolean), tt = tauntIdx(st, op), canDirect = !tt.length && (noMons || hasAb(st, me, atkFrom, "direct"));
+    hint = noMons ? "相手の場にモンスターがいない！" : tt.length ? "このモンスターにしか攻撃できない！（光っているモンスター）" : canDirect ? "攻撃する相手モンスターをえらぶか、直接攻撃！" : "攻撃する相手モンスターをえらんでね";
     acts = (canDirect ? `<button class="primary" data-act="direct">直接攻撃！</button>` : "") + `<button class="ghost" data-act="cancelAtk">やめる</button>`;
   } else {
     hint = st.turnNo === 1 ? "先攻の1ターン目は攻撃できません" : "カードをえらんで行動しよう";
@@ -2463,19 +2727,18 @@ function renderBoard(){
       if (!afford && t !== "monster") hint = `マナが足りないので使えません${short}。セットはできます`;
       else if (t !== "equip") hint = "光っている魔法・罠ゾーンをクリックしてもセットできます";
       if (t === "magic") acts += `<button class="mg" data-act="activateHand" ${afford ? "" : "disabled"}>発動する${short}</button>`;
-      if (t === "equip" && afford) hint = freeZone(pm.sz) >= 0 ? "装備するモンスターをクリック（相手のでもOK）。空いている魔法・罠ゾーンをクリックするとセット" : "魔法・罠ゾーンがいっぱいで装備できません";
-      if (t !== "monster") acts += `<button class="${t === "trap" ? "tr" : ""}" data-act="set" ${freeZone(pm.sz) < 0 ? "disabled" : ""}>セットする</button>`;
+      if (t === "equip" && afford){ const any = ["a", "b"].some(o => P(st, o).mz.some((m, j) => m && canEquipOn(st, pm.hand[sel.i], o, j))); hint = any ? `光っているモンスターをクリックして装備（相手のでもOK）。装備コスト ${eqCostOf(c)}` : "装備できるモンスターがいません（キャパが足りない）"; }
+      if (t !== "monster" && t !== "equip") acts += `<button class="${t === "trap" ? "tr" : ""}" data-act="set" ${freeZone(pm.sz) < 0 ? "disabled" : ""}>セットする</button>`;
     }
     if (sel && sel.z === "mz" && sel.s === "me"){
       const m = pm.mz[sel.i];
-      if (m) acts += `<button class="primary" data-act="attack" ${m.attacked || st.turnNo === 1 ? "disabled" : ""}>攻撃する</button>`;
+      if (m){ const why = st.turnNo === 1 ? "" : hasAb(st, me, sel.i, "noAttack") ? "（攻撃できない）" : charmActive(st, m) ? "（魅了されている）" : ""; acts += `<button class="primary" data-act="attack" ${canAttack(st, me, sel.i) ? "" : "disabled"}>攻撃する${why}</button>`; }
     }
     if (sel && sel.z === "sz" && sel.s === "me"){
       const z = pm.sz[sel.i];
       if (z && !z.face){
         const t = cardType(card(z.c));
-        if (t === "equip") acts += `<button class="mg" data-act="equipSet" ${canPay(st, me, card(z.c)) ? "" : "disabled"}>装備する${canPay(st, me, card(z.c)) ? "" : "（マナが足りない）"}</button>`;
-        else { const ok = t === "magic" || z.turn < st.turnNo, af = canPay(st, me, card(z.c)); acts += `<button class="${t === "trap" ? "tr" : "mg"}" data-act="activateSet" ${ok && af ? "" : "disabled"}>発動する${!ok ? "（次のターンから）" : !af ? "（マナが足りない）" : ""}</button>`; }
+        { const ok = t === "magic" || z.turn < st.turnNo, af = canPay(st, me, card(z.c)); acts += `<button class="${t === "trap" ? "tr" : "mg"}" data-act="activateSet" ${ok && af ? "" : "disabled"}>発動する${!ok ? "（次のターンから）" : !af ? "（マナが足りない）" : ""}</button>`; }
       }
     }
     acts += `<button data-act="endTurn">ターン終了</button>`;
@@ -2485,7 +2748,7 @@ function renderBoard(){
   if (!st.winner && sel && (sel.z === "mz" || sel.z === "sz")){
     const X = sel.s === "me" ? pm : po, z = X[sel.z][sel.i];
     if (z && (sel.s === "me" || sel.z === "mz" || z.face)){
-      manual = `<div class="row" style="justify-content:center;gap:6px"><span class="note">手動：「${esc(card(z.c).name)}」</span>${sel.z === "mz" ? `<button class="small" data-man="atk" data-d="-50">ATK−50</button><button class="small" data-man="atk" data-d="50">ATK+50</button>` : ""}<button class="small danger" data-man="grave">墓地へ送る</button>${sel.s === "me" ? `<button class="small" data-man="hand">手札に戻す</button>` : ""}</div>`;
+      manual = `<div class="row" style="justify-content:center;gap:6px"><span class="note">手動：「${esc(card(z.c).name)}」</span>${sel.z === "mz" ? `<button class="small" data-man="atk" data-d="-50">ATK−50</button><button class="small" data-man="atk" data-d="50">ATK+50</button>${eqsOf(z).map((e, k) => `<button class="small" data-man="uneq" data-k="${k}">「${esc(card(e.c).name)}」を外す</button>`).join("")}` : ""}<button class="small danger" data-man="grave">墓地へ送る</button>${sel.s === "me" ? `<button class="small" data-man="hand">手札に戻す</button>` : ""}</div>`;
     }
   }
   const last = st.log[st.log.length - 1];
@@ -2610,9 +2873,14 @@ function detailInfo(z, s, i){
   if (z === "hand") return X.hand[i] ? { id: X.hand[i], where: "手札", mana: !!X.mana } : null;
   const slot = X[z] && X[z][i]; if (!slot) return null;
   if (z === "sz" && s === "op" && !slot.face) return { hidden: true };
-  const info = { mana: !!X.mana, id: slot.c, mod: slot.mod || 0, attacked: slot.attacked, where: z === "mz" ? (s === "me" ? "自分の場" : "相手の場") : (slot.face ? "魔法・罠ゾーン" : "セット中"), setTurn: z === "sz" ? slot.turn : null };
-  if (z === "mz"){ const eqs = equipsOn(G.st, owner, i); info.equips = eqs.map(id => card(id).name); info.abs = [...new Set(eqs.map(id => card(id).eqAb).filter(a => a && a !== "none"))].map(a => EQ_AB[a]); }
-  if (slot.eq){ const m = P(G.st, slot.eq.s).mz[slot.eq.i]; info.eqTo = m ? `${slot.eq.s === G.slot ? "自分" : "相手"}の「${card(m.c).name}」` : "？"; }
+  const info = { mana: !!X.mana, id: slot.c, mod: z === "mz" ? modOf(slot) : 0, attacked: slot.attacked, where: z === "mz" ? (s === "me" ? "自分の場" : "相手の場") : (slot.face ? "魔法・罠ゾーン" : "セット中"), setTurn: z === "sz" ? slot.turn : null };
+  if (z === "mz"){
+    const es = eqsOf(slot);
+    info.equips = es.map((e, k) => `「${card(e.c).name}」${eqMult(es, k) > 1 ? "（×2）" : ""}${e.o !== owner ? "（相手の）" : ""}${e.used ? "（使用ずみ）" : ""}`);
+    info.cap = `${eqUsed(slot)} / ${eqCapOf(card(slot.c))}`;
+    info.abs = [...new Set(monAbs(G.st, owner, i).map(a => ABS[a.k].text && ABS[a.k].n ? ABS[a.k].text((a.n || 0) * a.mult, a.name || "") : ABS[a.k].label))];
+    if (charmActive(G.st, slot)) info.charm = `魅了されている（「${card(slot.charm.c).name}」）`;
+  }
   return info;
 }
 function currentDetail(){
@@ -2635,14 +2903,17 @@ function renderDetail(info, anim){
     const base = baseAtk(c), now = Math.max(0, base + (info.mod || 0));
     rows.push(["ATK", info.mod ? `${fmtN(now)}（もとは ${fmtN(base)}、${info.mod > 0 ? "+" : ""}${info.mod}）` : fmtN(base)]);
   }
-  if (t === "equip") rows.push(["装備の効果", eqText(c)]);
+  if (t === "equip"){ const et = eqText(c); if (et) rows.push(["装備の効果", et]); rows.push(["装備コスト", String(eqCostOf(c))]); }
   if (info.eqTo) rows.push(["装備先", info.eqTo]);
-  if (info.equips && info.equips.length) rows.push(["装備中", info.equips.map(n => `「${n}」`).join("、")]);
+  if (info.cap) rows.push(["装備キャパ", info.cap]);
+  if (info.equips && info.equips.length) rows.push(["装備（左から）", info.equips.join(" → ")]);
+  if (info.charm) rows.push(["状態", info.charm]);
   if (info.abs && info.abs.length) rows.push(["能力", info.abs.join("／")]);
   if (ft) rows.push(["自動の効果", ft]);
   if (c.effect) rows.push(["効果", plainRuby(c.effect)]);
   if (c.flavor) rows.push(["フレーバー", plainRuby(c.flavor)]);
-  if (!ft && !c.effect && t !== "equip") rows.push(["効果", "なし"]);
+  if (t === "monster" && monAbsText(c)) rows.push(["能力（もとから）", monAbsText(c)]);
+  if (!ft && !c.effect && t !== "equip" && !absOf(c).length) rows.push(["効果", "なし"]);
   rows.push(["場所", info.where || "—"]);
   if (info.attacked) rows.push(["状態", "このターンは攻撃ずみ"]);
   if (t === "trap" && info.setTurn != null) rows.push(["発動", info.setTurn < G.st.turnNo ? "いま発動できる" : "次のターンから発動できる"]);
@@ -2665,20 +2936,24 @@ function renderOverlay(){
   if (!G || !G.st || !G.st.started || S.tab !== "play"){ ov.hidden = true; ov.innerHTML = ""; return; }
   const st = G.st, me = G.slot;
   let html = "";
-  if (G.chooseQ.length){
-    const q = G.chooseQ[0], opts = targetOptions(st, q.s, q.fx.kind) || [];
+  if (G.chooseQ.length && G.chooseQ[0].ask){
+    const q = G.chooseQ[0];
+    html = `<div class="box"><h2 style="margin:0">「${esc(q.c.name)}」</h2><p style="margin:0;font-size:18px;font-weight:700">${esc(q.fx.ask)}</p><p class="muted" style="margin:0">「はい」なら：${esc(KINDS[q.fx.kind].text(q.fx.n))}</p><div class="row"><button class="primary" data-ask="yes">はい</button><button data-ask="no">いいえ</button></div></div>`;
+  } else if (G.chooseQ.length){
+    const q = G.chooseQ[0], opts = targetOptions(st, q.s, q.fx.kind, q.ctx) || [];
     const t = KINDS[q.fx.kind].target;
     const list = opts.map(o => {
       if (t === "grave") return cardHTML(card(o), "sm pick", `data-opt="${esc(o)}" tabindex="0" role="button"`, mOpt(q.s));
+      if (t === "any"){ const [os, oi] = o.split(":"), m = P(st, os).mz[+oi]; return `<div class="g-item">${cardHTML(card(m.c), "sm pick", `data-opt="${o}" tabindex="0" role="button"`, { mod: modOf(m), ...mOpt(os) })}<div class="meta">${os === me ? "自分" : "相手"}</div></div>`; }
       const X = t === "opp" ? P(st, O(q.s)) : P(st, q.s);
-      return cardHTML(card(X.mz[o].c), "sm pick", `data-opt="${o}" tabindex="0" role="button"`, { mod: X.mz[o].mod, ...mOpt(t === "opp" ? O(q.s) : q.s) });
+      return cardHTML(card(X.mz[o].c), "sm pick", `data-opt="${o}" tabindex="0" role="button"`, { mod: modOf(X.mz[o]), ...mOpt(t === "opp" ? O(q.s) : q.s) });
     }).join("");
     html = `<div class="box"><h2 style="margin:0">「${esc(q.c.name)}」の対象をえらぶ</h2><p class="muted" style="margin:0">${esc(KINDS[q.fx.kind].text(q.fx.n))}</p><div class="gallery">${list || '<p class="muted">対象がいません</p>'}</div><div class="row"><button class="ghost" data-close="choose">使わない</button></div></div>`;
   } else if (st.pending && st.pending.wait && st.pending.by !== me && !st.winner){
     const pd = st.pending, A = P(st, pd.by);
     const win = chainWindow(st);
     const opts = responseOptions(st, me, win);
-    const list = opts.map(o => `<div class="g-item">${cardHTML(o.c, "sm pick", `data-resp="${o.from}:${o.i}" tabindex="0" role="button"`, mOpt(me))}<div class="meta">${o.from === "hand" ? "手札から" : "セット中"}</div></div>`).join("");
+    const list = opts.map(o => `<div class="g-item">${cardHTML(o.c, "sm pick", `data-resp="${o.from}:${o.i}" tabindex="0" role="button"`, mOpt(me))}<div class="meta">${o.from === "hand" ? "手札から" : o.from === "eq" ? "装備の力" : "セット中"}</div></div>`).join("");
     let head, msg;
     if (win === "attack"){
       const am = A.mz[pd.from];
@@ -2692,6 +2967,12 @@ function renderOverlay(){
     }
     const chainHTML = st.chain && st.chain.length ? `<div class="chainrow">${st.chain.map((l, k) => `<span class="link ${l.s === me ? "mine" : ""}">${k + 1}. ${l.summon ? "召喚：" : ""}${esc(card(l.c).name)}<small>${l.s === me ? "あなた" : esc(P(st, l.s).name)}</small></span>`).join('<span class="arr">→</span>')}</div>` : "";
     html = `<div class="box"><h2 style="margin:0">${esc(head)}</h2>${chainHTML}<p style="margin:0">${esc(msg)}</p><div class="gallery">${list}</div><div class="row"><button data-close="notrap">${win === "chain" || win === "chainAttack" ? "チェーンしない" : "使わない"}</button></div></div>`;
+  } else if (G.eqPlace){
+    const ep = G.eqPlace, m = P(st, ep.s).mz[ep.i], id = P(st, me).hand[ep.hi];
+    if (m && id){
+      const es = eqsOf(m), ins = k => `<button class="ins" data-eqpos="${k}">ここ</button>`;
+      html = `<div class="box"><h2 style="margin:0">「${esc(card(id).name)}」をどこに付ける？</h2><p class="muted" style="margin:0">「${esc(card(m.c).name)}」の装備の並び（左から）。「化身」のように左どなりに効く装備があるときは、並びが大事です</p><div class="eqplace">${ins(0)}${es.map((e, k) => cardHTML(card(e.c), "xs", "", mOpt(e.o)) + ins(k + 1)).join("")}</div><div class="row"><button class="ghost" data-close="eqplace">やめる</button></div></div>`;
+    } else G.eqPlace = null;
   } else if (G.view){
     const X = G.view === "me" ? P(st, me) : P(st, O(me));
     html = `<div class="box"><h2 style="margin:0">${esc(X.name)} の墓地（${X.grave.length}枚）</h2><div class="gallery">${X.grave.map(id => cardHTML(card(id), "sm pick", `data-cid="${esc(id)}" tabindex="0" role="button"`, { mana: !!X.mana })).join("") || '<p class="muted">まだ空っぽ</p>'}</div><div class="row"><button data-close="view">とじる</button></div></div>`;
@@ -2703,10 +2984,18 @@ function renderOverlay(){
 }
 $("#overlay").addEventListener("click", e => {
   if (!G) return;
+  const ak = e.target.closest("[data-ask]");
+  if (ak && G.chooseQ.length && G.chooseQ[0].ask){
+    const q = G.chooseQ.shift(), yes = ak.dataset.ask === "yes";
+    act(st => { log(st, q.s, `「${q.c.name}」：「${q.fx.ask}」→ ${yes ? "はい" : "いいえ"}`); if (yes) runEffect(st, q.s, q.c, q.ctx, q.then, { ...q.fx, ask: "" }); else q.then && q.then(st); });
+    return;
+  }
+  const ep = e.target.closest("[data-eqpos]");
+  if (ep && G.eqPlace){ const x = G.eqPlace; G.eqPlace = null; G.sel = null; act(st => equip(st, G.slot, x.hi, x.s, x.i, +ep.dataset.eqpos)); return; }
   const opt = e.target.closest("[data-opt]");
   if (opt && G.chooseQ.length){
     const q = G.chooseQ.shift(); const t = KINDS[q.fx.kind].target;
-    const target = t === "grave" ? opt.dataset.opt : +opt.dataset.opt;
+    const target = t === "grave" || t === "any" ? opt.dataset.opt : +opt.dataset.opt;
     act(st => { applyEffect(st, q.s, q.c, target, q.ctx, q.fx); q.then && q.then(st); });
     return;
   }
@@ -2722,6 +3011,7 @@ $("#overlay").addEventListener("click", e => {
   if (k === "notrap") act(st => respond(st, G.slot, null));
   if (k === "view"){ G.view = null; renderAll(); }
   if (k === "gh"){ G.graveHand = false; renderAll(); }
+  if (k === "eqplace"){ G.eqPlace = null; renderAll(); }
 });
 $("#overlay").addEventListener("keydown", e => { const h = e.target.closest("[role=button]"); if (h && (e.key === "Enter" || e.key === " ")){ e.preventDefault(); h.click(); } });
 
@@ -2732,8 +3022,13 @@ $("#board").addEventListener("click", e => {
   if (zc){
     const z = zc.dataset.z, s = zc.dataset.s, i = +zc.dataset.i;
     const em = equipMode(st, me);
-    if (em && z === "mz" && P(st, s === "me" ? me : O(me)).mz[i]){ G.equipFrom = null; G.sel = null; act(st => equip(st, me, em.from, em.i, s === "me" ? me : O(me), i)); return; }
-    if (G.atkFrom != null && s === "op" && z === "mz" && P(st, O(me)).mz[i]){ const from = G.atkFrom; G.atkFrom = null; G.sel = null; act(st => declareAttack(st, me, from, i)); return; }
+    if (em && z === "mz" && P(st, s === "me" ? me : O(me)).mz[i]){
+      const ts = s === "me" ? me : O(me);
+      if (!canEquipOn(st, em.id, ts, i)){ toast("装備キャパが足りないので付けられません"); return; }
+      if (eqsOf(P(st, ts).mz[i]).length){ G.eqPlace = { hi: em.i, s: ts, i }; renderAll(); return; }
+      G.sel = null; act(st => equip(st, me, em.i, ts, i)); return;
+    }
+    if (G.atkFrom != null && s === "op" && z === "mz" && P(st, O(me)).mz[i]){ const tt = tauntIdx(st, O(me)); if (tt.length && !tt.includes(i)){ toast("このモンスターには攻撃できない（ほかに狙わなきゃいけないモンスターがいる）"); return; } const from = G.atkFrom; G.atkFrom = null; G.sel = null; act(st => declareAttack(st, me, from, i)); return; }
     const occupied = z === "hand" || P(st, s === "me" ? me : O(me))[z][i];
     if (!occupied){
       const dk = s === "me" ? dropTarget(st, me) : null;
@@ -2741,7 +3036,7 @@ $("#board").addEventListener("click", e => {
       return;
     }
     const same = G.sel && G.sel.z === z && G.sel.s === s && G.sel.i === i;
-    G.sel = same ? null : { z, s, i }; G.atkFrom = null; G.equipFrom = null; openDetail([z, s, i]); renderAll(); return;
+    G.sel = same ? null : { z, s, i }; G.atkFrom = null; openDetail([z, s, i]); renderAll(); return;
   }
   const gv = e.target.closest("[data-grave]");
   if (gv){ G.view = gv.dataset.grave; renderAll(); return; }
@@ -2754,8 +3049,9 @@ $("#board").addEventListener("click", e => {
     act(st => {
       const X = P(st, owner), z = X[sel.z][sel.i]; if (!z) return false;
       if (kind === "atk"){ const d = +man.dataset.d; z.mod = (z.mod || 0) + d; log(st, me, `（手動）「${card(z.c).name}」のATKを${d > 0 ? "+" : ""}${d}`); G.sel = sel; }
-      if (kind === "grave"){ if (sel.z === "mz") destroyMonster(st, owner, sel.i, "手動"); else { unequip(st, owner, sel.i); X.sz[sel.i] = null; X.grave.push(z.c); log(st, me, `（手動）「${card(z.c).name}」を墓地へ`); } }
-      if (kind === "hand"){ if (sel.z === "sz") unequip(st, owner, sel.i); X[sel.z][sel.i] = null; if (sel.z === "mz") detachEquips(st, owner, sel.i); X.hand.push(z.c); log(st, me, `（手動）「${card(z.c).name}」を手札に戻した`); }
+      if (kind === "grave"){ if (sel.z === "mz") destroyMonster(st, owner, sel.i, "手動", { force: true }); else { X.sz[sel.i] = null; X.grave.push(z.c); log(st, me, `（手動）「${card(z.c).name}」を墓地へ`); } }
+      if (kind === "hand"){ if (sel.z === "mz") detachEquips(st, owner, sel.i); X[sel.z][sel.i] = null; X.hand.push(z.c); log(st, me, `（手動）「${card(z.c).name}」を手札に戻した`); }
+      if (kind === "uneq"){ const k = +man.dataset.k, e = eqsOf(z)[k]; if (!e) return false; z.eqs.splice(k, 1); P(st, e.o).grave.push(e.c); log(st, me, `（手動）「${card(e.c).name}」を外して墓地へ`); G.sel = sel; }
     });
     return;
   }
@@ -2766,7 +3062,7 @@ $("#board").addEventListener("click", e => {
   if (k === "draw"){ act(st => drawN(st, me, 1, "（手動）")); return; }
   if (k === "graveHand"){ G.graveHand = true; renderAll(); return; }
   if (!canAct(st, me)) return;
-  if (k === "endTurn"){ G.sel = null; G.atkFrom = null; G.equipFrom = null; act(st => endTurn(st, me)); return; }
+  if (k === "endTurn"){ G.sel = null; G.atkFrom = null; G.eqPlace = null; act(st => endTurn(st, me)); return; }
   if (k === "cancelAtk"){ G.atkFrom = null; renderAll(); return; }
   if (k === "cancelEq"){ G.equipFrom = null; renderAll(); return; }
   if (k === "direct"){ const from = G.atkFrom; G.atkFrom = null; G.sel = null; act(st => declareAttack(st, me, from, "direct")); return; }
@@ -2783,7 +3079,7 @@ $("#board").addEventListener("click", e => {
     G.sel = null; act(st => activate(st, me, from, sel.i));
   }
   if (k === "attack"){ G.atkFrom = sel.i; renderAll(); }
-  if (k === "equipSet"){ if (!G.st.players.a.mz.some(Boolean) && !G.st.players.b.mz.some(Boolean)){ toast("場にモンスターがいないので装備できません"); return; } G.equipFrom = { from: "sz", i: sel.i }; G.sel = null; renderAll(); }
+
 });
 $("#board").addEventListener("keydown", e => { const h = e.target.closest("[role=button]"); if (h && (e.key === "Enter" || e.key === " ")){ e.preventDefault(); h.click(); } });
 
