@@ -451,6 +451,7 @@ nav.tabs button{position:relative}
           <div id="rejoin" class="row" hidden></div>
           <hr style="border:none;border-top:2px dashed var(--line);width:100%;margin:2px 0">
           <div class="row"><button id="btnCpu">CPUと練習する</button><span class="note">ルールやカードのお試しに</span></div>
+          <label class="f">CPUが使うデッキ<select id="cpuDeckSel"></select></label>
         </div>
       </div>
     </div>
@@ -1530,6 +1531,17 @@ $("#gallery").addEventListener("click", e => {
 /* ================= lobby ================= */
 $("#pname").addEventListener("change", e => { S.name = e.target.value.trim() || "プレイヤー"; e.target.value = S.name; ls.set("cb_name", S.name); renderAll(); });
 $("#deckSel").addEventListener("change", e => ls.set("cb_deck", e.target.value));
+$("#cpuDeckSel").addEventListener("change", e => ls.set("cb_cpudeck", e.target.value));
+// decks the CPU can play: built-in ones, yours, and everyone else's (ownership doesn't matter for practice)
+function cpuDeckOptions(){ return [starterDeck(), sampleManaDeck(), ...S.decks.filter(d => d && Array.isArray(d.cards) && d.cards.length)]; }
+function renderCpuDeckSel(){
+  const sel = $("#cpuDeckSel"), want = ls.get("cb_cpudeck", "auto"), mine = myDecks(), others = S.decks.filter(d => d && Array.isArray(d.cards) && d.cards.length && !isMine(d, "owner"));
+  const opt = d => `<option value="${esc(d.id)}">${esc(d.name)}${d.mana && !d.builtin ? "【コスト】" : ""}（${d.cards.length}枚）${d.builtin || isMine(d, "owner") ? "" : "／" + esc(d.owner || "？")}</option>`;
+  sel.innerHTML = `<option value="auto">おまかせ（自分と同じルールのサンプル）</option><optgroup label="はじめからあるデッキ">${opt(starterDeck())}${opt(sampleManaDeck())}</optgroup>`
+    + (mine.length ? `<optgroup label="自分のデッキ">${mine.map(opt).join("")}</optgroup>` : "")
+    + (others.length ? `<optgroup label="みんなのデッキ">${others.map(opt).join("")}</optgroup>` : "");
+  sel.value = want === "auto" || cpuDeckOptions().some(d => d.id === want) ? want : "auto";
+}
 $("#joinCode").addEventListener("input", e => { e.target.value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ""); });
 $("#joinCode").addEventListener("keydown", e => { if (e.key === "Enter") $("#btnJoin").click(); });
 function chosenMana(){ const id = $("#deckSel").value; const d = allDeckOptions().find(x => x.id === id); return !!(d && d.mana); }
@@ -1547,6 +1559,7 @@ function renderPlay(){
   const opts = allDeckOptions(); const want = ls.get("cb_deck", "starter");
   $("#deckSel").innerHTML = opts.map(d => `<option value="${esc(d.id)}">${esc(d.name)}${d.mana && !d.builtin ? "【コスト】" : ""}（${d.cards.length}枚）</option>`).join("");
   $("#deckSel").value = opts.some(d => d.id === want) ? want : "starter";
+  if (document.activeElement !== $("#cpuDeckSel")) renderCpuDeckSel();
   $("#offlineNote").hidden = !!S.db;
   if (!S.db) $("#offlineNote").textContent = S.connecting ? "サーバーに接続中…（10秒ほどかかることがあります）" : (S.connErr ? "⚠ " + S.connErr + "。" : "サーバーにつながっていません。") + "いまはこのブラウザだけに保存され、CPU練習ができます。";
   $("#btnCreate").disabled = $("#btnJoin").disabled = !S.db;
@@ -1609,7 +1622,10 @@ function startOnline(code, slot, st){
 $("#btnCpu").addEventListener("click", () => {
   const ids = chosenDeckIds(); if (!deckOk(ids)) return;
   leaveGame();
-  G = { mode: "cpu", slot: "a", st: startState(newPlayer(ids, null, chosenMana()), newPlayer((chosenMana() ? sampleManaDeck() : starterDeck()).cards, "CPU", chosenMana())), sel: null, atkFrom: null, chooseQ: [], evSeen: 0 };
+  const cid = $("#cpuDeckSel").value, cd = cid && cid !== "auto" ? cpuDeckOptions().find(d => d.id === cid) : null;
+  const cpuMana = cd ? !!cd.mana : chosenMana(), cpuIds = (cd || (cpuMana ? sampleManaDeck() : starterDeck())).cards.filter(id => S.cards.has(id));
+  if (cpuIds.length < MIN_DECK || !cpuIds.some(id => cardType(S.cards.get(id)) === "monster")){ toast("CPUのデッキのカードが足りません。別のデッキをえらんでね"); return; }
+  G = { mode: "cpu", slot: "a", st: startState(newPlayer(ids, null, chosenMana()), newPlayer(cpuIds, cd ? `CPU（${cd.name}）` : "CPU", cpuMana)), sel: null, atkFrom: null, chooseQ: [], evSeen: 0 };
   after(false);
 });
 function leaveGame(){ if (G){ G.unsub && G.unsub(); clearTimeout(G.cpuT); } G = null; renderDetail(null); }
