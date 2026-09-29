@@ -73,17 +73,21 @@ label.f{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:13p
 .mana{display:flex;align-items:center;gap:3px;flex-wrap:wrap;font-size:12px;font-weight:700;color:#2f6fd0}
 .mana i{width:11px;height:11px;border-radius:50%;background:#2f6fd0;border:1.5px solid var(--ink);display:inline-block}
 .mana i.off{background:#d6dde6}
-.c-name{border-bottom:var(--lw) solid var(--cframe);text-align:center;font-size:calc(var(--w)*.085);line-height:1.15;padding:calc(var(--w)*.03) calc(var(--w)*.13);position:relative;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:none}
+.c-name{border-bottom:var(--lw) solid var(--cframe);text-align:center;font-size:calc(var(--w)*.085*var(--nk,1));line-height:1.15;padding:calc(var(--w)*.03) calc(var(--w)*.13);position:relative;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:none}
 .c-art{aspect-ratio:7/5;position:relative;border-bottom:var(--lw) solid var(--cframe);overflow:hidden;flex:none;background:#fff}
 .c-art img{width:100%;height:100%;object-fit:cover;display:block}
 .c-tab{position:absolute;left:0;bottom:0;background:var(--cbg);border-top:var(--lw) solid var(--cframe);border-right:var(--lw) solid var(--cframe);border-top-right-radius:calc(var(--w)*.07);padding:0 calc(var(--w)*.05) 0 calc(var(--w)*.03);font-size:calc(var(--w)*.052);line-height:1.5;font-family:var(--ui);font-weight:700}
 .card.magic .c-tab{color:var(--magic)}
 .eqfx{color:#1b5e8a}
 .card.trap .c-tab{color:var(--trap)}
-.c-text{flex:1;padding:calc(var(--w)*.03) calc(var(--w)*.04);font-size:calc(var(--w)*.058);line-height:1.35;overflow:hidden;position:relative}
+.c-text{flex:1;padding:calc(var(--w)*.03) calc(var(--w)*.04);font-size:calc(var(--w)*.058*var(--tk,1));line-height:1.35;overflow:hidden;position:relative;display:flex;flex-direction:column;min-height:0}
+.c-text .flv{margin-top:auto;margin-bottom:calc(var(--w)*.055);padding-top:calc(var(--w)*.012);border-top:1px dashed rgba(30,35,40,.35);flex:none;font-size:.76em;font-style:italic;line-height:1.3;color:#4a525a;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;word-break:break-all}
+.c-text.ha .flv{margin-bottom:calc(var(--w)*.1)}
+ruby rt{font-size:.5em;line-height:1;font-style:normal}
+.ruby-prev{background:rgba(255,255,255,.06);border:1px dashed var(--line);border-radius:10px;padding:6px 10px;font-family:var(--cf,var(--hand));line-height:2}
 .c-text .fx{color:#1b5e8a}
-.c-text .body{display:-webkit-box;-webkit-line-clamp:5;-webkit-box-orient:vertical;overflow:hidden;word-break:break-all}
-.card.sm .c-text .body{-webkit-line-clamp:4}
+.c-text .body{flex:0 1 auto;min-height:0;display:-webkit-box;-webkit-line-clamp:var(--cl,5);-webkit-box-orient:vertical;overflow:hidden;word-break:break-all}
+.card.sm .c-text .body{-webkit-line-clamp:var(--cls,4)}
 .c-lim{position:absolute;left:calc(var(--w)*.035);bottom:calc(var(--w)*.01);font-size:calc(var(--w)*.05);color:#6c767f;font-family:var(--ui)}
 .c-atk{position:absolute;right:0;bottom:0;background:var(--cbg);border-top:var(--lw) solid var(--cframe);border-left:var(--lw) solid var(--cframe);border-top-left-radius:calc(var(--w)*.07);padding:0 calc(var(--w)*.04) 0 calc(var(--w)*.06);font-size:calc(var(--w)*.075);line-height:1.35;font-variant-numeric:tabular-nums}
 .c-atk .up{color:var(--good)} .c-atk .dn{color:var(--hit)}
@@ -106,11 +110,12 @@ label.f{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:13p
 .card.editor{--w:min(360px,calc(100vw - 72px));aspect-ratio:auto}
 .card.editor .c-in{height:auto}
 .editor input,.editor textarea{font-family:var(--cf,var(--hand));font-weight:600;border:none;border-bottom:1.5px dashed #9aa4ad;border-radius:0;padding:2px 4px;background:transparent;width:100%;color:#1e2328}
-.editor .c-name input{text-align:center;font-size:calc(var(--w)*.07)}
+.editor .c-name input{text-align:center;font-size:calc(var(--w)*.07*var(--nk,1))}
 .editor #cv{width:100%;height:100%;display:block;touch-action:none;cursor:crosshair;background:#fff}
-.editor .c-text{min-height:150px;padding-bottom:calc(var(--w)*.14)}
+.editor .c-text{min-height:200px;padding-bottom:calc(var(--w)*.14)}
 .editor .fxline{font-size:14px;color:#1b5e8a;min-height:1.4em}
-.editor textarea{font-size:14px;resize:none;height:56px;line-height:1.4}
+.editor textarea{font-size:calc(14px*var(--tk,1));resize:none;height:56px;line-height:1.4;flex:none}
+.editor #mkFlv{font-style:italic;font-size:calc(12.5px*var(--tk,1));height:40px;margin-top:6px}
 .editor .c-atk input{width:5em;text-align:right;font-size:inherit;border:none;padding:0}
 .tools-col{display:flex;flex-direction:column;gap:14px;min-width:240px;flex:1}
 .swatches{display:flex;flex-wrap:wrap;gap:8px}
@@ -424,11 +429,12 @@ nav.tabs button{position:relative}
   <section id="tab-make" hidden>
     <div class="maker">
       <div class="card editor" id="editCard"><div class="c-in">
-        <span class="c-cost" id="mkCostBadge" hidden></span><div class="c-name"><input type="text" id="mkName" maxlength="14" placeholder="カード名"></div>
+        <span class="c-cost" id="mkCostBadge" hidden></span><div class="c-name"><input type="text" id="mkName" maxlength="40" placeholder="カード名"></div>
         <div class="c-art"><canvas id="cv" width="560" height="400" aria-label="イラストを描くところ"></canvas><div class="c-tab" id="mkTab">モンスター</div></div>
         <div class="c-text">
           <div class="fxline" id="mkFxLine"></div>
-          <textarea id="mkEff" maxlength="60" placeholder="自由に書く効果（なくてもいい）"></textarea>
+          <textarea id="mkEff" maxlength="120" placeholder="自由に書く効果（なくてもいい）"></textarea>
+          <textarea id="mkFlv" maxlength="80" placeholder="フレーバーテキスト（なくてもいい）"></textarea>
           <div class="c-atk" id="atkRow">ATK <input type="text" inputmode="numeric" id="mkAtk" value="300" aria-label="ATK（∞も入力できます）"></div>
           <div class="c-atk" id="eqRow" hidden>ATK ± <input type="number" id="mkEq" step="1" value="200"></div>
         </div>
@@ -438,6 +444,8 @@ nav.tabs button{position:relative}
         <div><h3>カードの種類</h3><div class="seg" id="mkType"><button data-t="monster" aria-pressed="true">モンスター</button><button data-t="magic" aria-pressed="false">魔法</button><button data-t="equip" aria-pressed="false">装備魔法</button><button data-t="trap" aria-pressed="false">罠</button></div></div>
         <label class="row" id="quickRow" hidden style="gap:6px;font-weight:700;cursor:pointer"><input type="checkbox" id="mkQuick"> 速攻魔法（相手のターンにも使える）</label>
         <div><h3>文字のフォント</h3><select id="mkFont" aria-label="カードのフォント"></select></div>
+        <div><h3>文字の大きさ</h3><div class="row"><label class="f" style="flex-direction:row;align-items:center;gap:6px">名前<select id="mkNameSize"></select></label><label class="f" style="flex-direction:row;align-items:center;gap:6px">効果・フレーバー<select id="mkTextSize"></select></label></div></div>
+        <div><h3>ふりがな</h3><div class="row"><button class="small" id="mkRuby" type="button">ふりがなをつける</button><span class="note">漢字をえらんで押すと ｜漢字《》 になるので、《》の中に読みを入れてね</span></div><div class="ruby-prev" id="rubyPrev" hidden></div></div>
         <div class="row" id="infRow" style="gap:8px"><button class="small" id="mkInf" type="button">ATKを∞にする</button><span class="note">ATKは上限なし。欄に「∞」と打ってもOK</span></div>
         <div><h3>ペンの色</h3><div class="swatches" id="swatches"></div></div>
         <div><h3>太さ</h3><div class="seg" id="sizes"></div></div>
@@ -605,6 +613,8 @@ nav.tabs button{position:relative}
           <li>デッキに入れられるのは「持っているカード」だけ：スターター、自分で描いたカード、交換でもらったカード</li>
           <li>交換は Trade タブから。自分で描いたカード1枚と、相手のカード1枚をお互いにコピーで渡し合う（渡しても自分の手元からは減らない）</li>
           <li>ATKは0以上なら上限なし（1きざみ）。「∞」にもできる</li>
+          <li>効果とは別に「フレーバーテキスト」も書ける（ゲームには影響しない）。文字の大きさも名前・効果ごとに変えられる</li>
+          <li>ふりがなは ｜漢字《かんじ》 と書く（漢字のすぐ後なら 漢字《かんじ》 だけでもOK）</li>
         </ul>
       </div>
     </div>
@@ -695,6 +705,15 @@ const FONTS = {
   lubri:  { label: "シャープ（Lubrifont）", css: `"WDXL Lubrifont JP N",var(--ui)` }
 };
 const fontCss = c => FONTS[c && c.font] ? FONTS[c.font].css : "";
+// text size per card (name / effect+flavor)
+const SIZES_T = { s: { label: "小さめ", k: .82 }, m: { label: "ふつう", k: 1 }, l: { label: "大きめ", k: 1.2 } };
+const sizeK = v => (SIZES_T[v] || SIZES_T.m).k;
+// furigana: ｜漢字《かんじ》, or just 漢字《かんじ》 right after kanji
+function rubyHTML(t){
+  return esc(t).replace(/[｜|]([^｜|《》\n]+?)《([^《》\n]*?)》/g, "<ruby>$1<rt>$2</rt></ruby>")
+    .replace(/([\u3400-\u9FFF\uF900-\uFAFF々〆ヵヶ]+)《([^《》\n]*?)》/g, "<ruby>$1<rt>$2</rt></ruby>");
+}
+const plainRuby = t => String(t || "").replace(/[｜|]([^｜|《》\n]+?)《[^《》\n]*?》/g, "$1").replace(/《[^《》\n]*?》/g, "");
 const cardType = c => (c && (c.type === "magic" || c.type === "trap" || c.type === "equip")) ? c.type : "monster";
 const MAX_MANA = 10;
 // cost is only what the card's creator set; no cost means 0
@@ -843,6 +862,7 @@ function buildStarters(){
 function starterDeck(){ const ids = []; STARTERS.forEach((s, i) => { for (let k = 0; k < s.n; k++) ids.push("starter-" + i); }); return { id: "starter", name: "スターターデッキ", cards: ids, builtin: true }; }
 function starterManaDeck(){ return { ...starterDeck(), id: "starter-mana", name: "スターターデッキ【コスト】", mana: true }; }
 function rebuildCards(){
+  S.userCards.forEach(c => { if (c && c.nameRuby == null && /《/.test(c.name || "")){ c.nameRuby = c.name; c.name = plainRuby(c.name); } });
   S.cards = new Map([...S.starters, ...S.userCards].map(c => [c.id, c]));
   rebuildOwned();
   const dl = document.getElementById("cardNames");
@@ -865,7 +885,10 @@ function cardHTML(c, cls = "", attrs = "", opts = {}){
   const eqTxt = t === "equip" ? `<span class="fx">${esc(eqText(c))}</span> ` : "";
   const fc = fontCss(c);
   const showCost = hasCost(c) && opts.mana !== false;
-  return `<div class="card ${t}${showCost ? " costed" : ""} ${cls}" ${attrs}${fc ? ` style='--cf:${fc}'` : ""}>${opts.done ? `<span class="done">${opts.done}</span>` : ""}${opts.eq ? `<span class="eqb">装備${opts.eq > 1 ? "×" + opts.eq : ""}</span>` : ""}<div class="c-in">${showCost ? `<span class="c-cost" title="コスト">${costOf(c)}</span>` : ""}<div class="c-name">${esc(c.name)}</div><div class="c-art">${art}<div class="c-tab">${isQuick(c) ? "速攻魔法" : TYPE_LABEL[t]}</div></div><div class="c-text"><div class="body">${eqTxt}${ft ? `<span class="fx">${esc(ft)}</span> ` : ""}${esc(c.effect || "")}</div>${c.id ? `<span class="c-lim">${lim ? "×" + lim : "∞"}</span>` : ""}${atk}</div></div></div>`;
+  const flv = c.flavor ? plainRuby(c.flavor).trim() && c.flavor : "";
+  const cl = (flv ? { s: 4, m: 3, l: 2 } : { s: 6, m: 5, l: 4 })[SIZES_T[c.textSize] ? c.textSize : "m"];
+  const sv = []; if (fc) sv.push(`--cf:${fc}`); if (c.nameSize && c.nameSize !== "m") sv.push(`--nk:${sizeK(c.nameSize)}`); if (c.textSize && c.textSize !== "m") sv.push(`--tk:${sizeK(c.textSize)}`); if (cl !== 5) sv.push(`--cl:${cl};--cls:${cl}`);
+  return `<div class="card ${t}${showCost ? " costed" : ""} ${cls}" ${attrs}${sv.length ? ` style='${sv.join(";")}'` : ""}>${opts.done ? `<span class="done">${opts.done}</span>` : ""}${opts.eq ? `<span class="eqb">装備${opts.eq > 1 ? "×" + opts.eq : ""}</span>` : ""}<div class="c-in">${showCost ? `<span class="c-cost" title="コスト">${costOf(c)}</span>` : ""}<div class="c-name">${rubyHTML(c.nameRuby || c.name)}</div><div class="c-art">${art}<div class="c-tab">${isQuick(c) ? "速攻魔法" : TYPE_LABEL[t]}</div></div><div class="c-text${atk ? " ha" : ""}"><div class="body">${eqTxt}${ft ? `<span class="fx">${esc(ft)}</span> ` : ""}${rubyHTML(c.effect || "")}</div>${flv ? `<div class="flv">${rubyHTML(flv)}</div>` : ""}${c.id ? `<span class="c-lim">${lim ? "×" + lim : "∞"}</span>` : ""}${atk}</div></div></div>`;
 }
 const backHTML = (cls = "", attrs = "") => `<div class="card back ${cls}" ${attrs}><div class="c-in"><span>?</span></div></div>`;
 
@@ -1035,7 +1058,7 @@ function matchCard(c, f){
   const t = cardType(c), nf = normFx(c);
   if (f.type === "quick" ? !isQuick(c) : (f.type !== "all" && t !== f.type)) return false;
   if (f.q){
-    const hay = normQ([c.name, c.effect, fxText(c), t === "equip" ? eqText(c) : "", TYPE_LABEL[t], c.author].join(" "));
+    const hay = normQ([c.name, plainRuby(c.effect), plainRuby(c.flavor), fxText(c), t === "equip" ? eqText(c) : "", TYPE_LABEL[t], c.author].join(" "));
     if (!normQ(f.q).split(/\s+/).filter(Boolean).every(w => hay.includes(w))) return false;
   }
   if (f.fx){
@@ -1171,6 +1194,25 @@ syncCost();
 $("#mkFont").innerHTML = Object.entries(FONTS).map(([k, v]) => `<option value="${k}" style='font-family:${v.css}'>${v.label}</option>`).join("");
 function syncFont(){ const k = $("#mkFont").value; $("#editCard").style.setProperty("--cf", FONTS[k] ? FONTS[k].css : ""); $("#mkFont").style.fontFamily = FONTS[k] ? FONTS[k].css : ""; }
 $("#mkFont").addEventListener("change", syncFont);
+$("#mkNameSize").innerHTML = $("#mkTextSize").innerHTML = Object.entries(SIZES_T).map(([k, v]) => `<option value="${k}">${v.label}</option>`).join("");
+$("#mkNameSize").value = $("#mkTextSize").value = "m";
+function syncSizes(){ const ec = $("#editCard"); ec.style.setProperty("--nk", sizeK($("#mkNameSize").value)); ec.style.setProperty("--tk", sizeK($("#mkTextSize").value)); syncRubyPrev(); }
+$("#mkNameSize").addEventListener("change", syncSizes); $("#mkTextSize").addEventListener("change", syncSizes);
+function syncRubyPrev(){
+  const parts = [["名前", $("#mkName").value], ["効果", $("#mkEff").value], ["フレーバー", $("#mkFlv").value]].filter(([, v]) => /《/.test(v));
+  const box = $("#rubyPrev"); box.hidden = !parts.length;
+  box.innerHTML = parts.map(([k, v]) => `<div><span class="note">${k}：</span>${rubyHTML(v)}</div>`).join("");
+}
+let rubyField = null;
+["#mkName", "#mkEff", "#mkFlv"].forEach(s => { $(s).addEventListener("focus", e => { rubyField = e.target; }); $(s).addEventListener("input", syncRubyPrev); });
+$("#mkRuby").addEventListener("mousedown", e => e.preventDefault()); // keep the text selection
+$("#mkRuby").addEventListener("click", () => {
+  const el = rubyField || $("#mkName"); const a = el.selectionStart ?? el.value.length, b = el.selectionEnd ?? a;
+  const sel = el.value.slice(a, b), ins = `｜${sel}《》`;
+  el.setRangeText(ins, a, b, "end");
+  const caret = sel ? a + ins.length - 1 : a + 1; // inside 《》, or where the kanji goes
+  el.focus(); el.setSelectionRange(caret, caret); syncRubyPrev();
+});
 $("#mkInf").addEventListener("click", () => { $("#mkAtk").value = $("#mkAtk").value.trim() === "∞" ? "300" : "∞"; });
 $("#fxCond").innerHTML = Object.entries(CONDS).map(([k, v]) => `<option value="${k}">${v.label}</option>`).join("");
 function setMkType(t){
@@ -1248,7 +1290,7 @@ function loadFxForm(c){
   syncFxForm();
 }
 function resetMaker(){
-  S.editId = null; $("#mkName").value = ""; $("#mkEff").value = ""; $("#mkAtk").value = 300; $("#mkEq").value = 200; $("#mkEqAb").value = "none"; $("#mkFont").value = "klee"; syncFont(); $("#mkQuick").checked = false; $("#mkCost").value = "1"; setMkDeck("normal"); $("#mkLimit").value = "3"; clearCanvas(); undoStack = [];
+  S.editId = null; $("#mkName").value = ""; $("#mkEff").value = ""; $("#mkFlv").value = ""; $("#mkNameSize").value = $("#mkTextSize").value = "m"; syncSizes(); $("#mkAtk").value = 300; $("#mkEq").value = 200; $("#mkEqAb").value = "none"; $("#mkFont").value = "klee"; syncFont(); $("#mkQuick").checked = false; $("#mkCost").value = "1"; setMkDeck("normal"); $("#mkLimit").value = "3"; clearCanvas(); undoStack = [];
   setMkType("monster"); loadFxForm(null);
   $("#mkTitle").textContent = "カードを描く"; $("#btnNew").hidden = true; $("#btnSave").textContent = "カードを保存";
 }
@@ -1266,7 +1308,7 @@ $("#btnSave").addEventListener("click", async () => {
   const id = S.editId || uid("c");
   const prev = S.cards.get(id);
   let eqN = Math.round(+$("#mkEq").value || 0); $("#mkEq").value = eqN;
-  const doc = { type: MK.type, name, atk: MK.type === "monster" ? atk : 0, atkInf, eqN: MK.type === "equip" ? eqN : 0, eqAb: MK.type === "equip" ? $("#mkEqAb").value : "none", effect: $("#mkEff").value.trim(), fx: readFx(), combo: readCombo(), font: $("#mkFont").value, quick: MK.type === "magic" && $("#mkQuick").checked, cost: MK.deck === "normal" ? null : +$("#mkCost").value, deckMode: MK.deck, limit: +$("#mkLimit").value,
+  const doc = { type: MK.type, name, atk: MK.type === "monster" ? atk : 0, atkInf, eqN: MK.type === "equip" ? eqN : 0, eqAb: MK.type === "equip" ? $("#mkEqAb").value : "none", effect: $("#mkEff").value.trim(), flavor: $("#mkFlv").value.trim(), nameSize: $("#mkNameSize").value, textSize: $("#mkTextSize").value, fx: readFx(), combo: readCombo(), font: $("#mkFont").value, quick: MK.type === "magic" && $("#mkQuick").checked, cost: MK.deck === "normal" ? null : +$("#mkCost").value, deckMode: MK.deck, limit: +$("#mkLimit").value,
     img: encodeArt(out), author: S.name, ownerId: prev?.ownerId || S.uid || null, updatedAt: Date.now() };
   $("#btnSave").disabled = true;
   try{ await saveCardDoc(id, doc); toast(S.editId ? "カードを更新しました" : "カードを保存しました！"); resetMaker(); }
@@ -1297,7 +1339,7 @@ $("#gallery").addEventListener("click", async e => {
   const ed = e.target.closest("[data-edit]"), del = e.target.closest("[data-del]");
   if (ed){
     const c = S.cards.get(ed.dataset.edit); if (!c || !isMine(c)) return;
-    S.editId = c.id; $("#mkName").value = c.name; $("#mkEff").value = c.effect || ""; $("#mkAtk").value = c.atkInf ? "∞" : (c.atk || 0); $("#mkLimit").value = String(cardLimit(c));
+    S.editId = c.id; $("#mkName").value = c.nameRuby || c.name; $("#mkEff").value = c.effect || ""; $("#mkFlv").value = c.flavor || ""; $("#mkNameSize").value = SIZES_T[c.nameSize] ? c.nameSize : "m"; $("#mkTextSize").value = SIZES_T[c.textSize] ? c.textSize : "m"; syncSizes(); $("#mkAtk").value = c.atkInf ? "∞" : (c.atk || 0); $("#mkLimit").value = String(cardLimit(c));
     $("#mkQuick").checked = !!c.quick; setMkType(cardType(c)); loadFxForm(c); $("#mkFont").value = FONTS[c.font] ? c.font : "klee"; syncFont(); $("#mkCost").value = hasCost(c) ? String(costOf(c)) : "1"; setMkDeck(deckModeOf(c)); $("#mkEq").value = c.eqN || 0; $("#mkEqAb").value = c.eqAb || "none"; syncEqLine();
     const im = new Image(); im.onload = () => { clearCanvas(); setPhoto(im); setMode("draw"); composite(); undoStack = []; }; im.src = c.img;
     $("#mkTitle").textContent = "カードを編集中"; $("#btnNew").hidden = false; $("#btnSave").textContent = "変更を保存";
@@ -2092,7 +2134,8 @@ function renderDetail(info, anim){
   if (info.equips && info.equips.length) rows.push(["装備中", info.equips.map(n => `「${n}」`).join("、")]);
   if (info.abs && info.abs.length) rows.push(["能力", info.abs.join("／")]);
   if (ft) rows.push(["自動の効果", ft]);
-  if (c.effect) rows.push(["効果", c.effect]);
+  if (c.effect) rows.push(["効果", plainRuby(c.effect)]);
+  if (c.flavor) rows.push(["フレーバー", plainRuby(c.flavor)]);
   if (!ft && !c.effect && t !== "equip") rows.push(["効果", "なし"]);
   rows.push(["場所", info.where || "—"]);
   if (info.attacked) rows.push(["状態", "このターンは攻撃ずみ"]);
