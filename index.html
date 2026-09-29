@@ -447,6 +447,65 @@ nav.tabs button{position:relative}
 .dk-play{font-size:20px!important;padding:14px 26px!important;flex:1 1 220px}
 .dk-picker{display:flex;flex-wrap:wrap;gap:8px}
 .dk-picker .card{--w:84px;cursor:pointer}
+
+/* ================= phones ================= */
+.mstat,.deck-float{display:none}
+@media (max-width:640px){
+  /* no zoom-in when tapping a field on iPhone */
+  input,select,textarea{font-size:16px!important}
+  /* app-style tab bar at the bottom */
+  body{padding-bottom:calc(84px + env(safe-area-inset-bottom,0px))}
+  header.top{margin-bottom:10px}
+  .logo-btn{font-size:20px}
+  .logo-btn small{font-size:11px}
+  nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:6;display:grid;grid-template-columns:repeat(auto-fit,minmax(0,1fr));gap:0;padding:6px 4px calc(6px + env(safe-area-inset-bottom,0px));background:rgba(14,16,36,.94);border-top:1px solid var(--line);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
+  nav.tabs button{flex-direction:column;align-items:center;gap:1px;padding:5px 0!important;border:none!important;border-radius:12px!important;background:transparent!important;box-shadow:none!important;font-size:12px;line-height:1.1;min-width:0;position:relative}
+  nav.tabs button small{font-size:10px}
+  nav.tabs button[aria-selected="true"]{background:rgba(79,209,197,.16)!important;color:var(--accent)!important;text-shadow:none}
+  nav.tabs button[aria-selected="true"] small{color:var(--accent)}
+  .tbadge{top:0;right:calc(50% - 26px)}
+  #toast{bottom:calc(84px + env(safe-area-inset-bottom,0px))}
+  .sheet{padding-inline:2px}
+  /* three cards per row in lists */
+  .gallery .card.sm,.deck-pool .card.sm{--w:calc((100vw - 76px) / 3)}
+  .gallery{gap:14px 10px}
+  .g-item .meta{max-width:calc((100vw - 76px) / 3)}
+  .deck-pool{gap:14px 10px}
+  .cnt{gap:2px}
+  .cnt .small{padding:2px 8px!important}
+  .cnt b{min-width:2.2em;font-size:12px}
+  /* battle: LP next to the play area, hand scrolls sideways */
+  .mstat{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:13px;color:var(--muted);background:rgba(255,255,255,.04);border:1px solid var(--line);border-radius:12px;padding:6px 10px}
+  .mstat .who{font-weight:700;color:var(--ink);max-width:40%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .mstat .lpv{margin-left:auto;font-family:var(--en,var(--ui));font-weight:700;font-size:20px;color:var(--accent)}
+  .mstat .lpv.low{color:var(--hit)}
+  .mstat .lpv small{font-size:11px;color:var(--muted);margin-right:4px}
+  .table{padding:10px 6px;gap:8px}
+  .hand{flex-wrap:nowrap;justify-content:flex-start;overflow-x:auto;padding:6px 4px 10px;min-height:0;-webkit-overflow-scrolling:touch;scroll-snap-type:x proximity}
+  .hand .card{--w:88px;scroll-snap-align:start}
+  .ohand .card{--w:52px}
+  .ohand .cnt-x{font-size:20px}
+  .bz{padding:8px 2px}
+  .actions button{padding:8px 12px}
+  /* card viewer becomes a full-screen sheet with the arrows at the bottom */
+  #cardView{padding:0;place-items:stretch}
+  #cardView .cv-box{width:100%;max-height:none;height:100%;border-radius:0;border:none;padding:58px 16px calc(96px + env(safe-area-inset-bottom,0px))}
+  .cv-card .card{--w:min(240px,64vw)}
+  .cv-x{position:fixed;top:12px;right:12px;z-index:3}
+  .cv-nav{position:fixed;top:auto;bottom:calc(16px + env(safe-area-inset-bottom,0px));transform:none;width:64px;height:48px;z-index:3}
+  .cv-nav:active{transform:none}
+  .cv-nav.prev{left:16px}.cv-nav.next{right:16px}
+  .cv-pos{position:fixed;bottom:calc(30px + env(safe-area-inset-bottom,0px));z-index:3}
+  /* deck list / editor */
+  .dk-key{height:150px}
+  .dk-tile{height:84px}
+  .deck-float{display:flex;position:sticky;bottom:calc(84px + env(safe-area-inset-bottom,0px));z-index:5;align-items:center;justify-content:space-between;gap:10px;margin-top:14px;padding:8px 10px 8px 14px;background:rgba(14,16,36,.94);border:1px solid var(--line);border-radius:14px;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);font-weight:700}
+  .deck-float.ng span{color:var(--hit)}
+  .pop{top:auto!important;bottom:calc(84px + env(safe-area-inset-bottom,0px))!important;right:12px!important;max-height:60vh}
+  /* title screen */
+  .hbtn{height:76px}
+  .hbtn .en{font-size:40px}
+}
 </style>
 <style>html,body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
 </head>
@@ -622,6 +681,7 @@ nav.tabs button{position:relative}
     </div>
     <div class="filters" id="deckFilters"></div>
     <div class="deck-pool" id="deckPool"></div>
+    <div class="deck-float" id="deckFloat"><span id="deckFloatMeter"></span><button class="primary small" id="btnDeckSave2">デッキを保存</button></div>
     </div>
   </section>
 
@@ -1494,6 +1554,7 @@ function allDeckOptions(){ return [starterDeck(), sampleManaDeck(), ...myDecks()
 function deckCount(){ return Object.values(S.deckEdit.cards).reduce((a, b) => a + b, 0); }
 function deckMonsters(){ return Object.entries(S.deckEdit.cards).reduce((a, [id, k]) => a + (cardType(S.cards.get(id)) === "monster" ? k : 0), 0); }
 function renderDeck(){
+  { const n = deckCount(), ok = n >= MIN_DECK && deckMonsters() > 0; $("#deckFloatMeter").textContent = `${n}枚（モンスター ${deckMonsters()}）${ok ? "" : "　20枚以上にしてね"}`; $("#deckFloat").classList.toggle("ng", !ok); }
   { const kc = S.deckEdit.key && S.deckEdit.cards[S.deckEdit.key] && S.cards.get(S.deckEdit.key); $("#deckKeyNote").textContent = kc ? `キーカード（サムネ）：「${kc.name}」` : "カードを押して「★ キーカードにする」でサムネを決められます"; }
   const sel = $("#deckEditSel"); const cur = S.deckEdit.id || "";
   sel.innerHTML = `<option value="">＋ 新しいデッキ</option>` + myDecks().map(d => `<option value="${esc(d.id)}">${esc(d.name)}${d.mana ? "【コスト】" : ""}（${d.cards.length}枚）</option>`).join("");
@@ -1721,7 +1782,7 @@ function openDeckEditor(id){
 }
 $("#deckList").addEventListener("click", async e => {
   const g = s => e.target.closest(s), d = [...myDecks(), starterDeck(), sampleManaDeck()].find(x => x.id === S.deckPick);
-  if (g("[data-dpick]")){ S.deckPick = g("[data-dpick]").dataset.dpick; S.thumbPick = false; S.dkDelArm = null; renderDeckList(); return; }
+  if (g("[data-dpick]")){ S.deckPick = g("[data-dpick]").dataset.dpick; S.thumbPick = false; S.dkDelArm = null; renderDeckList(); if (matchMedia("(max-width:860px)").matches) $(".dk-right").scrollIntoView({ behavior: "smooth", block: "start" }); return; }
   if (g("[data-dnew]")){ openDeckEditor(""); return; }
   if (!d) return;
   if (g("[data-dplay]")){ ls.set("cb_deck", d.id); S.tab = "play"; ls.set("cb_tab", "play"); renderAll(); window.scrollTo(0, 0); toast(`「${d.name}」で対戦できます`); return; }
@@ -1823,6 +1884,8 @@ $("#mpAcct").addEventListener("submit", async e => {
     }
   }catch(err){ msg.textContent = acctErr(err); go.disabled = false; }
 });
+
+$("#btnDeckSave2").addEventListener("click", () => $("#btnDeckSave").click());
 
 /* ================= lobby ================= */
 $("#pname").addEventListener("change", e => { S.name = e.target.value.trim() || "プレイヤー"; e.target.value = S.name; ls.set("cb_name", S.name); saveProfile(); renderAll(); });
@@ -2429,6 +2492,7 @@ function renderBoard(){
   <div class="board">
     <div class="table">
       ${manaBox(po, esc(po.name))}
+      <div class="mstat"><span class="who">${esc(po.name)}</span><span>山札 ${po.deck.length}</span><span>墓地 ${po.grave.length}</span><span class="lpv ${po.lp <= 300 ? "low" : ""}"><small>LP</small>${po.lp}</span></div>
       <div class="ohand">${backHTML("xs")}<span class="cnt-x">×${po.hand.length}</span><span class="lbl">手札（${esc(po.name)}）</span></div>
       <span class="zlabel">相手の魔法・罠ゾーン</span>
       <div class="zones">${zoneHTML(op, "sz")}</div>
@@ -2446,6 +2510,7 @@ function renderBoard(){
       <div class="zones">${zoneHTML(me, "mz")}</div>
       <span class="zlabel">自分の魔法・罠ゾーン</span>
       <div class="zones">${zoneHTML(me, "sz")}</div>
+      <div class="mstat"><span class="who">${esc(pm.name)}（あなた）</span><span>山札 ${pm.deck.length}</span><span>墓地 ${pm.grave.length}</span><span class="lpv ${pm.lp <= 300 ? "low" : ""}"><small>LP</small>${pm.lp}</span></div>
       <span class="zlabel">手札</span>
       <div class="hand">${handHTML}</div>
       ${manaBox(pm, "あなた")}
