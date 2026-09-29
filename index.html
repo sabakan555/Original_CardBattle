@@ -395,6 +395,22 @@ nav.tabs button{position:relative}
 .cv-pos{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);font-size:12px;color:var(--muted)}
 .pool-item > .card,.gallery .g-item > .card{cursor:pointer}
 @media (max-width:640px){#cardView .cv-box{grid-template-columns:1fr;justify-items:center;padding:52px 16px 64px}.cv-info{width:100%}.cv-nav{top:auto;bottom:14px;transform:none;height:44px}.cv-nav:active{transform:none}}
+
+/* my page */
+.me-prof{display:flex;gap:20px;align-items:center;flex-wrap:wrap}
+.me-av{width:112px;height:112px;border-radius:50%;background:#e4e6ff;overflow:hidden;display:grid;place-items:center;flex:none;box-shadow:0 6px 16px rgba(0,0,0,.35)}
+.me-av img{width:100%;height:100%;object-fit:cover}
+.me-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(118px,1fr));gap:10px}
+.me-stat{background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+.me-stat .k{font-size:12px;color:var(--muted);font-weight:700}
+.me-stat .v{font-family:var(--en,var(--ui));font-size:26px;font-weight:700;color:var(--accent);line-height:1.2}
+.me-stat .s{font-size:12px;color:var(--muted)}
+.me-decks{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px}
+.me-deck{display:flex;gap:12px;align-items:center;background:var(--panel);border:2px solid var(--line);border-radius:14px;padding:10px 12px}
+.me-deck .card{--w:62px}
+.me-deck .nm{font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.me-deck .meta{font-size:12px;color:var(--muted)}
+#mpCards .g-item > .card{cursor:pointer}
 </style>
 <style>html,body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
 </head>
@@ -418,7 +434,7 @@ nav.tabs button{position:relative}
   </nav>
   <div class="showcase" id="showcase" aria-live="polite"></div>
   <div class="home-foot">
-    <button class="me-chip" data-go="play" title="プレイヤー名は対戦画面で変えられます"><span class="av" id="meAv"></span><span class="nm" id="meName">Player</span></button>
+    <button class="me-chip" data-go="me" title="マイページをひらく"><span class="av" id="meAv"></span><span class="nm" id="meName">Player</span></button>
     <button class="guide-btn" data-go="rules" aria-label="Guide（ルール）"><span class="en">Guide</span></button>
   </div>
 </section>
@@ -430,6 +446,7 @@ nav.tabs button{position:relative}
       <button role="tab" data-tab="make" aria-selected="false">Card<small>カード工房</small></button>
       <button role="tab" data-tab="deck" aria-selected="false">Deck<small>デッキ</small></button>
       <button role="tab" data-tab="trade" aria-selected="false">Trade<small>交換</small><span class="tbadge" id="tradeBadge" hidden></span></button>
+      <button role="tab" data-tab="me" aria-selected="false">My<small>マイページ</small></button>
       <button role="tab" data-tab="rules" aria-selected="false">Guide<small>ルール</small></button>
     </nav>
   </header>
@@ -582,6 +599,25 @@ nav.tabs button{position:relative}
     <div class="filters" id="tradeFilters"></div>
     <div class="gallery" id="tradePool"></div>
     <details class="box" style="margin-top:22px"><summary style="cursor:pointer;font-weight:700">交換の記録</summary><div id="tradeHist" style="margin-top:10px"></div></details>
+  </section>
+
+  <!-- MY PAGE -->
+  <section id="tab-me" hidden>
+    <div class="grid2" style="margin-bottom:22px">
+      <div class="box me-prof">
+        <div class="me-av" id="mpAv"></div>
+        <div style="flex:1;min-width:200px;display:flex;flex-direction:column;gap:10px">
+          <label class="f">プレイヤー名<input type="text" id="mpName" maxlength="16"></label>
+          <label class="f">アイコン<select id="mpIcon"></select></label>
+          <p class="note" style="margin:0">アイコンは自分で描いたカードの絵から選べます</p>
+        </div>
+      </div>
+      <div class="box" style="display:flex;flex-direction:column;gap:10px"><h2 style="margin:0">戦績</h2><div class="me-stats" id="mpStats"></div></div>
+    </div>
+    <div class="row" style="justify-content:space-between;margin-bottom:10px"><h2 style="margin:0">自分のデッキ</h2><button class="small" data-go="deck">デッキを作る</button></div>
+    <div class="me-decks" id="mpDecks"></div>
+    <div class="row" style="justify-content:space-between;margin:24px 0 10px"><h2 style="margin:0">自分のカード</h2><button class="small" data-go="make">カードを描く</button></div>
+    <div class="gallery" id="mpCards"></div>
   </section>
 
   <!-- RULES -->
@@ -1035,7 +1071,7 @@ function renderShowcase(anim){
 }
 function renderHome(){
   $("#meName").textContent = S.name || "Player";
-  $("#meAv").innerHTML = S.avatar ? `<img alt="" src="${esc(S.avatar)}">` : `<svg width="60%" height="60%" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4.2" fill="none" stroke="#3b4166" stroke-width="2"/><path d="M3.8 21c.8-4.4 4.2-6.6 8.2-6.6s7.4 2.2 8.2 6.6" fill="none" stroke="#3b4166" stroke-width="2" stroke-linecap="round"/></svg>`;
+  $("#meAv").innerHTML = myIcon() ? `<img alt="" src="${esc(myIcon())}">` : `<svg width="60%" height="60%" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4.2" fill="none" stroke="#3b4166" stroke-width="2"/><path d="M3.8 21c.8-4.4 4.2-6.6 8.2-6.6s7.4 2.2 8.2 6.6" fill="none" stroke="#3b4166" stroke-width="2" stroke-linecap="round"/></svg>`;
   if (!$("#showcase").firstChild) renderShowcase(false);
   if (!showTimer) showTimer = setInterval(() => { if (S.tab !== "home") return; const n = showcasePool().length; if (n > 1){ showIdx = (showIdx + 1) % n; renderShowcase(true); } }, 6000);
 }
@@ -1047,7 +1083,8 @@ function renderAll(){
   $("#home").hidden = S.tab !== "home"; $("#sheet").hidden = S.tab === "home";
   if (S.tab === "home"){ renderHome(); renderOverlay(); return; }
   document.querySelectorAll("nav.tabs button").forEach(b => b.setAttribute("aria-selected", b.dataset.tab === S.tab));
-  for (const t of ["play", "make", "deck", "trade", "rules"]) $("#tab-" + t).hidden = S.tab !== t;
+  for (const t of ["play", "make", "deck", "trade", "me", "rules"]) $("#tab-" + t).hidden = S.tab !== t;
+  if (S.tab === "me") renderMe();
   if (S.tab === "play") renderPlay();
   if (S.tab === "make") renderGallery();
   if (S.tab === "deck") renderDeck();
@@ -1526,6 +1563,62 @@ $("#gallery").addEventListener("click", e => {
   if (e.target.closest("button")) return;
   const it = e.target.closest(".g-item"); if (!it || !e.target.closest(".card")) return;
   openCardView("list", S.galIds, [...$("#gallery").querySelectorAll(".g-item")].indexOf(it));
+});
+
+/* ================= my page ================= */
+const DEFAULT_AV = `<svg width="60%" height="60%" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4.2" fill="none" stroke="#3b4166" stroke-width="2"/><path d="M3.8 21c.8-4.4 4.2-6.6 8.2-6.6s7.4 2.2 8.2 6.6" fill="none" stroke="#3b4166" stroke-width="2" stroke-linecap="round"/></svg>`;
+// icon: the art of one of your own cards (kept in this browser), else the account picture
+function myIcon(){ const c = S.cards && S.cards.get(ls.get("cb_icon", "")); return (c && c.img) || S.avatar || ""; }
+// wins / losses are kept in this browser; an online game is counted once even if you come back to the room
+function recordResult(){
+  if (!G || !G.st || !G.st.winner || G.recorded) return;
+  G.recorded = true;
+  const r = ls.get("cb_record", null) || { cpu: { w: 0, l: 0, d: 0 }, online: { w: 0, l: 0, d: 0 }, seen: [] };
+  const key = G.mode === "online" ? `on:${G.code}:${(G.st.log[0] || {}).t || ""}` : null;
+  if (key && r.seen.includes(key)) return;
+  const res = G.st.winner === "draw" ? "d" : G.st.winner === G.slot ? "w" : "l";
+  r[G.mode === "online" ? "online" : "cpu"][res]++;
+  if (key){ r.seen.push(key); r.seen = r.seen.slice(-60); }
+  ls.set("cb_record", r);
+}
+function renderMe(){
+  if (document.activeElement !== $("#mpName")) $("#mpName").value = S.name;
+  const mine = S.userCards.filter(c => isMine(c)).sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+  const icon = ls.get("cb_icon", "");
+  $("#mpIcon").innerHTML = `<option value="">${S.avatar ? "アカウントの画像" : "なし"}</option>` + mine.filter(c => c.img).map(c => `<option value="${esc(c.id)}">${esc(c.name)}</option>`).join("");
+  $("#mpIcon").value = mine.some(c => c.id === icon) ? icon : "";
+  const src = myIcon(); $("#mpAv").innerHTML = src ? `<img alt="" src="${esc(src)}">` : DEFAULT_AV;
+  const r = ls.get("cb_record", null) || { cpu: { w: 0, l: 0, d: 0 }, online: { w: 0, l: 0, d: 0 } };
+  const w = r.cpu.w + r.online.w, l = r.cpu.l + r.online.l, d = r.cpu.d + r.online.d, n = w + l + d;
+  const tiles = [
+    ["勝ち", w, n ? `勝率 ${Math.round(w / n * 100)}%` : "まだ対戦していません"],
+    ["負け", l, d ? `引き分け ${d}` : ""],
+    ["オンライン", `${r.online.w}勝`, `${r.online.l}敗${r.online.d ? ` ${r.online.d}分` : ""}`],
+    ["CPU", `${r.cpu.w}勝`, `${r.cpu.l}敗${r.cpu.d ? ` ${r.cpu.d}分` : ""}`],
+    ["描いたカード", mine.length, ""],
+    ["デッキ", myDecks().length, ""]
+  ];
+  if (S.owned && S.db) tiles.push(["持ってるカード", S.owned.size, "スターター込み"]);
+  if (typeof allTrades === "function" && S.db) tiles.push(["交換", allTrades().filter(t => t.status === "accepted").length, "成立した回数"]);
+  $("#mpStats").innerHTML = tiles.map(([k, v, s]) => `<div class="me-stat"><div class="k">${k}</div><div class="v">${esc(v)}</div><div class="s">${esc(s)}</div></div>`).join("");
+  const decks = myDecks();
+  $("#mpDecks").innerHTML = decks.map(dk => {
+    const face = dk.cards.map(id => S.cards.get(id)).find(c => c && cardType(c) === "monster" && c.img) || S.cards.get(dk.cards[0]);
+    return `<div class="me-deck">${face ? cardHTML(face, "", "", { mana: !!dk.mana }) : ""}<div style="flex:1;min-width:0"><div class="nm">${esc(dk.name)}</div><div class="meta">${dk.cards.length}枚${dk.mana ? "・コストデッキ" : ""}</div><div class="row" style="gap:6px;margin-top:6px"><button class="small" data-medit="${esc(dk.id)}">編集</button><button class="small primary" data-muse="${esc(dk.id)}">対戦で使う</button></div></div></div>`;
+  }).join("") || `<p class="muted">まだデッキがありません。</p>`;
+  S.meIds = mine.map(c => c.id);
+  $("#mpCards").innerHTML = mine.map(c => `<div class="g-item">${cardHTML(c, "sm")}</div>`).join("") || `<p class="muted">まだカードがありません。</p>`;
+}
+$("#mpName").addEventListener("change", e => { S.name = e.target.value.trim() || "プレイヤー"; e.target.value = S.name; ls.set("cb_name", S.name); renderAll(); });
+$("#mpIcon").addEventListener("change", e => { ls.set("cb_icon", e.target.value); renderMe(); });
+$("#mpDecks").addEventListener("click", e => {
+  const ed = e.target.closest("[data-medit]"), use = e.target.closest("[data-muse]");
+  if (ed){ S.tab = "deck"; ls.set("cb_tab", "deck"); renderAll(); const sel = $("#deckEditSel"); sel.value = ed.dataset.medit; sel.dispatchEvent(new Event("change")); window.scrollTo(0, 0); }
+  if (use){ ls.set("cb_deck", use.dataset.muse); S.tab = "play"; ls.set("cb_tab", "play"); renderAll(); window.scrollTo(0, 0); toast("このデッキで対戦できます"); }
+});
+$("#mpCards").addEventListener("click", e => {
+  const it = e.target.closest(".g-item"); if (!it) return;
+  openCardView("list", S.meIds, [...$("#mpCards").querySelectorAll(".g-item")].indexOf(it));
 });
 
 /* ================= lobby ================= */
@@ -2049,6 +2142,7 @@ function dropTarget(st, me){
 }
 const mOpt = s => ({ mana: !!(G && G.st && G.st.players[s] && G.st.players[s].mana) });
 function renderBoard(){
+  recordResult();
   const st = G.st, me = G.slot, op = O(me), pm = P(st, me), po = P(st, op);
   const myTurn = st.turn === me, free = canAct(st, me);
   const sel = G.sel, atkFrom = G.atkFrom;
