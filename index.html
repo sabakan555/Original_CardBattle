@@ -837,7 +837,7 @@ nav.tabs button{position:relative}
         <h3 style="margin-top:14px">自分のターンでできること</h3>
         <ol>
           <li>モンスターの召喚は1ターンに1回だけ</li>
-          <li>「特殊召喚」できるモンスターは、カードに書いた条件を満たせば手札から出せる（1ターンの召喚回数は使わない）。特殊召喚で出たときは「召喚したとき」の効果は出ず、「特殊召喚したとき」の効果が出る。墓地から場に出す効果も特殊召喚</li>
+          <li>「特殊召喚」できるモンスターは、カードに書いた条件を満たせば手札から出せる（1ターンの召喚回数は使わない）。特殊召喚で出たときは「召喚したとき」の効果は出ず、「特殊召喚したとき」の効果が出る。墓地から場に出す効果も特殊召喚。手札からの特殊召喚は、普通の召喚と同じく相手が打ち消しで無効にできる（払ったものは戻らない）</li>
           <li>魔法は手札から発動するか、セットしてあとで発動</li>
           <li>装備は、場のモンスター（相手のでもOK）にいつでもくっつけられる。ATKを上げ下げしたり、能力や効果を付けたりする。モンスターごとに「装備キャパ」があって、付いている装備コストの合計がキャパまでしか付けられない（キャパの指定がなければATK÷100）。装備は左から並んでいて、「左どなりに効く」装備もある。モンスターが場を離れると装備も持ち主の墓地へ</li>
           <li>罠はセットする。次の相手ターン以降に発動できる</li>
@@ -2779,6 +2779,13 @@ function specialSummon(st, s, hi, picks = []){
   if (gone.length){ p.grave.push(...gone); paid = `手札を${gone.length}枚捨てて`; }
   const z = freeZone(p.mz);
   if (z < 0){ p.grave.push(id); log(st, s, `場がいっぱいで「${c.name}」は出られなかった`); return true; }
+  // the opponent may answer with a cancel, just like a normal summon (the cost stays paid)
+  if (responseOptions(st, O(s), "summon").length){
+    st.chain = [{ s, c: id, summon: true, special: true, z, ctx: { zone: z } }];
+    log(st, s, `${paid ? paid + "、" : ""}「${c.name}」（ATK ${fmtN(baseAtk(c))}）を特殊召喚しようとしている…`);
+    st.pending = { type: "chain", by: s, wait: true, resume: null };
+    return true;
+  }
   p.mz[z] = mkMon(st, id);
   ev(st, { type: "summon", s, z });
   log(st, s, `${paid ? paid + "、" : ""}「${c.name}」（ATK ${fmtN(baseAtk(c))}）を特殊召喚！`);
@@ -2840,18 +2847,18 @@ function resolveChain(st, resume){
     const link = chain.pop(), c = card(link.c);
     if (link.summon){
       const p = P(st2, link.s);
-      if (link.negated){ p.grave.push(link.c); log(st2, link.s, `「${c.name}」の召喚は打ち消された！`); step(st2); return; }
+      if (link.negated){ p.grave.push(link.c); log(st2, link.s, `「${c.name}」の${link.special ? "特殊召喚" : "召喚"}は打ち消された！`); step(st2); return; }
       let z = p.mz[link.z] ? freeZone(p.mz) : link.z;
       if (z < 0){ p.grave.push(link.c); log(st2, link.s, `場がいっぱいで「${c.name}」は出られなかった`); step(st2); return; }
       p.mz[z] = mkMon(st2, link.c);
-      log(st2, link.s, `「${c.name}」の召喚に成功！`); ev(st2, { type: "summon", s: link.s, z });
-      runCard(st2, link.s, c, "summon", { zone: z, mon: { s: link.s, i: z, u: p.mz[z].u } }, step);
+      log(st2, link.s, `「${c.name}」の${link.special ? "特殊召喚" : "召喚"}に成功！`); ev(st2, { type: "summon", s: link.s, z });
+      runCard(st2, link.s, c, link.special ? "ssummon" : "summon", { zone: z, mon: { s: link.s, i: z, u: p.mz[z].u } }, step);
       return;
     }
     if (link.negated){ log(st2, link.s, `「${c.name}」の発動は無効になった`); step(st2); return; }
     if (link.cancel || (normFx(c) || {}).kind === "cancel"){
       const t = chain[link.target];
-      if (t){ t.negated = true; ev(st2, { type: "counter", s: link.s }); log(st2, link.s, `「${c.name}」で「${card(t.c).name}」の${t.summon ? "召喚" : "発動"}を打ち消す！`); }
+      if (t){ t.negated = true; ev(st2, { type: "counter", s: link.s }); log(st2, link.s, `「${c.name}」で「${card(t.c).name}」の${t.summon ? (t.special ? "特殊召喚" : "召喚") : "発動"}を打ち消す！`); }
       else log(st2, link.s, `「${c.name}」：無効にするカードがない`);
       step(st2); return;
     }
@@ -3376,10 +3383,10 @@ function renderOverlay(){
     } else if (win === "end"){ head = `${A.name} がターンを終えようとしています`; msg = "ターンが変わる前に、速攻魔法か罠を使う？"; }
     else {
       const top = st.chain[st.chain.length - 1];
-      head = top.summon ? `「${card(top.c).name}」が召喚されようとしている！` : `「${card(top.c).name}」が発動された！`;
+      head = top.summon ? `「${card(top.c).name}」が${top.special ? "特殊召喚" : "召喚"}されようとしている！` : `「${card(top.c).name}」が発動された！`;
       msg = "罠か速攻魔法でチェーンする？（あとから発動したものから順に処理されます）";
     }
-    const chainHTML = st.chain && st.chain.length ? `<div class="chainrow">${st.chain.map((l, k) => `<span class="link ${l.s === me ? "mine" : ""}">${k + 1}. ${l.summon ? "召喚：" : ""}${esc(card(l.c).name)}<small>${l.s === me ? "あなた" : esc(P(st, l.s).name)}</small></span>`).join('<span class="arr">→</span>')}</div>` : "";
+    const chainHTML = st.chain && st.chain.length ? `<div class="chainrow">${st.chain.map((l, k) => `<span class="link ${l.s === me ? "mine" : ""}">${k + 1}. ${l.summon ? (l.special ? "特殊召喚：" : "召喚：") : ""}${esc(card(l.c).name)}<small>${l.s === me ? "あなた" : esc(P(st, l.s).name)}</small></span>`).join('<span class="arr">→</span>')}</div>` : "";
     html = `<div class="box"><h2 style="margin:0">${esc(head)}</h2>${chainHTML}<p style="margin:0">${esc(msg)}</p><div class="gallery">${list}</div><div class="row"><button data-close="notrap">${win === "chain" || win === "chainAttack" ? "チェーンしない" : "使わない"}</button></div></div>`;
   } else if (G.ssPick && canAct(st, me)){
     const sp = G.ssPick, pm = P(st, me), c = card(pm.hand[sp.hi]);
