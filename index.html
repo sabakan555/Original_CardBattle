@@ -57,7 +57,9 @@ label.f{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:13p
 .card.equip .c-tab{color:var(--magic)}
 .card .eqb{position:absolute;top:-8px;left:-6px;background:var(--magic);color:#fff;font-family:var(--ui);font-size:11px;padding:0 7px;border-radius:99px;z-index:1}
 .c-in{height:100%;background:var(--cbg);border-radius:calc(var(--w)*.028);display:flex;flex-direction:column;overflow:hidden;position:relative}
-.c-cost{position:absolute;left:calc(var(--w)*.025);top:calc(var(--w)*.022);width:calc(var(--w)*.11);height:calc(var(--w)*.11);border-radius:50%;background:#2f6fd0;color:#fff;border:calc(var(--w)*.01) solid var(--cframe);font-family:var(--ui);font-weight:700;font-size:calc(var(--w)*.07);line-height:1;display:grid;place-items:center;font-variant-numeric:tabular-nums}
+/* mana cards: a cost box cut into the top-left corner of the frame (club design) */
+.c-cost{position:absolute;left:0;top:0;z-index:2;box-sizing:content-box;width:calc(var(--w)*.157);height:calc(var(--w)*.19);background:var(--cbg);border-right:var(--lw) solid var(--cframe);border-bottom:var(--lw) solid var(--cframe);border-bottom-right-radius:calc(var(--w)*.036);border-top-left-radius:calc(var(--w)*.028);color:#1e2328;font-family:var(--en,var(--ui));font-weight:700;font-size:calc(var(--w)*.105);line-height:1;display:grid;place-items:center;font-variant-numeric:tabular-nums}
+.card.costed .c-name{padding-left:calc(var(--w)*.2);padding-right:calc(var(--w)*.035)}
 .card.dim{filter:grayscale(.6) brightness(.92)}
 .manabar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:center;background:#e8f0fb;border:2px solid var(--ink);border-radius:999px;padding:4px 16px;align-self:center;font-weight:700;color:#2f6fd0}
 .manabar .lbl{font-size:13px;color:var(--ink)}
@@ -421,7 +423,7 @@ nav.tabs button{position:relative}
   <section id="tab-make" hidden>
     <div class="maker">
       <div class="card editor" id="editCard"><div class="c-in">
-        <div class="c-name"><span class="c-cost" id="mkCostBadge" hidden></span><input type="text" id="mkName" maxlength="14" placeholder="カード名"></div>
+        <span class="c-cost" id="mkCostBadge" hidden></span><div class="c-name"><input type="text" id="mkName" maxlength="14" placeholder="カード名"></div>
         <div class="c-art"><canvas id="cv" width="560" height="400" aria-label="イラストを描くところ"></canvas><div class="c-tab" id="mkTab">モンスター</div></div>
         <div class="c-text">
           <div class="fxline" id="mkFxLine"></div>
@@ -861,7 +863,8 @@ function cardHTML(c, cls = "", attrs = "", opts = {}){
   }
   const eqTxt = t === "equip" ? `<span class="fx">${esc(eqText(c))}</span> ` : "";
   const fc = fontCss(c);
-  return `<div class="card ${t} ${cls}" ${attrs}${fc ? ` style='--cf:${fc}'` : ""}>${opts.done ? `<span class="done">${opts.done}</span>` : ""}${opts.eq ? `<span class="eqb">装備${opts.eq > 1 ? "×" + opts.eq : ""}</span>` : ""}<div class="c-in"><div class="c-name">${hasCost(c) && opts.mana !== false ? `<span class="c-cost" title="コスト">${costOf(c)}</span>` : ""}${esc(c.name)}</div><div class="c-art">${art}<div class="c-tab">${isQuick(c) ? "速攻魔法" : TYPE_LABEL[t]}</div></div><div class="c-text"><div class="body">${eqTxt}${ft ? `<span class="fx">${esc(ft)}</span> ` : ""}${esc(c.effect || "")}</div>${c.id ? `<span class="c-lim">${lim ? "×" + lim : "∞"}</span>` : ""}${atk}</div></div></div>`;
+  const showCost = hasCost(c) && opts.mana !== false;
+  return `<div class="card ${t}${showCost ? " costed" : ""} ${cls}" ${attrs}${fc ? ` style='--cf:${fc}'` : ""}>${opts.done ? `<span class="done">${opts.done}</span>` : ""}${opts.eq ? `<span class="eqb">装備${opts.eq > 1 ? "×" + opts.eq : ""}</span>` : ""}<div class="c-in">${showCost ? `<span class="c-cost" title="コスト">${costOf(c)}</span>` : ""}<div class="c-name">${esc(c.name)}</div><div class="c-art">${art}<div class="c-tab">${isQuick(c) ? "速攻魔法" : TYPE_LABEL[t]}</div></div><div class="c-text"><div class="body">${eqTxt}${ft ? `<span class="fx">${esc(ft)}</span> ` : ""}${esc(c.effect || "")}</div>${c.id ? `<span class="c-lim">${lim ? "×" + lim : "∞"}</span>` : ""}${atk}</div></div></div>`;
 }
 const backHTML = (cls = "", attrs = "") => `<div class="card back ${cls}" ${attrs}><div class="c-in"><span>?</span></div></div>`;
 
@@ -1154,7 +1157,7 @@ function syncEqLine(){ if (MK.type === "equip") $("#mkFxLine").textContent = eqT
 MK.deck = "normal";
 function syncCost(){
   const v = MK.deck === "normal" ? "" : $("#mkCost").value;
-  $("#mkCostBadge").textContent = v; $("#mkCostBadge").hidden = v === "";
+  $("#mkCostBadge").textContent = v; $("#mkCostBadge").hidden = v === ""; $("#editCard").classList.toggle("costed", v !== "");
 }
 $("#mkCost").innerHTML = Array.from({ length: MAX_MANA + 1 }, (_, k) => `<option value="${k}">${k}</option>`).join("");
 $("#mkCost").value = "1";
