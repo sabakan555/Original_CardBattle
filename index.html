@@ -667,7 +667,7 @@ nav.tabs button{position:relative}
         </div>
         <div class="fxform" id="photoPanel" hidden>
           <h3 style="margin:0">写真の位置を調整中</h3>
-          <p class="note" style="margin:0">絵の上をドラッグで移動、マウスホイールで拡大・縮小。描いた線はそのまま残ります。</p>
+          <p class="note" style="margin:0">絵の上をドラッグで移動。2本指で拡大・縮小と回転（PCはマウスホイールで拡大・縮小）。描いた線はそのまま残ります。</p>
           <label class="f">大きさ<input type="range" id="phScale" min="10" max="400" value="100"></label>
           <label class="f">回転<input type="range" id="phRot" min="-180" max="180" value="0"></label>
           <div class="row"><button class="small" id="phFit">枠に合わせる</button><button class="small danger" id="phDel">写真を消す</button><button class="small primary" id="phDone">決定して描く</button></div>
@@ -799,7 +799,7 @@ nav.tabs button{position:relative}
           <div class="row"><button class="small" id="slFill">今の色を背景にする</button><button class="small danger" id="slClear">ぜんぶ消す</button><span class="btn filebtn small" style="box-shadow:0 2px 0 var(--ink);padding:3px 10px;font-size:13px;border-radius:9px">写真を読みこむ<input type="file" id="slFile" accept="image/*"></span><button class="small" id="slPhEdit" hidden>写真の位置を変える</button></div>
           <div class="fxform" id="slPhotoPanel" hidden>
             <h3 style="margin:0">写真の位置を調整中</h3>
-            <p class="note" style="margin:0">スリーブの上をドラッグで移動、2本指（PCはマウスホイール）で拡大・縮小。描いた線はそのまま残ります。</p>
+            <p class="note" style="margin:0">スリーブの上をドラッグで移動、2本指で拡大・縮小と回転（PCはマウスホイールで拡大・縮小）。描いた線はそのまま残ります。</p>
             <label class="f">大きさ<input type="range" id="slPhScale" min="10" max="400" value="100"></label>
             <label class="f">回転<input type="range" id="slPhRot" min="-180" max="180" value="0"></label>
             <div class="row"><button class="small" id="slPhFit">枠に合わせる</button><button class="small danger" id="slPhDel">写真を消す</button><button class="small primary" id="slPhDone">決定して描く</button></div>
@@ -1547,19 +1547,31 @@ function setPhoto(img){
 }
 const drawImageCover = setPhoto;
 let drag = null;
+// photo mode: one finger moves, two fingers zoom + rotate (the wheel also zooms)
+const mkPtrs = new Map(); let mkPinch = null;
+const twoOf = m => { const [a, b] = [...m.values()]; return { d: Math.hypot(a.x - b.x, a.y - b.y) || 1, a: Math.atan2(b.y - a.y, b.x - a.x) }; };
 cv.addEventListener("pointerdown", e => {
   e.preventDefault(); cv.setPointerCapture(e.pointerId);
-  if (MK.mode === "photo" && photo){ pushUndo(); drag = { p: pt(e), x: photo.x, y: photo.y }; return; }
+  if (MK.mode === "photo" && photo){
+    mkPtrs.set(e.pointerId, pt(e));
+    if (mkPtrs.size === 1){ pushUndo(); drag = { p: pt(e), x: photo.x, y: photo.y }; }
+    if (mkPtrs.size === 2){ const t = twoOf(mkPtrs); mkPinch = { d: t.d, a: t.a, s: photo.s, r: photo.r }; drag = null; }
+    return;
+  }
   pushUndo(); drawing = true; last = pt(e); stroke(last, last); composite();
 });
 cv.addEventListener("pointermove", e => {
+  if (MK.mode === "photo" && photo && mkPtrs.has(e.pointerId)){
+    mkPtrs.set(e.pointerId, pt(e));
+    if (mkPinch && mkPtrs.size >= 2){ const t = twoOf(mkPtrs); photo.s = Math.min(photo.base * 4, Math.max(photo.base * .1, mkPinch.s * t.d / mkPinch.d)); photo.r = mkPinch.r + t.a - mkPinch.a; syncPhotoUI(); composite(); return; }
+  }
   if (drag){ const p = pt(e); photo.x = drag.x + p.x - drag.p.x; photo.y = drag.y + p.y - drag.p.y; composite(); return; }
   if (!drawing) return;
   const evs = e.getCoalescedEvents ? e.getCoalescedEvents() : [e];
   for (const ev of (evs.length ? evs : [e])){ const p = pt(ev); stroke(last, p); last = p; }
   composite();
 });
-const endStroke = () => { drawing = false; drag = null; };
+const endStroke = e => { drawing = false; mkPtrs.delete(e.pointerId); if (mkPtrs.size < 2) mkPinch = null; if (!mkPtrs.size) drag = null; };
 cv.addEventListener("pointerup", endStroke); cv.addEventListener("pointercancel", endStroke);
 cv.addEventListener("wheel", e => {
   if (MK.mode !== "photo" || !photo) return;
@@ -2028,7 +2040,7 @@ slCv.addEventListener("pointerdown", e => {
   if (SL.mode === "photo" && SL.photo){
     slPtrs.set(e.pointerId, slPt(e));
     if (slPtrs.size === 1){ slPush(); const p = slPt(e); slDrag = { p, x: SL.photo.x, y: SL.photo.y }; }
-    if (slPtrs.size === 2){ const [a, b] = [...slPtrs.values()]; slPinch = { d: Math.hypot(a.x - b.x, a.y - b.y) || 1, s: SL.photo.s }; slDrag = null; }
+    if (slPtrs.size === 2){ const [a, b] = [...slPtrs.values()]; slPinch = { d: Math.hypot(a.x - b.x, a.y - b.y) || 1, a: Math.atan2(b.y - a.y, b.x - a.x), s: SL.photo.s, r: SL.photo.r }; slDrag = null; }
     return;
   }
   slPush(); slLast = slPt(e); slLine(slLast, slLast); slDraw();
@@ -2037,7 +2049,7 @@ slCv.addEventListener("pointermove", e => {
   if (SL.mode === "photo" && SL.photo){
     if (!slPtrs.has(e.pointerId)) return;
     slPtrs.set(e.pointerId, slPt(e));
-    if (slPinch && slPtrs.size >= 2){ const [a, b] = [...slPtrs.values()]; const d = Math.hypot(a.x - b.x, a.y - b.y); SL.photo.s = Math.min(SL.photo.base * 4, Math.max(SL.photo.base * .1, slPinch.s * d / slPinch.d)); slUI(); slDraw(); return; }
+    if (slPinch && slPtrs.size >= 2){ const [a, b] = [...slPtrs.values()]; const d = Math.hypot(a.x - b.x, a.y - b.y); SL.photo.s = Math.min(SL.photo.base * 4, Math.max(SL.photo.base * .1, slPinch.s * d / slPinch.d)); SL.photo.r = slPinch.r + Math.atan2(b.y - a.y, b.x - a.x) - slPinch.a; slUI(); slDraw(); return; }
     if (slDrag){ const p = slPt(e); SL.photo.x = slDrag.x + p.x - slDrag.p.x; SL.photo.y = slDrag.y + p.y - slDrag.p.y; slDraw(); }
     return;
   }
