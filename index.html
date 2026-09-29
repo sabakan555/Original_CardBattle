@@ -955,7 +955,7 @@ nav.tabs button{position:relative}
         <h3 style="margin-top:14px">自分のターンでできること</h3>
         <ol>
           <li>モンスターの召喚は1ターンに1回だけ</li>
-          <li>スパイアデッキ（デッキ編集でチェック）は、「選択の祭壇」が最初から魔法・罠ゾーンに表向きで置かれる。自分のターンのはじめに、ランダムなスパイア風カード3枚から1枚えらんで墓地に加えられる。山札がなくなったら墓地をシャッフルして山札に戻すので、山札切れで負けない。モンスターが入っていなくてもOK。</li>
+          <li>スパイアデッキ（デッキ編集でチェック）は、「選択の祭壇」が最初から魔法・罠ゾーンに表向きで置かれる。自分のターンのはじめに、ランダムなスパイア風カード3枚から1枚えらんで墓地に加えられる。山札がなくなったら墓地をシャッフルして山札に戻すので、山札切れで負けない。祭壇があるあいだは、自分のターンのはじめに手札が5枚になるまで引いて、ターンのおわりに手札をすべて墓地に捨てる。デッキの枚数は自由で、モンスターが入っていなくてもOK。</li>
           <li>「永続」の魔法・罠（スパイア風ではパワー）は、使ったあとも魔法・罠ゾーンに表向きで残って、書いてあるタイミング（ターンのはじめ、召喚するたび など）で何度も効果が出る。ゾーンは5つまでなので、置けるのも5枚まで。</li>
           <li>「廃棄」がついた魔法・罠は、使ったあと墓地に行かず、そのゲームからなくなる（墓地から戻す効果でも戻せない）。</li>
           <li>「特殊召喚」できるモンスターは、カードに書いた条件を満たせば手札から出せる（1ターンの召喚回数は使わない）。特殊召喚で出たときは「召喚したとき」の効果は出ず、「特殊召喚したとき」の効果が出る。墓地から場に出す効果も特殊召喚。手札からの特殊召喚は、普通の召喚と同じく相手が打ち消しで無効にできる（払ったものは戻らない）</li>
@@ -1365,7 +1365,7 @@ function buildStarters(){
   S.starters = S.starterBase;
 }
 // スパイアデッキ: this card is face-up in the magic/trap zone from the start; every turn it offers 3 random スパイア風 cards
-const SPIRE_ALTAR = { id: "spire-altar", type: "magic", frame: "spire", sk: "power", persist: true, name: "選択の祭壇", atk: 0, eqN: 0, eqAb: "none", abs: [], fx: { trig: "turnStart", kind: "draft", n: 3 }, combo: null, effect: "", flavor: "スパイアデッキの始まりの一枚", cost: 0, deckMode: "both", limit: 1, author: "スターター", starter: true, img: "" };
+const SPIRE_ALTAR = { id: "spire-altar", type: "magic", frame: "spire", sk: "power", persist: true, name: "選択の祭壇", atk: 0, eqN: 0, eqAb: "none", abs: [], fx: { trig: "turnStart", kind: "draft", n: 3 }, combo: null, effect: "自分のターンのはじめ、手札が5枚になるまでカードを引く。自分のターンのおわり、手札をすべて墓地に捨てる。", flavor: "スパイアデッキの始まりの一枚", cost: 0, deckMode: "both", limit: 1, author: "スターター", starter: true, img: "" };
 const draftPool = () => [...S.cards.values()].filter(c => c && c.frame === "spire" && c.id !== SPIRE_ALTAR.id);
 function draftPick(n){ return shuffle(draftPool().map(c => c.id)).slice(0, Math.max(1, n || 3)); }
 function starterDeck(){ const ids = []; STARTERS.forEach((s, i) => { for (let k = 0; k < s.n; k++) ids.push("starter-" + i); }); return { id: "starter", name: "スターターデッキ", cards: ids, builtin: true }; }
@@ -2132,13 +2132,13 @@ function allDeckOptions(){ return [...builtinDecks(), ...myDecks()]; }
 function deckCount(){ return Object.values(S.deckEdit.cards).reduce((a, b) => a + b, 0); }
 function deckMonsters(){ return Object.entries(S.deckEdit.cards).reduce((a, [id, k]) => a + (cardType(S.cards.get(id)) === "monster" ? k : 0), 0); }
 function renderDeck(){
-  { const n = deckCount(), ok = n >= MIN_DECK && deckMonsters() > 0; $("#deckFloatMeter").textContent = `${n}枚（モンスター ${deckMonsters()}）${ok ? "" : "　20枚以上にしてね"}`; $("#deckFloat").classList.toggle("ng", !ok); }
+  { const n = deckCount(), sp = $("#deckSpire").checked, ok = sp || (n >= MIN_DECK && deckMonsters() > 0); $("#deckFloatMeter").textContent = sp ? `${n}枚（スパイアデッキは枚数自由）` : `${n}枚（モンスター ${deckMonsters()}）${ok ? "" : "　20枚以上にしてね"}`; $("#deckFloat").classList.toggle("ng", !ok); }
   { const kc = S.deckEdit.key && S.deckEdit.cards[S.deckEdit.key] && S.cards.get(S.deckEdit.key); $("#deckKeyNote").textContent = kc ? `キーカード（サムネ）：「${kc.name}」` : "カードを押して「★ キーカードにする」でサムネを決められます"; }
   const sel = $("#deckEditSel"); const cur = S.deckEdit.id || "";
   sel.innerHTML = `<option value="">＋ 新しいデッキ</option>` + myDecks().map(d => `<option value="${esc(d.id)}">${esc(d.name)}${d.mana ? "【コスト】" : ""}（${d.cards.length}枚）</option>`).join("");
   sel.value = cur;
-  const n = deckCount(), ok = n >= MIN_DECK && deckMonsters() > 0;
-  const m = $("#deckMeter"); m.textContent = `${n}枚（モンスター ${deckMonsters()}）`; m.className = "meter " + (ok ? "ok" : "ng");
+  const n = deckCount(), sp = $("#deckSpire").checked, ok = sp || (n >= MIN_DECK && deckMonsters() > 0);
+  const m = $("#deckMeter"); m.textContent = sp ? `${n}枚（スパイアデッキは枚数自由）` : `${n}枚（モンスター ${deckMonsters()}）`; m.className = "meter " + (ok ? "ok" : "ng");
   $("#btnDeckDel").hidden = !S.deckEdit.id;
   const pool0 = [...S.userCards].filter(c => owns(c.id) || S.deckEdit.cards[c.id]).sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0)).concat(S.starters);
   const pool = sortCards(pool0.filter(c => matchCard(c, S.filt.deck) && (fitsDeck(c, $("#deckMana").checked) || S.deckEdit.cards[c.id])), S.filt.deck.sort);
@@ -2150,6 +2150,7 @@ function renderDeck(){
   }).join("");
 }
 $("#deckMana").addEventListener("change", renderDeck);
+$("#deckSpire").addEventListener("change", renderDeck);
 $("#deckEditSel").addEventListener("change", e => {
   const d = S.decks.find(x => x.id === e.target.value);
   S.deckEdit = { id: d ? d.id : null, cards: {}, key: (d && d.key) || null };
@@ -2165,8 +2166,8 @@ $("#deckPool").addEventListener("click", e => {
   if (p || m) renderDeck();
 });
 $("#btnDeckSave").addEventListener("click", async () => {
-  if (deckCount() < MIN_DECK){ toast(`デッキは${MIN_DECK}枚以上にしてね`); return; }
-  if (!deckMonsters()){ toast("モンスターを1枚以上入れてね"); return; }
+  if (!$("#deckSpire").checked && deckCount() < MIN_DECK){ toast(`デッキは${MIN_DECK}枚以上にしてね`); return; }
+  if (!$("#deckSpire").checked && !deckMonsters()){ toast("モンスターを1枚以上入れてね"); return; }
   const name = $("#deckName").value.trim() || "マイデッキ";
   const cards = []; for (const [id, k] of Object.entries(S.deckEdit.cards)) for (let i = 0; i < k; i++) cards.push(id);
   const id = S.deckEdit.id || uid("d");
@@ -2605,7 +2606,7 @@ function chosenDeckIds(){
   return d.cards.filter(c => S.cards.has(c) && (!S.tradesReady || owns(c)));
 }
 function deckOk(ids){
-  if (ids.length < MIN_DECK){ toast(`デッキのカードが足りません（${MIN_DECK}枚以上）`); return false; }
+  if (!chosenSpire() && ids.length < MIN_DECK){ toast(`デッキのカードが足りません（${MIN_DECK}枚以上）`); return false; }
   if (!chosenSpire() && !ids.some(id => cardType(S.cards.get(id)) === "monster")){ toast("デッキにモンスターが入っていません"); return false; }
   return true;
 }
@@ -2637,6 +2638,12 @@ function newPlayer(deckIds, name, mana, spire){
   // スパイアデッキ: the altar starts on the field, and the deck never runs out (the graveyard is shuffled back in)
   if (spire){ p.spire = true; p.sz[0] = { c: SPIRE_ALTAR.id, turn: 0, face: true, u: -1 }; }
   return p;
+}
+// 選択の祭壇 (face-up): turn start → draw up to 5 cards, turn end → the whole hand goes to the graveyard
+function altarTurn(st, s, trig){
+  const p = P(st, s); if (!p.sz.some(z => z && z.face && z.c === SPIRE_ALTAR.id)) return;
+  if (trig === "turnStart"){ const k = 5 - p.hand.length; if (k > 0) drawN(st, s, k, "「選択の祭壇」"); }
+  if (trig === "turnEnd" && p.hand.length){ const n = p.hand.length; p.grave.push(...p.hand.splice(0)); log(st, s, `「選択の祭壇」で手札${n}枚を墓地に捨てた`); }
 }
 function refill(st, s){
   const p = P(st, s); if (p.deck.length || !p.spire || !p.grave.length) return;
@@ -2691,7 +2698,7 @@ $("#btnCpu").addEventListener("click", () => {
   leaveGame();
   const cid = $("#cpuDeckSel").value, cd = cid && cid !== "auto" ? cpuDeckOptions().find(d => d.id === cid) : null;
   const cpuMana = cd ? !!cd.mana : chosenMana(), cpuIds = (cd || (cpuMana ? sampleManaDeck() : starterDeck())).cards.filter(id => S.cards.has(id));
-  if (cpuIds.length < MIN_DECK || (!(cd && cd.spire) && !cpuIds.some(id => cardType(S.cards.get(id)) === "monster"))){ toast("CPUのデッキのカードが足りません。別のデッキをえらんでね"); return; }
+  if ((!(cd && cd.spire) && cpuIds.length < MIN_DECK) || (!(cd && cd.spire) && !cpuIds.some(id => cardType(S.cards.get(id)) === "monster"))){ toast("CPUのデッキのカードが足りません。別のデッキをえらんでね"); return; }
   G = { mode: "cpu", slot: "a", st: startState(newPlayer(ids, null, chosenMana(), chosenSpire()), newPlayer(cpuIds, cd ? `CPU（${cd.name}）` : "CPU", cpuMana, !!(cd && cd.spire))), sel: null, atkFrom: null, chooseQ: [], evSeen: 0 };
   after(false);
 });
@@ -2845,6 +2852,7 @@ function runList(st, L, then){
 }
 // turn start / end: every monster of `who`, and every equip `who` owns (wherever it's stuck)
 function fireTurn(st, who, trig, then){
+  altarTurn(st, who, trig);
   const L = [];
   for (const o of ["a", "b"]) P(st, o).mz.forEach((m, i) => { if (m) monTrigList(st, o, i, trig).forEach(x => { if (x.s === who && (normFx(x.c) || {}).trig === trig || x.s === who && (normCombo(x.c) || {}).trig === trig) L.push(x); }); });
   const PL = persistList(st, who, trig, {}); PL.forEach(x => log(st, who, `永続「${x.c.name}」の効果！`));
