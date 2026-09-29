@@ -76,6 +76,15 @@ label.f{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:13p
 .c-name{border-bottom:var(--lw) solid var(--cframe);text-align:center;font-size:calc(var(--w)*.085*var(--nk,1));line-height:1.15;padding:calc(var(--w)*.03) calc(var(--w)*.13);position:relative;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:none}
 .c-art{aspect-ratio:7/5;position:relative;border-bottom:var(--lw) solid var(--cframe);overflow:hidden;flex:none;background:#fff}
 .c-art img{width:100%;height:100%;object-fit:cover;display:block}
+/* half-frameless: the picture runs down behind a see-through text box (canvas 560×680, top 400 = the normal art area) */
+.c-bgart{position:absolute;left:0;right:0;bottom:0;top:calc(var(--w)*.151 + var(--lw));background:#fff}
+.c-bgart img{width:100%;height:100%;object-fit:cover;object-position:top;display:block}
+.card.frameless .c-art{background:transparent;border-bottom-color:rgba(43,43,43,.55)}
+.card.frameless .c-text{background:color-mix(in srgb,var(--cbg) 68%,transparent);-webkit-backdrop-filter:blur(1.5px);backdrop-filter:blur(1.5px)}
+.card.frameless .c-text .flv{color:#2f363d}
+.card.editor.frameless .c-art{aspect-ratio:560/680}
+.card.editor.frameless .c-tab{bottom:calc(100% * 280 / 680)}
+.fl-guide{position:absolute;left:0;right:0;top:calc(100% * 400 / 680);bottom:0;border-top:3px dashed rgba(224,83,58,.85);background:rgba(239,244,245,.28);pointer-events:none;display:flex;justify-content:flex-end;align-items:flex-start;padding:4px 8px;font:700 12px var(--ui);color:#c0412a}
 .c-tab{position:absolute;left:0;bottom:0;background:var(--cbg);border-top:var(--lw) solid var(--cframe);border-right:var(--lw) solid var(--cframe);border-top-right-radius:calc(var(--w)*.07);padding:0 calc(var(--w)*.05) 0 calc(var(--w)*.03);font-size:calc(var(--w)*.052);line-height:1.5;font-family:var(--ui);font-weight:700}
 .card.magic .c-tab{color:var(--magic)}
 .eqfx{color:#1b5e8a}
@@ -430,7 +439,7 @@ nav.tabs button{position:relative}
     <div class="maker">
       <div class="card editor" id="editCard"><div class="c-in">
         <span class="c-cost" id="mkCostBadge" hidden></span><div class="c-name"><input type="text" id="mkName" maxlength="40" placeholder="カード名"></div>
-        <div class="c-art"><canvas id="cv" width="560" height="400" aria-label="イラストを描くところ"></canvas><div class="c-tab" id="mkTab">モンスター</div></div>
+        <div class="c-art"><canvas id="cv" width="560" height="400" aria-label="イラストを描くところ"></canvas><div class="fl-guide" id="flGuide" hidden>ここから下は半透明の文字の欄</div><div class="c-tab" id="mkTab">モンスター</div></div>
         <div class="c-text">
           <div class="fxline" id="mkFxLine"></div>
           <textarea id="mkEff" maxlength="120" placeholder="自由に書く効果（なくてもいい）"></textarea>
@@ -443,6 +452,7 @@ nav.tabs button{position:relative}
         <h2 id="mkTitle">カードを描く</h2>
         <div><h3>カードの種類</h3><div class="seg" id="mkType"><button data-t="monster" aria-pressed="true">モンスター</button><button data-t="magic" aria-pressed="false">魔法</button><button data-t="equip" aria-pressed="false">装備魔法</button><button data-t="trap" aria-pressed="false">罠</button></div></div>
         <label class="row" id="quickRow" hidden style="gap:6px;font-weight:700;cursor:pointer"><input type="checkbox" id="mkQuick"> 速攻魔法（相手のターンにも使える）</label>
+        <label class="row" style="gap:6px;font-weight:700;cursor:pointer"><input type="checkbox" id="mkFrameless"> 半フレームレス（絵を下の文字の欄まで広げる）</label>
         <div><h3>文字のフォント</h3><select id="mkFont" aria-label="カードのフォント"></select></div>
         <div><h3>文字の大きさ</h3><div class="row"><label class="f" style="flex-direction:row;align-items:center;gap:6px">名前<select id="mkNameSize"></select></label><label class="f" style="flex-direction:row;align-items:center;gap:6px">効果・フレーバー<select id="mkTextSize"></select></label></div></div>
         <div><h3>ふりがな</h3><div class="row"><button class="small" id="mkRuby" type="button">ふりがなをつける</button><span class="note">漢字をえらんで押すと ｜漢字《》 になるので、《》の中に読みを入れてね</span></div><div class="ruby-prev" id="rubyPrev" hidden></div></div>
@@ -614,6 +624,7 @@ nav.tabs button{position:relative}
           <li>交換は Trade タブから。自分で描いたカード1枚と、相手のカード1枚をお互いにコピーで渡し合う（渡しても自分の手元からは減らない）</li>
           <li>ATKは0以上なら上限なし（1きざみ）。「∞」にもできる</li>
           <li>効果とは別に「フレーバーテキスト」も書ける（ゲームには影響しない）。文字の大きさも名前・効果ごとに変えられる</li>
+          <li>「半フレームレス」にすると、絵が下の文字の欄まで広がって、文字の欄が半透明になる（全身を見せたいときに）</li>
           <li>ふりがなは ｜漢字《かんじ》 と書く（漢字のすぐ後なら 漢字《かんじ》 だけでもOK）</li>
         </ul>
       </div>
@@ -885,10 +896,11 @@ function cardHTML(c, cls = "", attrs = "", opts = {}){
   const eqTxt = t === "equip" ? `<span class="fx">${esc(eqText(c))}</span> ` : "";
   const fc = fontCss(c);
   const showCost = hasCost(c) && opts.mana !== false;
+  const fl = !!(c.frameless && c.img);
   const flv = c.flavor ? plainRuby(c.flavor).trim() && c.flavor : "";
   const cl = (flv ? { s: 4, m: 3, l: 2 } : { s: 6, m: 5, l: 4 })[SIZES_T[c.textSize] ? c.textSize : "m"];
   const sv = []; if (fc) sv.push(`--cf:${fc}`); if (c.nameSize && c.nameSize !== "m") sv.push(`--nk:${sizeK(c.nameSize)}`); if (c.textSize && c.textSize !== "m") sv.push(`--tk:${sizeK(c.textSize)}`); if (cl !== 5) sv.push(`--cl:${cl};--cls:${cl}`);
-  return `<div class="card ${t}${showCost ? " costed" : ""} ${cls}" ${attrs}${sv.length ? ` style='${sv.join(";")}'` : ""}>${opts.done ? `<span class="done">${opts.done}</span>` : ""}${opts.eq ? `<span class="eqb">装備${opts.eq > 1 ? "×" + opts.eq : ""}</span>` : ""}<div class="c-in">${showCost ? `<span class="c-cost" title="コスト">${costOf(c)}</span>` : ""}<div class="c-name">${rubyHTML(c.nameRuby || c.name)}</div><div class="c-art">${art}<div class="c-tab">${isQuick(c) ? "速攻魔法" : TYPE_LABEL[t]}</div></div><div class="c-text${atk ? " ha" : ""}"><div class="body">${eqTxt}${ft ? `<span class="fx">${esc(ft)}</span> ` : ""}${rubyHTML(c.effect || "")}</div>${flv ? `<div class="flv">${rubyHTML(flv)}</div>` : ""}${c.id ? `<span class="c-lim">${lim ? "×" + lim : "∞"}</span>` : ""}${atk}</div></div></div>`;
+  return `<div class="card ${t}${showCost ? " costed" : ""}${fl ? " frameless" : ""} ${cls}" ${attrs}${sv.length ? ` style='${sv.join(";")}'` : ""}>${opts.done ? `<span class="done">${opts.done}</span>` : ""}${opts.eq ? `<span class="eqb">装備${opts.eq > 1 ? "×" + opts.eq : ""}</span>` : ""}<div class="c-in">${fl ? `<div class="c-bgart">${art}</div>` : ""}${showCost ? `<span class="c-cost" title="コスト">${costOf(c)}</span>` : ""}<div class="c-name">${rubyHTML(c.nameRuby || c.name)}</div><div class="c-art">${fl ? "" : art}<div class="c-tab">${isQuick(c) ? "速攻魔法" : TYPE_LABEL[t]}</div></div><div class="c-text${atk ? " ha" : ""}"><div class="body">${eqTxt}${ft ? `<span class="fx">${esc(ft)}</span> ` : ""}${rubyHTML(c.effect || "")}</div>${flv ? `<div class="flv">${rubyHTML(flv)}</div>` : ""}${c.id ? `<span class="c-lim">${lim ? "×" + lim : "∞"}</span>` : ""}${atk}</div></div></div>`;
 }
 const backHTML = (cls = "", attrs = "") => `<div class="card back ${cls}" ${attrs}><div class="c-in"><span>?</span></div></div>`;
 
@@ -1100,6 +1112,20 @@ function composite(){
   cx.drawImage(ink, 0, 0);
   if (MK.mode === "photo"){ cx.strokeStyle = "rgba(224,83,58,.9)"; cx.lineWidth = 6; cx.setLineDash([14, 10]); cx.strokeRect(3, 3, cv.width - 6, cv.height - 6); cx.setLineDash([]); }
 }
+MK.frameless = false;
+function setFrameless(on){
+  MK.frameless = !!on; $("#mkFrameless").checked = MK.frameless;
+  const H = MK.frameless ? 680 : 400;
+  if (cv.height !== H){
+    const keep = document.createElement("canvas"); keep.width = ink.width; keep.height = ink.height; keep.getContext("2d").drawImage(ink, 0, 0);
+    cv.height = H; ink.height = H; ik.drawImage(keep, 0, 0);
+    if (photo){ const nb = Math.max(cv.width / photo.img.width, cv.height / photo.img.height); photo.s *= nb / photo.base; photo.base = nb; }
+    undoStack = []; MK.artDirty = true;
+  }
+  $("#editCard").classList.toggle("frameless", MK.frameless); $("#flGuide").hidden = !MK.frameless;
+  composite();
+}
+$("#mkFrameless").addEventListener("change", e => setFrameless(e.target.checked));
 function clearCanvas(){ ik.clearRect(0, 0, ink.width, ink.height); photo = null; setMode("draw"); composite(); }
 $("#swatches").innerHTML = COLORS.map(c => `<button class="sw" style="background:${c}" data-c="${c}" aria-label="色 ${c}" aria-pressed="${c === pen.color}"></button>`).join("");
 $("#sizes").innerHTML = SIZES.map(([l, s]) => `<button data-s="${s}" aria-pressed="${s === pen.size}">${l}</button>`).join("");
@@ -1292,7 +1318,7 @@ function loadFxForm(c){
   syncFxForm();
 }
 function resetMaker(){
-  S.editId = null; $("#mkName").value = ""; $("#mkEff").value = ""; $("#mkFlv").value = ""; $("#mkNameSize").value = $("#mkTextSize").value = "m"; syncSizes(); $("#mkAtk").value = 300; $("#mkEq").value = 200; $("#mkEqAb").value = "none"; $("#mkFont").value = "klee"; syncFont(); $("#mkQuick").checked = false; $("#mkCost").value = "1"; setMkDeck("normal"); $("#mkLimit").value = "3"; clearCanvas(); undoStack = [];
+  S.editId = null; setFrameless(false); $("#mkName").value = ""; $("#mkEff").value = ""; $("#mkFlv").value = ""; $("#mkNameSize").value = $("#mkTextSize").value = "m"; syncSizes(); $("#mkAtk").value = 300; $("#mkEq").value = 200; $("#mkEqAb").value = "none"; $("#mkFont").value = "klee"; syncFont(); $("#mkQuick").checked = false; $("#mkCost").value = "1"; setMkDeck("normal"); $("#mkLimit").value = "3"; clearCanvas(); undoStack = [];
   setMkType("monster"); loadFxForm(null);
   $("#mkTitle").textContent = "カードを描く"; $("#btnNew").hidden = true; $("#btnSave").textContent = "カードを保存";
 }
@@ -1311,7 +1337,7 @@ $("#btnSave").addEventListener("click", async () => {
   const prev = S.cards.get(id);
   let eqN = Math.round(+$("#mkEq").value || 0); $("#mkEq").value = eqN;
   const doc = { type: MK.type, name, atk: MK.type === "monster" ? atk : 0, atkInf, eqN: MK.type === "equip" ? eqN : 0, eqAb: MK.type === "equip" ? $("#mkEqAb").value : "none", effect: $("#mkEff").value.trim(), flavor: $("#mkFlv").value.trim(), nameSize: $("#mkNameSize").value, textSize: $("#mkTextSize").value, fx: readFx(), combo: readCombo(), font: $("#mkFont").value, quick: MK.type === "magic" && $("#mkQuick").checked, cost: MK.deck === "normal" ? null : +$("#mkCost").value, deckMode: MK.deck, limit: +$("#mkLimit").value,
-    img: prev && prev.img && !MK.artDirty ? prev.img : encodeArt(out), author: S.name, ownerId: prev?.ownerId || S.uid || null, updatedAt: Date.now() };
+    img: prev && prev.img && !MK.artDirty ? prev.img : encodeArt(out), frameless: MK.frameless, author: S.name, ownerId: prev?.ownerId || S.uid || null, updatedAt: Date.now() };
   $("#btnSave").disabled = true;
   try{ await saveCardDoc(id, doc); toast(S.editId ? "カードを更新しました" : "カードを保存しました！"); resetMaker(); }
   catch(e){ writeErr(e); }
@@ -1341,7 +1367,7 @@ $("#gallery").addEventListener("click", async e => {
   const ed = e.target.closest("[data-edit]"), del = e.target.closest("[data-del]");
   if (ed){
     const c = S.cards.get(ed.dataset.edit); if (!c || !isMine(c)) return;
-    S.editId = c.id; MK.artDirty = false; $("#mkName").value = c.nameRuby || c.name; $("#mkEff").value = c.effect || ""; $("#mkFlv").value = c.flavor || ""; $("#mkNameSize").value = SIZES_T[c.nameSize] ? c.nameSize : "m"; $("#mkTextSize").value = SIZES_T[c.textSize] ? c.textSize : "m"; syncSizes(); $("#mkAtk").value = c.atkInf ? "∞" : (c.atk || 0); $("#mkLimit").value = String(cardLimit(c));
+    S.editId = c.id; setFrameless(!!c.frameless); MK.artDirty = false; $("#mkName").value = c.nameRuby || c.name; $("#mkEff").value = c.effect || ""; $("#mkFlv").value = c.flavor || ""; $("#mkNameSize").value = SIZES_T[c.nameSize] ? c.nameSize : "m"; $("#mkTextSize").value = SIZES_T[c.textSize] ? c.textSize : "m"; syncSizes(); $("#mkAtk").value = c.atkInf ? "∞" : (c.atk || 0); $("#mkLimit").value = String(cardLimit(c));
     $("#mkQuick").checked = !!c.quick; setMkType(cardType(c)); loadFxForm(c); $("#mkFont").value = FONTS[c.font] ? c.font : "klee"; syncFont(); $("#mkCost").value = hasCost(c) ? String(costOf(c)) : "1"; setMkDeck(deckModeOf(c)); $("#mkEq").value = c.eqN || 0; $("#mkEqAb").value = c.eqAb || "none"; syncEqLine();
     const im = new Image(); im.onload = () => { clearCanvas(); setPhoto(im); setMode("draw"); composite(); undoStack = []; MK.artDirty = false; }; im.src = c.img;
     $("#mkTitle").textContent = "カードを編集中"; $("#btnNew").hidden = false; $("#btnSave").textContent = "変更を保存";
