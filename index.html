@@ -958,7 +958,7 @@ nav.tabs button{position:relative}
         <h3 style="margin-top:14px">自分のターンでできること</h3>
         <ol>
           <li>モンスターの召喚は1ターンに1回だけ</li>
-          <li>スパイアデッキ（デッキ編集でチェック）は、「選択の祭壇」が最初から魔法・罠ゾーンに表向きで置かれる。自分のターンのはじめに、ランダムなスパイア風カード3枚から1枚えらんで墓地に加えられる。山札がなくなったら墓地をシャッフルして山札に戻すので、山札切れで負けない。スパイア風のアタック（ダメージを与えるカード）は、相手か相手のモンスター1体をえらべる。モンスターに当てたときは、ダメージがATK以上なら破壊、足りなければそのぶんATKが下がる。祭壇があると自分のマナは毎ターン3で固定。祭壇の候補には攻撃・防御・強打は出ない。ブロックは次の自分のターンのはじめまで、受けるダメージを先に引き受けてくれる（残った分だけLPが減る）。脆弱になったプレイヤーは受けるダメージが1.5倍（そのプレイヤーのターンが終わるたびに1へる）。祭壇があるあいだは、自分のターンのはじめに手札が5枚になるまで引いて、ターンのおわりに手札をすべて墓地に捨てる。デッキの枚数は自由で、モンスターが入っていなくてもOK。</li>
+          <li>スパイアデッキ（デッキ編集でチェック）は、「選択の祭壇」が最初から魔法・罠ゾーンに表向きで置かれる。自分のターンのはじめに、ランダムなスパイア風カード3枚から1枚えらんで墓地に加えられる。山札がなくなったら墓地をシャッフルして山札に戻すので、山札切れで負けない。スパイア風のアタック（ダメージを与えるカード）は、相手か相手のモンスター1体をえらべる。モンスターに当てたときは、ダメージがATK以上なら破壊、足りなければ、そのターンのおわりまでATKがそのぶん下がる。祭壇があると自分のマナは毎ターン3で固定。祭壇の候補には攻撃・防御・強打は出ない。ブロックは次の自分のターンのはじめまで、受けるダメージを先に引き受けてくれる（残った分だけLPが減る）。脆弱になったプレイヤーは受けるダメージが1.5倍（そのプレイヤーのターンが終わるたびに1へる）。祭壇があるあいだは、自分のターンのはじめに手札が5枚になるまで引いて、ターンのおわりに手札をすべて墓地に捨てる。デッキの枚数は自由で、モンスターが入っていなくてもOK。</li>
           <li>「永続」の魔法・罠（スパイア風ではパワー）は、使ったあとも魔法・罠ゾーンに表向きで残って、書いてあるタイミング（ターンのはじめ、召喚するたび など）で何度も効果が出る。ゾーンは5つまでなので、置けるのも5枚まで。</li>
           <li>「廃棄」がついた魔法・罠は、使ったあと墓地に行かず、そのゲームからなくなる（墓地から戻す効果でも戻せない）。</li>
           <li>「特殊召喚」できるモンスターは、カードに書いた条件を満たせば手札から出せる（1ターンの召喚回数は使わない）。特殊召喚で出たときは「召喚したとき」の効果は出ず、「特殊召喚したとき」の効果が出る。墓地から場に出す効果も特殊召喚。手札からの特殊召喚は、普通の召喚と同じく相手が打ち消しで無効にできる（払ったものは戻らない）</li>
@@ -2762,7 +2762,7 @@ const P = (st, s) => st.players[s];
 const card = id => S.cards.get(id) || { id, name: "？", type: "monster", atk: 0 };
 function atkOf(m){
   if (!m) return 0;
-  const c = card(m.c), es = eqsOf(m); let v = baseAtk(c) + (m.mod || 0);
+  const c = card(m.c), es = eqsOf(m); let v = baseAtk(c) + (m.mod || 0) + (m.tmp || 0);
   es.forEach((e, k) => { v += (card(e.c).eqN || 0) * eqMult(es, k); });
   absOf(c).forEach(a => { if (a.k === "eqBonus" && a.name){ const w = normQ(a.name); if (es.some(e => normQ(card(e.c).name).includes(w))) v += a.n || 0; } });
   return Math.max(0, v);
@@ -2771,13 +2771,13 @@ function atkOf(m){
 const modOf = m => { const b = baseAtk(card(m.c)); return isFinite(b) ? atkOf(m) - b : 0; };
 // ∞ damage just brings LP to 0 (LP never holds Infinity, so the room state stays plain JSON)
 // damage to a player: 脆弱 makes it ×1.5, then ブロック soaks it up first
-// damage to a monster: at least its ATK → destroyed, otherwise its ATK goes down by that much
+// damage to a monster: at least its ATK → destroyed, otherwise its ATK goes down by that much until the attacker's turn ends
 function monDmg(st, s, i, n, src){
   const m = P(st, s).mz[i]; if (!m) return;
   const a = atkOf(m), nm = card(m.c).name;
   log(st, O(s), `${src}で「${nm}」に${n}ダメージ`);
   if (n >= a) destroyMonster(st, s, i, src);
-  else { m.mod = (m.mod || 0) - n; log(st, O(s), `「${nm}」のATKが${n}下がった（ATK ${fmtN(atkOf(m))}）`); }
+  else { m.tmp = (m.tmp || 0) - n; m.tmpBy = O(s); log(st, O(s), `「${nm}」のATKがこのターンのあいだ${n}下がった（ATK ${fmtN(atkOf(m))}）`); }
 }
 const statChips = p => (p.block ? `<span class="bst blk" title="次の自分のターンのはじめまで、受けるダメージを先に引き受ける">ブロック ${p.block}</span>` : "") + (p.vuln > 0 ? `<span class="bst vul" title="受けるダメージが1.5倍">脆弱 ${p.vuln}</span>` : "");
 function dealDmg(st, s, n){
@@ -3336,6 +3336,7 @@ function passTurn(st, s){
     checkEnd(st); if (st.winner) return;
     P(st, s).mz.forEach(m => { if (m){ m.attacked = false; m.atkCount = 0; } });
     { const ep = P(st, s); if (ep.vuln > 0) ep.vuln--; }
+    for (const o of ["a", "b"]) P(st, o).mz.forEach(m => { if (m && m.tmpBy === s){ m.tmp = 0; m.tmpBy = null; } });
     st.turn = O(s); st.turnNo++; st.summoned = false;
     const np = P(st, st.turn);
     if (np.block){ log(st, st.turn, `ブロック${np.block}が消えた`); np.block = 0; }
