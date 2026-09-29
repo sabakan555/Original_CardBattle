@@ -686,6 +686,15 @@ nav.tabs button{position:relative}
           <h3 style="margin:0" id="absHead">能力</h3>
           <div class="abs-list" id="mkAbs"></div>
         </div>
+        <div class="fxform" id="ssBox">
+          <label class="row" style="gap:6px;font-weight:700;cursor:pointer"><input type="checkbox" id="ssOn"> 手札から特殊召喚できる</label>
+          <div id="ssOpts" hidden>
+            <div class="row"><label class="f">条件<select id="ssCond"></select></label><label class="f" id="ssNWrap">数<input type="number" id="ssN" min="0" max="9999" value="1"></label><label class="f" id="ssNameWrap">名前<input type="text" id="ssName" maxlength="20" placeholder="例: ガブリン"></label></div>
+            <div class="row" style="margin-top:8px"><label class="f">代わりに払うもの<select id="ssCost"></select></label><label class="f" id="ssCnWrap">数<input type="number" id="ssCn" min="1" max="9999" value="1"></label></div>
+            <label class="row" style="gap:6px;cursor:pointer;margin-top:8px"><input type="checkbox" id="ssOnly"> 普通の召喚はできない（特殊召喚でしか出せない）</label>
+            <p class="note" style="margin:6px 0 0">特殊召喚は1ターンの召喚回数を使わない（コストデッキならマナはふつうに払う）。特殊召喚で出たときは「召喚したとき」の効果は出ず、「特殊召喚したとき」の効果が出る。</p>
+          </div>
+        </div>
         <div class="fxform" id="fxForm">
           <h3 style="margin:0">自動で処理される効果</h3>
           <div class="row">
@@ -828,6 +837,7 @@ nav.tabs button{position:relative}
         <h3 style="margin-top:14px">自分のターンでできること</h3>
         <ol>
           <li>モンスターの召喚は1ターンに1回だけ</li>
+          <li>「特殊召喚」できるモンスターは、カードに書いた条件を満たせば手札から出せる（1ターンの召喚回数は使わない）。特殊召喚で出たときは「召喚したとき」の効果は出ず、「特殊召喚したとき」の効果が出る。墓地から場に出す効果も特殊召喚</li>
           <li>魔法は手札から発動するか、セットしてあとで発動</li>
           <li>装備は、場のモンスター（相手のでもOK）にいつでもくっつけられる。ATKを上げ下げしたり、能力や効果を付けたりする。モンスターごとに「装備キャパ」があって、付いている装備コストの合計がキャパまでしか付けられない（キャパの指定がなければATK÷100）。装備は左から並んでいて、「左どなりに効く」装備もある。モンスターが場を離れると装備も持ち主の墓地へ</li>
           <li>罠はセットする。次の相手ターン以降に発動できる</li>
@@ -923,8 +933,8 @@ let G = null;
 
 /* ================= effect catalog ================= */
 const TYPE_LABEL = { monster: "モンスター", magic: "魔法", equip: "装備", trap: "罠" };
-const TRIGS = { summon: "召喚したとき", kill: "戦闘で相手を破壊したとき", destroyed: "破壊されたとき", battleLose: "バトルに負けたとき", turnStart: "自分のターンのはじめ", turnEnd: "自分のターンの終わり", attach: "装備したとき", use: "発動したとき" };
-const MON_TRIGS = ["summon", "kill", "destroyed", "battleLose", "turnStart", "turnEnd"];
+const TRIGS = { summon: "召喚したとき", ssummon: "特殊召喚したとき", kill: "戦闘で相手を破壊したとき", destroyed: "破壊されたとき", battleLose: "バトルに負けたとき", turnStart: "自分のターンのはじめ", turnEnd: "自分のターンの終わり", attach: "装備したとき", use: "発動したとき" };
+const MON_TRIGS = ["summon", "ssummon", "kill", "destroyed", "battleLose", "turnStart", "turnEnd"];
 const EQ_TRIGS = ["attach", "turnStart", "turnEnd", "destroyed", "battleLose"];
 const EQ_TRIG_LABEL = { destroyed: "装備したモンスターが破壊されたとき", battleLose: "装備したモンスターがバトルに負けたとき" };
 const trigLabel = (t, k) => (t === "equip" && EQ_TRIG_LABEL[k]) || TRIGS[k];
@@ -1048,7 +1058,29 @@ function normCombo(c){
   const trig = t === "monster" ? (MON_TRIGS.includes(cb.trig) ? cb.trig : (normFx(c) || {}).trig || "summon") : "use";
   return { ...cb, where: WHERE[cb.where] ? cb.where : "field", match: cb.match === "part" ? "part" : "exact", trig };
 }
-function fxText(c){
+/* ---- special summon from the hand: the card's own condition + what you pay instead (a normal summon is not used up) ---- */
+const SS_CONDS = {
+  none:    { label: "条件なし", text: () => "" },
+  oppHas:  { label: "相手の場にモンスターがいる", text: () => "相手の場にモンスターがいるなら、" },
+  myEmpty: { label: "自分の場にモンスターがいない", text: () => "自分の場にモンスターがいないなら、" },
+  oppMore: { label: "相手のモンスターが自分より多い", text: () => "相手の場のモンスターが自分より多いなら、" },
+  lp:      { label: "自分のLPが○以下", n: true, text: n => `自分のLPが${n}以下なら、` },
+  grave:   { label: "自分の墓地が○枚以上", n: true, text: n => `自分の墓地が${n}枚以上なら、` },
+  name:    { label: "名前に○が入ったモンスターが自分の場にいる", name: true, text: (n, nm) => `名前に「${nm || "？"}」が入ったモンスターが自分の場にいるなら、` }
+};
+const SS_COSTS = {
+  none:    { label: "なし", text: () => "" },
+  tribute: { label: "自分のモンスター○体を墓地へ送る", n: true, text: n => `自分のモンスター${n}体を墓地へ送って、` },
+  discard: { label: "手札を○枚捨てる", n: true, text: n => `手札を${n}枚捨てて、` },
+  lp:      { label: "LPを○払う", n: true, text: n => `LPを${n}払って、` }
+};
+const ssOf = c => c && cardType(c) === "monster" && c.ss && c.ss.on ? { cond: SS_CONDS[c.ss.cond] ? c.ss.cond : "none", n: +c.ss.n || 0, name: c.ss.name || "", cost: SS_COSTS[c.ss.cost] ? c.ss.cost : "none", cn: Math.max(1, +c.ss.cn || 1), only: !!c.ss.only } : null;
+function ssText(c){
+  const ss = ssOf(c); if (!ss) return "";
+  return `${ss.only ? "このカードは普通には召喚できない。" : ""}【特殊召喚】${SS_CONDS[ss.cond].text(ss.n, ss.name)}${SS_COSTS[ss.cost].text(ss.cn)}手札から特殊召喚できる`;
+}
+function fxText(c){ return [ssText(c), fxText0(c)].filter(Boolean).join("。"); }
+function fxText0(c){
   const fx = normFx(c), cb = normCombo(c); if (!fx && !cb) return "";
   const t = cardType(c), isMon = t === "monster" || t === "equip";
   let out = "";
@@ -1597,7 +1629,7 @@ $("#mkEqAb").innerHTML = Object.entries(EQ_AB).map(([k, v]) => `<option value="$
 $("#mkEqAb").addEventListener("input", syncEqLine); $("#mkEq").addEventListener("input", syncEqLine);
 function syncEqLine(){
   if (MK.type !== "equip" && MK.type !== "monster") return;
-  const c = { type: MK.type, eqN: Math.round(+$("#mkEq").value || 0), abs: readAbs(), fx: readFx(), combo: readCombo() };
+  const c = { type: MK.type, eqN: Math.round(+$("#mkEq").value || 0), abs: readAbs(), fx: readFx(), combo: readCombo(), ss: readSS() };
   $("#mkFxLine").textContent = [MK.type === "equip" ? eqText(c) : monAbsText(c), fxText(c)].filter(Boolean).join("。");
 }
 function renderAbsForm(t){
@@ -1679,6 +1711,7 @@ function setMkType(t){
   $("#absHead").textContent = t === "equip" ? "装備したモンスターに付く能力" : "このモンスターの能力";
   renderAbsForm(t);
   $("#cbBox").hidden = t === "equip";
+  $("#ssBox").hidden = t !== "monster";
   const trigs = t === "monster" ? MON_TRIGS : t === "equip" ? EQ_TRIGS : ["use"];
   const cur = $("#fxTrig").value;
   $("#fxTrig").innerHTML = trigs.map(k => `<option value="${k}">${trigLabel(t, k)}</option>`).join("");
@@ -1692,6 +1725,26 @@ function setMkType(t){
   $("#cbKind").value = kinds.some(([k]) => k === curCb) ? curCb : "none";
   syncFxForm();
 }
+$("#ssCond").innerHTML = Object.entries(SS_CONDS).map(([k, v]) => `<option value="${k}">${v.label}</option>`).join("");
+$("#ssCost").innerHTML = Object.entries(SS_COSTS).map(([k, v]) => `<option value="${k}">${v.label}</option>`).join("");
+function readSS(){
+  if (MK.type !== "monster" || !$("#ssOn").checked) return null;
+  return { on: true, cond: $("#ssCond").value, n: Math.max(0, Math.round(+$("#ssN").value || 0)), name: $("#ssName").value.trim(), cost: $("#ssCost").value, cn: Math.max(1, Math.round(+$("#ssCn").value || 1)), only: $("#ssOnly").checked };
+}
+function syncSS(){
+  $("#ssOpts").hidden = !$("#ssOn").checked;
+  $("#ssNWrap").hidden = !(SS_CONDS[$("#ssCond").value] || {}).n;
+  $("#ssNameWrap").hidden = !(SS_CONDS[$("#ssCond").value] || {}).name;
+  $("#ssCnWrap").hidden = !(SS_COSTS[$("#ssCost").value] || {}).n;
+  if (typeof syncFxForm === "function") syncFxForm();
+}
+function loadSS(c){
+  const s = c && c.ss && c.ss.on ? c.ss : null;
+  $("#ssOn").checked = !!s; $("#ssCond").value = s && SS_CONDS[s.cond] ? s.cond : "none"; $("#ssN").value = s && s.n != null ? s.n : 1; $("#ssName").value = s ? s.name || "" : "";
+  $("#ssCost").value = s && SS_COSTS[s.cost] ? s.cost : "none"; $("#ssCn").value = s && s.cn ? s.cn : 1; $("#ssOnly").checked = !!(s && s.only);
+  syncSS();
+}
+["#ssOn", "#ssCond", "#ssN", "#ssName", "#ssCost", "#ssCn", "#ssOnly"].forEach(q => { $(q).addEventListener("input", syncSS); $(q).addEventListener("change", syncSS); });
 function readFx(){
   const kind = $("#fxKind").value; if (!kind || kind === "none") return null;
   const fx = { trig: MK.type === "monster" || MK.type === "equip" ? $("#fxTrig").value : "use", kind };
@@ -1714,7 +1767,7 @@ function syncFxForm(){
   $("#fxNWrap").hidden = !(KINDS[kind] && KINDS[kind].n);
   $("#condRow").hidden = kind !== "win";
   $("#fxCnWrap").hidden = !(CONDS[$("#fxCond").value] || {}).n;
-  $("#mkFxLine").textContent = fxText({ type: MK.type, fx: readFx(), combo: readCombo() });
+  $("#mkFxLine").textContent = fxText({ type: MK.type, fx: readFx(), combo: readCombo(), ss: readSS() });
   $("#fxAskWrap").hidden = !$("#fxAskOn").checked;
   $("#cbState").textContent = readCombo() ? "（設定あり）" : "";
   syncEqLine();
@@ -1746,7 +1799,7 @@ function loadFxForm(c){
 }
 function resetMaker(){
   S.editId = null; setFrameless(false); $("#mkName").value = ""; $("#mkEff").value = ""; $("#mkFlv").value = ""; $("#mkNameSize").value = $("#mkTextSize").value = "m"; syncSizes(); $("#mkAtk").value = 300; $("#mkEq").value = 200; $("#mkEqAb").value = "none"; $("#mkEqCost").value = "1"; $("#mkEqCap").value = ""; $("#mkFrame").value = ""; syncFrame(); $("#mkFont").value = "klee"; syncFont(); $("#mkQuick").checked = false; $("#mkCost").value = "1"; setMkDeck("normal"); $("#mkLimit").value = "3"; clearCanvas(); undoStack = [];
-  setMkType("monster"); loadFxForm(null); loadAbs([]);
+  setMkType("monster"); loadFxForm(null); loadAbs([]); loadSS(null);
   $("#mkTitle").textContent = "カードを描く"; $("#btnNew").hidden = true; $("#btnSave").textContent = "カードを保存";
 }
 setMkType("monster"); loadFxForm(null);
@@ -1763,7 +1816,7 @@ $("#btnSave").addEventListener("click", async () => {
   const id = S.editId || uid("c");
   const prev = S.cards.get(id);
   let eqN = Math.round(+$("#mkEq").value || 0); $("#mkEq").value = eqN;
-  const doc = { type: MK.type, name, atk: MK.type === "monster" ? atk : 0, atkInf, eqN: MK.type === "equip" ? eqN : 0, eqAb: "none", eqCost: MK.type === "equip" ? Math.max(0, Math.round(+$("#mkEqCost").value || 0)) : null, eqCap: MK.type === "monster" && $("#mkFrame").value === "socra" && $("#mkEqCap").value.trim() !== "" ? Math.max(0, Math.round(+$("#mkEqCap").value || 0)) : null, abs: MK.type === "monster" || MK.type === "equip" ? readAbs() : [], frame: $("#mkFrame").value || null, effect: $("#mkEff").value.trim(), flavor: $("#mkFlv").value.trim(), nameSize: $("#mkNameSize").value, textSize: $("#mkTextSize").value, fx: readFx(), combo: readCombo(), font: $("#mkFont").value, quick: MK.type === "magic" && $("#mkQuick").checked, cost: MK.deck === "normal" ? null : +$("#mkCost").value, deckMode: MK.deck, limit: +$("#mkLimit").value,
+  const doc = { type: MK.type, name, atk: MK.type === "monster" ? atk : 0, atkInf, eqN: MK.type === "equip" ? eqN : 0, eqAb: "none", eqCost: MK.type === "equip" ? Math.max(0, Math.round(+$("#mkEqCost").value || 0)) : null, eqCap: MK.type === "monster" && $("#mkFrame").value === "socra" && $("#mkEqCap").value.trim() !== "" ? Math.max(0, Math.round(+$("#mkEqCap").value || 0)) : null, abs: MK.type === "monster" || MK.type === "equip" ? readAbs() : [], frame: $("#mkFrame").value || null, ss: readSS(), effect: $("#mkEff").value.trim(), flavor: $("#mkFlv").value.trim(), nameSize: $("#mkNameSize").value, textSize: $("#mkTextSize").value, fx: readFx(), combo: readCombo(), font: $("#mkFont").value, quick: MK.type === "magic" && $("#mkQuick").checked, cost: MK.deck === "normal" ? null : +$("#mkCost").value, deckMode: MK.deck, limit: +$("#mkLimit").value,
     img: prev && prev.img && !MK.artDirty ? prev.img : encodeArt(out), frameless: MK.frameless, author: S.name, ownerId: prev?.ownerId || S.uid || null, updatedAt: Date.now() };
   $("#btnSave").disabled = true;
   try{
@@ -1800,7 +1853,7 @@ $("#gallery").addEventListener("click", async e => {
   if (ed){
     const c = S.cards.get(ed.dataset.edit); if (!c || !(isMine(c) || (c.starter && isAdmin()))) return;
     S.editId = c.id; setFrameless(!!c.frameless); MK.artDirty = false; $("#mkName").value = c.nameRuby || c.name; $("#mkEff").value = c.effect || ""; $("#mkFlv").value = c.flavor || ""; $("#mkNameSize").value = SIZES_T[c.nameSize] ? c.nameSize : "m"; $("#mkTextSize").value = SIZES_T[c.textSize] ? c.textSize : "m"; syncSizes(); $("#mkAtk").value = c.atkInf ? "∞" : (c.atk || 0); $("#mkLimit").value = String(cardLimit(c));
-    $("#mkQuick").checked = !!c.quick; setMkType(cardType(c)); loadFxForm(c); $("#mkFont").value = FONTS[c.font] ? c.font : "klee"; syncFont(); $("#mkCost").value = hasCost(c) ? String(costOf(c)) : "1"; setMkDeck(deckModeOf(c)); $("#mkEq").value = c.eqN || 0; $("#mkEqAb").value = "none"; $("#mkEqCost").value = String(eqCostOf(c)); $("#mkEqCap").value = hasEqCap(c) ? String(+c.eqCap) : ""; loadAbs(absOf(c)); syncEqLine(); $("#mkFrame").value = c.frame === "socra" ? "socra" : ""; syncFrame();
+    $("#mkQuick").checked = !!c.quick; setMkType(cardType(c)); loadFxForm(c); $("#mkFont").value = FONTS[c.font] ? c.font : "klee"; syncFont(); $("#mkCost").value = hasCost(c) ? String(costOf(c)) : "1"; setMkDeck(deckModeOf(c)); $("#mkEq").value = c.eqN || 0; $("#mkEqAb").value = "none"; $("#mkEqCost").value = String(eqCostOf(c)); $("#mkEqCap").value = hasEqCap(c) ? String(+c.eqCap) : ""; loadAbs(absOf(c)); syncEqLine(); $("#mkFrame").value = c.frame === "socra" ? "socra" : ""; syncFrame(); loadSS(c);
     if (!c.img){ clearCanvas(); undoStack = []; MK.artDirty = false; }
     else { const im = new Image(); im.onload = () => { clearCanvas(); setPhoto(im); setMode("draw"); composite(); undoStack = []; MK.artDirty = false; }; im.src = c.img; }
     $("#mkTitle").textContent = "カードを編集中"; $("#btnNew").hidden = false; $("#btnSave").textContent = "変更を保存";
@@ -2600,7 +2653,7 @@ function applyEffect(st, s, c, target, ctx = {}, fx = normFx(c)){
     case "atkUp": if (me.mz[target]){ me.mz[target].mod = (me.mz[target].mod || 0) + n; log(st, s, `${src}で「${card(me.mz[target].c).name}」のATK+${n}`); } break;
     case "atkDown": if (op.mz[target]){ op.mz[target].mod = (op.mz[target].mod || 0) - n; log(st, s, `${src}で「${card(op.mz[target].c).name}」のATK−${n}`); } break;
     case "revive": { const gi = me.grave.indexOf(target); if (gi >= 0){ me.grave.splice(gi, 1); me.hand.push(target); log(st, s, `${src}で墓地の「${card(target).name}」を手札に戻した`); } break; }
-    case "reborn": { const gi = me.grave.indexOf(target), z = freeZone(me.mz); if (gi >= 0 && z >= 0){ me.grave.splice(gi, 1); me.mz[z] = mkMon(st, target); ev(st, { type: "summon", s, z }); log(st, s, `${src}で墓地の「${card(target).name}」を場に出した`); } break; }
+    case "reborn": { const gi = me.grave.indexOf(target), z = freeZone(me.mz); if (gi >= 0 && z >= 0){ me.grave.splice(gi, 1); me.mz[z] = mkMon(st, target); ev(st, { type: "summon", s, z }); log(st, s, `${src}で墓地の「${card(target).name}」を場に出した（特殊召喚）`); trigger(st, s, card(target), "ssummon", { zone: z, mon: { s, i: z, u: me.mz[z].u } }); } break; }
     case "manaNow": if (me.mana){ me.mana.cur += n; log(st, s, `${src}でマナを${n}回復（${me.mana.cur}/${me.mana.max}）`); } else log(st, s, `${src}：マナを使わないデッキなので効果なし`); break;
     case "manaMax": if (me.mana){ const add = Math.min(n, MAX_MANA - me.mana.max); me.mana.max += add; me.mana.cur += n; log(st, s, `${src}で最大マナ+${add}、マナ+${n}（${me.mana.cur}/${me.mana.max}）`); } else log(st, s, `${src}：マナを使わないデッキなので効果なし`); break;
     case "manaDrain": if (op.mana){ const k = Math.min(n, op.mana.cur); op.mana.cur -= k; log(st, s, `${src}で${op.name}のマナを${k}減らした`); } else log(st, s, `${src}：相手はマナを使わないデッキなので効果なし`); break;
@@ -2665,7 +2718,7 @@ function canSummonNow(st, s){ return P(st, s).mana ? true : !st.summoned; }
 function canAct(st, s){ return st.turn === s && !st.pending && !st.winner && !(G && G.chooseQ.length); }
 function summon(st, s, hi, zi){
   const p = P(st, s), id = p.hand[hi], z = (zi != null && !p.mz[zi]) ? zi : freeZone(p.mz);
-  if (!canSummonNow(st, s) || z < 0 || cardType(card(id)) !== "monster" || !canPay(st, s, card(id))) return false;
+  if (!canSummonNow(st, s) || z < 0 || cardType(card(id)) !== "monster" || !canPay(st, s, card(id)) || (ssOf(card(id)) || {}).only) return false;
   pay(st, s, card(id));
   p.hand.splice(hi, 1); if (!p.mana) st.summoned = true;
   const label = `「${card(id).name}」（ATK ${fmtN(baseAtk(card(id)))}）を召喚${p.mana ? `（コスト${costOf(card(id))}）` : ""}`;
@@ -2679,6 +2732,57 @@ function summon(st, s, hi, zi){
   p.mz[z] = mkMon(st, id);
   log(st, s, label); ev(st, { type: "summon", s, z });
   trigger(st, s, card(id), "summon", { zone: z, mon: { s, i: z, u: p.mz[z].u } });
+  return true;
+}
+// why special summon of hand[hi] isn't possible right now ("" = it is)
+function ssBlock(st, s, hi){
+  const p = P(st, s), op = P(st, O(s)), c = card(p.hand[hi]), ss = ssOf(c);
+  if (!ss) return "特殊召喚できないカード";
+  if (!canPay(st, s, c)) return "マナが足りない";
+  const mine = p.mz.filter(Boolean).length;
+  let ok = true;
+  if (ss.cond === "oppHas") ok = op.mz.some(Boolean);
+  if (ss.cond === "myEmpty") ok = !mine;
+  if (ss.cond === "oppMore") ok = op.mz.filter(Boolean).length > mine;
+  if (ss.cond === "lp") ok = p.lp <= ss.n;
+  if (ss.cond === "grave") ok = p.grave.length >= ss.n;
+  if (ss.cond === "name"){ const w = normQ(ss.name).trim(); ok = !!w && p.mz.some(m => m && normQ(card(m.c).name).includes(w)); }
+  if (!ok) return "条件がそろっていない";
+  if (ss.cost === "tribute" && mine < ss.cn) return "墓地へ送るモンスターが足りない";
+  if (ss.cost === "discard" && p.hand.length - 1 < ss.cn) return "捨てる手札が足りない";
+  if (ss.cost === "lp" && p.lp <= ss.cn) return "LPが足りない";
+  if (ss.cost !== "tribute" && freeZone(p.mz) < 0) return "場がいっぱい";
+  return "";
+}
+const canSpecial = (st, s, hi) => st.turn === s && !st.pending && !st.winner && !ssBlock(st, s, hi);
+// a monster (and whatever is stuck on it) goes to the graveyard without being "destroyed"
+function sendToGrave(st, s, i){
+  const p = P(st, s), m = p.mz[i]; if (!m) return;
+  eqsOf(m).forEach(e => P(st, e.o).grave.push(e.c));
+  p.mz[i] = null; p.grave.push(m.c); ev(st, { type: "destroy", s, z: i });
+}
+// picks: my monster zones (tribute) or other hand indexes (discard)
+function specialSummon(st, s, hi, picks = []){
+  if (!canSpecial(st, s, hi)) return false;
+  const p = P(st, s), id = p.hand[hi], c = card(id), ss = ssOf(c);
+  const need = ss.cost === "tribute" || ss.cost === "discard" ? ss.cn : 0;
+  picks = [...new Set(picks.map(Number))];
+  if (picks.length !== need) return false;
+  if (ss.cost === "tribute" && !picks.every(i => p.mz[i])) return false;
+  if (ss.cost === "discard" && !picks.every(i => i !== hi && p.hand[i] != null)) return false;
+  pay(st, s, c);
+  let paid = "";
+  if (ss.cost === "tribute"){ paid = picks.map(i => `「${card(p.mz[i].c).name}」`).join(""); picks.forEach(i => sendToGrave(st, s, i)); paid += "を墓地へ送って"; }
+  if (ss.cost === "lp"){ p.lp -= ss.cn; paid = `LPを${ss.cn}払って`; }
+  const gone = ss.cost === "discard" ? picks.map(i => p.hand[i]) : [];
+  [hi, ...(ss.cost === "discard" ? picks : [])].sort((a, b) => b - a).forEach(i => p.hand.splice(i, 1));
+  if (gone.length){ p.grave.push(...gone); paid = `手札を${gone.length}枚捨てて`; }
+  const z = freeZone(p.mz);
+  if (z < 0){ p.grave.push(id); log(st, s, `場がいっぱいで「${c.name}」は出られなかった`); return true; }
+  p.mz[z] = mkMon(st, id);
+  ev(st, { type: "summon", s, z });
+  log(st, s, `${paid ? paid + "、" : ""}「${c.name}」（ATK ${fmtN(baseAtk(c))}）を特殊召喚！`);
+  trigger(st, s, c, "ssummon", { zone: z, mon: { s, i: z, u: p.mz[z].u } });
   return true;
 }
 function setCard(st, s, hi, zi){
@@ -2923,9 +3027,20 @@ function cpuStep(st, s){
     const ms = P(st, side).mz.map((m, j) => m && canEquipOn(st, id, side, j) ? j : -1).filter(j => j >= 0).sort((a, b) => atkOf(P(st, side).mz[b]) - atkOf(P(st, side).mz[a]));
     if (ms.length){ equip(st, s, ei, side, ms[0]); return; }
   }
+  // 1c. special summon (only when it's worth what it costs)
+  for (let i = 0; i < p.hand.length; i++){
+    if (!canSpecial(st, s, i) || Math.random() > .8) continue;
+    const c = card(p.hand[i]), ss = ssOf(c); let picks = [];
+    if (ss.cost === "tribute"){
+      picks = p.mz.map((m, j) => m ? j : -1).filter(j => j >= 0).sort((a, b) => atkOf(p.mz[a]) - atkOf(p.mz[b])).slice(0, ss.cn);
+      if (picks.some(j => cmpNum(atkOf(p.mz[j]), baseAtk(c)) >= 0)) continue;
+    }
+    if (ss.cost === "discard") picks = p.hand.map((id, j) => j).filter(j => j !== i).sort((a, b) => cmpNum(cardType(card(p.hand[a])) === "monster" ? baseAtk(card(p.hand[a])) : 0, cardType(card(p.hand[b])) === "monster" ? baseAtk(card(p.hand[b])) : 0)).slice(0, ss.cn);
+    if (specialSummon(st, s, i, picks)) return;
+  }
   // 2. summon strongest
   if (canSummonNow(st, s) && freeZone(p.mz) >= 0){
-    const mons = p.hand.map((id, i) => [i, card(id)]).filter(([, c]) => cardType(c) === "monster" && canPay(st, s, c)).sort((a, b) => cmpNum(baseAtk(b[1]), baseAtk(a[1])));
+    const mons = p.hand.map((id, i) => [i, card(id)]).filter(([, c]) => cardType(c) === "monster" && canPay(st, s, c) && !(ssOf(c) || {}).only).sort((a, b) => cmpNum(baseAtk(b[1]), baseAtk(a[1])));
     if (mons.length){ summon(st, s, mons[0][0]); return; }
   }
   // 3. set traps
@@ -2956,7 +3071,7 @@ function equipMode(st, me){
 function dropTarget(st, me){
   if (!G.sel || G.sel.z !== "hand" || !canAct(st, me)) return null;
   const t = cardType(card(P(st, me).hand[G.sel.i]));
-  if (t === "monster") return canSummonNow(st, me) && canPay(st, me, card(P(st, me).hand[G.sel.i])) ? "mz" : null;
+  if (t === "monster") return canSummonNow(st, me) && canPay(st, me, card(P(st, me).hand[G.sel.i])) && !(ssOf(card(P(st, me).hand[G.sel.i])) || {}).only ? "mz" : null;
   return t === "equip" ? null : "sz";
 }
 const mOpt = s => ({ mana: !!(G && G.st && G.st.players[s] && G.st.players[s].mana) });
@@ -3007,7 +3122,12 @@ function renderBoard(){
     if (sel && sel.z === "hand"){
       const c = card(pm.hand[sel.i]), t = cardType(c);
       const afford = canPay(st, me, c), short = !afford ? `（マナが${costOf(c) - pm.mana.cur}足りない）` : "";
-      if (t === "monster"){ const ok = canSummonNow(st, me) && afford && freeZone(pm.mz) >= 0; acts += `<button class="primary" data-act="summon" ${ok ? "" : "disabled"}>召喚する${!canSummonNow(st, me) ? "（このターンは召喚ずみ）" : short}</button>`; if (ok) hint = "光っているモンスターゾーンをクリックしても召喚できます"; }
+      if (t === "monster"){
+        const ss = ssOf(c);
+        if (!(ss && ss.only)){ const ok = canSummonNow(st, me) && afford && freeZone(pm.mz) >= 0; acts += `<button class="primary" data-act="summon" ${ok ? "" : "disabled"}>召喚する${!canSummonNow(st, me) ? "（このターンは召喚ずみ）" : short}</button>`; if (ok) hint = "光っているモンスターゾーンをクリックしても召喚できます"; }
+        else hint = "このカードは特殊召喚でしか出せません";
+        if (ss){ const why = ssBlock(st, me, sel.i); acts += `<button class="mg" data-act="ssummon" ${why ? "disabled" : ""}>特殊召喚する${why ? `（${why}）` : ""}</button>`; }
+      }
       if (!afford && t !== "monster") hint = `マナが足りないので使えません${short}。セットはできます`;
       else if (t !== "equip") hint = "光っている魔法・罠ゾーンをクリックしてもセットできます";
       if (t === "magic") acts += `<button class="mg" data-act="activateHand" ${afford ? "" : "disabled"}>発動する${short}</button>`;
@@ -3261,6 +3381,11 @@ function renderOverlay(){
     }
     const chainHTML = st.chain && st.chain.length ? `<div class="chainrow">${st.chain.map((l, k) => `<span class="link ${l.s === me ? "mine" : ""}">${k + 1}. ${l.summon ? "召喚：" : ""}${esc(card(l.c).name)}<small>${l.s === me ? "あなた" : esc(P(st, l.s).name)}</small></span>`).join('<span class="arr">→</span>')}</div>` : "";
     html = `<div class="box"><h2 style="margin:0">${esc(head)}</h2>${chainHTML}<p style="margin:0">${esc(msg)}</p><div class="gallery">${list}</div><div class="row"><button data-close="notrap">${win === "chain" || win === "chainAttack" ? "チェーンしない" : "使わない"}</button></div></div>`;
+  } else if (G.ssPick && canAct(st, me)){
+    const sp = G.ssPick, pm = P(st, me), c = card(pm.hand[sp.hi]);
+    const opts = sp.kind === "tribute" ? pm.mz.map((m, i) => m ? i : -1).filter(i => i >= 0) : pm.hand.map((id, i) => i).filter(i => i !== sp.hi);
+    const list = opts.map(i => { const on = sp.picked.includes(i), cc = sp.kind === "tribute" ? card(pm.mz[i].c) : card(pm.hand[i]); return cardHTML(cc, `sm pick ${on ? "sel" : ""}`, `data-sspick="${i}" tabindex="0" role="button" aria-pressed="${on}"`, sp.kind === "tribute" ? { mod: modOf(pm.mz[i]), ...mOpt(me) } : mOpt(me)); }).join("");
+    html = `<div class="box"><h2 style="margin:0">「${esc(c.name)}」を特殊召喚</h2><p class="muted" style="margin:0">${sp.kind === "tribute" ? `墓地へ送るモンスターを${sp.need}体えらんでね` : `捨てる手札を${sp.need}枚えらんでね`}（${sp.picked.length} / ${sp.need}）</p><div class="gallery">${list}</div><div class="row"><button class="primary" data-ssgo ${sp.picked.length === sp.need ? "" : "disabled"}>特殊召喚する</button><button class="ghost" data-close="sspick">やめる</button></div></div>`;
   } else if (G.eqPlace){
     const ep = G.eqPlace, m = P(st, ep.s).mz[ep.i], id = P(st, me).hand[ep.hi];
     if (m && id){
@@ -3284,6 +3409,9 @@ $("#overlay").addEventListener("click", e => {
     act(st => { log(st, q.s, `「${q.c.name}」：「${q.fx.ask}」→ ${yes ? "はい" : "いいえ"}`); if (yes) runEffect(st, q.s, q.c, q.ctx, q.then, { ...q.fx, ask: "" }); else q.then && q.then(st); });
     return;
   }
+  const spk = e.target.closest("[data-sspick]");
+  if (spk && G.ssPick){ const i = +spk.dataset.sspick, sp = G.ssPick; if (sp.picked.includes(i)) sp.picked = sp.picked.filter(x => x !== i); else if (sp.picked.length < sp.need) sp.picked.push(i); renderAll(); return; }
+  if (e.target.closest("[data-ssgo]") && G.ssPick){ const sp = G.ssPick; G.ssPick = null; act(st => specialSummon(st, G.slot, sp.hi, sp.picked)); return; }
   const ep = e.target.closest("[data-eqpos]");
   if (ep && G.eqPlace){ const x = G.eqPlace; G.eqPlace = null; G.sel = null; act(st => equip(st, G.slot, x.hi, x.s, x.i, +ep.dataset.eqpos)); return; }
   const opt = e.target.closest("[data-opt]");
@@ -3306,6 +3434,7 @@ $("#overlay").addEventListener("click", e => {
   if (k === "view"){ G.view = null; renderAll(); }
   if (k === "gh"){ G.graveHand = false; renderAll(); }
   if (k === "eqplace"){ G.eqPlace = null; renderAll(); }
+  if (k === "sspick"){ G.ssPick = null; renderAll(); }
 });
 $("#overlay").addEventListener("keydown", e => { const h = e.target.closest("[role=button]"); if (h && (e.key === "Enter" || e.key === " ")){ e.preventDefault(); h.click(); } });
 
@@ -3362,6 +3491,11 @@ $("#board").addEventListener("click", e => {
   if (k === "direct"){ const from = G.atkFrom; G.atkFrom = null; G.sel = null; act(st => declareAttack(st, me, from, "direct")); return; }
   if (!sel) return;
   if (k === "summon"){ G.sel = null; act(st => summon(st, me, sel.i)); }
+  if (k === "ssummon"){
+    const ss = ssOf(card(P(st, me).hand[sel.i])); G.sel = null;
+    if (ss && (ss.cost === "tribute" || ss.cost === "discard")){ G.ssPick = { hi: sel.i, kind: ss.cost, need: ss.cn, picked: [] }; renderAll(); }
+    else act(st => specialSummon(st, me, sel.i, []));
+  }
   if (k === "set"){ G.sel = null; act(st => setCard(st, me, sel.i)); }
   if (k === "activateHand" || k === "activateSet"){
     const from = k === "activateHand" ? "hand" : "sz";
