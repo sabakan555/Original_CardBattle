@@ -371,6 +371,30 @@ nav.tabs button{position:relative}
 .owned-tag{font-size:12px;font-weight:700;color:var(--accent,#5fe0d2)}
 #tradeDlg .gallery [data-give]{cursor:pointer;border-radius:12px;outline:3px solid transparent;outline-offset:3px}
 #tradeDlg .gallery [data-give][aria-pressed="true"]{outline-color:var(--accent,#5fe0d2)}
+
+/* card viewer (deck editor / card list) */
+#cardView .cv-box{position:relative;display:grid;grid-template-columns:auto minmax(0,1fr);gap:22px;align-items:start;width:min(880px,100%);max-height:92vh;overflow:auto;background:var(--panel);border:2px solid var(--line);border-radius:20px;padding:24px 58px 30px;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
+.cv-card .card{--w:min(280px,70vw)}
+.cv-info{min-width:0}
+.cv-info h2{margin:0 40px 12px 0;font-size:22px;line-height:1.6}
+.cv-dl{display:grid;grid-template-columns:auto 1fr;gap:6px 16px;margin:0 0 16px;font-size:14px;border-top:1px solid var(--line);padding-top:10px}
+.cv-dl dt{color:var(--muted);font-weight:700;white-space:nowrap}
+.cv-dl dd{margin:0;font-weight:700}
+.cv-info h3{margin:0 0 6px;font-size:14px;color:var(--accent)}
+.cv-text{background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:12px;padding:10px 14px;font-size:14px;line-height:1.9}
+.cv-text p{margin:0 0 6px}
+.cv-text p:last-child{margin-bottom:0}
+.cv-fx{color:#8fd3ff}
+.cv-flv{font-style:italic;color:var(--muted);border-top:1px dashed var(--line);padding-top:6px;margin-top:8px!important}
+.cv-foot{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;margin-top:16px;padding-top:12px;border-top:1px solid var(--line)}
+.cv-foot b{font-size:22px;font-family:var(--en,var(--ui));color:var(--accent)}
+.cv-x{position:absolute;top:10px;right:10px;width:38px;height:38px;border-radius:50%!important;padding:0!important;font-size:20px;line-height:1}
+.cv-nav{position:absolute;top:50%;transform:translateY(-50%);width:40px;height:70px;padding:0!important;font-size:32px;line-height:1;border-radius:12px}
+.cv-nav:active{transform:translateY(-50%)}
+.cv-nav.prev{left:9px}.cv-nav.next{right:9px}
+.cv-pos{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);font-size:12px;color:var(--muted)}
+.pool-item > .card,.gallery .g-item > .card{cursor:pointer}
+@media (max-width:640px){#cardView .cv-box{grid-template-columns:1fr;justify-items:center;padding:52px 16px 64px}.cv-info{width:100%}.cv-nav{top:auto;bottom:14px;transform:none;height:44px}.cv-nav:active{transform:none}}
 </style>
 <style>html,body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
 </head>
@@ -632,6 +656,7 @@ nav.tabs button{position:relative}
   </section>
 </div>
 <div id="overlay" class="overlay" hidden></div>
+<div id="cardView" class="overlay" hidden></div>
 <div id="tradeDlg" class="overlay" hidden></div>
 <div id="detailPop" class="pop" role="dialog" aria-label="カード詳細" hidden></div>
 <div id="toast" hidden></div>
@@ -1354,6 +1379,7 @@ function renderGallery(){
   if (S.galF === "all") list = list.concat(S.starters);
   const total = list.length;
   list = sortCards(list.filter(c => matchCard(c, S.filt.gal)), S.filt.gal.sort);
+  S.galIds = list.map(c => c.id);
   setCount("gal", list.length, total);
   const items2 = list.map(c => {
     if (c.starter) return `<div class="g-item">${cardHTML(c, "sm")}<div class="meta">${esc(c.author)}</div></div>`;
@@ -1397,6 +1423,7 @@ function renderDeck(){
   $("#btnDeckDel").hidden = !S.deckEdit.id;
   const pool0 = [...S.userCards].filter(c => owns(c.id) || S.deckEdit.cards[c.id]).sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0)).concat(S.starters);
   const pool = sortCards(pool0.filter(c => matchCard(c, S.filt.deck) && (fitsDeck(c, $("#deckMana").checked) || S.deckEdit.cards[c.id])), S.filt.deck.sort);
+  S.deckPoolIds = pool.map(c => c.id);
   setCount("deck", pool.length, pool0.length);
   $("#deckPool").innerHTML = (pool.length ? "" : `<p class="muted">条件に合うカードがありません。</p>`) + pool.map(c => {
     const k = S.deckEdit.cards[c.id] || 0, lim = cardLimit(c);
@@ -1432,6 +1459,72 @@ $("#btnDeckDel").addEventListener("click", async () => {
   if (!deckDelArm){ deckDelArm = true; $("#btnDeckDel").textContent = "本当に消す"; setTimeout(() => { deckDelArm = false; $("#btnDeckDel").textContent = "このデッキを消す"; }, 3000); return; }
   deckDelArm = false; $("#btnDeckDel").textContent = "このデッキを消す";
   try{ await deleteDeckDoc(S.deckEdit.id); S.deckEdit = { id: null, cards: {} }; $("#deckName").value = ""; $("#deckMana").checked = false; toast("デッキを消しました"); renderDeck(); } catch(e){ writeErr(e); }
+});
+
+/* ================= card viewer ================= */
+// big card + details, opened by clicking a card in the deck editor or the card list; ‹ › moves through that list
+const CV = { ctx: null, ids: [], i: 0 };
+function openCardView(ctx, ids, i){ if (!ids || !ids.length || i < 0 || i >= ids.length) return; Object.assign(CV, { ctx, ids: ids.slice(), i }); renderCardView(); }
+function closeCardView(){ const v = $("#cardView"); v.hidden = true; v.innerHTML = ""; CV.ctx = null; }
+function renderCardView(){
+  const c = S.cards.get(CV.ids[CV.i]); if (!c){ closeCardView(); return; }
+  const t = cardType(c), mana = CV.ctx === "deck" ? $("#deckMana").checked : undefined, ft = fxText(c), lim = cardLimit(c), rows = [];
+  rows.push(["種類", isQuick(c) ? "速攻魔法" : TYPE_LABEL[t]]);
+  if (t === "monster") rows.push(["ATK", fmtN(baseAtk(c))]);
+  if (t === "equip") rows.push(["ATK", `${(c.eqN || 0) >= 0 ? "+" : "−"}${Math.abs(c.eqN || 0)}`]);
+  if (hasCost(c) && mana !== false) rows.push(["コスト", String(costOf(c))]);
+  if (!c.starter) rows.push(["使えるデッキ", DECK_LABEL[deckModeOf(c)]]);
+  rows.push(["デッキ上限", lim ? `${lim}枚まで` : "制限なし"]);
+  rows.push(["作った人", c.author || "？"]);
+  let text = "";
+  if (t === "equip") text += `<p class="cv-fx">${esc(eqText(c))}</p>`;
+  if (ft) text += `<p class="cv-fx">${esc(ft)}</p>`;
+  if (c.effect) text += `<p>${rubyHTML(c.effect)}</p>`;
+  if (!text) text = `<p class="muted">効果なし</p>`;
+  if (c.flavor) text += `<p class="cv-flv">${rubyHTML(c.flavor)}</p>`;
+  let foot = "";
+  if (CV.ctx === "deck"){
+    const k = S.deckEdit.cards[c.id] || 0;
+    foot = `<div class="cv-foot"><span>デッキに入っている枚数　<b>${k}</b> / ${lim || "∞"}</span><div class="row"><button class="danger" data-cv="minus" ${k ? "" : "disabled"}>− へらす</button><button class="primary" data-cv="plus" ${lim && k >= lim ? "disabled" : ""}>＋ ふやす</button></div></div>`;
+  }
+  $("#cardView").innerHTML = `<div class="cv-box" role="dialog" aria-label="カード詳細">
+    <button class="cv-x ghost" data-cv="close" aria-label="とじる">×</button>
+    <button class="cv-nav prev" data-cv="prev" ${CV.i ? "" : "disabled"} aria-label="前のカード">‹</button>
+    <div class="cv-card">${cardHTML(c, "", "", mana === undefined ? {} : { mana })}</div>
+    <div class="cv-info"><h2>${rubyHTML(c.nameRuby || c.name)}</h2><dl class="cv-dl">${rows.map(([k, v]) => `<dt>${k}</dt><dd>${esc(v)}</dd>`).join("")}</dl><h3>テキスト</h3><div class="cv-text">${text}</div>${foot}</div>
+    <button class="cv-nav next" data-cv="next" ${CV.i < CV.ids.length - 1 ? "" : "disabled"} aria-label="次のカード">›</button>
+    <div class="cv-pos">${CV.i + 1} / ${CV.ids.length}</div></div>`;
+  $("#cardView").hidden = false;
+}
+$("#cardView").addEventListener("click", e => {
+  if (e.target === e.currentTarget){ closeCardView(); return; }
+  const b = e.target.closest("[data-cv]"); if (!b) return;
+  const k = b.dataset.cv, id = CV.ids[CV.i];
+  if (k === "close"){ closeCardView(); return; }
+  if (k === "prev" && CV.i > 0){ CV.i--; renderCardView(); }
+  if (k === "next" && CV.i < CV.ids.length - 1){ CV.i++; renderCardView(); }
+  if (k === "plus" || k === "minus"){
+    const lim = cardLimit(S.cards.get(id)), cur = S.deckEdit.cards[id] || 0;
+    const n = k === "plus" ? (lim ? Math.min(lim, cur + 1) : cur + 1) : Math.max(0, cur - 1);
+    if (n) S.deckEdit.cards[id] = n; else delete S.deckEdit.cards[id];
+    renderDeck(); renderCardView();
+  }
+});
+document.addEventListener("keydown", e => {
+  if ($("#cardView").hidden) return;
+  if (e.key === "Escape") closeCardView();
+  if (e.key === "ArrowLeft") $("#cardView [data-cv=prev]")?.click();
+  if (e.key === "ArrowRight") $("#cardView [data-cv=next]")?.click();
+});
+$("#deckPool").addEventListener("click", e => {
+  if (e.target.closest("button")) return;
+  const it = e.target.closest(".pool-item"); if (!it) return;
+  openCardView("deck", S.deckPoolIds, [...$("#deckPool").querySelectorAll(".pool-item")].indexOf(it));
+});
+$("#gallery").addEventListener("click", e => {
+  if (e.target.closest("button")) return;
+  const it = e.target.closest(".g-item"); if (!it || !e.target.closest(".card")) return;
+  openCardView("list", S.galIds, [...$("#gallery").querySelectorAll(".g-item")].indexOf(it));
 });
 
 /* ================= lobby ================= */
