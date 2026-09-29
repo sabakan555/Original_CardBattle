@@ -80,6 +80,35 @@ label.f{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:13p
 .card.editor.socra.equip .c-name{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 40' preserveAspectRatio='none'%3E%3Cpath d='M0 2H178L198.5 20L178 38H0' fill='none' stroke='%231e2328' stroke-width='1.8' vector-effect='non-scaling-stroke'/%3E%3C/svg%3E");padding-right:15%}
 .card.editor.socra .c-tab{display:none}
 .card.editor.socra .c-art{border-bottom:none}
+/* スパイア風 frame: colored card body, gem cost, ribbon name over an arched picture window, text centered below */
+.card.spire{--sp:#b0473a;--sp2:#5e1f19;background:#241a16;padding:calc(var(--w)*.03)}
+.card.spire.magic{--sp:#3f8a5a;--sp2:#173b25}
+.card.spire.trap{--sp:#7a57a8;--sp2:#301f4d}
+.card.spire.equip{--sp:#c29436;--sp2:#5a3f0e}
+.card.spire:not(.editor){min-height:0;height:calc(var(--w)*890/650)}
+.card.spire .c-in{background:radial-gradient(120% 75% at 50% 32%,var(--sp),var(--sp2));border-radius:calc(var(--w)*.05);outline:calc(var(--w)*.01) solid #d9b77a;outline-offset:calc(var(--w)*-.018);box-shadow:inset 0 0 calc(var(--w)*.05) rgba(0,0,0,.5)}
+.card.spire:not(.editor) .c-in{align-items:center;color:#fff}
+.card.spire .p-art{margin-top:calc(var(--w)*.15);width:82%;aspect-ratio:7/5;border-radius:48% 48% 5% 5%/34% 34% 5% 5%;overflow:hidden;background:#1a1411;border:calc(var(--w)*.014) solid #2a1d17;box-shadow:0 0 0 calc(var(--w)*.008) #d9b77a;flex:none}
+.card.spire .p-art img{width:100%;height:100%;object-fit:cover;display:block}
+.card.spire .p-name{position:absolute;left:3%;right:3%;top:calc(var(--w)*.055);height:calc(var(--w)*.16);z-index:1;display:flex;align-items:center;justify-content:center;padding:0 13% calc(var(--w)*.02);box-sizing:border-box;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 40' preserveAspectRatio='none'%3E%3Cpath d='M0 12H24V38H0L7 25Z M200 12H176V38H200L193 25Z' fill='%23805d2b' stroke='%232a1d17' stroke-width='1.5' vector-effect='non-scaling-stroke'/%3E%3Cpath d='M14 2H186V33H14Z' fill='%23c9a15a' stroke='%232a1d17' stroke-width='1.8' vector-effect='non-scaling-stroke'/%3E%3Cpath d='M17 6H183' stroke='%23f0d9a0' stroke-width='1' vector-effect='non-scaling-stroke'/%3E%3C/svg%3E") 0 0/100% 100% no-repeat;font-size:calc(var(--w)*.078*var(--nk,1));line-height:1;white-space:nowrap;overflow:hidden;color:#fff;text-shadow:-1px -1px 0 #2a1d17,1px -1px 0 #2a1d17,-1px 1px 0 #2a1d17,1px 1px 0 #2a1d17}
+.card.spire.costed .p-name{padding-left:21%}
+.card.spire .p-name span{overflow:hidden;text-overflow:ellipsis}
+.card.spire .p-name rt{font-size:.42em}
+.card.spire .p-type{margin-top:calc(var(--w)*-.035);z-index:1;background:#2a1d17;border:calc(var(--w)*.008) solid #d9b77a;border-radius:99px;padding:0 .9em;font:700 calc(var(--w)*.043)/1.45 var(--ui);color:#f3e2bd;flex:none}
+.card.spire .p-text{flex:1;width:86%;min-height:0;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;font-size:calc(var(--w)*.054*var(--tk,1));line-height:1.35;padding:calc(var(--w)*.015) 0 calc(var(--w)*.075);overflow:hidden;text-shadow:0 1px 2px rgba(0,0,0,.7)}
+.card.spire .p-text .body{display:-webkit-box;-webkit-line-clamp:var(--cl,5);-webkit-box-orient:vertical;overflow:hidden;word-break:break-all}
+.card.sm.spire .p-text .body{-webkit-line-clamp:var(--cls,4)}
+.card.spire .kw{color:#f6c94e}
+.card.spire .p-text .flv{flex:none;margin-top:.25em;font-size:.76em;font-style:italic;color:#ecdcc4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.card.spire .p-gem{position:absolute;left:2%;top:1.5%;z-index:2;width:calc(var(--w)*.2);height:calc(var(--w)*.2);border-radius:50%;background:radial-gradient(circle at 35% 30%,#ffc09a,#e0452b 55%,#6e150c);border:calc(var(--w)*.012) solid #2a1d17;box-shadow:0 0 0 calc(var(--w)*.008) #d9b77a,0 2px 3px rgba(0,0,0,.45);display:grid;place-items:center;font:400 calc(var(--w)*.115)/1 "Dela Gothic One",var(--ui);color:#fff;-webkit-text-stroke:calc(var(--w)*.012) #2a1d17;paint-order:stroke fill}
+.card.spire .p-num{position:absolute;bottom:3%;z-index:1;font:400 calc(var(--w)*.085)/1 "Dela Gothic One",var(--ui);color:#fff;-webkit-text-stroke:calc(var(--w)*.012) #2a1d17;paint-order:stroke fill;background:#2a1d17;border:calc(var(--w)*.008) solid #d9b77a;border-radius:calc(var(--w)*.03);padding:.12em .3em .08em}
+.card.spire .p-num.r{right:4%}.card.spire .p-num.l{left:4%;font-size:calc(var(--w)*.065)}
+.card.spire .p-num.up{color:#8fe6b4}.card.spire .p-num.dn{color:#ffab99}
+.card.editor.spire .c-name{border-bottom:none;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 40' preserveAspectRatio='none'%3E%3Cpath d='M0 12H24V38H0L7 25Z M200 12H176V38H200L193 25Z' fill='%23805d2b' stroke='%232a1d17' stroke-width='1.5' vector-effect='non-scaling-stroke'/%3E%3Cpath d='M14 2H186V33H14Z' fill='%23c9a15a' stroke='%232a1d17' stroke-width='1.8' vector-effect='non-scaling-stroke'/%3E%3Cpath d='M17 6H183' stroke='%23f0d9a0' stroke-width='1' vector-effect='non-scaling-stroke'/%3E%3C/svg%3E") 0 0/100% 100% no-repeat;margin:calc(var(--w)*.035) 2% 0;color:#fff}
+.card.editor.spire .c-name input{color:#fff;text-shadow:0 1px 1px #2a1d17}
+.card.editor.spire .c-art{border-bottom:none;border-radius:48% 48% 5% 5%/34% 34% 5% 5%;margin:calc(var(--w)*.01) 8% 0;border:calc(var(--w)*.012) solid #2a1d17}
+.card.editor.spire .c-tab{left:50%;transform:translateX(-50%);bottom:calc(var(--w)*.01);border:calc(var(--w)*.008) solid #d9b77a;border-radius:99px;background:#2a1d17;color:#f3e2bd;padding:0 .9em}
+.card.editor.spire .c-text{color:#fff}
 .c-eqc{position:absolute;right:3%;top:4%;z-index:2;min-width:calc(var(--w)*.12);height:calc(var(--w)*.12);padding:0 calc(var(--w)*.02);box-sizing:border-box;border-radius:99px;background:#fff;border:var(--lw) solid var(--cframe);display:grid;place-items:center;font:700 calc(var(--w)*.07)/1 var(--en,var(--ui));color:#1e2328;box-shadow:0 1px 2px rgba(0,0,0,.25)}
 .c-eqc.cost{background:#c4f0e6}
 .eqplace{display:flex;align-items:center;gap:6px;overflow-x:auto;padding:6px 2px}
@@ -680,6 +709,7 @@ nav.tabs button{position:relative}
         <h2 id="mkTitle">カードを描く</h2>
         <div><h3>カードの種類</h3><div class="seg" id="mkType"><button data-t="monster" aria-pressed="true">モンスター</button><button data-t="magic" aria-pressed="false">魔法</button><button data-t="equip" aria-pressed="false">装備</button><button data-t="trap" aria-pressed="false">罠</button></div></div>
         <label class="row" id="quickRow" hidden style="gap:6px;font-weight:700;cursor:pointer"><input type="checkbox" id="mkQuick"> 速攻魔法（相手のターンにも使える）</label>
+        <label class="row" id="exhaustRow" hidden style="gap:6px;font-weight:700;cursor:pointer"><input type="checkbox" id="mkExhaust"> 廃棄（使ったら墓地に行かず、そのゲームから消える）</label>
         <div class="mk-tabs" id="mkTabs" role="tablist">
           <button data-pane="draw" aria-pressed="true">絵</button><button data-pane="look" aria-pressed="false">見た目</button><button data-pane="fx" aria-pressed="false">効果・能力</button><button data-pane="deck" aria-pressed="false">デッキ</button>
         </div>
@@ -704,7 +734,7 @@ nav.tabs button{position:relative}
         </div>
 
         <div class="mk-pane" data-pane="look" hidden>
-          <label class="f">カードの枠<select id="mkFrame"><option value="">ふつう</option><option value="socra">ソクラテスラ（紙っぽい・矢印の名前）</option></select></label>
+          <label class="f">カードの枠<select id="mkFrame"><option value="">ふつう</option><option value="socra">ソクラテスラ（紙っぽい・矢印の名前）</option><option value="spire">スパイア風（宝石のコスト・リボンの名前）</option></select></label>
           <label class="row" style="gap:6px;font-weight:700;cursor:pointer"><input type="checkbox" id="mkFrameless"> 半フレームレス（絵を下の文字の欄まで広げる）</label>
           <label class="f">文字のフォント<select id="mkFont" aria-label="カードのフォント"></select></label>
           <div><h3>文字の大きさ</h3><div class="row"><label class="f" style="flex-direction:row;align-items:center;gap:6px">名前<select id="mkNameSize"></select></label><label class="f" style="flex-direction:row;align-items:center;gap:6px">効果・フレーバー<select id="mkTextSize"></select></label></div></div>
@@ -892,6 +922,7 @@ nav.tabs button{position:relative}
         <h3 style="margin-top:14px">自分のターンでできること</h3>
         <ol>
           <li>モンスターの召喚は1ターンに1回だけ</li>
+          <li>「廃棄」がついた魔法・罠は、使ったあと墓地に行かず、そのゲームからなくなる（墓地から戻す効果でも戻せない）。</li>
           <li>「特殊召喚」できるモンスターは、カードに書いた条件を満たせば手札から出せる（1ターンの召喚回数は使わない）。特殊召喚で出たときは「召喚したとき」の効果は出ず、「特殊召喚したとき」の効果が出る。墓地から場に出す効果も特殊召喚。手札からの特殊召喚は、普通の召喚と同じく相手が打ち消しで無効にできる（払ったものは戻らない）</li>
           <li>魔法は手札から発動するか、セットしてあとで発動</li>
           <li>装備は、場のモンスター（相手のでもOK）にいつでもくっつけられる。ATKを上げ下げしたり、能力や効果を付けたりする。モンスターごとに「装備キャパ」があって、付いている装備コストの合計がキャパまでしか付けられない（キャパの指定がなければATK÷100）。装備は左から並んでいて、「左どなりに効く」装備もある。モンスターが場を離れると装備も持ち主の墓地へ</li>
@@ -1337,7 +1368,8 @@ function cardHTML(c, cls = "", attrs = "", opts = {}){
   const cl = (flv ? { s: 4, m: 3, l: 2 } : { s: 6, m: 5, l: 4 })[SIZES_T[c.textSize] ? c.textSize : "m"];
   const sv = []; if (fc) sv.push(`--cf:${fc}`); if (c.nameSize && c.nameSize !== "m") sv.push(`--nk:${sizeK(c.nameSize)}`); if (c.textSize && c.textSize !== "m") sv.push(`--tk:${sizeK(c.textSize)}`); if (cl !== 5) sv.push(`--cl:${cl};--cls:${cl}`);
   if (c.frame === "socra") return socraHTML(c, t, cls, attrs, opts, sv, showCost);
-  return `<div class="card ${t}${showCost ? " costed" : ""}${fl ? " frameless" : ""} ${cls}" ${attrs}${sv.length ? ` style='${sv.join(";")}'` : ""}>${opts.done ? `<span class="done">${opts.done}</span>` : ""}${opts.eq ? `<span class="eqb">${esc(opts.eq)}</span>` : ""}<div class="c-in">${fl ? `<div class="c-bgart">${art}</div>` : ""}${showCost ? `<span class="c-cost" title="コスト">${costOf(c)}</span>` : ""}<div class="c-name">${rubyHTML(c.nameRuby || c.name)}</div><div class="c-art">${fl ? "" : art}${eqc}<div class="c-tab">${isQuick(c) ? "速攻魔法" : TYPE_LABEL[t]}</div></div><div class="c-text${atk ? " ha" : ""}"><div class="body">${eqTxt}${ft ? `<span class="fx">${esc(ft)}</span> ` : ""}${rubyHTML(c.effect || "")}</div>${flv ? `<div class="flv">${rubyHTML(flv)}</div>` : ""}${c.id ? `<span class="c-lim">${lim ? "×" + lim : "∞"}</span>` : ""}${atk}</div></div></div>`;
+  if (c.frame === "spire") return spireHTML(c, t, cls, attrs, opts, sv, showCost);
+  return `<div class="card ${t}${showCost ? " costed" : ""}${fl ? " frameless" : ""} ${cls}" ${attrs}${sv.length ? ` style='${sv.join(";")}'` : ""}>${opts.done ? `<span class="done">${opts.done}</span>` : ""}${opts.eq ? `<span class="eqb">${esc(opts.eq)}</span>` : ""}<div class="c-in">${fl ? `<div class="c-bgart">${art}</div>` : ""}${showCost ? `<span class="c-cost" title="コスト">${costOf(c)}</span>` : ""}<div class="c-name">${rubyHTML(c.nameRuby || c.name)}</div><div class="c-art">${fl ? "" : art}${eqc}<div class="c-tab">${isQuick(c) ? "速攻魔法" : TYPE_LABEL[t]}</div></div><div class="c-text${atk ? " ha" : ""}"><div class="body">${eqTxt}${ft ? `<span class="fx">${esc(ft)}</span> ` : ""}${rubyHTML(c.effect || "")}${exhausts(c) ? ` <span class="fx">廃棄</span>` : ""}</div>${flv ? `<div class="flv">${rubyHTML(flv)}</div>` : ""}${c.id ? `<span class="c-lim">${lim ? "×" + lim : "∞"}</span>` : ""}${atk}</div></div></div>`;
 }
 // ソクラテスラ frame (hand-drawn club cards): 「・憤怒　の▷」 banner for equips, a band for monsters,
 // equip capacity / cost in a circle at the bottom left, ATK (or the equip's ATK change) outlined at the bottom right
@@ -1351,6 +1383,7 @@ function socraHTML(c, t, cls, attrs, opts, sv, showCost){
   const ft = fxText(c); if (ft) lines.push(ft.replace(/装備したモンスター/g, "このモンスター"));
   let body = lines.map(l => `<div>・${esc(l)}</div>`).join("");
   if (c.effect) body += `<div>${rubyHTML(c.effect)}</div>`;
+  if (exhausts(c)) body += `<div>・廃棄</div>`;
   if (!body && !c.flavor && t === "equip") body = `<div>・効果なし</div>`;
   const cap = t === "monster" ? `<span class="s-cap" title="装備キャパ">${eqCapOf(c)}</span>` : t === "equip" ? `<span class="s-cap" title="装備コスト">${eqCostOf(c) ? "−" + eqCostOf(c) : "0"}</span>` : "";
   let num = "";
@@ -1358,6 +1391,23 @@ function socraHTML(c, t, cls, attrs, opts, sv, showCost){
   else if (t === "equip" && c.eqN) num = `<span class="s-atk">${c.eqN > 0 ? "+" : "−"}${Math.abs(c.eqN)}</span>`;
   const art = c.img ? `<img alt="" src="${c.img}">` : "";
   return `<div class="card socra ${t}${showCost ? " costed" : ""} ${cls}" ${attrs}${sv.length ? ` style='${sv.join(";")}'` : ""}>${opts.done ? `<span class="done">${opts.done}</span>` : ""}${opts.eq ? `<span class="eqb">${esc(opts.eq)}</span>` : ""}<div class="c-in">${showCost ? `<span class="c-cost" title="コスト">${costOf(c)}</span>` : ""}<div class="s-name">${nameH}</div><div class="c-art">${art}</div><div class="c-text"><div class="body">${body}</div>${c.flavor ? `<div class="flv">${rubyHTML(c.flavor)}</div>` : ""}</div>${cap}${num}</div></div>`;
+}
+// スパイア風 frame: gem cost at the top left, ribbon name over an arched picture, type plaque, centered text
+const exhausts = c => !!(c && c.exhaust && (cardType(c) === "magic" || cardType(c) === "trap"));
+const spireKw = s => s.replace(/【[^】]*】|廃棄/g, m => `<span class="kw">${m}</span>`);
+function spireHTML(c, t, cls, attrs, opts, sv, showCost){
+  const parts = [];
+  const eqT = t === "equip" ? eqText(c) : t === "monster" ? monAbsText(c) : "";
+  if (eqT) parts.push(spireKw(esc(eqT)));
+  const ft = fxText(c); if (ft) parts.push(spireKw(esc(ft)));
+  if (c.effect) parts.push(rubyHTML(c.effect));
+  if (exhausts(c)) parts.push(`<span class="kw">廃棄</span>`);
+  const body = parts.map(p => /[。．.！!）)]$/.test(p.replace(/<[^>]*>/g, "")) ? p : p + "。").join("<br>");
+  let num = "", cap = "";
+  if (t === "monster"){ const base = baseAtk(c), mod = opts.mod || 0; num = `<span class="p-num r ${mod > 0 ? "up" : mod < 0 ? "dn" : ""}" title="ATK">${fmtN(Math.max(0, base + mod))}</span>`; if (hasEqCap(c)) cap = `<span class="p-num l" title="装備キャパ">${eqCapOf(c)}</span>`; }
+  else if (t === "equip"){ if (c.eqN) num = `<span class="p-num r ${c.eqN > 0 ? "up" : "dn"}" title="ATK">${c.eqN > 0 ? "+" : "−"}${Math.abs(c.eqN)}</span>`; if (eqCostOf(c)) cap = `<span class="p-num l" title="装備コスト">−${eqCostOf(c)}</span>`; }
+  const art = c.img ? `<img alt="" src="${c.img}">` : "";
+  return `<div class="card spire ${t}${showCost ? " costed" : ""} ${cls}" ${attrs}${sv.length ? ` style='${sv.join(";")}'` : ""}>${opts.done ? `<span class="done">${opts.done}</span>` : ""}${opts.eq ? `<span class="eqb">${esc(opts.eq)}</span>` : ""}<div class="c-in">${showCost ? `<span class="p-gem" title="コスト">${costOf(c)}</span>` : ""}<div class="p-name"><span>${rubyHTML(c.nameRuby || c.name || "")}</span></div><div class="p-art">${art}</div><div class="p-type">${isQuick(c) ? "速攻魔法" : TYPE_LABEL[t]}</div><div class="p-text"><div class="body">${body}</div>${c.flavor ? `<div class="flv">${rubyHTML(c.flavor)}</div>` : ""}</div>${cap}${num}</div></div>`;
 }
 // card back: the owner's own sleeve if they drew one
 const backHTML = (cls = "", attrs = "", sleeve = "") => sleeve && /^data:image\//.test(sleeve)
@@ -1626,7 +1676,7 @@ function setFrameless(on){
   composite();
 }
 $("#mkFrameless").addEventListener("change", e => setFrameless(e.target.checked));
-function syncFrame(){ if (typeof updateSecs === "function") setTimeout(updateSecs); $("#editCard").classList.toggle("socra", $("#mkFrame").value === "socra"); $("#capRow").hidden = MK.type !== "monster" || $("#mkFrame").value !== "socra"; }
+function syncFrame(){ if (typeof updateSecs === "function") setTimeout(updateSecs); $("#editCard").classList.toggle("socra", $("#mkFrame").value === "socra"); $("#editCard").classList.toggle("spire", $("#mkFrame").value === "spire"); $("#capRow").hidden = MK.type !== "monster" || $("#mkFrame").value !== "socra"; }
 $("#mkFrame").addEventListener("change", syncFrame);
 function clearCanvas(){ ik.clearRect(0, 0, ink.width, ink.height); photo = null; setMode("draw"); composite(); }
 $("#swatches").innerHTML = COLORS.map(c => `<button class="sw" style="background:${c}" data-c="${c}" aria-label="色 ${c}" aria-pressed="${c === pen.color}"></button>`).join("");
@@ -1795,6 +1845,7 @@ function setMkType(t){
   $("#mkTab").textContent = TYPE_LABEL[t];
   $("#atkRow").hidden = $("#infRow").hidden = t !== "monster";
   $("#quickRow").hidden = t !== "magic";
+  $("#exhaustRow").hidden = t !== "magic" && t !== "trap";
   $("#mkTab").textContent = t === "magic" && $("#mkQuick").checked ? "速攻魔法" : TYPE_LABEL[t];
   if (typeof syncCost === "function" && $("#mkCost").options.length) syncCost();
   $("#eqRow").hidden = $("#eqNote").hidden = t !== "equip";
@@ -1891,7 +1942,7 @@ function loadFxForm(c){
   syncFxForm();
 }
 function resetMaker(){
-  S.editId = null; setFrameless(false); $("#mkName").value = ""; $("#mkEff").value = ""; $("#mkFlv").value = ""; $("#mkNameSize").value = $("#mkTextSize").value = "m"; syncSizes(); $("#mkAtk").value = 300; $("#mkEq").value = 200; $("#mkEqAb").value = "none"; $("#mkEqCost").value = "1"; $("#mkEqCap").value = ""; $("#mkFrame").value = ""; syncFrame(); $("#mkFont").value = "klee"; syncFont(); $("#mkQuick").checked = false; $("#mkCost").value = "1"; setMkDeck("normal"); $("#mkLimit").value = "3"; clearCanvas(); undoStack = [];
+  S.editId = null; setFrameless(false); $("#mkName").value = ""; $("#mkEff").value = ""; $("#mkFlv").value = ""; $("#mkNameSize").value = $("#mkTextSize").value = "m"; syncSizes(); $("#mkAtk").value = 300; $("#mkEq").value = 200; $("#mkEqAb").value = "none"; $("#mkEqCost").value = "1"; $("#mkEqCap").value = ""; $("#mkFrame").value = ""; syncFrame(); $("#mkFont").value = "klee"; syncFont(); $("#mkQuick").checked = false; $("#mkExhaust").checked = false; $("#mkCost").value = "1"; setMkDeck("normal"); $("#mkLimit").value = "3"; clearCanvas(); undoStack = [];
   setMkType("monster"); loadFxForm(null); loadAbs([]); loadSS(null);
   $("#mkTitle").textContent = "カードを描く"; $("#btnNew").hidden = true; $("#btnSave").textContent = "カードを保存";
 }
@@ -1936,7 +1987,7 @@ $("#btnSave").addEventListener("click", async () => {
   const id = S.editId || uid("c");
   const prev = S.cards.get(id);
   let eqN = Math.round(+$("#mkEq").value || 0); $("#mkEq").value = eqN;
-  const doc = { type: MK.type, name, atk: MK.type === "monster" ? atk : 0, atkInf, eqN: MK.type === "equip" ? eqN : 0, eqAb: "none", eqCost: MK.type === "equip" ? Math.max(0, Math.round(+$("#mkEqCost").value || 0)) : null, eqCap: MK.type === "monster" && $("#mkFrame").value === "socra" && $("#mkEqCap").value.trim() !== "" ? Math.max(0, Math.round(+$("#mkEqCap").value || 0)) : null, abs: MK.type === "monster" || MK.type === "equip" ? readAbs() : [], frame: $("#mkFrame").value || null, ss: readSS(), effect: $("#mkEff").value.trim(), flavor: $("#mkFlv").value.trim(), nameSize: $("#mkNameSize").value, textSize: $("#mkTextSize").value, fx: readFx(), combo: readCombo(), font: $("#mkFont").value, quick: MK.type === "magic" && $("#mkQuick").checked, cost: MK.deck === "normal" ? null : +$("#mkCost").value, deckMode: MK.deck, limit: +$("#mkLimit").value,
+  const doc = { type: MK.type, name, atk: MK.type === "monster" ? atk : 0, atkInf, eqN: MK.type === "equip" ? eqN : 0, eqAb: "none", eqCost: MK.type === "equip" ? Math.max(0, Math.round(+$("#mkEqCost").value || 0)) : null, eqCap: MK.type === "monster" && $("#mkFrame").value === "socra" && $("#mkEqCap").value.trim() !== "" ? Math.max(0, Math.round(+$("#mkEqCap").value || 0)) : null, abs: MK.type === "monster" || MK.type === "equip" ? readAbs() : [], frame: $("#mkFrame").value || null, ss: readSS(), effect: $("#mkEff").value.trim(), flavor: $("#mkFlv").value.trim(), nameSize: $("#mkNameSize").value, textSize: $("#mkTextSize").value, fx: readFx(), combo: readCombo(), font: $("#mkFont").value, quick: MK.type === "magic" && $("#mkQuick").checked, exhaust: (MK.type === "magic" || MK.type === "trap") && $("#mkExhaust").checked, cost: MK.deck === "normal" ? null : +$("#mkCost").value, deckMode: MK.deck, limit: +$("#mkLimit").value,
     img: prev && prev.img && !MK.artDirty ? prev.img : encodeArt(out), frameless: MK.frameless, author: S.name, ownerId: prev?.ownerId || S.uid || null, updatedAt: Date.now() };
   $("#btnSave").disabled = true;
   try{
@@ -1973,7 +2024,7 @@ $("#gallery").addEventListener("click", async e => {
   if (ed){
     const c = S.cards.get(ed.dataset.edit); if (!c || !(isMine(c) || (c.starter && isAdmin()))) return;
     S.editId = c.id; setFrameless(!!c.frameless); MK.artDirty = false; $("#mkName").value = c.nameRuby || c.name; $("#mkEff").value = c.effect || ""; $("#mkFlv").value = c.flavor || ""; $("#mkNameSize").value = SIZES_T[c.nameSize] ? c.nameSize : "m"; $("#mkTextSize").value = SIZES_T[c.textSize] ? c.textSize : "m"; syncSizes(); $("#mkAtk").value = c.atkInf ? "∞" : (c.atk || 0); $("#mkLimit").value = String(cardLimit(c));
-    $("#mkQuick").checked = !!c.quick; setMkType(cardType(c)); loadFxForm(c); $("#mkFont").value = FONTS[c.font] ? c.font : "klee"; syncFont(); $("#mkCost").value = hasCost(c) ? String(costOf(c)) : "1"; setMkDeck(deckModeOf(c)); $("#mkEq").value = c.eqN || 0; $("#mkEqAb").value = "none"; $("#mkEqCost").value = String(eqCostOf(c)); $("#mkEqCap").value = hasEqCap(c) ? String(+c.eqCap) : ""; loadAbs(absOf(c)); syncEqLine(); $("#mkFrame").value = c.frame === "socra" ? "socra" : ""; syncFrame(); loadSS(c);
+    $("#mkQuick").checked = !!c.quick; $("#mkExhaust").checked = !!c.exhaust; setMkType(cardType(c)); loadFxForm(c); $("#mkFont").value = FONTS[c.font] ? c.font : "klee"; syncFont(); $("#mkCost").value = hasCost(c) ? String(costOf(c)) : "1"; setMkDeck(deckModeOf(c)); $("#mkEq").value = c.eqN || 0; $("#mkEqAb").value = "none"; $("#mkEqCost").value = String(eqCostOf(c)); $("#mkEqCap").value = hasEqCap(c) ? String(+c.eqCap) : ""; loadAbs(absOf(c)); syncEqLine(); $("#mkFrame").value = c.frame === "socra" || c.frame === "spire" ? c.frame : ""; syncFrame(); loadSS(c);
     if (!c.img){ clearCanvas(); undoStack = []; MK.artDirty = false; }
     else { const im = new Image(); im.onload = () => { clearCanvas(); setPhoto(im); setMode("draw"); composite(); undoStack = []; MK.artDirty = false; }; im.src = c.img; }
     $("#mkTitle").textContent = "カードを編集中"; $("#btnNew").hidden = false; $("#btnSave").textContent = "変更を保存";
@@ -2576,7 +2627,7 @@ $("#btnCpu").addEventListener("click", () => {
 });
 /* ---- rematch: same players, same decks, fresh game (online: both have to say yes) ---- */
 function allCardsOf(st, s){
-  const p = P(st, s), out = [...p.deck, ...p.hand, ...p.grave];
+  const p = P(st, s), out = [...p.deck, ...p.hand, ...p.grave, ...(p.exile || [])];
   p.sz.forEach(z => { if (z) out.push(z.c); });
   for (const o of ["a", "b"]) P(st, o).mz.forEach(m => { if (!m) return; if (o === s) out.push(m.c); eqsOf(m).forEach(e => { if (e.o === s) out.push(e.c); }); });
   return out;
@@ -2986,9 +3037,11 @@ function activate(st, s, from, i, ctx = {}){
   if (!pay(st, s, c)) return false;
   if (from === "hand") p.hand.splice(i, 1);
   else p.sz[i] = null;
-  p.grave.push(id);
+  if (exhausts(c)) (p.exile = p.exile || []).push(id);
+  else p.grave.push(id);
   ev(st, { type: "spell", s, c: id });
   pushChain(st, s, id, { ...ctx, fromHand: from === "hand" }, `${t === "trap" ? "罠" : isQuick(c) ? "速攻魔法" : "魔法"}「${c.name}」`);
+  if (exhausts(c)) log(st, s, `「${c.name}」は廃棄された（このゲームではもう使えない）`);
   return true;
 }
 /* ---- chain: activations stack up; the other side may respond; resolve newest first ---- */
@@ -3350,7 +3403,7 @@ function renderBoard(){
   <div class="board">
     <div class="table">
       ${manaBox(po, esc(po.name))}
-      <div class="mstat"><span class="who">${esc(po.name)}</span><span>山札 ${po.deck.length}</span><span>墓地 ${po.grave.length}</span><span class="lpv ${po.lp <= 300 ? "low" : ""}"><small>LP</small>${po.lp}</span></div>
+      <div class="mstat"><span class="who">${esc(po.name)}</span><span>山札 ${po.deck.length}</span><span>墓地 ${po.grave.length}</span>${(po.exile || []).length ? `<span>廃棄 ${po.exile.length}</span>` : ""}<span class="lpv ${po.lp <= 300 ? "low" : ""}"><small>LP</small>${po.lp}</span></div>
       <div class="ohand">${backHTML("xs", "", po.sleeve)}<span class="cnt-x">×${po.hand.length}</span><span class="lbl">手札（${esc(po.name)}）</span></div>
       <span class="zlabel">相手の魔法・罠ゾーン</span>
       <div class="zones">${zoneHTML(op, "sz")}</div>
@@ -3368,15 +3421,15 @@ function renderBoard(){
       <div class="zones">${zoneHTML(me, "mz")}</div>
       <span class="zlabel">自分の魔法・罠ゾーン</span>
       <div class="zones">${zoneHTML(me, "sz")}</div>
-      <div class="mstat"><span class="who">${esc(pm.name)}${G.spectate ? "" : "（あなた）"}</span><span>山札 ${pm.deck.length}</span><span>墓地 ${pm.grave.length}</span><span class="lpv ${pm.lp <= 300 ? "low" : ""}"><small>LP</small>${pm.lp}</span></div>
+      <div class="mstat"><span class="who">${esc(pm.name)}${G.spectate ? "" : "（あなた）"}</span><span>山札 ${pm.deck.length}</span><span>墓地 ${pm.grave.length}</span>${(pm.exile || []).length ? `<span>廃棄 ${pm.exile.length}</span>` : ""}<span class="lpv ${pm.lp <= 300 ? "low" : ""}"><small>LP</small>${pm.lp}</span></div>
       <span class="zlabel">手札</span>
       <div class="hand">${handHTML}</div>
       ${manaBox(pm, "あなた")}
     </div>
     <aside class="side">
       <div class="box" style="display:flex;flex-direction:column;gap:12px">
-        <div class="pl"><div><div class="nm">${esc(po.name)}</div><div class="pile">山札 ${po.deck.length}<button class="chip" data-grave="op">墓地 ${po.grave.length}</button></div></div>${lpBox(po, "op")}</div>
-        <div class="pl"><div><div class="nm">${esc(pm.name)}${G.spectate ? "" : "（あなた）"}</div><div class="pile">山札 ${pm.deck.length}<button class="chip" data-grave="me">墓地 ${pm.grave.length}</button></div></div>${lpBox(pm, "me")}</div>
+        <div class="pl"><div><div class="nm">${esc(po.name)}</div><div class="pile">山札 ${po.deck.length}<button class="chip" data-grave="op">墓地 ${po.grave.length}</button>${(po.exile || []).length ? ` 廃棄 ${po.exile.length}` : ""}</div></div>${lpBox(po, "op")}</div>
+        <div class="pl"><div><div class="nm">${esc(pm.name)}${G.spectate ? "" : "（あなた）"}</div><div class="pile">山札 ${pm.deck.length}<button class="chip" data-grave="me">墓地 ${pm.grave.length}</button>${(pm.exile || []).length ? ` 廃棄 ${pm.exile.length}` : ""}</div></div>${lpBox(pm, "me")}</div>
         ${G.mode === "online" ? `<div class="note">部屋 ${esc(G.code)}</div>` : ""}
       </div>
       <div class="box">
