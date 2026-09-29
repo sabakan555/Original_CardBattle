@@ -341,6 +341,7 @@ ruby rt{font-size:.5em;line-height:1;font-style:normal}
 .pl .nm{font-weight:700}
 .lp{display:inline-flex;flex-direction:column;align-items:center;background:#fff;border:2px solid #1e2328;border-radius:10px;padding:2px 14px 4px;font-family:var(--hand);line-height:1.05;box-shadow:2px 3px 0 #1e2328;min-width:92px}
 .lp small{font-size:12px}
+.pick-player{min-width:120px;min-height:120px;border-radius:14px;font-weight:700;font-size:16px}
 .bst{display:inline-block;margin-left:6px;padding:2px 8px;border-radius:99px;font:700 12px/1.4 var(--ui);vertical-align:middle;white-space:nowrap}
 .bst.blk{background:#2d6fb3;color:#fff}.bst.vul{background:#8a3fb0;color:#fff}
 .lp b{font-size:28px;font-weight:600;font-variant-numeric:tabular-nums}
@@ -957,7 +958,7 @@ nav.tabs button{position:relative}
         <h3 style="margin-top:14px">自分のターンでできること</h3>
         <ol>
           <li>モンスターの召喚は1ターンに1回だけ</li>
-          <li>スパイアデッキ（デッキ編集でチェック）は、「選択の祭壇」が最初から魔法・罠ゾーンに表向きで置かれる。自分のターンのはじめに、ランダムなスパイア風カード3枚から1枚えらんで墓地に加えられる。山札がなくなったら墓地をシャッフルして山札に戻すので、山札切れで負けない。ブロックは次の自分のターンのはじめまで、受けるダメージを先に引き受けてくれる（残った分だけLPが減る）。脆弱になったプレイヤーは受けるダメージが1.5倍（そのプレイヤーのターンが終わるたびに1へる）。祭壇があるあいだは、自分のターンのはじめに手札が5枚になるまで引いて、ターンのおわりに手札をすべて墓地に捨てる。デッキの枚数は自由で、モンスターが入っていなくてもOK。</li>
+          <li>スパイアデッキ（デッキ編集でチェック）は、「選択の祭壇」が最初から魔法・罠ゾーンに表向きで置かれる。自分のターンのはじめに、ランダムなスパイア風カード3枚から1枚えらんで墓地に加えられる。山札がなくなったら墓地をシャッフルして山札に戻すので、山札切れで負けない。スパイア風のアタック（ダメージを与えるカード）は、相手か相手のモンスター1体をえらべる。モンスターに当てたときは、ダメージがATK以上なら破壊、足りなければそのぶんATKが下がる。祭壇があると自分のマナは毎ターン3で固定。祭壇の候補には攻撃・防御・強打は出ない。ブロックは次の自分のターンのはじめまで、受けるダメージを先に引き受けてくれる（残った分だけLPが減る）。脆弱になったプレイヤーは受けるダメージが1.5倍（そのプレイヤーのターンが終わるたびに1へる）。祭壇があるあいだは、自分のターンのはじめに手札が5枚になるまで引いて、ターンのおわりに手札をすべて墓地に捨てる。デッキの枚数は自由で、モンスターが入っていなくてもOK。</li>
           <li>「永続」の魔法・罠（スパイア風ではパワー）は、使ったあとも魔法・罠ゾーンに表向きで残って、書いてあるタイミング（ターンのはじめ、召喚するたび など）で何度も効果が出る。ゾーンは5つまでなので、置けるのも5枚まで。</li>
           <li>「廃棄」がついた魔法・罠は、使ったあと墓地に行かず、そのゲームからなくなる（墓地から戻す効果でも戻せない）。</li>
           <li>「特殊召喚」できるモンスターは、カードに書いた条件を満たせば手札から出せる（1ターンの召喚回数は使わない）。特殊召喚で出たときは「召喚したとき」の効果は出ず、「特殊召喚したとき」の効果が出る。墓地から場に出す効果も特殊召喚。手札からの特殊召喚は、普通の召喚と同じく相手が打ち消しで無効にできる（払ったものは戻らない）</li>
@@ -1227,6 +1228,7 @@ function fxText0(c){
     const ask = fx.ask ? `「${fx.ask}」に「はい」なら、` : "";
     out = (isMon ? `【${trigLabel(t, fx.trig)}】` : isPersist(c) && fx.trig !== "use" ? `【${PERSIST_TRIG_LABEL[fx.trig]}】` : "") + ask + cond + KINDS[fx.kind].text(fx.n);
     if (t === "equip") out = out.replace(/このモンスター/g, "装備したモンスター");
+    if (c.frame === "spire" && (fx.kind === "dmg" || fx.kind === "bash")) out = out.replace("相手に", "相手か相手のモンスター1体に");
   }
   if (cb){
     const head = fx ? (fx.trig === cb.trig ? "。さらに" : `。【${TRIGS[cb.trig]}】`) : (isMon ? `【${TRIGS[cb.trig]}】` : "");
@@ -1370,7 +1372,7 @@ function buildStarters(){
   S.starters = S.starterBase;
 }
 // スパイアデッキ: this card is face-up in the magic/trap zone from the start; every turn it offers 3 random スパイア風 cards
-const SPIRE_ALTAR = { id: "spire-altar", type: "magic", frame: "spire", sk: "power", persist: true, name: "選択の祭壇", atk: 0, eqN: 0, eqAb: "none", abs: [], fx: { trig: "turnStart", kind: "draft", n: 3 }, combo: null, effect: "自分のターンのはじめ、手札が5枚になるまでカードを引く。自分のターンのおわり、手札をすべて墓地に捨てる。", flavor: "スパイアデッキの始まりの一枚", cost: 0, deckMode: "both", limit: 1, author: "スターター", starter: true, img: "" };
+const SPIRE_ALTAR = { id: "spire-altar", type: "magic", frame: "spire", sk: "power", persist: true, name: "選択の祭壇", atk: 0, eqN: 0, eqAb: "none", abs: [], fx: { trig: "turnStart", kind: "draft", n: 3 }, combo: null, effect: "自分のマナは毎ターン3（増えない）。自分のターンのはじめ、手札が5枚になるまでカードを引く。自分のターンのおわり、手札をすべて墓地に捨てる。", flavor: "スパイアデッキの始まりの一枚", cost: 0, deckMode: "both", limit: 1, author: "スターター", starter: true, img: "" };
 // 攻撃 / 防御 / 強打: the basic スパイア cards (numbers ×10)
 const SPIRE_BASIC = [
   { id: "spire-strike", sk: "attack", name: "攻撃", cost: 1, fx: { kind: "dmg", n: 60 } },
@@ -1378,7 +1380,7 @@ const SPIRE_BASIC = [
   { id: "spire-bash", sk: "attack", name: "強打", cost: 2, fx: { kind: "bash", n: 80 } }
 ].map(x => ({ type: "magic", frame: "spire", persist: false, atk: 0, eqN: 0, eqAb: "none", abs: [], combo: null, effect: "", flavor: "", deckMode: "both", limit: 5, author: "スターター", starter: true, img: "", ...x, fx: { trig: "use", ...x.fx } }));
 function spireDeck(){ return { id: "spire-start", name: "スパイアデッキ（はじまり）", cards: [...Array(5).fill("spire-strike"), ...Array(4).fill("spire-defend"), "spire-bash"], builtin: true, mana: true, spire: true, key: "spire-strike" }; }
-const draftPool = () => [...S.cards.values()].filter(c => c && c.frame === "spire" && c.id !== SPIRE_ALTAR.id);
+const draftPool = () => [...S.cards.values()].filter(c => c && c.frame === "spire" && c.id !== SPIRE_ALTAR.id && !SPIRE_BASIC.some(b => b.id === c.id));
 function draftPick(n){ return shuffle(draftPool().map(c => c.id)).slice(0, Math.max(1, n || 3)); }
 function starterDeck(){ const ids = []; STARTERS.forEach((s, i) => { for (let k = 0; k < s.n; k++) ids.push("starter-" + i); }); return { id: "starter", name: "スターターデッキ", cards: ids, builtin: true }; }
 function starterManaDeck(){ return { ...starterDeck(), id: "starter-mana", name: "スターターデッキ【コスト】", mana: true }; }
@@ -2648,13 +2650,13 @@ function newPlayer(deckIds, name, mana, spire){
   const deck = shuffle([...deckIds]); const hand = deck.splice(0, 5);
   const p = { name: name || S.name, lp: START_LP, deck, hand, grave: [], mz: Array(ZONES).fill(null), sz: Array(ZONES).fill(null), mana: mana ? { max: 0, cur: 0 } : null, sleeve: name ? null : (mySleeve() || null), deckIds: [...deckIds] };
   // スパイアデッキ: the altar starts on the field, and the deck never runs out (the graveyard is shuffled back in)
-  if (spire){ p.spire = true; p.sz[0] = { c: SPIRE_ALTAR.id, turn: 0, face: true, u: -1 }; }
+  if (spire){ p.spire = true; if (!p.mana) p.mana = { max: 0, cur: 0 }; p.sz[0] = { c: SPIRE_ALTAR.id, turn: 0, face: true, u: -1 }; }
   return p;
 }
 // 選択の祭壇 (face-up): turn start → draw up to 5 cards, turn end → the whole hand goes to the graveyard
 function altarTurn(st, s, trig){
   const p = P(st, s); if (!p.sz.some(z => z && z.face && z.c === SPIRE_ALTAR.id)) return;
-  if (trig === "turnStart"){ const k = 5 - p.hand.length; if (k > 0) drawN(st, s, k, "「選択の祭壇」"); }
+  if (trig === "turnStart"){ if (p.mana){ p.mana.max = 3; p.mana.cur = 3; } const k = 5 - p.hand.length; if (k > 0) drawN(st, s, k, "「選択の祭壇」"); }
   if (trig === "turnEnd" && p.hand.length){ const n = p.hand.length; p.grave.push(...p.hand.splice(0)); log(st, s, `「選択の祭壇」で手札${n}枚を墓地に捨てた`); }
 }
 function refill(st, s){
@@ -2665,6 +2667,7 @@ function makeCode(){ const a = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; let s = ""; f
 function startState(pa, pb){
   const first = Math.random() < .5 ? "a" : "b";
   const fp = first === "a" ? pa : pb; if (fp.mana){ fp.mana.max = 1; fp.mana.cur = 1; }
+  [pa, pb].forEach(p => { if (p.mana && p.sz.some(z => z && z.face && z.c === "spire-altar")){ p.mana.max = 3; p.mana.cur = p === fp ? 3 : 0; } });
   return { v: 3, started: true, players: { a: pa, b: pb }, first, turn: first, turnNo: 1, summoned: false, pending: null, winner: null, why: "", log: [{ t: Date.now(), m: `${(first === "a" ? pa : pb).name} の先攻でスタート！` }] };
 }
 
@@ -2768,6 +2771,14 @@ function atkOf(m){
 const modOf = m => { const b = baseAtk(card(m.c)); return isFinite(b) ? atkOf(m) - b : 0; };
 // ∞ damage just brings LP to 0 (LP never holds Infinity, so the room state stays plain JSON)
 // damage to a player: 脆弱 makes it ×1.5, then ブロック soaks it up first
+// damage to a monster: at least its ATK → destroyed, otherwise its ATK goes down by that much
+function monDmg(st, s, i, n, src){
+  const m = P(st, s).mz[i]; if (!m) return;
+  const a = atkOf(m), nm = card(m.c).name;
+  log(st, O(s), `${src}で「${nm}」に${n}ダメージ`);
+  if (n >= a) destroyMonster(st, s, i, src);
+  else { m.mod = (m.mod || 0) - n; log(st, O(s), `「${nm}」のATKが${n}下がった（ATK ${fmtN(atkOf(m))}）`); }
+}
 const statChips = p => (p.block ? `<span class="bst blk" title="次の自分のターンのはじめまで、受けるダメージを先に引き受ける">ブロック ${p.block}</span>` : "") + (p.vuln > 0 ? `<span class="bst vul" title="受けるダメージが1.5倍">脆弱 ${p.vuln}</span>` : "");
 function dealDmg(st, s, n){
   const p = P(st, s); if (n === Infinity){ p.lp = Math.min(0, p.lp); return; }
@@ -2795,6 +2806,8 @@ function drawN(st, s, n, why){
 function freeZone(arr){ return arr.findIndex(x => !x); }
 const tauntIdx = (st, s) => P(st, s).mz.map((m, i) => m && hasAb(st, s, i, "taunt") ? i : -1).filter(i => i >= 0);
 function targetOptions(st, s, kind, ctx = {}){
+  // スパイア attack: the opponent ("p") or one of their monsters ("m:i"); only asks when there is a monster to hit
+  if (ctx.spireAtk && (kind === "dmg" || kind === "bash")){ const tt = tauntIdx(st, O(s)), ms = (tt.length ? tt : P(st, O(s)).mz.map((m, i) => m ? i : -1).filter(i => i >= 0)).map(i => "m:" + i); return ms.length ? ["p", ...ms] : null; }
   const t = KINDS[kind] && KINDS[kind].target;
   if (t === "opp"){ const tt = tauntIdx(st, O(s)); return tt.length ? tt : P(st, O(s)).mz.map((m, i) => m ? i : -1).filter(i => i >= 0); }
   if (t === "any"){
@@ -2813,6 +2826,8 @@ function targetOptions(st, s, kind, ctx = {}){
   return null;
 }
 function autoTarget(st, s, kind, opts){
+  // CPU スパイア attack: go for the strongest monster unless the opponent is nearly out of LP
+  if (opts[0] === "p"){ const ms = opts.slice(1).sort((x, y) => atkOf(P(st, O(s)).mz[+y.slice(2)]) - atkOf(P(st, O(s)).mz[+x.slice(2)])); return ms.length && P(st, O(s)).lp > 300 ? ms[0] : "p"; }
   const t = KINDS[kind].target;
   if (t === "opp") return opts.slice().sort((a, b) => atkOf(P(st, O(s)).mz[b]) - atkOf(P(st, O(s)).mz[a]))[0];
   if (t === "mine") return opts.slice().sort((a, b) => atkOf(P(st, s).mz[b]) - atkOf(P(st, s).mz[a]))[0];
@@ -2941,10 +2956,10 @@ function applyEffect(st, s, c, target, ctx = {}, fx = normFx(c)){
     case "heal": me.lp += n; log(st, s, `${src}でLPを${n}回復`); break;
     case "draft": if (target && S.cards.has(target)){ me.grave.push(target); log(st, s, `${src}で「${card(target).name}」を墓地に加えた`); } break;
     case "atkAll": { let k = 0; me.mz.forEach(m => { if (m){ m.mod = (m.mod || 0) + n; k++; } }); log(st, s, `${src}で自分のモンスター${k}体のATK+${n}`); break; }
-    case "dmg": log(st, s, `${src}で${op.name}に${n}ダメージ`); dealDmg(st, O(s), n); break;
+    case "dmg": if (typeof target === "string" && target.startsWith("m:")){ monDmg(st, O(s), +target.slice(2), n, src); break; } log(st, s, `${src}で${op.name}に${n}ダメージ`); dealDmg(st, O(s), n); break;
     case "block": me.block = (me.block || 0) + n; log(st, s, `${src}でブロックを${n}得た（ブロック ${me.block}）`); break;
     case "vuln": op.vuln = (op.vuln || 0) + n; log(st, s, `${src}で${op.name}が脆弱${op.vuln}になった`); break;
-    case "bash": log(st, s, `${src}で${op.name}に${n}ダメージ`); dealDmg(st, O(s), n); op.vuln = (op.vuln || 0) + 2; log(st, s, `${op.name}が脆弱${op.vuln}になった`); break;
+    case "bash": if (typeof target === "string" && target.startsWith("m:")) monDmg(st, O(s), +target.slice(2), n, src); else { log(st, s, `${src}で${op.name}に${n}ダメージ`); dealDmg(st, O(s), n); } op.vuln = (op.vuln || 0) + 2; log(st, s, `${op.name}が脆弱${op.vuln}になった`); break;
     case "draw": drawN(st, s, n, src); break;
     case "discard": {
       let k = 0; for (let j = 0; j < n && op.hand.length; j++){ op.grave.push(op.hand.splice(Math.floor(Math.random() * op.hand.length), 1)[0]); k++; }
@@ -3018,6 +3033,7 @@ function runEffect(st, s, c, ctx = {}, then, fx = normFx(c)){
     fx = { ...fx, ask: "" };
   }
   if (fx.kind === "draft" && !ctx.draft) ctx = { ...ctx, draft: draftPick(fx.n) };
+  if (c && c.frame === "spire" && (fx.kind === "dmg" || fx.kind === "bash")) ctx = { ...ctx, spireAtk: true };
   const opts = targetOptions(st, s, fx.kind, ctx);
   if (opts === null){ applyEffect(st, s, c, undefined, ctx, fx); then && then(st); return; }
   if (!opts.length){ log(st, s, `「${c.name}」：対象がいない`); then && then(st); return; }
@@ -3323,7 +3339,7 @@ function passTurn(st, s){
     st.turn = O(s); st.turnNo++; st.summoned = false;
     const np = P(st, st.turn);
     if (np.block){ log(st, st.turn, `ブロック${np.block}が消えた`); np.block = 0; }
-    if (np.mana){ np.mana.max = Math.min(MAX_MANA, np.mana.max + 1); np.mana.cur = np.mana.max; }
+    if (np.mana){ np.mana.max = np.sz.some(z => z && z.face && z.c === "spire-altar") ? 3 : Math.min(MAX_MANA, np.mana.max + 1); np.mana.cur = np.mana.max; }
     log(st, st.turn, `ターン${st.turnNo}：${np.name} のターン${np.mana ? `（マナ ${np.mana.max}）` : ""}`);
     refill(st, st.turn);
     if (!np.deck.length && !np.spire){ st.winner = s; st.why = `${np.name} の山札がなくなった`; log(st, st.turn, "引くカードがない！"); return; }
@@ -3728,10 +3744,12 @@ function renderOverlay(){
     const list = opts.map(o => {
       if (t === "grave" || t === "draft") return cardHTML(card(o), "sm pick", `data-opt="${esc(o)}" tabindex="0" role="button"`, mOpt(q.s));
       if (t === "any"){ const [os, oi] = o.split(":"), m = P(st, os).mz[+oi]; return `<div class="g-item">${cardHTML(card(m.c), "sm pick", `data-opt="${o}" tabindex="0" role="button"`, { mod: modOf(m), ...mOpt(os) })}<div class="meta">${os === me ? "自分" : "相手"}</div></div>`; }
+      if (o === "p"){ const X = P(st, O(q.s)); return `<button class="pick-player" data-opt="p">${esc(X.name)}<br><small>LP ${X.lp}${X.block ? `・ブロック ${X.block}` : ""}</small></button>`; }
+      if (typeof o === "string" && o.startsWith("m:")){ const i = +o.slice(2), m = P(st, O(q.s)).mz[i]; return cardHTML(card(m.c), "sm pick", `data-opt="${o}" tabindex="0" role="button"`, { mod: modOf(m), ...mOpt(O(q.s)) }); }
       const X = t === "opp" ? P(st, O(q.s)) : P(st, q.s);
       return cardHTML(card(X.mz[o].c), "sm pick", `data-opt="${o}" tabindex="0" role="button"`, { mod: modOf(X.mz[o]), ...mOpt(t === "opp" ? O(q.s) : q.s) });
     }).join("");
-    html = `<div class="box"><h2 style="margin:0">「${esc(q.c.name)}」の対象をえらぶ</h2><p class="muted" style="margin:0">${esc(KINDS[q.fx.kind].text(q.fx.n))}</p><div class="gallery">${list || '<p class="muted">対象がいません</p>'}</div><div class="row"><button class="ghost" data-close="choose">使わない</button></div></div>`;
+    html = `<div class="box"><h2 style="margin:0">「${esc(q.c.name)}」の対象をえらぶ</h2><p class="muted" style="margin:0">${esc(q.ctx.spireAtk ? fxText0(q.c) : KINDS[q.fx.kind].text(q.fx.n))}</p><div class="gallery">${list || '<p class="muted">対象がいません</p>'}</div><div class="row"><button class="ghost" data-close="choose">使わない</button></div></div>`;
   } else if (st.pending && st.pending.wait && st.pending.by !== me && !st.winner && !G.spectate){
     const pd = st.pending, A = P(st, pd.by);
     const win = chainWindow(st);
@@ -3786,7 +3804,7 @@ $("#overlay").addEventListener("click", e => {
   const opt = e.target.closest("[data-opt]");
   if (opt && G.chooseQ.length){
     const q = G.chooseQ.shift(); const t = KINDS[q.fx.kind].target;
-    const target = t === "grave" || t === "any" || t === "draft" ? opt.dataset.opt : +opt.dataset.opt;
+    const target = t === "grave" || t === "any" || t === "draft" || q.ctx.spireAtk ? opt.dataset.opt : +opt.dataset.opt;
     act(st => { applyEffect(st, q.s, q.c, target, q.ctx, q.fx); q.then && q.then(st); });
     return;
   }
