@@ -72,7 +72,7 @@ label.f{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:13p
 .card.socra .c-text .flv{order:-1;border-top:none;margin:0 0 .2em;padding-top:0;font-style:normal;font-size:1em;color:#1e2328}
 .card.socra .s-cap{position:absolute;left:5%;bottom:3%;min-width:calc(var(--w)*.13);height:calc(var(--w)*.13);padding:0 calc(var(--w)*.015);box-sizing:border-box;border:calc(var(--w)*.008) solid #1e2328;border-radius:99px;display:grid;place-items:center;font-size:calc(var(--w)*.065);line-height:1;background:#f3f1ea}
 .card.socra .s-atk{position:absolute;right:5%;bottom:3%;font:400 calc(var(--w)*.1)/1 "Dela Gothic One",var(--ui);color:#fff;-webkit-text-stroke:calc(var(--w)*.014) #1e2328;paint-order:stroke fill;letter-spacing:-.01em}
-.card.socra .s-atk.box{border:calc(var(--w)*.009) solid #1e2328;border-radius:calc(var(--w)*.015);padding:.06em .14em .04em;background:#fff;transform:skewX(-6deg)}
+.card.socra .s-atk.s-box{border:calc(var(--w)*.009) solid #1e2328;border-radius:calc(var(--w)*.015);padding:.06em .14em .04em;background:#fff;transform:skewX(-6deg)}
 .card.socra .s-atk.up{color:#8fe6b4}.card.socra .s-atk.dn{color:#ffab99}
 .card.editor.socra{--cbg:#f3f1ea}
 .card.editor.socra .c-name{border-bottom:none;margin-top:calc(var(--w)*.04);background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 40' preserveAspectRatio='none'%3E%3Cpath d='M0 2H200M0 38H200' fill='none' stroke='%231e2328' stroke-width='1.8' vector-effect='non-scaling-stroke'/%3E%3C/svg%3E") 0 0/100% 100% no-repeat}
@@ -1267,7 +1267,7 @@ function socraHTML(c, t, cls, attrs, opts, sv, showCost){
   if (!body && !c.flavor && t === "equip") body = `<div>・効果なし</div>`;
   const cap = t === "monster" ? `<span class="s-cap" title="装備キャパ">${eqCapOf(c)}</span>` : t === "equip" ? `<span class="s-cap" title="装備コスト">${eqCostOf(c) ? "−" + eqCostOf(c) : "0"}</span>` : "";
   let num = "";
-  if (t === "monster"){ const base = baseAtk(c), mod = opts.mod || 0; num = `<span class="s-atk box ${mod > 0 ? "up" : mod < 0 ? "dn" : ""}">${fmtN(Math.max(0, base + mod))}</span>`; }
+  if (t === "monster"){ const base = baseAtk(c), mod = opts.mod || 0; num = `<span class="s-atk s-box ${mod > 0 ? "up" : mod < 0 ? "dn" : ""}">${fmtN(Math.max(0, base + mod))}</span>`; }
   else if (t === "equip" && c.eqN) num = `<span class="s-atk">${c.eqN > 0 ? "+" : "−"}${Math.abs(c.eqN)}</span>`;
   const art = c.img ? `<img alt="" src="${c.img}">` : "";
   return `<div class="card socra ${t}${showCost ? " costed" : ""} ${cls}" ${attrs}${sv.length ? ` style='${sv.join(";")}'` : ""}>${opts.done ? `<span class="done">${opts.done}</span>` : ""}${opts.eq ? `<span class="eqb">${esc(opts.eq)}</span>` : ""}<div class="c-in">${showCost ? `<span class="c-cost" title="コスト">${costOf(c)}</span>` : ""}<div class="s-name">${nameH}</div><div class="c-art">${art}</div><div class="c-text"><div class="body">${body}</div>${c.flavor ? `<div class="flv">${rubyHTML(c.flavor)}</div>` : ""}</div>${cap}${num}</div></div>`;
