@@ -55,6 +55,30 @@ label.f{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:13p
 .card.trap{--cbg:var(--c-trap)}
 .card.equip{--cbg:var(--c-mag)}
 .card.equip .c-tab{color:var(--magic)}
+/* ソクラテスラ frame: paper card, name band (monsters) or arrow banner (equips), cap circle + outlined number at the bottom */
+.card.socra{--cbg:#f3f1ea;padding:calc(var(--w)*.028)}
+.card.socra .c-in{background:#f3f1ea}
+.card.socra .s-name{position:relative;flex:none;height:calc(var(--w)*.17);margin-top:calc(var(--w)*.05);display:flex;align-items:center;gap:3%;padding:0 5%;font-size:calc(var(--w)*.085*var(--nk,1));line-height:1;white-space:nowrap;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 40' preserveAspectRatio='none'%3E%3Cpath d='M0 2H200M0 38H200' fill='none' stroke='%231e2328' stroke-width='1.8' vector-effect='non-scaling-stroke'/%3E%3C/svg%3E") 0 0/100% 100% no-repeat}
+.card.socra.equip .s-name{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 40' preserveAspectRatio='none'%3E%3Cpath d='M0 2H178L198.5 20L178 38H0' fill='none' stroke='%231e2328' stroke-width='1.8' vector-effect='non-scaling-stroke'/%3E%3C/svg%3E");padding-right:15%}
+.card.socra .s-main{flex:1;min-width:0;text-align:center;overflow:hidden;text-overflow:ellipsis}
+.card.socra .s-dot{font-size:.7em}
+.card.socra .s-suf{font-size:.78em}
+.card.socra .s-name rt{font-size:.42em}
+.card.socra .c-art{border-bottom:none;background:transparent;margin-top:calc(var(--w)*.015)}
+.card.socra .c-text{flex:1;margin:0 7%;padding:calc(var(--w)*.035) 0 calc(var(--w)*.17);border-top:calc(var(--w)*.009) solid #1e2328}
+.card.socra .c-text{font-size:calc(var(--w)*.047*var(--tk,1));line-height:1.4}
+.card.socra .c-text .body{-webkit-line-clamp:var(--cl,6)}
+.card.socra .c-text .body div{margin-bottom:.1em}
+.card.socra .c-text .flv{order:-1;border-top:none;margin:0 0 .2em;padding-top:0;font-style:normal;font-size:1em;color:#1e2328}
+.card.socra .s-cap{position:absolute;left:5%;bottom:3%;min-width:calc(var(--w)*.13);height:calc(var(--w)*.13);padding:0 calc(var(--w)*.015);box-sizing:border-box;border:calc(var(--w)*.008) solid #1e2328;border-radius:99px;display:grid;place-items:center;font-size:calc(var(--w)*.065);line-height:1;background:#f3f1ea}
+.card.socra .s-atk{position:absolute;right:5%;bottom:3%;font:400 calc(var(--w)*.1)/1 "Dela Gothic One",var(--ui);color:#fff;-webkit-text-stroke:calc(var(--w)*.014) #1e2328;paint-order:stroke fill;letter-spacing:-.01em}
+.card.socra .s-atk.box{border:calc(var(--w)*.009) solid #1e2328;border-radius:calc(var(--w)*.015);padding:.06em .14em .04em;background:#fff;transform:skewX(-6deg)}
+.card.socra .s-atk.up{color:#8fe6b4}.card.socra .s-atk.dn{color:#ffab99}
+.card.editor.socra{--cbg:#f3f1ea}
+.card.editor.socra .c-name{border-bottom:none;margin-top:calc(var(--w)*.04);background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 40' preserveAspectRatio='none'%3E%3Cpath d='M0 2H200M0 38H200' fill='none' stroke='%231e2328' stroke-width='1.8' vector-effect='non-scaling-stroke'/%3E%3C/svg%3E") 0 0/100% 100% no-repeat}
+.card.editor.socra.equip .c-name{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 40' preserveAspectRatio='none'%3E%3Cpath d='M0 2H178L198.5 20L178 38H0' fill='none' stroke='%231e2328' stroke-width='1.8' vector-effect='non-scaling-stroke'/%3E%3C/svg%3E");padding-right:15%}
+.card.editor.socra .c-tab{display:none}
+.card.editor.socra .c-art{border-bottom:none}
 .c-eqc{position:absolute;right:3%;top:4%;z-index:2;min-width:calc(var(--w)*.12);height:calc(var(--w)*.12);padding:0 calc(var(--w)*.02);box-sizing:border-box;border-radius:99px;background:#fff;border:var(--lw) solid var(--cframe);display:grid;place-items:center;font:700 calc(var(--w)*.07)/1 var(--en,var(--ui));color:#1e2328;box-shadow:0 1px 2px rgba(0,0,0,.25)}
 .c-eqc.cost{background:#c4f0e6}
 .eqplace{display:flex;align-items:center;gap:6px;overflow-x:auto;padding:6px 2px}
@@ -604,6 +628,7 @@ nav.tabs button{position:relative}
         <div><h3>カードの種類</h3><div class="seg" id="mkType"><button data-t="monster" aria-pressed="true">モンスター</button><button data-t="magic" aria-pressed="false">魔法</button><button data-t="equip" aria-pressed="false">装備</button><button data-t="trap" aria-pressed="false">罠</button></div></div>
         <label class="row" id="quickRow" hidden style="gap:6px;font-weight:700;cursor:pointer"><input type="checkbox" id="mkQuick"> 速攻魔法（相手のターンにも使える）</label>
         <label class="row" style="gap:6px;font-weight:700;cursor:pointer"><input type="checkbox" id="mkFrameless"> 半フレームレス（絵を下の文字の欄まで広げる）</label>
+        <label class="row" style="gap:8px;font-weight:700">カードの枠<select id="mkFrame"><option value="">ふつう</option><option value="socra">ソクラテスラ（紙っぽい・矢印の名前）</option></select></label>
         <div><h3>文字のフォント</h3><select id="mkFont" aria-label="カードのフォント"></select></div>
         <div><h3>文字の大きさ</h3><div class="row"><label class="f" style="flex-direction:row;align-items:center;gap:6px">名前<select id="mkNameSize"></select></label><label class="f" style="flex-direction:row;align-items:center;gap:6px">効果・フレーバー<select id="mkTextSize"></select></label></div></div>
         <div><h3>ふりがな</h3><div class="row"><button class="small" id="mkRuby" type="button">ふりがなをつける</button><span class="note">漢字をえらんで押すと ｜漢字《》 になるので、《》の中に読みを入れてね</span></div><div class="ruby-prev" id="rubyPrev" hidden></div></div>
@@ -905,7 +930,7 @@ const ABS = {
   substitute: { label: "破壊されるとき、かわりにほかの装備を1枚墓地へ", only: "eq", self: true, text: () => `装備したモンスターが破壊されるとき、かわりにほかの装備1枚を墓地へ送る` },
   negateOnce: { label: "1回だけ、相手の発動・召喚を打ち消せる", only: "eq", self: true, text: () => `1回だけ、相手の魔法・罠の発動かモンスターの召喚を打ち消せる` },
   double:     { label: "左どなりの装備の効果を2倍にする", only: "eq", self: true, text: () => `このカードの左どなりの装備の効果は2倍になる` },
-  eqBonus:    { label: "特定の名前の装備1枚ごとにATKアップ", only: "mon", n: 300, name: true, text: (n, nm) => `名前に「${nm || "？"}」が入った装備1枚につきATK+${n}` }
+  eqBonus:    { label: "特定の名前の装備を付けているとATKアップ", only: "mon", self: true, n: 300, name: true, text: (n, nm) => `名前に「${nm || "？"}」が入った装備を付けているとき、ATK+${n}` }
 };
 const absOf = c => !c ? [] : Array.isArray(c.abs) ? c.abs.filter(a => a && ABS[a.k]) : (c.eqAb && c.eqAb !== "none" && ABS[c.eqAb] ? [{ k: c.eqAb }] : []);
 const abPhrase = a => ABS[a.k].text ? ABS[a.k].text(a.n || 0, a.name || "") : ABS[a.k].label;
@@ -1088,6 +1113,46 @@ const MANA_SAMPLE = [
   { type: "trap", name: "マナどろぼう", sym: "↘", col: "#b9c7ff", cost: 1, fx: { kind: "manaDrain", n: 2 }, n: 1 },
   { type: "trap", name: "まもりのかべ", sym: "▣", col: "#cfe3ff", cost: 2, fx: { kind: "negate" }, n: 2 }
 ];
+// ソクラテスラデッキ (provisional: no art yet — "自分のカードとして作る" copies them so the art can be drawn)
+const SOCRA = [
+  { name: "月村手毬", atk: 200, eqCap: 4, flavor: "「足を引っ張ったら殺すから」", n: 2 },
+  { name: "物理学実験", atk: 300, eqCap: 3, fx: { trig: "summon", kind: "selfAtk", n: 300, ask: "物理学実験を履修していますか？" }, n: 2 },
+  { name: "キノコ", atk: 200, eqCap: 3, abs: [{ k: "eqBonus", name: "ただの", n: 300 }], n: 2 },
+  { name: "天邪鬼", atk: 300, eqCap: 4, fx: { trig: "battleLose", kind: "moveEquips" }, n: 2 },
+  { type: "equip", name: "ただの", eqCost: 0 },
+  { type: "equip", name: "憤怒の", eqCost: 1, eqN: 300 },
+  { type: "equip", name: "傲慢な", eqCost: 2, abs: [{ k: "negateOnce" }] },
+  { type: "equip", name: "暴食の", eqCost: 1, fx: { trig: "turnEnd", kind: "draw", n: 1 } },
+  { type: "equip", name: "色欲の", eqCost: 2, fx: { trig: "attach", kind: "charm" } },
+  { type: "equip", name: "怠惰の", eqCost: 0, abs: [{ k: "noAttack" }] },
+  { type: "equip", name: "空腹の", eqCost: 1, fx: { trig: "attach", kind: "draw", n: 2 } },
+  { type: "equip", name: "鉄壁の", eqCost: 1, abs: [{ k: "dmgCut", n: 300 }] },
+  { type: "equip", name: "不動の", eqCost: 1, abs: [{ k: "noEffect" }] },
+  { type: "equip", name: "不死の", eqCost: 2, abs: [{ k: "substitute" }] },
+  { type: "equip", name: "不滅の", eqCost: 1, fx: { trig: "destroyed", kind: "equipsToHand" } },
+  { type: "equip", name: "癒しの", eqCost: 1, fx: { trig: "turnStart", kind: "heal", n: 100 } },
+  { type: "equip", name: "化身", eqCost: 2, abs: [{ k: "double" }] },
+  { type: "equip", name: "屍術師", nameRuby: "｜屍術師《ネクロマンサー》", eqCost: 2, fx: { trig: "turnStart", kind: "revive" } },
+  { type: "equip", name: "呪い", eqCost: 1, fx: { trig: "battleLose", kind: "moveEquips" } },
+  { type: "equip", name: "要塞", eqCost: 1, abs: [{ k: "noAttack" }, { k: "taunt" }] },
+  { type: "equip", name: "自爆する", eqCost: 1, fx: { trig: "destroyed", kind: "blast", n: 100 } }
+];
+const socraCard = (s, i) => ({ id: "socra-" + i, type: s.type || "monster", name: s.name, nameRuby: s.nameRuby || null, atk: s.atk || 0, eqN: s.eqN || 0, eqAb: "none", eqCost: s.eqCost ?? null, eqCap: s.eqCap ?? null, abs: s.abs || [], fx: s.fx || null, combo: null, effect: "", flavor: s.flavor || "", frame: "socra", cost: null, deckMode: "normal", limit: 3, author: "ソクラテスラ（仮）", starter: true, img: "" });
+function socraDeck(){ const ids = []; SOCRA.forEach((s, i) => { for (let k = 0; k < (s.n || 1); k++) ids.push("socra-" + i); }); return { id: "socra", name: "ソクラテスラデッキ（仮）", cards: ids, builtin: true }; }
+const builtinDecks = () => [starterDeck()].concat(sampleManaDeck(), socraDeck());
+// copy the ソクラテスラ cards (and a deck of them) into your own cards, so you can draw the art
+async function copySocraToMine(){
+  const map = {}, now = Date.now();
+  for (let i = 0; i < SOCRA.length; i++){
+    const b = socraCard(SOCRA[i], i), id = uid("c"); map[b.id] = id;
+    const doc = JSON.parse(JSON.stringify({ ...b, id: undefined, starter: undefined, author: S.name, ownerId: S.uid || null, updatedAt: now + i }));
+    await saveCardDoc(id, doc);
+  }
+  const cards = socraDeck().cards.map(id => map[id]);
+  const did = uid("d");
+  await saveDeckDoc(did, { name: "ソクラテスラデッキ", owner: S.name, ownerId: S.uid || null, cards, mana: false, key: null, updatedAt: now });
+  return did;
+}
 function sampleManaDeck(){ const ids = []; MANA_SAMPLE.forEach((s, i) => { for (let k = 0; k < s.n; k++) ids.push("mana-" + i); }); return { id: "sample-mana", name: "サンプルデッキ【コスト】", cards: ids, builtin: true, mana: true }; }
 function buildStarters(){
   const extra = MANA_SAMPLE.map((s, i) => ({
@@ -1100,7 +1165,7 @@ function buildStarters(){
     id: "starter-" + i, type: s.type || "monster", name: s.name, atk: s.type ? 0 : s.atk, effect: s.effect || "",
     fx: s.fx ? { trig: s.type ? "use" : s.fx.trig, ...s.fx } : null, combo: s.combo || null, cost: s.cost ?? null, quick: !!s.quick, eqN: s.eqN || 0, eqAb: s.eqAb || "none", limit: s.limit ?? 3, author: "スターター", starter: true,
     img: s.type ? drawSymbol(s.col, s.sym, s.type === "trap") : drawMonster(1234 + i * 97, s.col)
-  })).concat(extra);
+  })).concat(extra, SOCRA.map(socraCard));
 }
 function starterDeck(){ const ids = []; STARTERS.forEach((s, i) => { for (let k = 0; k < s.n; k++) ids.push("starter-" + i); }); return { id: "starter", name: "スターターデッキ", cards: ids, builtin: true }; }
 function starterManaDeck(){ return { ...starterDeck(), id: "starter-mana", name: "スターターデッキ【コスト】", mana: true }; }
@@ -1134,7 +1199,28 @@ function cardHTML(c, cls = "", attrs = "", opts = {}){
   const flv = c.flavor ? plainRuby(c.flavor).trim() && c.flavor : "";
   const cl = (flv ? { s: 4, m: 3, l: 2 } : { s: 6, m: 5, l: 4 })[SIZES_T[c.textSize] ? c.textSize : "m"];
   const sv = []; if (fc) sv.push(`--cf:${fc}`); if (c.nameSize && c.nameSize !== "m") sv.push(`--nk:${sizeK(c.nameSize)}`); if (c.textSize && c.textSize !== "m") sv.push(`--tk:${sizeK(c.textSize)}`); if (cl !== 5) sv.push(`--cl:${cl};--cls:${cl}`);
+  if (c.frame === "socra") return socraHTML(c, t, cls, attrs, opts, sv, showCost);
   return `<div class="card ${t}${showCost ? " costed" : ""}${fl ? " frameless" : ""} ${cls}" ${attrs}${sv.length ? ` style='${sv.join(";")}'` : ""}>${opts.done ? `<span class="done">${opts.done}</span>` : ""}${opts.eq ? `<span class="eqb">${esc(opts.eq)}</span>` : ""}<div class="c-in">${fl ? `<div class="c-bgart">${art}</div>` : ""}${showCost ? `<span class="c-cost" title="コスト">${costOf(c)}</span>` : ""}<div class="c-name">${rubyHTML(c.nameRuby || c.name)}</div><div class="c-art">${fl ? "" : art}${eqc}<div class="c-tab">${isQuick(c) ? "速攻魔法" : TYPE_LABEL[t]}</div></div><div class="c-text${atk ? " ha" : ""}"><div class="body">${eqTxt}${ft ? `<span class="fx">${esc(ft)}</span> ` : ""}${rubyHTML(c.effect || "")}</div>${flv ? `<div class="flv">${rubyHTML(flv)}</div>` : ""}${c.id ? `<span class="c-lim">${lim ? "×" + lim : "∞"}</span>` : ""}${atk}</div></div></div>`;
+}
+// ソクラテスラ frame (hand-drawn club cards): 「・憤怒　の▷」 banner for equips, a band for monsters,
+// equip capacity / cost in a circle at the bottom left, ATK (or the equip's ATK change) outlined at the bottom right
+function socraHTML(c, t, cls, attrs, opts, sv, showCost){
+  const raw = c.nameRuby || c.name || "";
+  const m = t === "equip" ? raw.match(/^(.+?)(の|な|する)$/) : null;
+  const nameH = t === "equip" ? `<span class="s-dot">・</span><span class="s-main">${rubyHTML(m ? m[1] : raw)}</span>${m ? `<span class="s-suf">${m[2]}</span>` : ""}` : `<span class="s-main">${rubyHTML(raw)}</span>`;
+  const lines = [];
+  if (t === "equip" && c.eqN) lines.push(`ATK ${c.eqN > 0 ? "+" : "−"}${Math.abs(c.eqN)}`);
+  absOf(c).forEach(a => lines.push(ABS[a.k].self ? abPhrase(a) : `このモンスターは${abPhrase(a)}`));
+  const ft = fxText(c); if (ft) lines.push(ft.replace(/装備したモンスター/g, "このモンスター"));
+  let body = lines.map(l => `<div>・${esc(l)}</div>`).join("");
+  if (c.effect) body += `<div>${rubyHTML(c.effect)}</div>`;
+  if (!body && !c.flavor && t === "equip") body = `<div>・効果なし</div>`;
+  const cap = t === "monster" ? `<span class="s-cap" title="装備キャパ">${eqCapOf(c)}</span>` : t === "equip" ? `<span class="s-cap" title="装備コスト">${eqCostOf(c) ? "−" + eqCostOf(c) : "0"}</span>` : "";
+  let num = "";
+  if (t === "monster"){ const base = baseAtk(c), mod = opts.mod || 0; num = `<span class="s-atk box ${mod > 0 ? "up" : mod < 0 ? "dn" : ""}">${fmtN(Math.max(0, base + mod))}</span>`; }
+  else if (t === "equip" && c.eqN) num = `<span class="s-atk">${c.eqN > 0 ? "+" : "−"}${Math.abs(c.eqN)}</span>`;
+  const art = c.img ? `<img alt="" src="${c.img}">` : "";
+  return `<div class="card socra ${t}${showCost ? " costed" : ""} ${cls}" ${attrs}${sv.length ? ` style='${sv.join(";")}'` : ""}>${opts.done ? `<span class="done">${opts.done}</span>` : ""}${opts.eq ? `<span class="eqb">${esc(opts.eq)}</span>` : ""}<div class="c-in">${showCost ? `<span class="c-cost" title="コスト">${costOf(c)}</span>` : ""}<div class="s-name">${nameH}</div><div class="c-art">${art}</div><div class="c-text"><div class="body">${body}</div>${c.flavor ? `<div class="flv">${rubyHTML(c.flavor)}</div>` : ""}</div>${cap}${num}</div></div>`;
 }
 const backHTML = (cls = "", attrs = "") => `<div class="card back ${cls}" ${attrs}><div class="c-in"><span>?</span></div></div>`;
 
@@ -1233,7 +1319,7 @@ function buildTheme(){
   }catch(e){}
 }
 let showIdx = 0, showTimer = null;
-function showcasePool(){ const mine = S.userCards.filter(c => c.img); return mine.length ? mine : S.starters.filter(c => c.type === "monster"); }
+function showcasePool(){ const mine = S.userCards.filter(c => c.img); return mine.length ? mine : S.starters.filter(c => c.type === "monster" && c.img); }
 function renderShowcase(anim){
   const pool = showcasePool(); if (!pool.length) return;
   const c = pool[showIdx % pool.length];
@@ -1361,6 +1447,8 @@ function setFrameless(on){
   composite();
 }
 $("#mkFrameless").addEventListener("change", e => setFrameless(e.target.checked));
+function syncFrame(){ $("#editCard").classList.toggle("socra", $("#mkFrame").value === "socra"); }
+$("#mkFrame").addEventListener("change", syncFrame);
 function clearCanvas(){ ik.clearRect(0, 0, ink.width, ink.height); photo = null; setMode("draw"); composite(); }
 $("#swatches").innerHTML = COLORS.map(c => `<button class="sw" style="background:${c}" data-c="${c}" aria-label="色 ${c}" aria-pressed="${c === pen.color}"></button>`).join("");
 $("#sizes").innerHTML = SIZES.map(([l, s]) => `<button data-s="${s}" aria-pressed="${s === pen.size}">${l}</button>`).join("");
@@ -1590,7 +1678,7 @@ function loadFxForm(c){
   syncFxForm();
 }
 function resetMaker(){
-  S.editId = null; setFrameless(false); $("#mkName").value = ""; $("#mkEff").value = ""; $("#mkFlv").value = ""; $("#mkNameSize").value = $("#mkTextSize").value = "m"; syncSizes(); $("#mkAtk").value = 300; $("#mkEq").value = 200; $("#mkEqAb").value = "none"; $("#mkEqCost").value = "1"; $("#mkEqCap").value = ""; $("#mkFont").value = "klee"; syncFont(); $("#mkQuick").checked = false; $("#mkCost").value = "1"; setMkDeck("normal"); $("#mkLimit").value = "3"; clearCanvas(); undoStack = [];
+  S.editId = null; setFrameless(false); $("#mkName").value = ""; $("#mkEff").value = ""; $("#mkFlv").value = ""; $("#mkNameSize").value = $("#mkTextSize").value = "m"; syncSizes(); $("#mkAtk").value = 300; $("#mkEq").value = 200; $("#mkEqAb").value = "none"; $("#mkEqCost").value = "1"; $("#mkEqCap").value = ""; $("#mkFrame").value = ""; syncFrame(); $("#mkFont").value = "klee"; syncFont(); $("#mkQuick").checked = false; $("#mkCost").value = "1"; setMkDeck("normal"); $("#mkLimit").value = "3"; clearCanvas(); undoStack = [];
   setMkType("monster"); loadFxForm(null); loadAbs([]);
   $("#mkTitle").textContent = "カードを描く"; $("#btnNew").hidden = true; $("#btnSave").textContent = "カードを保存";
 }
@@ -1608,7 +1696,7 @@ $("#btnSave").addEventListener("click", async () => {
   const id = S.editId || uid("c");
   const prev = S.cards.get(id);
   let eqN = Math.round(+$("#mkEq").value || 0); $("#mkEq").value = eqN;
-  const doc = { type: MK.type, name, atk: MK.type === "monster" ? atk : 0, atkInf, eqN: MK.type === "equip" ? eqN : 0, eqAb: "none", eqCost: MK.type === "equip" ? Math.max(0, Math.round(+$("#mkEqCost").value || 0)) : null, eqCap: MK.type === "monster" && $("#mkEqCap").value.trim() !== "" ? Math.max(0, Math.round(+$("#mkEqCap").value || 0)) : null, abs: MK.type === "monster" || MK.type === "equip" ? readAbs() : [], effect: $("#mkEff").value.trim(), flavor: $("#mkFlv").value.trim(), nameSize: $("#mkNameSize").value, textSize: $("#mkTextSize").value, fx: readFx(), combo: readCombo(), font: $("#mkFont").value, quick: MK.type === "magic" && $("#mkQuick").checked, cost: MK.deck === "normal" ? null : +$("#mkCost").value, deckMode: MK.deck, limit: +$("#mkLimit").value,
+  const doc = { type: MK.type, name, atk: MK.type === "monster" ? atk : 0, atkInf, eqN: MK.type === "equip" ? eqN : 0, eqAb: "none", eqCost: MK.type === "equip" ? Math.max(0, Math.round(+$("#mkEqCost").value || 0)) : null, eqCap: MK.type === "monster" && $("#mkEqCap").value.trim() !== "" ? Math.max(0, Math.round(+$("#mkEqCap").value || 0)) : null, abs: MK.type === "monster" || MK.type === "equip" ? readAbs() : [], frame: $("#mkFrame").value || null, effect: $("#mkEff").value.trim(), flavor: $("#mkFlv").value.trim(), nameSize: $("#mkNameSize").value, textSize: $("#mkTextSize").value, fx: readFx(), combo: readCombo(), font: $("#mkFont").value, quick: MK.type === "magic" && $("#mkQuick").checked, cost: MK.deck === "normal" ? null : +$("#mkCost").value, deckMode: MK.deck, limit: +$("#mkLimit").value,
     img: prev && prev.img && !MK.artDirty ? prev.img : encodeArt(out), frameless: MK.frameless, author: S.name, ownerId: prev?.ownerId || S.uid || null, updatedAt: Date.now() };
   $("#btnSave").disabled = true;
   try{ await saveCardDoc(id, doc); toast(S.editId ? "カードを更新しました" : "カードを保存しました！"); resetMaker(); }
@@ -1641,8 +1729,9 @@ $("#gallery").addEventListener("click", async e => {
   if (ed){
     const c = S.cards.get(ed.dataset.edit); if (!c || !isMine(c)) return;
     S.editId = c.id; setFrameless(!!c.frameless); MK.artDirty = false; $("#mkName").value = c.nameRuby || c.name; $("#mkEff").value = c.effect || ""; $("#mkFlv").value = c.flavor || ""; $("#mkNameSize").value = SIZES_T[c.nameSize] ? c.nameSize : "m"; $("#mkTextSize").value = SIZES_T[c.textSize] ? c.textSize : "m"; syncSizes(); $("#mkAtk").value = c.atkInf ? "∞" : (c.atk || 0); $("#mkLimit").value = String(cardLimit(c));
-    $("#mkQuick").checked = !!c.quick; setMkType(cardType(c)); loadFxForm(c); $("#mkFont").value = FONTS[c.font] ? c.font : "klee"; syncFont(); $("#mkCost").value = hasCost(c) ? String(costOf(c)) : "1"; setMkDeck(deckModeOf(c)); $("#mkEq").value = c.eqN || 0; $("#mkEqAb").value = "none"; $("#mkEqCost").value = String(eqCostOf(c)); $("#mkEqCap").value = hasEqCap(c) ? String(+c.eqCap) : ""; loadAbs(absOf(c)); syncEqLine();
-    const im = new Image(); im.onload = () => { clearCanvas(); setPhoto(im); setMode("draw"); composite(); undoStack = []; MK.artDirty = false; }; im.src = c.img;
+    $("#mkQuick").checked = !!c.quick; setMkType(cardType(c)); loadFxForm(c); $("#mkFont").value = FONTS[c.font] ? c.font : "klee"; syncFont(); $("#mkCost").value = hasCost(c) ? String(costOf(c)) : "1"; setMkDeck(deckModeOf(c)); $("#mkEq").value = c.eqN || 0; $("#mkEqAb").value = "none"; $("#mkEqCost").value = String(eqCostOf(c)); $("#mkEqCap").value = hasEqCap(c) ? String(+c.eqCap) : ""; loadAbs(absOf(c)); syncEqLine(); $("#mkFrame").value = c.frame === "socra" ? "socra" : ""; syncFrame();
+    if (!c.img){ clearCanvas(); undoStack = []; MK.artDirty = false; }
+    else { const im = new Image(); im.onload = () => { clearCanvas(); setPhoto(im); setMode("draw"); composite(); undoStack = []; MK.artDirty = false; }; im.src = c.img; }
     $("#mkTitle").textContent = "カードを編集中"; $("#btnNew").hidden = false; $("#btnSave").textContent = "変更を保存";
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
@@ -1658,7 +1747,7 @@ $("#gallery").addEventListener("click", async e => {
 /* ================= decks ================= */
 S.deckEdit = { id: null, cards: {} };
 function myDecks(){ return S.decks.filter(d => isMine(d, "owner")); }
-function allDeckOptions(){ return [starterDeck(), sampleManaDeck(), ...myDecks()]; }
+function allDeckOptions(){ return [...builtinDecks(), ...myDecks()]; }
 function deckCount(){ return Object.values(S.deckEdit.cards).reduce((a, b) => a + b, 0); }
 function deckMonsters(){ return Object.entries(S.deckEdit.cards).reduce((a, [id, k]) => a + (cardType(S.cards.get(id)) === "monster" ? k : 0), 0); }
 function renderDeck(){
@@ -1851,7 +1940,7 @@ function renderDeckTab(){
   if (S.deckView === "edit") renderDeck(); else renderDeckList();
 }
 function renderDeckList(){
-  const mine = myDecks(), built = [starterDeck(), sampleManaDeck()], all = [...mine, ...built];
+  const mine = myDecks(), built = [...builtinDecks()], all = [...mine, ...built];
   if (!all.some(d => d.id === S.deckPick)) S.deckPick = (all.find(d => d.id === ls.get("cb_deck", "")) || all[0]).id;
   const d = all.find(x => x.id === S.deckPick), own = !d.builtin;
   const tile = x => { const k = deckKey(x); return `<button class="dk-tile${x.id === S.deckPick ? " on" : ""}" data-dpick="${esc(x.id)}"><span class="dk-thumb" style="${bgUrl(k)}"></span><span class="dk-name">${esc(x.name)}</span>${x.mana ? `<span class="dk-tag">コスト</span>` : ""}</button>`; };
@@ -1881,7 +1970,7 @@ function renderDeckList(){
       </div>
       ${picker}
       <div class="dk-actions"><button class="primary dk-play" data-dplay>このデッキで対戦</button></div>
-      <div class="dk-actions">${own ? `<button data-dedit>デッキ編集</button><button data-dthumb>${S.thumbPick ? "サムネ選びをやめる" : "サムネを変える"}</button><button class="danger small" data-ddel>${S.dkDelArm === d.id ? "本当に消す" : "デッキ削除"}</button>` : `<button data-dcopy>これをもとに作る</button>`}</div>
+      <div class="dk-actions">${own ? `<button data-dedit>デッキ編集</button><button data-dthumb>${S.thumbPick ? "サムネ選びをやめる" : "サムネを変える"}</button><button class="danger small" data-ddel>${S.dkDelArm === d.id ? "本当に消す" : "デッキ削除"}</button>` : `${d.id === "socra" ? `<button class="primary" data-dsocra>${S.socraArm ? "本当に作る（カード21枚＋デッキ）" : "自分のカードとして作る（絵を描ける）"}</button>` : ""}<button data-dcopy>これをもとに作る</button>`}</div>
     </div>
   </div>`;
 }
@@ -1890,7 +1979,7 @@ function openDeckEditor(id){
   const sel = $("#deckEditSel"); sel.value = id || ""; sel.dispatchEvent(new Event("change")); window.scrollTo(0, 0);
 }
 $("#deckList").addEventListener("click", async e => {
-  const g = s => e.target.closest(s), d = [...myDecks(), starterDeck(), sampleManaDeck()].find(x => x.id === S.deckPick);
+  const g = s => e.target.closest(s), d = [...myDecks(), ...builtinDecks()].find(x => x.id === S.deckPick);
   if (g("[data-dpick]")){ S.deckPick = g("[data-dpick]").dataset.dpick; S.thumbPick = false; S.dkDelArm = null; renderDeckList(); if (matchMedia("(max-width:860px)").matches) $(".dk-right").scrollIntoView({ behavior: "smooth", block: "start" }); return; }
   if (g("[data-dnew]")){ openDeckEditor(""); return; }
   if (!d) return;
@@ -1900,6 +1989,13 @@ $("#deckList").addEventListener("click", async e => {
     openDeckEditor("");
     S.deckEdit = { id: null, cards: {}, key: d.key || null }; d.cards.forEach(id => S.deckEdit.cards[id] = (S.deckEdit.cards[id] || 0) + 1);
     $("#deckName").value = d.name.replace(/【コスト】/, "") + "のコピー"; $("#deckMana").checked = !!d.mana; renderDeck(); return;
+  }
+  if (g("[data-dsocra]")){
+    if (!S.socraArm){ S.socraArm = true; renderDeckList(); setTimeout(() => { S.socraArm = false; if (S.tab === "deck" && S.deckView !== "edit") renderDeckList(); }, 4000); return; }
+    S.socraArm = false; g("[data-dsocra]").disabled = true;
+    try{ const did = await copySocraToMine(); S.deckPick = did; toast("ソクラテスラのカード21枚とデッキを作りました。カード工房の「自分のカード」から絵を描いてね"); renderAll(); }
+    catch(err){ writeErr(err); renderDeckList(); }
+    return;
   }
   if (g("[data-dthumb]")){ S.thumbPick = !S.thumbPick; renderDeckList(); return; }
   if (g("[data-dkey]")){
@@ -2001,11 +2097,11 @@ $("#pname").addEventListener("change", e => { S.name = e.target.value.trim() || 
 $("#deckSel").addEventListener("change", e => ls.set("cb_deck", e.target.value));
 $("#cpuDeckSel").addEventListener("change", e => ls.set("cb_cpudeck", e.target.value));
 // decks the CPU can play: built-in ones, yours, and everyone else's (ownership doesn't matter for practice)
-function cpuDeckOptions(){ return [starterDeck(), sampleManaDeck(), ...S.decks.filter(d => d && Array.isArray(d.cards) && d.cards.length)]; }
+function cpuDeckOptions(){ return [...builtinDecks(), ...S.decks.filter(d => d && Array.isArray(d.cards) && d.cards.length)]; }
 function renderCpuDeckSel(){
   const sel = $("#cpuDeckSel"), want = ls.get("cb_cpudeck", "auto"), mine = myDecks(), others = S.decks.filter(d => d && Array.isArray(d.cards) && d.cards.length && !isMine(d, "owner"));
   const opt = d => `<option value="${esc(d.id)}">${esc(d.name)}${d.mana && !d.builtin ? "【コスト】" : ""}（${d.cards.length}枚）${d.builtin || isMine(d, "owner") ? "" : "／" + esc(d.owner || "？")}</option>`;
-  sel.innerHTML = `<option value="auto">おまかせ（自分と同じルールのサンプル）</option><optgroup label="はじめからあるデッキ">${opt(starterDeck())}${opt(sampleManaDeck())}</optgroup>`
+  sel.innerHTML = `<option value="auto">おまかせ（自分と同じルールのサンプル）</option><optgroup label="はじめからあるデッキ">${builtinDecks().map(opt).join("")}</optgroup>`
     + (mine.length ? `<optgroup label="自分のデッキ">${mine.map(opt).join("")}</optgroup>` : "")
     + (others.length ? `<optgroup label="みんなのデッキ">${others.map(opt).join("")}</optgroup>` : "");
   sel.value = want === "auto" || cpuDeckOptions().some(d => d.id === want) ? want : "auto";
@@ -2114,7 +2210,7 @@ function atkOf(m){
   if (!m) return 0;
   const c = card(m.c), es = eqsOf(m); let v = baseAtk(c) + (m.mod || 0);
   es.forEach((e, k) => { v += (card(e.c).eqN || 0) * eqMult(es, k); });
-  absOf(c).forEach(a => { if (a.k === "eqBonus" && a.name){ const w = normQ(a.name); es.forEach(e => { if (normQ(card(e.c).name).includes(w)) v += a.n || 0; }); } });
+  absOf(c).forEach(a => { if (a.k === "eqBonus" && a.name){ const w = normQ(a.name); if (es.some(e => normQ(card(e.c).name).includes(w))) v += a.n || 0; } });
   return Math.max(0, v);
 }
 // ATK change to show on the card face
