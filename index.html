@@ -1793,7 +1793,7 @@ function renderAcct(){
       <label class="f">パスワード（6文字以上）<input type="password" id="acctPw" autocomplete="${reg ? "new-password" : "current-password"}"></label>
       <button class="primary" type="submit" id="acctGo">${reg ? "IDを作る" : "ログイン"}</button>
     </form>
-    <p class="note" id="acctMsg" style="margin:8px 0 0">${reg ? "このブラウザで作ったカードやデッキは、そのまま新しいIDに引き継がれます。" : n ? `⚠ このブラウザのゲストで作ったカード（${n}枚）やデッキは、ほかのIDでログインするとそのIDのものにはならず、編集できなくなります。先に「IDを作る」でIDにしておくのがおすすめ。` : "パスワードを忘れたら、管理している人に聞いてね。"}</p>`;
+    <p class="note" id="acctMsg" style="margin:8px 0 0">${reg ? "このブラウザで作ったカードやデッキは、そのまま新しいIDに引き継がれます。パスワードを忘れると元に戻せないので、メモしておいてね。" : n ? `⚠ このブラウザのゲストで作ったカード（${n}枚）やデッキは、ほかのIDでログインするとそのIDのものにはならず、編集できなくなります。先に「IDを作る」でIDにしておくのがおすすめ。` : "パスワードを忘れると元に戻せないので注意してね。"}</p>`;
 }
 $("#mpAcct").addEventListener("click", async e => {
   const m = e.target.closest("[data-amode]");
