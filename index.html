@@ -291,6 +291,8 @@ button.chip{font-size:12px;border:1.5px solid var(--ink);border-radius:99px;padd
 .fxspell.theirs .lbl{background:var(--trap)}
 @keyframes fxspell{0%{transform:translate(-50%,-40%) scale(.5) rotate(-8deg);opacity:0}18%{transform:translate(-50%,-50%) scale(1.05) rotate(2deg);opacity:1}75%{transform:translate(-50%,-50%) scale(1);opacity:1}100%{transform:translate(-50%,-60%) scale(.9);opacity:0}}
 .fxstamp{left:50%;top:40%;transform:translate(-50%,-50%) rotate(-12deg);font-family:var(--display);font-size:56px;color:var(--hit);border:6px solid var(--hit);border-radius:14px;padding:0 20px;background:rgba(255,255,255,.85);animation:fxstamp 1.1s ease-out forwards}
+.fxstamp.blast{color:#ff8a3d;border-color:#ff8a3d;text-align:center;line-height:1.1;padding:6px 22px}
+.fxstamp small{display:block;font-size:18px;color:#1e2328}
 @keyframes fxstamp{0%{transform:translate(-50%,-50%) rotate(-12deg) scale(2.2);opacity:0}25%{transform:translate(-50%,-50%) rotate(-12deg) scale(1);opacity:1}80%{opacity:1}100%{opacity:0}}
 @media (prefers-reduced-motion:reduce){.fxa{display:none}}
 @keyframes shake{0%,100%{transform:none}25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
@@ -2639,7 +2641,7 @@ function applyEffect(st, s, c, target, ctx = {}, fx = normFx(c)){
     case "blast": {
       const X = (ctx.eqCount || 0) * n, hit = [];
       for (const o of [s, O(s)]) P(st, o).mz.forEach((m, i) => { if (m && atkOf(m) <= X) hit.push([o, i, atkOf(m)]); });
-      log(st, s, `${src}が自爆！ ATK${X}以下のモンスターをすべて破壊`);
+      log(st, s, `${src}が自爆！ ATK${X}以下のモンスターをすべて破壊`); ev(st, { type: "blast", s, x: X });
       const dead = hit.filter(([o, i]) => destroyMonster(st, o, i, src)).map(h => h[2]);
       if (dead.length){ const d = Math.min(...dead); dealDmg(st, O(s), d); log(st, s, `${src}：${op.name}に${fmtN(d)}ダメージ（破壊したうち一番低いATK）`); }
       else log(st, s, `${src}：破壊されたモンスターはいなかった`);
@@ -3275,6 +3277,7 @@ function animateEvent(e){
     fxEl("fxspell " + (sideOf(e.s) === "me" ? "mine" : "theirs"), `<div class="lbl">${label}</div>${cardHTML(c, "lg", "", mOpt(e.s))}`);
   }
   if (e.type === "counter") fxEl("fxstamp", "打ち消し！");
+  if (e.type === "blast") fxEl("fxstamp blast", `自爆！<small>ATK${fmtN(e.x)}以下を破壊</small>`);
 }
 
 /* ================= card detail panel ================= */
