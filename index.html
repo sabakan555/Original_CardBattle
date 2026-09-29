@@ -796,7 +796,14 @@ nav.tabs button{position:relative}
         <div class="sl-tools">
           <div><h3>ペンの色</h3><div class="swatches" id="slSw"></div></div>
           <div class="row"><div class="seg" id="slSize"></div><button class="small" id="slErase" aria-pressed="false">消しゴム</button><button class="small" id="slUndo">1つ戻す</button></div>
-          <div class="row"><button class="small" id="slFill">今の色でぬりつぶす</button><button class="small danger" id="slClear">ぜんぶ消す</button><span class="btn filebtn small" style="box-shadow:0 2px 0 var(--ink);padding:3px 10px;font-size:13px;border-radius:9px">写真を読みこむ<input type="file" id="slFile" accept="image/*"></span></div>
+          <div class="row"><button class="small" id="slFill">今の色を背景にする</button><button class="small danger" id="slClear">ぜんぶ消す</button><span class="btn filebtn small" style="box-shadow:0 2px 0 var(--ink);padding:3px 10px;font-size:13px;border-radius:9px">写真を読みこむ<input type="file" id="slFile" accept="image/*"></span><button class="small" id="slPhEdit" hidden>写真の位置を変える</button></div>
+          <div class="fxform" id="slPhotoPanel" hidden>
+            <h3 style="margin:0">写真の位置を調整中</h3>
+            <p class="note" style="margin:0">スリーブの上をドラッグで移動、2本指（PCはマウスホイール）で拡大・縮小。描いた線はそのまま残ります。</p>
+            <label class="f">大きさ<input type="range" id="slPhScale" min="10" max="400" value="100"></label>
+            <label class="f">回転<input type="range" id="slPhRot" min="-180" max="180" value="0"></label>
+            <div class="row"><button class="small" id="slPhFit">枠に合わせる</button><button class="small danger" id="slPhDel">写真を消す</button><button class="small primary" id="slPhDone">決定して描く</button></div>
+          </div>
           <div class="row"><button class="primary" id="slSave">スリーブを保存</button><button class="ghost small" id="slReset">いつもの青いスリーブに戻す</button></div>
         </div>
       </div>
@@ -1943,19 +1950,44 @@ function recordResult(){
   if (key){ r.seen.push(key); r.seen = r.seen.slice(-60); }
   ls.set("cb_record", r); saveProfile();
 }
-/* ---- sleeve editor (My page) ---- */
-const SL = { color: "#1e2328", size: 10, erase: false, undo: [], ready: false };
+/* ---- sleeve editor (My page): background colour + movable photo + pen layer ---- */
+const SL = { color: "#1e2328", size: 10, erase: false, undo: [], ready: false, bg: "#07328a", photo: null, mode: "draw" };
 const slCv = $("#slCv"), slX = slCv.getContext("2d");
-function slDefault(){ // the usual blue back with a "?"
-  slX.fillStyle = "#07328a"; slX.fillRect(0, 0, slCv.width, slCv.height);
-  slX.fillStyle = "rgba(255,255,255,.9)"; slX.font = `${slCv.width * .3}px "Dela Gothic One",sans-serif`; slX.textAlign = "center"; slX.textBaseline = "middle"; slX.fillText("?", slCv.width / 2, slCv.height / 2);
+const slInk = document.createElement("canvas"); slInk.width = slCv.width; slInk.height = slCv.height;
+const slIk = slInk.getContext("2d");
+function slDraw(){
+  slX.setTransform(1, 0, 0, 1, 0, 0);
+  slX.fillStyle = SL.bg || "#fff"; slX.fillRect(0, 0, slCv.width, slCv.height);
+  const ph = SL.photo;
+  if (ph){ slX.save(); slX.translate(ph.x, ph.y); slX.rotate(ph.r); slX.scale(ph.s, ph.s); slX.drawImage(ph.img, -ph.img.width / 2, -ph.img.height / 2); slX.restore(); }
+  slX.drawImage(slInk, 0, 0);
+  if (SL.mode === "photo"){ slX.strokeStyle = "rgba(224,83,58,.95)"; slX.lineWidth = 6; slX.setLineDash([14, 10]); slX.strokeRect(3, 3, slCv.width - 6, slCv.height - 6); slX.setLineDash([]); }
 }
+function slUI(){
+  $("#slPhotoPanel").hidden = SL.mode !== "photo" || !SL.photo;
+  $("#slPhEdit").hidden = SL.mode === "photo" || !SL.photo;
+  if (SL.photo){ $("#slPhScale").value = Math.round(SL.photo.s / SL.photo.base * 100); $("#slPhRot").value = Math.round(SL.photo.r * 180 / Math.PI); }
+  slCv.style.cursor = SL.mode === "photo" ? "move" : "crosshair";
+}
+function slSetPhoto(im, fit){
+  const base = Math.max(slCv.width / im.width, slCv.height / im.height);
+  SL.photo = { img: im, x: slCv.width / 2, y: slCv.height / 2, s: base, base, r: 0 };
+  SL.mode = fit ? "draw" : "photo"; slUI(); slDraw();
+}
+function slDefault(){ // the usual blue back with a "?"
+  SL.bg = "#07328a"; SL.photo = null; SL.mode = "draw";
+  slIk.clearRect(0, 0, slInk.width, slInk.height);
+  slIk.fillStyle = "rgba(255,255,255,.9)"; slIk.font = `${slInk.width * .3}px "Dela Gothic One",sans-serif`; slIk.textAlign = "center"; slIk.textBaseline = "middle"; slIk.fillText("?", slInk.width / 2, slInk.height / 2);
+  slUI(); slDraw();
+}
+// a saved sleeve comes back as the photo layer (so it can still be moved), with an empty pen layer
 function slLoad(){
   const src = mySleeve();
   if (!src){ slDefault(); return; }
-  const im = new Image(); im.onload = () => { slX.drawImage(im, 0, 0, slCv.width, slCv.height); }; im.src = src;
+  SL.bg = "#fff"; slIk.clearRect(0, 0, slInk.width, slInk.height);
+  const im = new Image(); im.onload = () => slSetPhoto(im, true); im.src = src;
 }
-function slPush(){ try{ SL.undo.push(slX.getImageData(0, 0, slCv.width, slCv.height)); if (SL.undo.length > 20) SL.undo.shift(); }catch(e){} }
+function slPush(){ try{ SL.undo.push({ ink: slIk.getImageData(0, 0, slInk.width, slInk.height), photo: SL.photo ? { ...SL.photo } : null, bg: SL.bg }); if (SL.undo.length > 20) SL.undo.shift(); }catch(e){} }
 function slTools(){
   document.querySelectorAll("#slSw .sw").forEach(b => b.setAttribute("aria-pressed", !SL.erase && b.dataset.c === SL.color));
   document.querySelectorAll("#slSize button").forEach(b => b.setAttribute("aria-pressed", +b.dataset.s === SL.size));
@@ -1963,31 +1995,69 @@ function slTools(){
 }
 $("#slSw").innerHTML = COLORS.map(c => `<button class="sw" style="background:${c}" data-c="${c}" aria-label="色 ${c}"></button>`).join("");
 $("#slSize").innerHTML = [["細", 5], ["中", 10], ["太", 22]].map(([l, s]) => `<button data-s="${s}">${l}</button>`).join("");
-$("#slSw").addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return; SL.color = b.dataset.c; SL.erase = false; slTools(); });
+$("#slSw").addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return; SL.color = b.dataset.c; SL.erase = false; if (SL.mode === "photo"){ SL.mode = "draw"; slUI(); slDraw(); } slTools(); });
 $("#slSize").addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return; SL.size = +b.dataset.s; slTools(); });
 $("#slErase").addEventListener("click", () => { SL.erase = !SL.erase; slTools(); });
-$("#slUndo").addEventListener("click", () => { const d = SL.undo.pop(); if (d) slX.putImageData(d, 0, 0); });
-$("#slFill").addEventListener("click", () => { slPush(); slX.fillStyle = SL.color; slX.fillRect(0, 0, slCv.width, slCv.height); });
-$("#slClear").addEventListener("click", () => { slPush(); slX.fillStyle = "#fff"; slX.fillRect(0, 0, slCv.width, slCv.height); });
+$("#slUndo").addEventListener("click", () => { const d = SL.undo.pop(); if (!d) return; slIk.putImageData(d.ink, 0, 0); SL.photo = d.photo; SL.bg = d.bg; if (!SL.photo) SL.mode = "draw"; slUI(); slDraw(); });
+$("#slFill").addEventListener("click", () => { slPush(); SL.bg = SL.color; slDraw(); });
+$("#slClear").addEventListener("click", () => { slPush(); slIk.clearRect(0, 0, slInk.width, slInk.height); SL.photo = null; SL.bg = "#fff"; SL.mode = "draw"; slUI(); slDraw(); });
 $("#slFile").addEventListener("change", e => {
   const f = e.target.files[0]; if (!f) return; e.target.value = "";
-  const rd = new FileReader(); rd.onload = () => { const im = new Image(); im.onload = () => { slPush(); const k = Math.max(slCv.width / im.width, slCv.height / im.height), w = im.width * k, h = im.height * k; slX.drawImage(im, (slCv.width - w) / 2, (slCv.height - h) / 2, w, h); }; im.src = rd.result; }; rd.readAsDataURL(f);
+  const rd = new FileReader(); rd.onload = () => { const im = new Image(); im.onload = () => { slPush(); slSetPhoto(im, false); }; im.src = rd.result; }; rd.readAsDataURL(f);
 });
+$("#slPhScale").addEventListener("input", e => { if (!SL.photo) return; SL.photo.s = SL.photo.base * (+e.target.value / 100); slDraw(); });
+$("#slPhRot").addEventListener("input", e => { if (!SL.photo) return; SL.photo.r = (+e.target.value) * Math.PI / 180; slDraw(); });
+$("#slPhScale").addEventListener("pointerdown", () => slPush()); $("#slPhRot").addEventListener("pointerdown", () => slPush());
+$("#slPhFit").addEventListener("click", () => { if (!SL.photo) return; slPush(); Object.assign(SL.photo, { x: slCv.width / 2, y: slCv.height / 2, r: 0, s: SL.photo.base }); slUI(); slDraw(); });
+$("#slPhDel").addEventListener("click", () => { slPush(); SL.photo = null; SL.mode = "draw"; slUI(); slDraw(); });
+$("#slPhDone").addEventListener("click", () => { SL.mode = "draw"; slUI(); slDraw(); });
+$("#slPhEdit").addEventListener("click", () => { SL.mode = "photo"; slUI(); slDraw(); });
 const slPt = e => { const r = slCv.getBoundingClientRect(); return { x: (e.clientX - r.left) * slCv.width / r.width, y: (e.clientY - r.top) * slCv.height / r.height }; };
-let slLast = null;
 function slLine(a, b){
-  slX.save(); slX.lineCap = slX.lineJoin = "round";
-  slX.strokeStyle = SL.erase ? "#fff" : SL.color; slX.fillStyle = slX.strokeStyle; slX.lineWidth = SL.erase ? SL.size * 2 : SL.size;
-  if (a.x === b.x && a.y === b.y){ slX.beginPath(); slX.arc(a.x, a.y, slX.lineWidth / 2, 0, 7); slX.fill(); }
-  else { slX.beginPath(); slX.moveTo(a.x, a.y); slX.lineTo(b.x, b.y); slX.stroke(); }
-  slX.restore();
+  slIk.save(); slIk.lineCap = slIk.lineJoin = "round";
+  slIk.globalCompositeOperation = SL.erase ? "destination-out" : "source-over";
+  slIk.strokeStyle = slIk.fillStyle = SL.erase ? "#000" : SL.color; slIk.lineWidth = SL.erase ? SL.size * 2 : SL.size;
+  if (a.x === b.x && a.y === b.y){ slIk.beginPath(); slIk.arc(a.x, a.y, slIk.lineWidth / 2, 0, 7); slIk.fill(); }
+  else { slIk.beginPath(); slIk.moveTo(a.x, a.y); slIk.lineTo(b.x, b.y); slIk.stroke(); }
+  slIk.restore();
 }
-slCv.addEventListener("pointerdown", e => { e.preventDefault(); slCv.setPointerCapture(e.pointerId); slPush(); slLast = slPt(e); slLine(slLast, slLast); });
-slCv.addEventListener("pointermove", e => { if (!slLast) return; const evs = e.getCoalescedEvents ? e.getCoalescedEvents() : [e]; for (const ev of (evs.length ? evs : [e])){ const p = slPt(ev); slLine(slLast, p); slLast = p; } });
-["pointerup", "pointercancel"].forEach(t => slCv.addEventListener(t, () => { slLast = null; }));
+// photo mode: drag to move, two fingers (or the wheel) to zoom
+const slPtrs = new Map(); let slLast = null, slDrag = null, slPinch = null;
+slCv.addEventListener("pointerdown", e => {
+  e.preventDefault(); slCv.setPointerCapture(e.pointerId);
+  if (SL.mode === "photo" && SL.photo){
+    slPtrs.set(e.pointerId, slPt(e));
+    if (slPtrs.size === 1){ slPush(); const p = slPt(e); slDrag = { p, x: SL.photo.x, y: SL.photo.y }; }
+    if (slPtrs.size === 2){ const [a, b] = [...slPtrs.values()]; slPinch = { d: Math.hypot(a.x - b.x, a.y - b.y) || 1, s: SL.photo.s }; slDrag = null; }
+    return;
+  }
+  slPush(); slLast = slPt(e); slLine(slLast, slLast); slDraw();
+});
+slCv.addEventListener("pointermove", e => {
+  if (SL.mode === "photo" && SL.photo){
+    if (!slPtrs.has(e.pointerId)) return;
+    slPtrs.set(e.pointerId, slPt(e));
+    if (slPinch && slPtrs.size >= 2){ const [a, b] = [...slPtrs.values()]; const d = Math.hypot(a.x - b.x, a.y - b.y); SL.photo.s = Math.min(SL.photo.base * 4, Math.max(SL.photo.base * .1, slPinch.s * d / slPinch.d)); slUI(); slDraw(); return; }
+    if (slDrag){ const p = slPt(e); SL.photo.x = slDrag.x + p.x - slDrag.p.x; SL.photo.y = slDrag.y + p.y - slDrag.p.y; slDraw(); }
+    return;
+  }
+  if (!slLast) return;
+  const evs = e.getCoalescedEvents ? e.getCoalescedEvents() : [e];
+  for (const ev of (evs.length ? evs : [e])){ const p = slPt(ev); slLine(slLast, p); slLast = p; }
+  slDraw();
+});
+["pointerup", "pointercancel"].forEach(t => slCv.addEventListener(t, e => { slLast = null; slPtrs.delete(e.pointerId); if (slPtrs.size < 2) slPinch = null; if (!slPtrs.size) slDrag = null; }));
+slCv.addEventListener("wheel", e => {
+  if (SL.mode !== "photo" || !SL.photo) return;
+  e.preventDefault();
+  SL.photo.s = Math.min(SL.photo.base * 4, Math.max(SL.photo.base * .1, SL.photo.s * Math.exp(-e.deltaY * .0015)));
+  slUI(); slDraw();
+}, { passive: false });
 // saved small (it travels inside every online game), stepping the quality down until it fits
 function slEncode(){
+  const was = SL.mode; SL.mode = "draw"; slDraw();
   const c = document.createElement("canvas"); c.width = 195; c.height = 267; c.getContext("2d").drawImage(slCv, 0, 0, c.width, c.height);
+  SL.mode = was; slDraw();
   let url = ""; for (const q of [.85, .75, .65, .55, .45]){ url = c.toDataURL("image/jpeg", q); if (url.length < 40000) break; }
   return url;
 }
