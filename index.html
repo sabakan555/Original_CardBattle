@@ -187,6 +187,25 @@ ruby rt{font-size:.5em;line-height:1;font-style:normal}
 .roomlist h3{font-size:14px;color:var(--accent,var(--ink))}
 .room{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px 10px;border:1px solid var(--line);border-radius:10px;background:rgba(255,255,255,.04)}
 .room .note{margin-left:4px}
+/* card maker: settings split into tabs, effects in folding boxes */
+.mk-tabs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px;background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:14px;padding:4px}
+.mk-tabs button{box-shadow:none;border:none;border-radius:10px;padding:7px 4px;font-size:14px;background:transparent;color:var(--muted)}
+.mk-tabs button[aria-pressed="true"]{background:var(--accent,#4fd1c5);color:var(--deep,#10132a)}
+.mk-pane{display:flex;flex-direction:column;gap:14px}
+.mk-sec{border:1px solid var(--line);border-radius:14px;background:rgba(255,255,255,.035)}
+.mk-sec > summary{cursor:pointer;list-style:none;display:flex;align-items:center;gap:10px;padding:10px 14px;font-weight:700}
+.mk-sec > summary::-webkit-details-marker{display:none}
+.mk-sec > summary::before{content:"▶";font-size:10px;color:var(--muted);transition:transform .15s}
+.mk-sec[open] > summary::before{transform:rotate(90deg)}
+.mk-sec .mk-st{flex:none}
+.mk-sec .mk-sum{margin-left:auto;font-size:12px;font-weight:500;color:var(--muted);text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.mk-sec .mk-sum.on{color:var(--accent,#4fd1c5)}
+.mk-sec > .fxform{border:none;background:none;padding:2px 14px 14px;border-radius:0}
+.mk-sec .abs-list{gap:8px}
+.mk-sec .abs-list label{padding:4px 0;border-bottom:1px dashed var(--line)}
+.mk-sec .abs-list label:last-child{border-bottom:none}
+.mk-save{padding-top:4px}
+@media (max-width:640px){.mk-save{position:sticky;bottom:calc(84px + env(safe-area-inset-bottom,0px));z-index:3;padding:8px 10px;margin:0 -6px;border-radius:14px;background:rgba(14,16,36,.92);border:1px solid var(--line);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}}
 .g-item .g-btns{gap:6px;flex-wrap:nowrap;justify-content:center}
 .g-item .g-wide{max-width:124px;white-space:normal;line-height:1.3;font-size:11.5px}
 .g-item .meta{font-size:12px;color:var(--muted);max-width:112px;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -661,87 +680,112 @@ nav.tabs button{position:relative}
         <h2 id="mkTitle">カードを描く</h2>
         <div><h3>カードの種類</h3><div class="seg" id="mkType"><button data-t="monster" aria-pressed="true">モンスター</button><button data-t="magic" aria-pressed="false">魔法</button><button data-t="equip" aria-pressed="false">装備</button><button data-t="trap" aria-pressed="false">罠</button></div></div>
         <label class="row" id="quickRow" hidden style="gap:6px;font-weight:700;cursor:pointer"><input type="checkbox" id="mkQuick"> 速攻魔法（相手のターンにも使える）</label>
-        <label class="row" style="gap:6px;font-weight:700;cursor:pointer"><input type="checkbox" id="mkFrameless"> 半フレームレス（絵を下の文字の欄まで広げる）</label>
-        <label class="row" style="gap:8px;font-weight:700">カードの枠<select id="mkFrame"><option value="">ふつう</option><option value="socra">ソクラテスラ（紙っぽい・矢印の名前）</option></select></label>
-        <div><h3>文字のフォント</h3><select id="mkFont" aria-label="カードのフォント"></select></div>
-        <div><h3>文字の大きさ</h3><div class="row"><label class="f" style="flex-direction:row;align-items:center;gap:6px">名前<select id="mkNameSize"></select></label><label class="f" style="flex-direction:row;align-items:center;gap:6px">効果・フレーバー<select id="mkTextSize"></select></label></div></div>
-        <div><h3>ふりがな</h3><div class="row"><button class="small" id="mkRuby" type="button">ふりがなをつける</button><span class="note">漢字をえらんで押すと ｜漢字《》 になるので、《》の中に読みを入れてね</span></div><div class="ruby-prev" id="rubyPrev" hidden></div></div>
-        <div class="row" id="infRow" style="gap:8px"><button class="small" id="mkInf" type="button">ATKを∞にする</button><span class="note">ATKは上限なし。欄に「∞」と打ってもOK</span></div>
-        <div><h3>ペンの色</h3><div class="swatches" id="swatches"></div></div>
-        <div><h3>太さ</h3><div class="seg" id="sizes"></div></div>
-        <div class="row">
-          <button class="small" id="btnErase" aria-pressed="false">消しゴム</button>
-          <button class="small" id="btnUndo">1つ戻す</button>
-          <button class="small danger" id="btnClear">ぜんぶ消す</button>
-          <span class="btn filebtn small" style="box-shadow:0 2px 0 var(--ink);padding:3px 10px;font-size:13px;border-radius:9px">写真を読みこむ<input type="file" id="mkFile" accept="image/*"></span>
-          <button class="small" id="phEdit" hidden>写真の位置を変える</button>
+        <div class="mk-tabs" id="mkTabs" role="tablist">
+          <button data-pane="draw" aria-pressed="true">絵</button><button data-pane="look" aria-pressed="false">見た目</button><button data-pane="fx" aria-pressed="false">効果・能力</button><button data-pane="deck" aria-pressed="false">デッキ</button>
         </div>
-        <div class="fxform" id="photoPanel" hidden>
-          <h3 style="margin:0">写真の位置を調整中</h3>
-          <p class="note" style="margin:0">絵の上をドラッグで移動。2本指で拡大・縮小と回転（PCはマウスホイールで拡大・縮小）。描いた線はそのまま残ります。</p>
-          <label class="f">大きさ<input type="range" id="phScale" min="10" max="400" value="100"></label>
-          <label class="f">回転<input type="range" id="phRot" min="-180" max="180" value="0"></label>
-          <div class="row"><button class="small" id="phFit">枠に合わせる</button><button class="small danger" id="phDel">写真を消す</button><button class="small primary" id="phDone">決定して描く</button></div>
-        </div>
-        <div class="fxform" id="eqNote" hidden>
-          <h3 style="margin:0">装備</h3>
-          <p class="note" style="margin:0">場のモンスター（相手のでもOK）にくっつきます。いつでも何枚でも付けられるけど、モンスターの「装備キャパ」をこえる分は付けられません。右下の「ATK ±」に上げる量（下げるならマイナス、変えないなら0）を入れてね。</p>
-          <label class="f">装備コスト（キャパをいくつ使うか）<input type="number" id="mkEqCost" min="0" max="20" value="1"></label>
-          <select id="mkEqAb" hidden></select>
-        </div>
-        <div class="fxform" id="capRow">
-          <h3 style="margin:0">装備キャパ</h3>
-          <label class="f">付けられる装備コストの合計<input type="number" id="mkEqCap" min="0" max="99" placeholder="空欄ならATK÷100"></label>
-        </div>
-        <div class="fxform" id="absBox">
-          <h3 style="margin:0" id="absHead">能力</h3>
-          <div class="abs-list" id="mkAbs"></div>
-        </div>
-        <div class="fxform" id="ssBox">
-          <label class="row" style="gap:6px;font-weight:700;cursor:pointer"><input type="checkbox" id="ssOn"> 手札から特殊召喚できる</label>
-          <div id="ssOpts" hidden>
-            <div class="row"><label class="f">条件<select id="ssCond"></select></label><label class="f" id="ssNWrap">数<input type="number" id="ssN" min="0" max="9999" value="1"></label><label class="f" id="ssNameWrap">名前<input type="text" id="ssName" maxlength="20" placeholder="例: ガブリン"></label></div>
-            <div class="row" style="margin-top:8px"><label class="f">代わりに払うもの<select id="ssCost"></select></label><label class="f" id="ssCnWrap">数<input type="number" id="ssCn" min="1" max="9999" value="1"></label></div>
-            <label class="row" style="gap:6px;cursor:pointer;margin-top:8px"><input type="checkbox" id="ssOnly"> 普通の召喚はできない（特殊召喚でしか出せない）</label>
-            <p class="note" style="margin:6px 0 0">特殊召喚は1ターンの召喚回数を使わない（コストデッキならマナはふつうに払う）。特殊召喚で出たときは「召喚したとき」の効果は出ず、「特殊召喚したとき」の効果が出る。</p>
-          </div>
-        </div>
-        <div class="fxform" id="fxForm">
-          <h3 style="margin:0">自動で処理される効果</h3>
+
+        <div class="mk-pane" data-pane="draw">
+          <div><h3>ペンの色</h3><div class="swatches" id="swatches"></div></div>
+          <div><h3>太さ</h3><div class="seg" id="sizes"></div></div>
           <div class="row">
-            <label class="f" id="trigWrap">いつ<select id="fxTrig"></select></label>
-            <label class="f">なにをする<select id="fxKind"></select></label>
-            <label class="f" id="fxNWrap">数<input type="number" id="fxN" min="1" max="9999" value="100"></label>
+            <button class="small" id="btnErase" aria-pressed="false">消しゴム</button>
+            <button class="small" id="btnUndo">1つ戻す</button>
+            <button class="small danger" id="btnClear">ぜんぶ消す</button>
+            <span class="btn filebtn small" style="box-shadow:0 2px 0 var(--ink);padding:3px 10px;font-size:13px;border-radius:9px">写真を読みこむ<input type="file" id="mkFile" accept="image/*"></span>
+            <button class="small" id="phEdit" hidden>写真の位置を変える</button>
           </div>
-          <label class="row" style="gap:6px;cursor:pointer"><input type="checkbox" id="fxAskOn"> 使う前に質問する（「はい」のときだけ効果が出る）</label>
-          <label class="f" id="fxAskWrap" hidden>質問<input type="text" id="fxAsk" maxlength="40" placeholder="例: 物理学実験を履修していますか？"></label>
-          <div class="row" id="condRow" hidden>
-            <label class="f">勝利の条件<select id="fxCond"></select></label>
-            <label class="f" id="fxCnWrap">数<input type="number" id="fxCn" min="1" max="9999" value="3"></label>
+          <div class="fxform" id="photoPanel" hidden>
+            <h3 style="margin:0">写真の位置を調整中</h3>
+            <p class="note" style="margin:0">絵の上をドラッグで移動。2本指で拡大・縮小と回転（PCはマウスホイールで拡大・縮小）。描いた線はそのまま残ります。</p>
+            <label class="f">大きさ<input type="range" id="phScale" min="10" max="400" value="100"></label>
+            <label class="f">回転<input type="range" id="phRot" min="-180" max="180" value="0"></label>
+            <div class="row"><button class="small" id="phFit">枠に合わせる</button><button class="small danger" id="phDel">写真を消す</button><button class="small primary" id="phDone">決定して描く</button></div>
           </div>
-          <details id="cbBox" class="cbbox">
-          <summary>追加効果（特定のカードがあるとき）<span class="note" id="cbState"></span></summary>
-          <div class="cbin">
-          <div class="row">
-            <label class="f">カード名<input type="text" id="cbName" list="cardNames" placeholder="例: ガブリン" autocomplete="off"></label>
-            <label class="f">名前の判定<select id="cbMatch"><option value="exact">名前がぴったり同じ</option><option value="part">名前にこの文字が入っている</option></select></label>
-            <label class="f">どこにあれば<select id="cbWhere"></select></label>
-          </div>
-          <div class="row">
-            <label class="f">追加でなにをする<select id="cbKind"></select></label>
-            <label class="f" id="cbNWrap">数<input type="number" id="cbN" min="1" max="9999" value="100"></label>
-          </div>
-          <p class="note" style="margin:0">上の効果と同じタイミングで、そのカードがあれば追加で発動します。</p>
-          </div>
+        </div>
+
+        <div class="mk-pane" data-pane="look" hidden>
+          <label class="f">カードの枠<select id="mkFrame"><option value="">ふつう</option><option value="socra">ソクラテスラ（紙っぽい・矢印の名前）</option></select></label>
+          <label class="row" style="gap:6px;font-weight:700;cursor:pointer"><input type="checkbox" id="mkFrameless"> 半フレームレス（絵を下の文字の欄まで広げる）</label>
+          <label class="f">文字のフォント<select id="mkFont" aria-label="カードのフォント"></select></label>
+          <div><h3>文字の大きさ</h3><div class="row"><label class="f" style="flex-direction:row;align-items:center;gap:6px">名前<select id="mkNameSize"></select></label><label class="f" style="flex-direction:row;align-items:center;gap:6px">効果・フレーバー<select id="mkTextSize"></select></label></div></div>
+          <div><h3>ふりがな</h3><div class="row"><button class="small" id="mkRuby" type="button">ふりがなをつける</button><span class="note">漢字をえらんで押すと ｜漢字《》 になるので、《》の中に読みを入れてね</span></div><div class="ruby-prev" id="rubyPrev" hidden></div></div>
+        </div>
+
+        <div class="mk-pane" data-pane="fx" hidden>
+          <div class="row" id="infRow" style="gap:8px"><button class="small" id="mkInf" type="button">ATKを∞にする</button><span class="note">ATKは上限なし。欄に「∞」と打ってもOK</span></div>
+          <details class="mk-sec" id="secFx" open>
+            <summary><span class="mk-st">自動で処理される効果</span><span class="mk-sum" id="sumFx"></span></summary>
+            <div class="fxform" id="fxForm">
+              <div class="row">
+                <label class="f" id="trigWrap">いつ<select id="fxTrig"></select></label>
+                <label class="f">なにをする<select id="fxKind"></select></label>
+                <label class="f" id="fxNWrap">数<input type="number" id="fxN" min="1" max="9999" value="100"></label>
+              </div>
+              <div class="row" id="condRow" hidden>
+                <label class="f">勝利の条件<select id="fxCond"></select></label>
+                <label class="f" id="fxCnWrap">数<input type="number" id="fxCn" min="1" max="9999" value="3"></label>
+              </div>
+              <label class="row" style="gap:6px;cursor:pointer"><input type="checkbox" id="fxAskOn"> 使う前に質問する（「はい」のときだけ効果が出る）</label>
+              <label class="f" id="fxAskWrap" hidden>質問<input type="text" id="fxAsk" maxlength="40" placeholder="例: 物理学実験を履修していますか？"></label>
+              <details id="cbBox" class="cbbox">
+              <summary>追加効果（特定のカードがあるとき）<span class="note" id="cbState"></span></summary>
+              <div class="cbin">
+              <div class="row">
+                <label class="f">カード名<input type="text" id="cbName" list="cardNames" placeholder="例: ガブリン" autocomplete="off"></label>
+                <label class="f">名前の判定<select id="cbMatch"><option value="exact">名前がぴったり同じ</option><option value="part">名前にこの文字が入っている</option></select></label>
+                <label class="f">どこにあれば<select id="cbWhere"></select></label>
+              </div>
+              <div class="row">
+                <label class="f">追加でなにをする<select id="cbKind"></select></label>
+                <label class="f" id="cbNWrap">数<input type="number" id="cbN" min="1" max="9999" value="100"></label>
+              </div>
+              <p class="note" style="margin:0">上の効果と同じタイミングで、そのカードがあれば追加で発動します。</p>
+              </div>
+              </details>
+              <datalist id="cardNames"></datalist>
+              <p class="note" style="margin:0">カードに自由に書いた効果は、これまでどおりバトル中に手動ボタンで処理します。</p>
+            </div>
           </details>
-          <datalist id="cardNames"></datalist>
-          <p class="note" style="margin:0">「自由に書く効果」はこれまでどおり、バトル中に手動ボタンで処理します。</p>
+          <details class="mk-sec" id="secAbs">
+            <summary><span class="mk-st" id="secAbsTitle">能力</span><span class="mk-sum" id="sumAbs"></span></summary>
+            <div class="fxform" id="absBox">
+              <h3 style="margin:0" id="absHead" hidden>能力</h3>
+              <div class="abs-list" id="mkAbs"></div>
+            </div>
+          </details>
+          <details class="mk-sec" id="secEq">
+            <summary><span class="mk-st" id="secEqTitle">装備</span><span class="mk-sum" id="sumEq"></span></summary>
+            <div class="fxform" id="eqNote" hidden>
+              <p class="note" style="margin:0">場のモンスター（相手のでもOK）にくっつきます。いつでも何枚でも付けられるけど、モンスターの「装備キャパ」をこえる分は付けられません。カードの右下の「ATK ±」に上げる量（下げるならマイナス、変えないなら0）を入れてね。</p>
+              <label class="f">装備コスト（キャパをいくつ使うか）<input type="number" id="mkEqCost" min="0" max="20" value="1"></label>
+              <select id="mkEqAb" hidden></select>
+            </div>
+            <div class="fxform" id="capRow">
+              <label class="f">装備キャパ（付けられる装備コストの合計）<input type="number" id="mkEqCap" min="0" max="99" placeholder="空欄ならATK÷100"></label>
+            </div>
+          </details>
+          <details class="mk-sec" id="secSs">
+            <summary><span class="mk-st">特殊召喚</span><span class="mk-sum" id="sumSs"></span></summary>
+            <div class="fxform" id="ssBox">
+              <label class="row" style="gap:6px;font-weight:700;cursor:pointer"><input type="checkbox" id="ssOn"> 手札から特殊召喚できる</label>
+              <div id="ssOpts" hidden>
+                <div class="row"><label class="f">条件<select id="ssCond"></select></label><label class="f" id="ssNWrap">数<input type="number" id="ssN" min="0" max="9999" value="1"></label><label class="f" id="ssNameWrap">名前<input type="text" id="ssName" maxlength="20" placeholder="例: ガブリン"></label></div>
+                <div class="row" style="margin-top:8px"><label class="f">代わりに払うもの<select id="ssCost"></select></label><label class="f" id="ssCnWrap">数<input type="number" id="ssCn" min="1" max="9999" value="1"></label></div>
+                <label class="row" style="gap:6px;cursor:pointer;margin-top:8px"><input type="checkbox" id="ssOnly"> 普通の召喚はできない（特殊召喚でしか出せない）</label>
+                <p class="note" style="margin:6px 0 0">特殊召喚は1ターンの召喚回数を使わない（コストデッキならマナはふつうに払う）。特殊召喚で出たときは「召喚したとき」の効果は出ず、「特殊召喚したとき」の効果が出る。</p>
+              </div>
+            </div>
+          </details>
         </div>
-        <div><h3>使えるデッキ</h3><div class="seg" id="mkMode"><button data-m="normal" aria-pressed="true">ふつうのデッキ</button><button data-m="cost" aria-pressed="false">コストデッキ</button><button data-m="both" aria-pressed="false">どちらでも</button></div>
-        <label class="f" id="costRow" style="flex-direction:row;align-items:center;gap:10px;margin-top:8px" hidden>コスト<select id="mkCost"></select></label>
-        <p class="note" id="modeNote" style="margin:4px 0 0"></p></div>
-        <label class="f" style="flex-direction:row;align-items:center;gap:10px">デッキに入れられる枚数<select id="mkLimit"><option value="1">1枚まで</option><option value="2">2枚まで</option><option value="3" selected>3枚まで</option><option value="0">制限なし</option></select></label>
-        <div class="row"><button class="primary" id="btnSave">カードを保存</button><button class="ghost" id="btnNew" hidden>新しく描く</button></div>
+
+        <div class="mk-pane" data-pane="deck" hidden>
+          <div><h3>使えるデッキ</h3><div class="seg" id="mkMode"><button data-m="normal" aria-pressed="true">ふつうのデッキ</button><button data-m="cost" aria-pressed="false">コストデッキ</button><button data-m="both" aria-pressed="false">どちらでも</button></div>
+          <label class="f" id="costRow" style="flex-direction:row;align-items:center;gap:10px;margin-top:8px" hidden>コスト<select id="mkCost"></select></label>
+          <p class="note" id="modeNote" style="margin:4px 0 0"></p></div>
+          <label class="f" style="flex-direction:row;align-items:center;gap:10px">デッキに入れられる枚数<select id="mkLimit"><option value="1">1枚まで</option><option value="2">2枚まで</option><option value="3" selected>3枚まで</option><option value="0">制限なし</option></select></label>
+        </div>
+
+        <div class="row mk-save"><button class="primary" id="btnSave">カードを保存</button><button class="ghost" id="btnNew" hidden>新しく描く</button></div>
       </div>
     </div>
     <div style="margin-top:28px">
@@ -1582,7 +1626,7 @@ function setFrameless(on){
   composite();
 }
 $("#mkFrameless").addEventListener("change", e => setFrameless(e.target.checked));
-function syncFrame(){ $("#editCard").classList.toggle("socra", $("#mkFrame").value === "socra"); $("#capRow").hidden = MK.type !== "monster" || $("#mkFrame").value !== "socra"; }
+function syncFrame(){ if (typeof updateSecs === "function") setTimeout(updateSecs); $("#editCard").classList.toggle("socra", $("#mkFrame").value === "socra"); $("#capRow").hidden = MK.type !== "monster" || $("#mkFrame").value !== "socra"; }
 $("#mkFrame").addEventListener("change", syncFrame);
 function clearCanvas(){ ik.clearRect(0, 0, ink.width, ink.height); photo = null; setMode("draw"); composite(); }
 $("#swatches").innerHTML = COLORS.map(c => `<button class="sw" style="background:${c}" data-c="${c}" aria-label="色 ${c}" aria-pressed="${c === pen.color}"></button>`).join("");
@@ -1819,6 +1863,7 @@ function syncFxForm(){
   $("#fxAskWrap").hidden = !$("#fxAskOn").checked;
   $("#cbState").textContent = readCombo() ? "（設定あり）" : "";
   syncEqLine();
+  if (typeof updateSecs === "function") updateSecs();
 }
 $("#mkQuick").addEventListener("change", () => { $("#mkTab").textContent = MK.type === "magic" && $("#mkQuick").checked ? "速攻魔法" : TYPE_LABEL[MK.type]; });
 $("#mkType").addEventListener("click", e => { const b = e.target.closest("button"); if (b) setMkType(b.dataset.t); });
@@ -1851,6 +1896,33 @@ function resetMaker(){
   $("#mkTitle").textContent = "カードを描く"; $("#btnNew").hidden = true; $("#btnSave").textContent = "カードを保存";
 }
 setMkType("monster"); loadFxForm(null);
+/* ---- maker tabs + folding effect boxes (a line on each box says what's set) ---- */
+function setMkPane(p){
+  document.querySelectorAll("#mkTabs button").forEach(b => b.setAttribute("aria-pressed", b.dataset.pane === p));
+  document.querySelectorAll(".tools-col .mk-pane").forEach(x => { x.hidden = x.dataset.pane !== p; });
+  ls.set("cb_mkpane", p);
+}
+$("#mkTabs").addEventListener("click", e => { const b = e.target.closest("button[data-pane]"); if (b) setMkPane(b.dataset.pane); });
+function updateSecs(){
+  const t = MK.type, sum = (id, txt, on) => { const el = $(id); if (!el) return; el.textContent = txt; el.classList.toggle("on", !!on); };
+  const fx = readFx(), cb = readCombo();
+  sum("#sumFx", fx || cb ? fxText({ type: t, fx, combo: cb }) || "設定あり" : "なし", fx || cb);
+  const abs = readAbs();
+  $("#secAbs").hidden = t !== "monster" && t !== "equip";
+  $("#secAbsTitle").textContent = t === "equip" ? "装備したモンスターに付く能力" : "能力";
+  sum("#sumAbs", abs.length ? abs.map(a => ABS[a.k] ? ABS[a.k].label : a.k).join("・") : "なし", abs.length);
+  $("#secEq").hidden = $("#eqNote").hidden && $("#capRow").hidden;
+  $("#secEqTitle").textContent = t === "equip" ? "装備コスト" : "装備キャパ";
+  if (t === "equip") sum("#sumEq", `コスト ${Math.max(0, Math.round(+$("#mkEqCost").value || 0))}`, true);
+  else sum("#sumEq", $("#mkEqCap").value.trim() === "" ? "自動（ATK÷100）" : `キャパ ${$("#mkEqCap").value}`, $("#mkEqCap").value.trim() !== "");
+  $("#secSs").hidden = t !== "monster";
+  const ss = readSS();
+  sum("#sumSs", ss ? (ss.only ? "特殊召喚のみ・" : "") + (SS_CONDS[ss.cond] ? SS_CONDS[ss.cond].label : "") : "なし", !!ss);
+}
+["#mkEqCost", "#mkEqCap"].forEach(q => $(q).addEventListener("input", updateSecs));
+$("#mkAbs").addEventListener("change", updateSecs);
+setMkPane(["draw", "look", "fx", "deck"].includes(ls.get("cb_mkpane", "draw")) ? ls.get("cb_mkpane", "draw") : "draw");
+updateSecs();
 $("#btnNew").addEventListener("click", resetMaker);
 $("#btnSave").addEventListener("click", async () => {
   const name = $("#mkName").value.trim();
