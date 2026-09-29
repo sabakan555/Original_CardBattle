@@ -1113,7 +1113,7 @@ const MANA_SAMPLE = [
   { type: "trap", name: "マナどろぼう", sym: "↘", col: "#b9c7ff", cost: 1, fx: { kind: "manaDrain", n: 2 }, n: 1 },
   { type: "trap", name: "まもりのかべ", sym: "▣", col: "#cfe3ff", cost: 2, fx: { kind: "negate" }, n: 2 }
 ];
-// ソクラテスラデッキ (provisional: no art yet — "自分のカードとして作る" copies them so the art can be drawn)
+// ソクラテスラデッキ (built in; the admin can draw the art / change the cards from the card list)
 const SOCRA = [
   { name: "月村手毬", atk: 200, eqCap: 4, flavor: "「足を引っ張ったら殺すから」", n: 2 },
   { name: "物理学実験", atk: 300, eqCap: 3, fx: { trig: "summon", kind: "selfAtk", n: 300, ask: "物理学実験を履修していますか？" }, n: 2 },
@@ -1137,22 +1137,9 @@ const SOCRA = [
   { type: "equip", name: "要塞", eqCost: 1, abs: [{ k: "noAttack" }, { k: "taunt" }] },
   { type: "equip", name: "自爆する", eqCost: 1, fx: { trig: "destroyed", kind: "blast", n: 100 } }
 ];
-const socraCard = (s, i) => ({ id: "socra-" + i, type: s.type || "monster", name: s.name, nameRuby: s.nameRuby || null, atk: s.atk || 0, eqN: s.eqN || 0, eqAb: "none", eqCost: s.eqCost ?? null, eqCap: s.eqCap ?? null, abs: s.abs || [], fx: s.fx || null, combo: null, effect: "", flavor: s.flavor || "", frame: "socra", cost: null, deckMode: "normal", limit: 3, author: "ソクラテスラ（仮）", starter: true, img: "" });
-function socraDeck(){ const ids = []; SOCRA.forEach((s, i) => { for (let k = 0; k < (s.n || 1); k++) ids.push("socra-" + i); }); return { id: "socra", name: "ソクラテスラデッキ（仮）", cards: ids, builtin: true }; }
+const socraCard = (s, i) => ({ id: "socra-" + i, type: s.type || "monster", name: s.name, nameRuby: s.nameRuby || null, atk: s.atk || 0, eqN: s.eqN || 0, eqAb: "none", eqCost: s.eqCost ?? null, eqCap: s.eqCap ?? null, abs: s.abs || [], fx: s.fx || null, combo: null, effect: "", flavor: s.flavor || "", frame: "socra", cost: null, deckMode: "normal", limit: 3, author: "ソクラテスラ", starter: true, img: "" });
+function socraDeck(){ const ids = []; SOCRA.forEach((s, i) => { for (let k = 0; k < (s.n || 1); k++) ids.push("socra-" + i); }); return { id: "socra", name: "ソクラテスラデッキ", cards: ids, builtin: true }; }
 const builtinDecks = () => [starterDeck()].concat(sampleManaDeck(), socraDeck());
-// copy the ソクラテスラ cards (and a deck of them) into your own cards, so you can draw the art
-async function copySocraToMine(){
-  const map = {}, now = Date.now();
-  for (let i = 0; i < SOCRA.length; i++){
-    const b = socraCard(SOCRA[i], i), id = uid("c"); map[b.id] = id;
-    const doc = JSON.parse(JSON.stringify({ ...b, id: undefined, starter: undefined, author: S.name, ownerId: S.uid || null, updatedAt: now + i }));
-    await saveCardDoc(id, doc);
-  }
-  const cards = socraDeck().cards.map(id => map[id]);
-  const did = uid("d");
-  await saveDeckDoc(did, { name: "ソクラテスラデッキ", owner: S.name, ownerId: S.uid || null, cards, mana: false, key: null, updatedAt: now });
-  return did;
-}
 function sampleManaDeck(){ const ids = []; MANA_SAMPLE.forEach((s, i) => { for (let k = 0; k < s.n; k++) ids.push("mana-" + i); }); return { id: "sample-mana", name: "サンプルデッキ【コスト】", cards: ids, builtin: true, mana: true }; }
 function buildStarters(){
   const extra = MANA_SAMPLE.map((s, i) => ({
@@ -1161,15 +1148,34 @@ function buildStarters(){
     author: "サンプル（コスト）", starter: true,
     img: s.type ? drawSymbol(s.col, s.sym, s.type === "trap") : drawMonster(777 + i * 131, s.col)
   }));
-  S.starters = STARTERS.map((s, i) => ({
+  S.starterBase = STARTERS.map((s, i) => ({
     id: "starter-" + i, type: s.type || "monster", name: s.name, atk: s.type ? 0 : s.atk, effect: s.effect || "",
     fx: s.fx ? { trig: s.type ? "use" : s.fx.trig, ...s.fx } : null, combo: s.combo || null, cost: s.cost ?? null, quick: !!s.quick, eqN: s.eqN || 0, eqAb: s.eqAb || "none", limit: s.limit ?? 3, author: "スターター", starter: true,
     img: s.type ? drawSymbol(s.col, s.sym, s.type === "trap") : drawMonster(1234 + i * 97, s.col)
   })).concat(extra, SOCRA.map(socraCard));
+  S.starters = S.starterBase;
 }
 function starterDeck(){ const ids = []; STARTERS.forEach((s, i) => { for (let k = 0; k < s.n; k++) ids.push("starter-" + i); }); return { id: "starter", name: "スターターデッキ", cards: ids, builtin: true }; }
 function starterManaDeck(){ return { ...starterDeck(), id: "starter-mana", name: "スターターデッキ【コスト】", mana: true }; }
+// the admin's changes to built-in cards are stored in builtin/<card id> and laid over the originals
+S.builtinEdits = {};
+// site: the account whose ID is "savakan" (Firestore rules check the same thing)
+const ADMIN_ID = "savakan";
+const isAdmin = () => !!S.db && S.loginId === ADMIN_ID;
+function applyBuiltinEdits(){
+  if (!S.starterBase) return;
+  S.starters = S.starterBase.map(c => { const e = S.builtinEdits[c.id]; return e ? { ...c, ...e, id: c.id, starter: true, author: c.author, edited: true } : c; });
+}
+async function saveBuiltinDoc(id, doc){
+  if (!S.db || !isAdmin()) throw { code: "not-admin" };
+  await S.db.doc("builtin/" + id).set(JSON.parse(JSON.stringify(doc)));
+}
+async function deleteBuiltinDoc(id){
+  if (!S.db || !isAdmin()) throw { code: "not-admin" };
+  await S.db.doc("builtin/" + id).delete();
+}
 function rebuildCards(){
+  applyBuiltinEdits();
   S.userCards.forEach(c => { if (c && c.nameRuby == null && /《/.test(c.name || "")){ c.nameRuby = c.name; c.name = plainRuby(c.name); } });
   S.cards = new Map([...S.starters, ...S.userCards].map(c => [c.id, c]));
   rebuildOwned();
@@ -1283,6 +1289,7 @@ function subscribeData(){
   if (S.db){
     S.db.collection("cards").onSnapshot(snap => { S.userCards = snap.docs.map(d => ({ id: d.id, ...d.data() })); rebuildCards(); renderAll(); }, () => toast("カードの読みこみが止まりました。ページを開きなおしてね"));
     S.db.collection("decks").onSnapshot(snap => { S.decks = snap.docs.map(d => ({ id: d.id, ...d.data() })); renderAll(); }, () => {});
+    S.db.collection("builtin").onSnapshot(snap => { const m = {}; snap.docs.forEach(d => { m[d.id] = d.data(); }); S.builtinEdits = m; rebuildCards(); renderAll(); }, () => {});
     subscribeTrades();
   } else { S.userCards = local.cards(); S.decks = local.decks(); rebuildCards(); renderAll(); }
 }
@@ -1699,7 +1706,11 @@ $("#btnSave").addEventListener("click", async () => {
   const doc = { type: MK.type, name, atk: MK.type === "monster" ? atk : 0, atkInf, eqN: MK.type === "equip" ? eqN : 0, eqAb: "none", eqCost: MK.type === "equip" ? Math.max(0, Math.round(+$("#mkEqCost").value || 0)) : null, eqCap: MK.type === "monster" && $("#mkEqCap").value.trim() !== "" ? Math.max(0, Math.round(+$("#mkEqCap").value || 0)) : null, abs: MK.type === "monster" || MK.type === "equip" ? readAbs() : [], frame: $("#mkFrame").value || null, effect: $("#mkEff").value.trim(), flavor: $("#mkFlv").value.trim(), nameSize: $("#mkNameSize").value, textSize: $("#mkTextSize").value, fx: readFx(), combo: readCombo(), font: $("#mkFont").value, quick: MK.type === "magic" && $("#mkQuick").checked, cost: MK.deck === "normal" ? null : +$("#mkCost").value, deckMode: MK.deck, limit: +$("#mkLimit").value,
     img: prev && prev.img && !MK.artDirty ? prev.img : encodeArt(out), frameless: MK.frameless, author: S.name, ownerId: prev?.ownerId || S.uid || null, updatedAt: Date.now() };
   $("#btnSave").disabled = true;
-  try{ await saveCardDoc(id, doc); toast(S.editId ? "カードを更新しました" : "カードを保存しました！"); resetMaker(); }
+  try{
+    if (prev && prev.starter){ await saveBuiltinDoc(id, { ...doc, author: prev.author, ownerId: null }); toast("はじめからあるカードを更新しました（みんなに反映されます）"); }
+    else { await saveCardDoc(id, doc); toast(S.editId ? "カードを更新しました" : "カードを保存しました！"); }
+    resetMaker();
+  }
   catch(e){ writeErr(e); }
   finally{ $("#btnSave").disabled = false; }
 });
@@ -1717,7 +1728,7 @@ function renderGallery(){
   S.galIds = list.map(c => c.id);
   setCount("gal", list.length, total);
   const items2 = list.map(c => {
-    if (c.starter) return `<div class="g-item">${cardHTML(c, "sm")}<div class="meta">${esc(c.author)}</div></div>`;
+    if (c.starter) return `<div class="g-item">${cardHTML(c, "sm")}<div class="meta">${esc(c.author)}${c.edited ? "（編集ずみ）" : ""}</div>${isAdmin() ? `<div class="row" style="gap:6px"><button class="small" data-edit="${esc(c.id)}">編集（管理者）</button>${c.edited ? `<button class="small danger" data-reset="${esc(c.id)}">${delArm === "r:" + c.id ? "本当に戻す" : "元に戻す"}</button>` : ""}</div>` : ""}</div>`;
     const mine = isMine(c);
     return `<div class="g-item">${cardHTML(c, "sm")}<div class="meta">by ${esc(c.author || "？")}</div>${!mine && S.db ? tradeBtnHTML(c) : ""}${mine ? `<div class="row" style="gap:6px"><button class="small" data-edit="${esc(c.id)}">編集</button><button class="small danger" data-del="${esc(c.id)}">${delArm === c.id ? "本当に消す" : "消す"}</button></div>` : ""}</div>`;
   });
@@ -1727,13 +1738,21 @@ $("#gallery").addEventListener("click", async e => {
   const tb = e.target.closest("[data-trade]"); if (tb){ openTradeDlg(tb.dataset.trade); return; }
   const ed = e.target.closest("[data-edit]"), del = e.target.closest("[data-del]");
   if (ed){
-    const c = S.cards.get(ed.dataset.edit); if (!c || !isMine(c)) return;
+    const c = S.cards.get(ed.dataset.edit); if (!c || !(isMine(c) || (c.starter && isAdmin()))) return;
     S.editId = c.id; setFrameless(!!c.frameless); MK.artDirty = false; $("#mkName").value = c.nameRuby || c.name; $("#mkEff").value = c.effect || ""; $("#mkFlv").value = c.flavor || ""; $("#mkNameSize").value = SIZES_T[c.nameSize] ? c.nameSize : "m"; $("#mkTextSize").value = SIZES_T[c.textSize] ? c.textSize : "m"; syncSizes(); $("#mkAtk").value = c.atkInf ? "∞" : (c.atk || 0); $("#mkLimit").value = String(cardLimit(c));
     $("#mkQuick").checked = !!c.quick; setMkType(cardType(c)); loadFxForm(c); $("#mkFont").value = FONTS[c.font] ? c.font : "klee"; syncFont(); $("#mkCost").value = hasCost(c) ? String(costOf(c)) : "1"; setMkDeck(deckModeOf(c)); $("#mkEq").value = c.eqN || 0; $("#mkEqAb").value = "none"; $("#mkEqCost").value = String(eqCostOf(c)); $("#mkEqCap").value = hasEqCap(c) ? String(+c.eqCap) : ""; loadAbs(absOf(c)); syncEqLine(); $("#mkFrame").value = c.frame === "socra" ? "socra" : ""; syncFrame();
     if (!c.img){ clearCanvas(); undoStack = []; MK.artDirty = false; }
     else { const im = new Image(); im.onload = () => { clearCanvas(); setPhoto(im); setMode("draw"); composite(); undoStack = []; MK.artDirty = false; }; im.src = c.img; }
     $("#mkTitle").textContent = "カードを編集中"; $("#btnNew").hidden = false; $("#btnSave").textContent = "変更を保存";
     window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+  const rs = e.target.closest("[data-reset]");
+  if (rs && isAdmin()){
+    const id = rs.dataset.reset;
+    if (delArm !== "r:" + id){ delArm = "r:" + id; renderGallery(); return; }
+    delArm = null;
+    try{ await deleteBuiltinDoc(id); toast("はじめの状態に戻しました"); } catch(err){ writeErr(err); }
+    return;
   }
   if (del){
     const id = del.dataset.del;
@@ -1970,7 +1989,7 @@ function renderDeckList(){
       </div>
       ${picker}
       <div class="dk-actions"><button class="primary dk-play" data-dplay>このデッキで対戦</button></div>
-      <div class="dk-actions">${own ? `<button data-dedit>デッキ編集</button><button data-dthumb>${S.thumbPick ? "サムネ選びをやめる" : "サムネを変える"}</button><button class="danger small" data-ddel>${S.dkDelArm === d.id ? "本当に消す" : "デッキ削除"}</button>` : `${d.id === "socra" ? `<button class="primary" data-dsocra>${S.socraArm ? "本当に作る（カード21枚＋デッキ）" : "自分のカードとして作る（絵を描ける）"}</button>` : ""}<button data-dcopy>これをもとに作る</button>`}</div>
+      <div class="dk-actions">${own ? `<button data-dedit>デッキ編集</button><button data-dthumb>${S.thumbPick ? "サムネ選びをやめる" : "サムネを変える"}</button><button class="danger small" data-ddel>${S.dkDelArm === d.id ? "本当に消す" : "デッキ削除"}</button>` : `<button data-dcopy>これをもとに作る</button>`}</div>
     </div>
   </div>`;
 }
@@ -1989,13 +2008,6 @@ $("#deckList").addEventListener("click", async e => {
     openDeckEditor("");
     S.deckEdit = { id: null, cards: {}, key: d.key || null }; d.cards.forEach(id => S.deckEdit.cards[id] = (S.deckEdit.cards[id] || 0) + 1);
     $("#deckName").value = d.name.replace(/【コスト】/, "") + "のコピー"; $("#deckMana").checked = !!d.mana; renderDeck(); return;
-  }
-  if (g("[data-dsocra]")){
-    if (!S.socraArm){ S.socraArm = true; renderDeckList(); setTimeout(() => { S.socraArm = false; if (S.tab === "deck" && S.deckView !== "edit") renderDeckList(); }, 4000); return; }
-    S.socraArm = false; g("[data-dsocra]").disabled = true;
-    try{ const did = await copySocraToMine(); S.deckPick = did; toast("ソクラテスラのカード21枚とデッキを作りました。カード工房の「自分のカード」から絵を描いてね"); renderAll(); }
-    catch(err){ writeErr(err); renderDeckList(); }
-    return;
   }
   if (g("[data-dthumb]")){ S.thumbPick = !S.thumbPick; renderDeckList(); return; }
   if (g("[data-dkey]")){
