@@ -273,6 +273,8 @@ button.danger{background:#5b2432;color:#ffd9d9;border-color:#ff8a8a}
 button.ghost{border-color:var(--line)}
 :focus-visible{outline:3px solid var(--accent)}
 input[type=text],input[type=number],input[type=search],select,textarea{border-color:var(--line);background:#1d2143;color:var(--ink)}
+input[type=password]{font:inherit;color:var(--ink);background:#1d2143;border:2px solid var(--line);border-radius:10px;padding:6px 10px;max-width:100%}
+.acct-id{font-family:var(--en,var(--ui));color:var(--accent);font-size:1.15em}
 .box,.filters{background:var(--panel);border-color:var(--line);backdrop-filter:blur(6px)}
 .fxform{background:rgba(255,255,255,.035);border-color:var(--line)}
 .meter{border-color:var(--line)}.meter.ok{background:#1d5a45}.meter.ng{background:#5b2432}
@@ -652,6 +654,7 @@ nav.tabs button{position:relative}
       </div>
       <div class="box" style="display:flex;flex-direction:column;gap:10px"><h2 style="margin:0">戦績</h2><div class="me-stats" id="mpStats"></div></div>
     </div>
+    <div class="box" id="mpAcct" style="margin-bottom:22px"></div>
     <div class="row" style="justify-content:space-between;margin-bottom:10px"><h2 style="margin:0">自分のデッキ</h2><button class="small" data-go="deck">デッキを作る</button></div>
     <div class="me-decks" id="mpDecks"></div>
     <div class="row" style="justify-content:space-between;margin:24px 0 10px"><h2 style="margin:0">自分のカード</h2><button class="small" data-go="make">カードを描く</button></div>
@@ -1619,9 +1622,10 @@ function recordResult(){
   const res = G.st.winner === "draw" ? "d" : G.st.winner === G.slot ? "w" : "l";
   r[G.mode === "online" ? "online" : "cpu"][res]++;
   if (key){ r.seen.push(key); r.seen = r.seen.slice(-60); }
-  ls.set("cb_record", r);
+  ls.set("cb_record", r); saveProfile();
 }
 function renderMe(){
+  renderAcct();
   if (document.activeElement !== $("#mpName")) $("#mpName").value = S.name;
   const mine = S.userCards.filter(c => isMine(c)).sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
   const icon = ls.get("cb_icon", "");
@@ -1649,8 +1653,8 @@ function renderMe(){
   S.meIds = mine.map(c => c.id);
   $("#mpCards").innerHTML = mine.map(c => `<div class="g-item">${cardHTML(c, "sm")}</div>`).join("") || `<p class="muted">まだカードがありません。</p>`;
 }
-$("#mpName").addEventListener("change", e => { S.name = e.target.value.trim() || "プレイヤー"; e.target.value = S.name; ls.set("cb_name", S.name); renderAll(); });
-$("#mpIcon").addEventListener("change", e => { ls.set("cb_icon", e.target.value); renderMe(); });
+$("#mpName").addEventListener("change", e => { S.name = e.target.value.trim() || "プレイヤー"; e.target.value = S.name; ls.set("cb_name", S.name); saveProfile(); renderAll(); });
+$("#mpIcon").addEventListener("change", e => { ls.set("cb_icon", e.target.value); saveProfile(); renderMe(); });
 $("#mpDecks").addEventListener("click", e => {
   const ed = e.target.closest("[data-medit]"), use = e.target.closest("[data-muse]");
   if (ed){ openDeckEditor(ed.dataset.medit); }
@@ -1742,8 +1746,86 @@ $("#deckList").addEventListener("click", async e => {
 });
 $("#btnDeckBack").addEventListener("click", () => { S.deckView = "list"; if (S.deckEdit.id) S.deckPick = S.deckEdit.id; renderAll(); window.scrollTo(0, 0); });
 
+/* ================= account (ID + password, optional) ================= */
+// Guests play with an anonymous account in this browser. Making an ID links a password to that same
+// account (same uid), so everything made so far carries over; logging in elsewhere uses that account.
+// Firebase needs an e-mail address, so the ID becomes <id>@players.cardbattle.invalid (never mailed).
+S.loginId = null; S.acctMode = "register"; S.acctArm = false;
+const acctEmail = id => `${id.toLowerCase()}@players.cardbattle.invalid`;
+const mineCount = () => S.userCards.filter(c => isMine(c)).length;
+const acctErr = e => ({
+  "auth/email-already-in-use": "そのIDはもう使われています。別のIDにしてね", "auth/credential-already-in-use": "そのIDはもう使われています。別のIDにしてね",
+  "auth/weak-password": "パスワードは6文字以上にしてね", "auth/invalid-email": "IDに使えない文字があります",
+  "auth/wrong-password": "IDかパスワードがちがいます", "auth/user-not-found": "IDかパスワードがちがいます", "auth/invalid-credential": "IDかパスワードがちがいます", "auth/invalid-login-credentials": "IDかパスワードがちがいます",
+  "auth/too-many-requests": "何回も失敗したので、少し待ってからためしてね", "auth/operation-not-allowed": "ID登録がまだ有効になっていません（管理している人に伝えてね）",
+  "auth/network-request-failed": "通信できませんでした。もう一度ためしてね"
+})[e && e.code] || `うまくいきませんでした［${e && (e.code || e.message)}］`;
+// name / icon / record follow the ID to other devices
+function saveProfile(){
+  if (!S.loginId || !S.db) return Promise.resolve();
+  return S.db.doc("users/" + S.uid).set({ id: S.loginId, name: S.name, icon: ls.get("cb_icon", ""), record: ls.get("cb_record", null), updatedAt: Date.now() }).catch(() => {});
+}
+async function loadProfile(){
+  if (!S.loginId || !S.db) return;
+  try{
+    const d = await S.db.doc("users/" + S.uid).get();
+    if (!d.exists){ saveProfile(); return; }
+    const pr = d.data();
+    if (pr.name){ S.name = pr.name; ls.set("cb_name", pr.name); }
+    if (pr.icon != null) ls.set("cb_icon", pr.icon);
+    if (pr.record) ls.set("cb_record", pr.record);
+    renderAll();
+  }catch(e){}
+}
+function renderAcct(){
+  const box = $("#mpAcct"); if (!box) return;
+  if (!S.db){ box.innerHTML = `<h2 style="margin:0">アカウント</h2><p class="muted" style="margin:6px 0 0">サーバーにつながっていないので、いまはIDを使えません。</p>`; return; }
+  if (S.loginId){
+    box.innerHTML = `<div class="row" style="justify-content:space-between;align-items:flex-start"><div style="flex:1;min-width:220px"><h2 style="margin:0">アカウント</h2><p style="margin:6px 0 0">ID <b class="acct-id">${esc(S.loginId)}</b> でログイン中。ほかのスマホやPCでもこのIDでログインすると、同じカード・デッキ・戦績で遊べます。</p></div><button class="small danger" data-acct="logout">${S.acctArm ? "本当にログアウトする" : "ログアウト"}</button></div>`;
+    return;
+  }
+  const reg = S.acctMode !== "login", n = mineCount();
+  box.innerHTML = `<h2 style="margin:0 0 6px">アカウント</h2>
+    <p class="note" style="margin:0 0 10px">いまはこのブラウザだけの「ゲスト」です。IDを作ると、ほかのスマホやPCからも同じカード・デッキ・交換したカードで遊べます。</p>
+    <div class="seg" style="margin-bottom:10px"><button data-amode="register" aria-pressed="${reg}">IDを作る</button><button data-amode="login" aria-pressed="${!reg}">IDでログイン</button></div>
+    <form id="acctForm" class="row" style="align-items:flex-end">
+      <label class="f">ID（半角英数字と _、3〜16文字）<input type="text" id="acctId" autocomplete="username" maxlength="16" autocapitalize="off" spellcheck="false"></label>
+      <label class="f">パスワード（6文字以上）<input type="password" id="acctPw" autocomplete="${reg ? "new-password" : "current-password"}"></label>
+      <button class="primary" type="submit" id="acctGo">${reg ? "IDを作る" : "ログイン"}</button>
+    </form>
+    <p class="note" id="acctMsg" style="margin:8px 0 0">${reg ? "このブラウザで作ったカードやデッキは、そのまま新しいIDに引き継がれます。" : n ? `⚠ このブラウザのゲストで作ったカード（${n}枚）やデッキは、ほかのIDでログインするとそのIDのものにはならず、編集できなくなります。先に「IDを作る」でIDにしておくのがおすすめ。` : "パスワードを忘れたら、管理している人に聞いてね。"}</p>`;
+}
+$("#mpAcct").addEventListener("click", async e => {
+  const m = e.target.closest("[data-amode]");
+  if (m){ S.acctMode = m.dataset.amode; renderAcct(); return; }
+  if (e.target.closest("[data-acct=logout]")){
+    if (!S.acctArm){ S.acctArm = true; renderAcct(); setTimeout(() => { S.acctArm = false; renderAcct(); }, 3000); return; }
+    try{ await firebase.auth().signOut(); }catch(err){}
+    ls.set("cb_icon", ""); ls.set("cb_record", null);
+    location.reload();
+  }
+});
+$("#mpAcct").addEventListener("submit", async e => {
+  e.preventDefault();
+  const id = $("#acctId").value.trim(), pw = $("#acctPw").value, msg = $("#acctMsg"), go = $("#acctGo");
+  if (!/^[A-Za-z0-9_]{3,16}$/.test(id)){ msg.textContent = "IDは半角英数字と _ で、3〜16文字にしてね"; return; }
+  if (pw.length < 6){ msg.textContent = "パスワードは6文字以上にしてね"; return; }
+  go.disabled = true; msg.textContent = "確認中…";
+  try{
+    if (S.acctMode !== "login"){
+      await firebase.auth().currentUser.linkWithCredential(firebase.auth.EmailAuthProvider.credential(acctEmail(id), pw));
+      S.loginId = id.toLowerCase(); await saveProfile();
+      toast(`ID「${S.loginId}」を作りました！`); renderMe();
+    } else {
+      await firebase.auth().signInWithEmailAndPassword(acctEmail(id), pw);
+      msg.textContent = "ログインしました。読みこみなおします…";
+      setTimeout(() => location.reload(), 500);
+    }
+  }catch(err){ msg.textContent = acctErr(err); go.disabled = false; }
+});
+
 /* ================= lobby ================= */
-$("#pname").addEventListener("change", e => { S.name = e.target.value.trim() || "プレイヤー"; e.target.value = S.name; ls.set("cb_name", S.name); renderAll(); });
+$("#pname").addEventListener("change", e => { S.name = e.target.value.trim() || "プレイヤー"; e.target.value = S.name; ls.set("cb_name", S.name); saveProfile(); renderAll(); });
 $("#deckSel").addEventListener("change", e => ls.set("cb_deck", e.target.value));
 $("#cpuDeckSel").addEventListener("change", e => ls.set("cb_cpudeck", e.target.value));
 // decks the CPU can play: built-in ones, yours, and everyone else's (ownership doesn't matter for practice)
@@ -2765,14 +2847,19 @@ async function connectFirebase2(){
     try{ fs.settings({ ignoreUndefinedProperties: true, merge: true }); }catch(e){}
     // keep a copy of the cards in this browser, so reopening the page shows them right away
     try{ fs.enablePersistence({ synchronizeTabs: true }).catch(() => {}); }catch(e){}
-    const cred = await (firebase.auth().currentUser ? Promise.resolve({ user: firebase.auth().currentUser }) : new Promise(res => {
-      const off = firebase.auth().onAuthStateChanged(u => { if (u){ off(); res({ user: u }); } });
-      firebase.auth().signInAnonymously().catch(err => { S.authErr = err && err.code; res({ user: null }); });
+    // wait for the saved session first (a logged-in ID must not be replaced by a new guest)
+    const cred = await new Promise(res => {
+      const off = firebase.auth().onAuthStateChanged(u => {
+        off();
+        if (u) res({ user: u });
+        else firebase.auth().signInAnonymously().then(c => res({ user: c.user }), err => { S.authErr = err && err.code; res({ user: null }); });
+      });
       setTimeout(() => { S.authErr = S.authErr || "timeout"; res({ user: null }); }, 12000);
-    }));
+    });
     if (!cred.user && S.authErr === "timeout"){ S.connErr = "匿名ログインが終わりません（Firebase の Authentication →「設定」→「承認済みドメイン」に sabakan555.github.io を追加してみてね）"; return; }
     if (!cred.user){ S.connErr = "匿名ログインに失敗しました（Firebase の Authentication で「匿名」が有効になっているか確認してね）" + (S.authErr ? "［" + S.authErr + "］" : ""); return; }
     S.uid = cred.user.uid;
+    S.loginId = cred.user.isAnonymous ? null : ((cred.user.email || "").split("@")[0] || null);
     // no passcode: anyone who has the URL can join (signed in anonymously)
     // Firestore waits forever when it can't reach the database, so probe once with a timeout
     const probe = fs.collection("cards").limit(1).get({ source: "server" });
@@ -2783,6 +2870,7 @@ async function connectFirebase2(){
       return;
     }
     S.db = fs;
+    loadProfile();
   }catch(e){ console.error(e); S.connErr = "サーバーにつながりませんでした［" + (e && (e.code || e.message)) + "］"; }
 }
 function passGate(fs){
