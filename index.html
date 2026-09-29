@@ -914,14 +914,16 @@ const owns = id => S.owned.has(id);
 
 /* ================= data layer ================= */
 const local = { cards(){ return ls.get("cb_cards", []); }, decks(){ return ls.get("cb_decks", []); } };
-// card art: tries WebP and JPEG at the same quality and keeps whichever is smaller
-// (WebP wins on simple line drawings, JPEG on busy ones). Quality steps down until the
-// picture fits the size budget, so heavily drawn cards stay small too.
-const ART_BUDGET = 40000; // characters of the data URL (about 29KB)
+// card art: saved at the drawing canvas's full size (560×400).
+// Line drawings usually fit as PNG (no quality loss at all); photos and busy drawings
+// use whichever of WebP / JPEG is smaller at high quality, stepping down only if needed.
+const ART_BUDGET = 150000; // characters of the data URL (about 110KB; the database allows 256KB per card)
 function encodeArt(c){
+  const png = c.toDataURL("image/png");
+  if (png.length <= ART_BUDGET) return png;
   const webp = c.toDataURL("image/webp", .5).startsWith("data:image/webp");
   let url = "";
-  for (const q of [.8, .72, .64, .56, .48, .4]){
+  for (const q of [.92, .86, .8, .72, .64, .56, .48]){
     const j = c.toDataURL("image/jpeg", q), w = webp ? c.toDataURL("image/webp", q) : j;
     url = w.length < j.length ? w : j;
     if (url.length <= ART_BUDGET) break;
@@ -1109,8 +1111,8 @@ function syncTools(){
   document.querySelectorAll("#sizes button").forEach(b => b.setAttribute("aria-pressed", +b.dataset.s === pen.size));
   $("#btnErase").setAttribute("aria-pressed", pen.erase); $("#btnErase").classList.toggle("primary", pen.erase);
 }
-function pushUndo(){ try{ undoStack.push({ ink: ik.getImageData(0, 0, ink.width, ink.height), photo: photo ? { ...photo } : null }); if (undoStack.length > 25) undoStack.shift(); }catch(e){} }
-$("#btnUndo").addEventListener("click", () => { const d = undoStack.pop(); if (!d) return; ik.putImageData(d.ink, 0, 0); photo = d.photo; if (!photo && MK.mode === "photo") setMode("draw"); syncPhotoUI(); composite(); });
+function pushUndo(){ MK.artDirty = true; try{ undoStack.push({ ink: ik.getImageData(0, 0, ink.width, ink.height), photo: photo ? { ...photo } : null }); if (undoStack.length > 25) undoStack.shift(); }catch(e){} }
+$("#btnUndo").addEventListener("click", () => { const d = undoStack.pop(); if (!d) return; MK.artDirty = true; ik.putImageData(d.ink, 0, 0); photo = d.photo; if (!photo && MK.mode === "photo") setMode("draw"); syncPhotoUI(); composite(); });
 $("#btnClear").addEventListener("click", () => { pushUndo(); clearCanvas(); });
 function pt(e){ const r = cv.getBoundingClientRect(); return { x: (e.clientX - r.left) * cv.width / r.width, y: (e.clientY - r.top) * cv.height / r.height }; }
 function stroke(a, b){
@@ -1303,13 +1305,13 @@ $("#btnSave").addEventListener("click", async () => {
   const atkInf = MK.type === "monster" && INF_WORDS.includes(atkRaw);
   const atk = atkInf ? 0 : Math.max(0, Math.round(+atkRaw || 0)); $("#mkAtk").value = atkInf ? "∞" : atk;
   const wasMode = MK.mode; MK.mode = "draw"; composite();
-  const out = document.createElement("canvas"); out.width = 336; out.height = 240; out.getContext("2d").drawImage(cv, 0, 0, 336, 240);
+  const out = document.createElement("canvas"); out.width = cv.width; out.height = cv.height; out.getContext("2d").drawImage(cv, 0, 0);
   MK.mode = wasMode; composite();
   const id = S.editId || uid("c");
   const prev = S.cards.get(id);
   let eqN = Math.round(+$("#mkEq").value || 0); $("#mkEq").value = eqN;
   const doc = { type: MK.type, name, atk: MK.type === "monster" ? atk : 0, atkInf, eqN: MK.type === "equip" ? eqN : 0, eqAb: MK.type === "equip" ? $("#mkEqAb").value : "none", effect: $("#mkEff").value.trim(), flavor: $("#mkFlv").value.trim(), nameSize: $("#mkNameSize").value, textSize: $("#mkTextSize").value, fx: readFx(), combo: readCombo(), font: $("#mkFont").value, quick: MK.type === "magic" && $("#mkQuick").checked, cost: MK.deck === "normal" ? null : +$("#mkCost").value, deckMode: MK.deck, limit: +$("#mkLimit").value,
-    img: encodeArt(out), author: S.name, ownerId: prev?.ownerId || S.uid || null, updatedAt: Date.now() };
+    img: prev && prev.img && !MK.artDirty ? prev.img : encodeArt(out), author: S.name, ownerId: prev?.ownerId || S.uid || null, updatedAt: Date.now() };
   $("#btnSave").disabled = true;
   try{ await saveCardDoc(id, doc); toast(S.editId ? "カードを更新しました" : "カードを保存しました！"); resetMaker(); }
   catch(e){ writeErr(e); }
@@ -1339,9 +1341,9 @@ $("#gallery").addEventListener("click", async e => {
   const ed = e.target.closest("[data-edit]"), del = e.target.closest("[data-del]");
   if (ed){
     const c = S.cards.get(ed.dataset.edit); if (!c || !isMine(c)) return;
-    S.editId = c.id; $("#mkName").value = c.nameRuby || c.name; $("#mkEff").value = c.effect || ""; $("#mkFlv").value = c.flavor || ""; $("#mkNameSize").value = SIZES_T[c.nameSize] ? c.nameSize : "m"; $("#mkTextSize").value = SIZES_T[c.textSize] ? c.textSize : "m"; syncSizes(); $("#mkAtk").value = c.atkInf ? "∞" : (c.atk || 0); $("#mkLimit").value = String(cardLimit(c));
+    S.editId = c.id; MK.artDirty = false; $("#mkName").value = c.nameRuby || c.name; $("#mkEff").value = c.effect || ""; $("#mkFlv").value = c.flavor || ""; $("#mkNameSize").value = SIZES_T[c.nameSize] ? c.nameSize : "m"; $("#mkTextSize").value = SIZES_T[c.textSize] ? c.textSize : "m"; syncSizes(); $("#mkAtk").value = c.atkInf ? "∞" : (c.atk || 0); $("#mkLimit").value = String(cardLimit(c));
     $("#mkQuick").checked = !!c.quick; setMkType(cardType(c)); loadFxForm(c); $("#mkFont").value = FONTS[c.font] ? c.font : "klee"; syncFont(); $("#mkCost").value = hasCost(c) ? String(costOf(c)) : "1"; setMkDeck(deckModeOf(c)); $("#mkEq").value = c.eqN || 0; $("#mkEqAb").value = c.eqAb || "none"; syncEqLine();
-    const im = new Image(); im.onload = () => { clearCanvas(); setPhoto(im); setMode("draw"); composite(); undoStack = []; }; im.src = c.img;
+    const im = new Image(); im.onload = () => { clearCanvas(); setPhoto(im); setMode("draw"); composite(); undoStack = []; MK.artDirty = false; }; im.src = c.img;
     $("#mkTitle").textContent = "カードを編集中"; $("#btnNew").hidden = false; $("#btnSave").textContent = "変更を保存";
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
