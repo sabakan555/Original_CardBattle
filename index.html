@@ -1216,7 +1216,7 @@ const SOCRA = [
   { type: "equip", name: "自爆する", eqCost: 1, fx: { trig: "destroyed", kind: "blast", n: 100 } }
 ];
 const socraCard = (s, i) => ({ id: "socra-" + i, type: s.type || "monster", name: s.name, nameRuby: s.nameRuby || null, atk: s.atk || 0, eqN: s.eqN || 0, eqAb: "none", eqCost: s.eqCost ?? null, eqCap: s.eqCap ?? null, abs: s.abs || [], fx: s.fx || null, combo: null, effect: "", flavor: s.flavor || "", frame: "socra", cost: null, deckMode: "normal", limit: 3, author: "ソクラテスラ", starter: true, img: "" });
-function socraDeck(){ const ids = []; SOCRA.forEach((s, i) => { for (let k = 0; k < (s.n || 1); k++) ids.push("socra-" + i); }); return { id: "socra", name: "ソクラテスラデッキ", cards: ids, builtin: true }; }
+function socraDeck(){ const ids = []; SOCRA.forEach((s, i) => { for (let k = 0; k < (s.n || 1); k++) ids.push("socra-" + i); }); return { id: "socra", name: "ソクラテスラデッキ", cards: ids, builtin: true, key: "socra-0" }; }
 const builtinDecks = () => [starterDeck()].concat(sampleManaDeck(), socraDeck());
 function sampleManaDeck(){ const ids = []; MANA_SAMPLE.forEach((s, i) => { for (let k = 0; k < s.n; k++) ids.push("mana-" + i); }); return { id: "sample-mana", name: "サンプルデッキ【コスト】", cards: ids, builtin: true, mana: true }; }
 function buildStarters(){
@@ -1845,7 +1845,7 @@ function renderGallery(){
   const items2 = list.map(c => {
     if (c.starter) return `<div class="g-item">${cardHTML(c, "sm")}<div class="meta">${esc(c.author)}${c.edited ? "（編集ずみ）" : ""}</div>${isAdmin() ? `<div class="row" style="gap:6px"><button class="small" data-edit="${esc(c.id)}">編集（管理者）</button>${c.edited ? `<button class="small danger" data-reset="${esc(c.id)}">${delArm === "r:" + c.id ? "本当に戻す" : "元に戻す"}</button>` : ""}</div>` : ""}</div>`;
     const mine = isMine(c);
-    return `<div class="g-item">${cardHTML(c, "sm")}<div class="meta">by ${esc(c.author || "？")}</div>${!mine && S.db ? tradeBtnHTML(c) : ""}${mine ? `<div class="row" style="gap:6px"><button class="small" data-edit="${esc(c.id)}">編集</button><button class="small danger" data-del="${esc(c.id)}">${delArm === c.id ? "本当に消す" : "消す"}</button></div>` : ""}</div>`;
+    return `<div class="g-item">${cardHTML(c, "sm")}<div class="meta">by ${esc(c.author || "？")}</div>${!mine && S.db ? tradeBtnHTML(c) : ""}${mine ? `<div class="row" style="gap:6px"><button class="small" data-edit="${esc(c.id)}">編集</button><button class="small danger" data-del="${esc(c.id)}">${delArm === c.id ? "本当に消す" : "消す"}</button></div>${isAdmin() && S.starters.some(b => b.name === c.name) ? `<button class="small" data-toBuiltin="${esc(c.id)}">${delArm === "b:" + c.id ? "本当に入れ替える（このカードは消えます）" : "はじめからあるカードと入れ替え（管理者）"}</button>` : ""}` : ""}</div>`;
   });
   $("#gallery").innerHTML = items2.join("") || (total ? `<p class="muted">条件に合うカードがありません。</p>` : `<p class="muted">まだ自分のカードはありません。上で描いてみよう！</p>`);
 }
@@ -1860,6 +1860,22 @@ $("#gallery").addEventListener("click", async e => {
     else { const im = new Image(); im.onload = () => { clearCanvas(); setPhoto(im); setMode("draw"); composite(); undoStack = []; MK.artDirty = false; }; im.src = c.img; }
     $("#mkTitle").textContent = "カードを編集中"; $("#btnNew").hidden = false; $("#btnSave").textContent = "変更を保存";
     window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+  // admin: a card you drew takes the place of the built-in card with the same name (your copy is then removed)
+  const tbi = e.target.closest("[data-tobuiltin]");
+  if (tbi && isAdmin()){
+    const id = tbi.dataset.tobuiltin, c = S.cards.get(id), base = c && S.starters.find(b => b.name === c.name);
+    if (!c || !base || !isMine(c)) return;
+    if (delArm !== "b:" + id){ delArm = "b:" + id; renderGallery(); return; }
+    delArm = null;
+    try{
+      const doc = JSON.parse(JSON.stringify({ ...c, id: undefined, starter: undefined, edited: undefined, author: base.author, ownerId: null, updatedAt: Date.now() }));
+      await saveBuiltinDoc(base.id, doc);
+      for (const d of myDecks().filter(d => d.cards.includes(id))) await saveDeckDoc(d.id, { ...d, id: undefined, cards: d.cards.map(x => x === id ? base.id : x), key: d.key === id ? base.id : d.key || null });
+      await deleteCardDoc(id);
+      toast(`「${base.name}」（${base.author}）をこのカードに入れ替えました`);
+    }catch(err){ writeErr(err); }
+    return;
   }
   const rs = e.target.closest("[data-reset]");
   if (rs && isAdmin()){
