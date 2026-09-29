@@ -136,6 +136,14 @@ ruby rt{font-size:.5em;line-height:1;font-style:normal}
 .card.lg{--w:210px}
 .card.back{padding:calc(var(--w)*.046)}
 .card.back .c-in{background:var(--c-back);display:grid;place-items:center}
+.card.back.sleeve .c-in{background:#fff center/cover no-repeat}
+.sl-wrap{display:flex;flex-wrap:wrap;gap:18px;align-items:flex-start}
+.sl-card{width:230px;aspect-ratio:650/890;background:#2b2b2b;border-radius:10px;padding:8px;box-shadow:0 4px 14px rgba(0,0,0,.4);flex:none}
+.sl-card canvas{width:100%;height:100%;display:block;border-radius:7px;touch-action:none;cursor:crosshair;background:#fff}
+.sl-tools{display:flex;flex-direction:column;gap:10px;flex:1;min-width:220px}
+.sl-tools .swatches .sw{width:28px;height:28px}
+.sl-now{display:flex;align-items:center;gap:10px}
+.sl-now .card{--w:64px}
 .card.back .c-in span{font-family:var(--display);color:#fff;font-size:calc(var(--w)*.3);opacity:.9}
 .card.pick{cursor:pointer;transition:transform .12s}
 .card.pick:hover{transform:translateY(-4px)}
@@ -543,6 +551,7 @@ nav.tabs button{position:relative}
   .deck-float.ng span{color:var(--hit)}
   /* battle card details: a slim bar at the top instead of a big panel */
   .pop{top:calc(8px + env(safe-area-inset-top,0px))!important;bottom:auto!important;left:8px;right:8px!important;width:auto!important;max-height:30vh;padding:8px 42px 8px 8px!important;display:grid!important;grid-template-columns:auto minmax(0,1fr);gap:4px 10px;align-items:start;border-radius:14px!important;box-shadow:0 8px 24px rgba(0,0,0,.45)!important}
+  #detailPop[hidden]{display:none!important}
   .pop h3{display:none}
   .pop .detailcard{grid-row:span 3}
   .pop .card.detail{--w:62px!important}
@@ -779,6 +788,19 @@ nav.tabs button{position:relative}
       <div class="box" style="display:flex;flex-direction:column;gap:10px"><h2 style="margin:0">戦績</h2><div class="me-stats" id="mpStats"></div></div>
     </div>
     <div class="box" id="mpAcct" style="margin-bottom:22px"></div>
+    <div class="box" style="display:flex;flex-direction:column;gap:12px;margin-bottom:22px">
+      <div class="row" style="justify-content:space-between"><h2 style="margin:0">スリーブ（カードの裏）</h2><div class="sl-now"><span class="note">いまのスリーブ</span><span id="slNow"></span></div></div>
+      <p class="note" style="margin:0">対戦で相手に見える、自分のカードの裏がわ（相手から見た手札やセットしたカード）。描いたり写真を読みこんだりして「スリーブを保存」してね。</p>
+      <div class="sl-wrap">
+        <div class="sl-card"><canvas id="slCv" width="390" height="534" aria-label="スリーブを描くところ"></canvas></div>
+        <div class="sl-tools">
+          <div><h3>ペンの色</h3><div class="swatches" id="slSw"></div></div>
+          <div class="row"><div class="seg" id="slSize"></div><button class="small" id="slErase" aria-pressed="false">消しゴム</button><button class="small" id="slUndo">1つ戻す</button></div>
+          <div class="row"><button class="small" id="slFill">今の色でぬりつぶす</button><button class="small danger" id="slClear">ぜんぶ消す</button><span class="btn filebtn small" style="box-shadow:0 2px 0 var(--ink);padding:3px 10px;font-size:13px;border-radius:9px">写真を読みこむ<input type="file" id="slFile" accept="image/*"></span></div>
+          <div class="row"><button class="primary" id="slSave">スリーブを保存</button><button class="ghost small" id="slReset">いつもの青いスリーブに戻す</button></div>
+        </div>
+      </div>
+    </div>
     <div class="row" style="justify-content:space-between;margin-bottom:10px"><h2 style="margin:0">自分のデッキ</h2><button class="small" data-go="deck">デッキを作る</button></div>
     <div class="me-decks" id="mpDecks"></div>
     <div class="row" style="justify-content:space-between;margin:24px 0 10px"><h2 style="margin:0">自分のカード</h2><button class="small" data-go="make">カードを描く</button></div>
@@ -851,6 +873,7 @@ nav.tabs button{position:relative}
           <li>ATKは0以上なら上限なし（1きざみ）。「∞」にもできる</li>
           <li>効果とは別に「フレーバーテキスト」も書ける（ゲームには影響しない）。文字の大きさも名前・効果ごとに変えられる</li>
           <li>「半フレームレス」にすると、絵が下の文字の欄まで広がって、文字の欄が半透明になる（全身を見せたいときに）</li>
+          <li>マイページで「スリーブ」（カードの裏）を自分で描ける。対戦中、相手には自分のカードの裏がそのスリーブで見える</li>
           <li>ふりがなは ｜漢字《かんじ》 と書く（漢字のすぐ後なら 漢字《かんじ》 だけでもOK）</li>
         </ul>
       </div>
@@ -1242,7 +1265,11 @@ function socraHTML(c, t, cls, attrs, opts, sv, showCost){
   const art = c.img ? `<img alt="" src="${c.img}">` : "";
   return `<div class="card socra ${t}${showCost ? " costed" : ""} ${cls}" ${attrs}${sv.length ? ` style='${sv.join(";")}'` : ""}>${opts.done ? `<span class="done">${opts.done}</span>` : ""}${opts.eq ? `<span class="eqb">${esc(opts.eq)}</span>` : ""}<div class="c-in">${showCost ? `<span class="c-cost" title="コスト">${costOf(c)}</span>` : ""}<div class="s-name">${nameH}</div><div class="c-art">${art}</div><div class="c-text"><div class="body">${body}</div>${c.flavor ? `<div class="flv">${rubyHTML(c.flavor)}</div>` : ""}</div>${cap}${num}</div></div>`;
 }
-const backHTML = (cls = "", attrs = "") => `<div class="card back ${cls}" ${attrs}><div class="c-in"><span>?</span></div></div>`;
+// card back: the owner's own sleeve if they drew one
+const backHTML = (cls = "", attrs = "", sleeve = "") => sleeve && /^data:image\//.test(sleeve)
+  ? `<div class="card back sleeve ${cls}" ${attrs}><div class="c-in" style="background-image:url('${sleeve}')"></div></div>`
+  : `<div class="card back ${cls}" ${attrs}><div class="c-in"><span>?</span></div></div>`;
+const mySleeve = () => ls.get("cb_sleeve", "") || "";
 
 /* ================= ownership ================= */
 // cards/decks belong to the signed-in account (ownerId). Older items without ownerId fall back to the player name.
@@ -1468,7 +1495,7 @@ function setFrameless(on){
   composite();
 }
 $("#mkFrameless").addEventListener("change", e => setFrameless(e.target.checked));
-function syncFrame(){ $("#editCard").classList.toggle("socra", $("#mkFrame").value === "socra"); }
+function syncFrame(){ $("#editCard").classList.toggle("socra", $("#mkFrame").value === "socra"); $("#capRow").hidden = MK.type !== "monster" || $("#mkFrame").value !== "socra"; }
 $("#mkFrame").addEventListener("change", syncFrame);
 function clearCanvas(){ ik.clearRect(0, 0, ink.width, ink.height); photo = null; setMode("draw"); composite(); }
 $("#swatches").innerHTML = COLORS.map(c => `<button class="sw" style="background:${c}" data-c="${c}" aria-label="色 ${c}" aria-pressed="${c === pen.color}"></button>`).join("");
@@ -1628,7 +1655,7 @@ function setMkType(t){
   $("#mkTab").textContent = t === "magic" && $("#mkQuick").checked ? "速攻魔法" : TYPE_LABEL[t];
   if (typeof syncCost === "function" && $("#mkCost").options.length) syncCost();
   $("#eqRow").hidden = $("#eqNote").hidden = t !== "equip";
-  $("#capRow").hidden = t !== "monster";
+  $("#capRow").hidden = t !== "monster" || $("#mkFrame").value !== "socra";
   $("#absBox").hidden = t !== "monster" && t !== "equip";
   $("#absHead").textContent = t === "equip" ? "装備したモンスターに付く能力" : "このモンスターの能力";
   renderAbsForm(t);
@@ -1717,7 +1744,7 @@ $("#btnSave").addEventListener("click", async () => {
   const id = S.editId || uid("c");
   const prev = S.cards.get(id);
   let eqN = Math.round(+$("#mkEq").value || 0); $("#mkEq").value = eqN;
-  const doc = { type: MK.type, name, atk: MK.type === "monster" ? atk : 0, atkInf, eqN: MK.type === "equip" ? eqN : 0, eqAb: "none", eqCost: MK.type === "equip" ? Math.max(0, Math.round(+$("#mkEqCost").value || 0)) : null, eqCap: MK.type === "monster" && $("#mkEqCap").value.trim() !== "" ? Math.max(0, Math.round(+$("#mkEqCap").value || 0)) : null, abs: MK.type === "monster" || MK.type === "equip" ? readAbs() : [], frame: $("#mkFrame").value || null, effect: $("#mkEff").value.trim(), flavor: $("#mkFlv").value.trim(), nameSize: $("#mkNameSize").value, textSize: $("#mkTextSize").value, fx: readFx(), combo: readCombo(), font: $("#mkFont").value, quick: MK.type === "magic" && $("#mkQuick").checked, cost: MK.deck === "normal" ? null : +$("#mkCost").value, deckMode: MK.deck, limit: +$("#mkLimit").value,
+  const doc = { type: MK.type, name, atk: MK.type === "monster" ? atk : 0, atkInf, eqN: MK.type === "equip" ? eqN : 0, eqAb: "none", eqCost: MK.type === "equip" ? Math.max(0, Math.round(+$("#mkEqCost").value || 0)) : null, eqCap: MK.type === "monster" && $("#mkFrame").value === "socra" && $("#mkEqCap").value.trim() !== "" ? Math.max(0, Math.round(+$("#mkEqCap").value || 0)) : null, abs: MK.type === "monster" || MK.type === "equip" ? readAbs() : [], frame: $("#mkFrame").value || null, effect: $("#mkEff").value.trim(), flavor: $("#mkFlv").value.trim(), nameSize: $("#mkNameSize").value, textSize: $("#mkTextSize").value, fx: readFx(), combo: readCombo(), font: $("#mkFont").value, quick: MK.type === "magic" && $("#mkQuick").checked, cost: MK.deck === "normal" ? null : +$("#mkCost").value, deckMode: MK.deck, limit: +$("#mkLimit").value,
     img: prev && prev.img && !MK.artDirty ? prev.img : encodeArt(out), frameless: MK.frameless, author: S.name, ownerId: prev?.ownerId || S.uid || null, updatedAt: Date.now() };
   $("#btnSave").disabled = true;
   try{
@@ -1916,7 +1943,59 @@ function recordResult(){
   if (key){ r.seen.push(key); r.seen = r.seen.slice(-60); }
   ls.set("cb_record", r); saveProfile();
 }
+/* ---- sleeve editor (My page) ---- */
+const SL = { color: "#1e2328", size: 10, erase: false, undo: [], ready: false };
+const slCv = $("#slCv"), slX = slCv.getContext("2d");
+function slDefault(){ // the usual blue back with a "?"
+  slX.fillStyle = "#07328a"; slX.fillRect(0, 0, slCv.width, slCv.height);
+  slX.fillStyle = "rgba(255,255,255,.9)"; slX.font = `${slCv.width * .3}px "Dela Gothic One",sans-serif`; slX.textAlign = "center"; slX.textBaseline = "middle"; slX.fillText("?", slCv.width / 2, slCv.height / 2);
+}
+function slLoad(){
+  const src = mySleeve();
+  if (!src){ slDefault(); return; }
+  const im = new Image(); im.onload = () => { slX.drawImage(im, 0, 0, slCv.width, slCv.height); }; im.src = src;
+}
+function slPush(){ try{ SL.undo.push(slX.getImageData(0, 0, slCv.width, slCv.height)); if (SL.undo.length > 20) SL.undo.shift(); }catch(e){} }
+function slTools(){
+  document.querySelectorAll("#slSw .sw").forEach(b => b.setAttribute("aria-pressed", !SL.erase && b.dataset.c === SL.color));
+  document.querySelectorAll("#slSize button").forEach(b => b.setAttribute("aria-pressed", +b.dataset.s === SL.size));
+  $("#slErase").setAttribute("aria-pressed", SL.erase); $("#slErase").classList.toggle("primary", SL.erase);
+}
+$("#slSw").innerHTML = COLORS.map(c => `<button class="sw" style="background:${c}" data-c="${c}" aria-label="色 ${c}"></button>`).join("");
+$("#slSize").innerHTML = [["細", 5], ["中", 10], ["太", 22]].map(([l, s]) => `<button data-s="${s}">${l}</button>`).join("");
+$("#slSw").addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return; SL.color = b.dataset.c; SL.erase = false; slTools(); });
+$("#slSize").addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return; SL.size = +b.dataset.s; slTools(); });
+$("#slErase").addEventListener("click", () => { SL.erase = !SL.erase; slTools(); });
+$("#slUndo").addEventListener("click", () => { const d = SL.undo.pop(); if (d) slX.putImageData(d, 0, 0); });
+$("#slFill").addEventListener("click", () => { slPush(); slX.fillStyle = SL.color; slX.fillRect(0, 0, slCv.width, slCv.height); });
+$("#slClear").addEventListener("click", () => { slPush(); slX.fillStyle = "#fff"; slX.fillRect(0, 0, slCv.width, slCv.height); });
+$("#slFile").addEventListener("change", e => {
+  const f = e.target.files[0]; if (!f) return; e.target.value = "";
+  const rd = new FileReader(); rd.onload = () => { const im = new Image(); im.onload = () => { slPush(); const k = Math.max(slCv.width / im.width, slCv.height / im.height), w = im.width * k, h = im.height * k; slX.drawImage(im, (slCv.width - w) / 2, (slCv.height - h) / 2, w, h); }; im.src = rd.result; }; rd.readAsDataURL(f);
+});
+const slPt = e => { const r = slCv.getBoundingClientRect(); return { x: (e.clientX - r.left) * slCv.width / r.width, y: (e.clientY - r.top) * slCv.height / r.height }; };
+let slLast = null;
+function slLine(a, b){
+  slX.save(); slX.lineCap = slX.lineJoin = "round";
+  slX.strokeStyle = SL.erase ? "#fff" : SL.color; slX.fillStyle = slX.strokeStyle; slX.lineWidth = SL.erase ? SL.size * 2 : SL.size;
+  if (a.x === b.x && a.y === b.y){ slX.beginPath(); slX.arc(a.x, a.y, slX.lineWidth / 2, 0, 7); slX.fill(); }
+  else { slX.beginPath(); slX.moveTo(a.x, a.y); slX.lineTo(b.x, b.y); slX.stroke(); }
+  slX.restore();
+}
+slCv.addEventListener("pointerdown", e => { e.preventDefault(); slCv.setPointerCapture(e.pointerId); slPush(); slLast = slPt(e); slLine(slLast, slLast); });
+slCv.addEventListener("pointermove", e => { if (!slLast) return; const evs = e.getCoalescedEvents ? e.getCoalescedEvents() : [e]; for (const ev of (evs.length ? evs : [e])){ const p = slPt(ev); slLine(slLast, p); slLast = p; } });
+["pointerup", "pointercancel"].forEach(t => slCv.addEventListener(t, () => { slLast = null; }));
+// saved small (it travels inside every online game), stepping the quality down until it fits
+function slEncode(){
+  const c = document.createElement("canvas"); c.width = 195; c.height = 267; c.getContext("2d").drawImage(slCv, 0, 0, c.width, c.height);
+  let url = ""; for (const q of [.85, .75, .65, .55, .45]){ url = c.toDataURL("image/jpeg", q); if (url.length < 40000) break; }
+  return url;
+}
+$("#slSave").addEventListener("click", () => { ls.set("cb_sleeve", slEncode()); if (typeof saveProfile === "function") saveProfile(); renderMe(); toast("スリーブを保存しました（次の対戦から使われます）"); });
+$("#slReset").addEventListener("click", () => { ls.set("cb_sleeve", ""); if (typeof saveProfile === "function") saveProfile(); SL.undo = []; slDefault(); renderMe(); toast("いつものスリーブに戻しました"); });
 function renderMe(){
+  if (!SL.ready){ SL.ready = true; slTools(); slLoad(); }
+  $("#slNow").innerHTML = backHTML("", "", mySleeve());
   renderAcct();
   if (document.activeElement !== $("#mpName")) $("#mpName").value = S.name;
   const mine = S.userCards.filter(c => isMine(c)).sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
@@ -2055,7 +2134,7 @@ const acctErr = e => ({
 // name / icon / record follow the ID to other devices
 function saveProfile(){
   if (!S.loginId || !S.db) return Promise.resolve();
-  return S.db.doc("users/" + S.uid).set({ id: S.loginId, name: S.name, icon: ls.get("cb_icon", ""), record: ls.get("cb_record", null), updatedAt: Date.now() }).catch(() => {});
+  return S.db.doc("users/" + S.uid).set({ id: S.loginId, name: S.name, icon: ls.get("cb_icon", ""), record: ls.get("cb_record", null), sleeve: ls.get("cb_sleeve", ""), updatedAt: Date.now() }).catch(() => {});
 }
 async function loadProfile(){
   if (!S.loginId || !S.db) return;
@@ -2065,6 +2144,7 @@ async function loadProfile(){
     const pr = d.data();
     if (pr.name){ S.name = pr.name; ls.set("cb_name", pr.name); }
     if (pr.icon != null) ls.set("cb_icon", pr.icon);
+    if (pr.sleeve != null){ ls.set("cb_sleeve", pr.sleeve); SL.ready = false; }
     if (pr.record) ls.set("cb_record", pr.record);
     renderAll();
   }catch(e){}
@@ -2167,7 +2247,7 @@ $("#rejoin").addEventListener("click", e => { if (e.target.closest("#btnRejoin")
 
 function newPlayer(deckIds, name, mana){
   const deck = shuffle([...deckIds]); const hand = deck.splice(0, 5);
-  return { name: name || S.name, lp: START_LP, deck, hand, grave: [], mz: Array(ZONES).fill(null), sz: Array(ZONES).fill(null), mana: mana ? { max: 0, cur: 0 } : null };
+  return { name: name || S.name, lp: START_LP, deck, hand, grave: [], mz: Array(ZONES).fill(null), sz: Array(ZONES).fill(null), mana: mana ? { max: 0, cur: 0 } : null, sleeve: name ? null : (mySleeve() || null) };
 }
 function makeCode(){ const a = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; let s = ""; for (let i = 0; i < 4; i++) s += a[Math.floor(Math.random() * a.length)]; return s; }
 function startState(pa, pb){
@@ -2817,7 +2897,7 @@ function renderBoard(){
     const cls = `pick ${selected ? "sel" : ""} ${isTarget ? "target" : ""}`;
     if (kind === "sz"){
       if (z.face) return cardHTML(card(z.c), cls, attrs, mOpt(s));
-      if (!mine) return backHTML(cls, attrs);
+      if (!mine) return backHTML(cls, attrs, P(st, s).sleeve);
       return cardHTML(card(z.c), `${cls} isset`, attrs, mOpt(s));
     }
     const es = eqsOf(z), cap = eqCapOf(card(z.c));
@@ -2885,7 +2965,7 @@ function renderBoard(){
     <div class="table">
       ${manaBox(po, esc(po.name))}
       <div class="mstat"><span class="who">${esc(po.name)}</span><span>山札 ${po.deck.length}</span><span>墓地 ${po.grave.length}</span><span class="lpv ${po.lp <= 300 ? "low" : ""}"><small>LP</small>${po.lp}</span></div>
-      <div class="ohand">${backHTML("xs")}<span class="cnt-x">×${po.hand.length}</span><span class="lbl">手札（${esc(po.name)}）</span></div>
+      <div class="ohand">${backHTML("xs", "", po.sleeve)}<span class="cnt-x">×${po.hand.length}</span><span class="lbl">手札（${esc(po.name)}）</span></div>
       <span class="zlabel">相手の魔法・罠ゾーン</span>
       <div class="zones">${zoneHTML(op, "sz")}</div>
       <span class="zlabel">相手のモンスターゾーン</span>
@@ -2994,7 +3074,7 @@ function detailInfo(z, s, i){
   const owner = s === "me" ? G.slot : O(G.slot), X = P(G.st, owner);
   if (z === "hand") return X.hand[i] ? { id: X.hand[i], where: "手札", mana: !!X.mana } : null;
   const slot = X[z] && X[z][i]; if (!slot) return null;
-  if (z === "sz" && s === "op" && !slot.face) return { hidden: true };
+  if (z === "sz" && s === "op" && !slot.face) return { hidden: true, sleeve: X.sleeve };
   const info = { mana: !!X.mana, id: slot.c, mod: z === "mz" ? modOf(slot) : 0, attacked: slot.attacked, where: z === "mz" ? (s === "me" ? "自分の場" : "相手の場") : (slot.face ? "魔法・罠ゾーン" : "セット中"), setTurn: z === "sz" ? slot.turn : null };
   if (z === "mz"){
     const es = eqsOf(slot);
@@ -3017,7 +3097,7 @@ function renderDetail(info, anim){
   const box = $("#detailPop"); if (!box) return;
   if (!G || !G.detailOpen || !info){ box.hidden = true; box.innerHTML = ""; return; }
   box.hidden = false; box.classList.toggle("anim", !!anim);
-  if (info.hidden){ box.innerHTML = `${CLOSE}<h3>カード詳細</h3><div class="detailcard">${backHTML("detail")}</div><p class="note" style="margin:0">相手がセットしたカード。中身はひみつ。</p>`; return; }
+  if (info.hidden){ box.innerHTML = `${CLOSE}<h3>カード詳細</h3><div class="detailcard">${backHTML("detail", "", info.sleeve)}</div><p class="note" style="margin:0">相手がセットしたカード。中身はひみつ。</p>`; return; }
   const c = card(info.id), t = cardType(c), ft = fxText(c), lim = cardLimit(c);
   const rows = [["種類", isQuick(c) ? "速攻魔法（相手のターンにも使える）" : TYPE_LABEL[t]]];
   if (hasCost(c) && info.mana !== false) rows.push(["コスト", String(costOf(c))]);
