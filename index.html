@@ -1271,9 +1271,9 @@ function fxText0(c){
   if (fx){
     const cond = fx.kind === "win" && fx.cond && CONDS[fx.cond] ? CONDS[fx.cond].text(fx.cn) : "";
     const ask = fx.ask ? `「${fx.ask}」に「はい」なら、` : "";
-    out = (isMon ? `【${trigLabel(t, fx.trig)}】` : isPersist(c) && fx.trig !== "use" ? `【${PERSIST_TRIG_LABEL[fx.trig]}】` : "") + ask + cond + KINDS[fx.kind].text(fx.n) + moreFx(fx).map(m => "、" + KINDS[m.kind].text(m.n)).join("");
+    out = (isMon ? `【${trigLabel(t, fx.trig)}】` : isPersist(c) && fx.trig !== "use" ? `【${PERSIST_TRIG_LABEL[fx.trig]}】` : "") + ask + cond + KINDS[fx.kind].text(fx.n) + moreFx(fx).map((m, k, all) => { let t = KINDS[m.kind].text(m.n); const aim = x => ["dmg", "bash", "vuln"].includes(x); if (c.frame === "spire" && aim(m.kind) && [fx, ...all.slice(0, k)].some(x => aim(x.kind))) t = t.replace(/^相手(に|を)/, "同じ相手$1"); return "、" + t; }).join("");
     if (t === "equip") out = out.replace(/このモンスター/g, "装備したモンスター");
-    if (c.frame === "spire") out = out.replace(/相手に(\d+)ダメージ/g, "相手か相手のモンスター1体に$1ダメージ").replace(/相手を弱体/g, "相手か相手のモンスター1体を弱体");
+    if (c.frame === "spire") out = out.replace(/(?<!同じ)相手に(\d+)ダメージ/g, "相手か相手のモンスター1体に$1ダメージ").replace(/(?<!同じ)相手を弱体/g, "相手か相手のモンスター1体を弱体");
     if (c.costX) out = "【X回くり返す】" + out;
   }
   if (cb){
@@ -1423,7 +1423,7 @@ const SPIRE_ALTAR = { id: "spire-altar", type: "magic", frame: "spire", sk: "pow
 const SPIRE_BASIC = [
   { id: "spire-strike", sk: "attack", name: "攻撃", cost: 1, fx: { kind: "dmg", n: 60 } },
   { id: "spire-defend", sk: "skill", name: "防御", cost: 1, fx: { kind: "block", n: 50 } },
-  { id: "spire-bash", sk: "attack", name: "強打", cost: 2, fx: { kind: "bash", n: 80 } }
+  { id: "spire-bash", sk: "attack", name: "強打", cost: 2, fx: { kind: "dmg", n: 80, more: [{ kind: "vuln", n: 2 }] } }
 ].map(x => ({ type: "magic", frame: "spire", rarity: "common", persist: false, atk: 0, eqN: 0, eqAb: "none", abs: [], combo: null, effect: "", flavor: "", deckMode: "both", limit: 5, author: "スターター", starter: true, img: "", ...x, fx: { trig: "use", ...x.fx } }));
 function spireDeck(){ return { id: "spire-start", name: "スパイアデッキ（はじまり）", cards: [...Array(5).fill("spire-strike"), ...Array(4).fill("spire-defend"), "spire-bash"], builtin: true, mana: true, spire: true, key: "spire-strike" }; }
 const draftPool = () => [...S.cards.values()].filter(c => c && c.frame === "spire" && c.id !== SPIRE_ALTAR.id && !SPIRE_BASIC.some(b => b.id === c.id));
@@ -2035,7 +2035,7 @@ function readCombo(){
    The original <select> stays as the value everything else reads; these two just drive it. ---- */
 const KIND_GROUPS = [
   { g: "none",    label: "なし",                     v: [["none", "なし"]] },
-  { g: "dmg",     label: "ダメージを与える",          v: [["dmg", "相手（スパイア風は相手かモンスター1体）"], ["dmgRand", "ランダムな敵"], ["dmgAll", "相手と相手のモンスター全部"], ["bash", "相手（＋弱体2）"]] },
+  { g: "dmg",     label: "ダメージを与える",          v: [["dmg", "相手（スパイア風は相手かモンスター1体）"], ["dmgRand", "ランダムな敵"], ["dmgAll", "相手と相手のモンスター全部"]] },
   { g: "destroy", label: "モンスターを破壊する",      v: [["destroy", "相手のモンスター1体"], ["destroyAll", "相手のモンスター全部"], ["killAtk", "攻撃してきたモンスター（罠）"]] },
   { g: "atkUp",   label: "ATKを上げる",               v: [["selfAtk", "このモンスター"], ["atkUp", "自分のモンスター1体"], ["atkAll", "自分のモンスター全部"]] },
   { g: "debuff",  label: "デバフをつける",            v: [["vuln", "弱体（受けるダメージ1.5倍）：相手（スパイア風は相手かモンスター1体）"], ["vulnAll", "弱体：相手と相手のモンスター全部"], ["charm", "魅了（攻撃できない）：相手のモンスター1体"], ["charmAll", "魅了：相手のモンスター全部"], ["atkDown", "ATKダウン：相手のモンスター1体"], ["atkDownAll", "ATKダウン：相手のモンスター全部"]] },
@@ -2066,7 +2066,7 @@ function attachKindPicker(sel){
     v.addEventListener("change", push);
     sel._kp = { g, v, sig: "" };
   }
-  const { g } = sel._kp, avail = [...sel.options].map(o => o.value), sig = avail.join(",");
+  const HIDDEN = ["bash"], avail = [...sel.options].map(o => o.value).filter(k => !HIDDEN.includes(k) || k === sel.value), { g } = sel._kp, sig = avail.join(",");
   if (sig !== sel._kp.sig){
     sel._kp.sig = sig;
     const known = new Set(KIND_GROUPS.flatMap(x => x.v.map(y => y[0])));
@@ -3128,6 +3128,7 @@ function destroyMonster(st, s, i, why, opt = {}){
 // apply effect of card c for player s. target resolved already (or undefined for untargeted)
 function applyEffect(st, s, c, target, ctx = {}, fx = normFx(c)){
   if (!fx) return;
+  if (ctx.hit && ctx.spireAtk && typeof target === "string") ctx.hit.t = target;
   const me = P(st, s), op = P(st, O(s)), n = fx.n || 0, src = `「${c.name}」`;
   switch (fx.kind){
     case "heal": me.lp += n; log(st, s, `${src}でLPを${n}回復`); break;
@@ -3219,6 +3220,7 @@ function runEffect(st, s, c, ctx = {}, then, fx = normFx(c)){
   if (fx.kind === "draft" && !ctx.draft) ctx = { ...ctx, draft: draftPick(fx.n) };
   if (c && c.frame === "spire" && (fx.kind === "dmg" || fx.kind === "bash" || fx.kind === "vuln")) ctx = { ...ctx, spireAtk: true };
   const opts = targetOptions(st, s, fx.kind, ctx);
+  if (opts && ctx.spireAtk && ctx.hit && ctx.hit.t && opts.includes(ctx.hit.t)){ applyEffect(st, s, c, ctx.hit.t, ctx, fx); then && then(st); return; }
   if (opts === null){ applyEffect(st, s, c, undefined, ctx, fx); then && then(st); return; }
   if (!opts.length){ log(st, s, `「${c.name}」：対象がいない`); then && then(st); return; }
   if (isHumanHere(s)){
@@ -3238,6 +3240,7 @@ function comboMet(st, s, cb, ctx = {}){
 }
 // run a card's main effect and (if its condition holds) its extra effect, in order
 function runCard(st, s, c, trig, ctx = {}, then){
+  ctx = { ...ctx, hit: {} };
   const list = [];
   const fx = normFx(c), cb = normCombo(c);
   if (fx && fx.trig === trig){ list.push(fx); moreFx(fx).forEach(m => list.push({ kind: m.kind, n: m.n, trig })); }
