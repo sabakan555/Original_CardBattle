@@ -348,6 +348,12 @@ ruby rt{font-size:.5em;line-height:1;font-style:normal}
 .pl .nm{font-weight:700}
 .lp{display:inline-flex;flex-direction:column;align-items:center;background:#fff;border:2px solid #1e2328;border-radius:10px;padding:2px 14px 4px;font-family:var(--hand);line-height:1.05;box-shadow:2px 3px 0 #1e2328;min-width:92px}
 .lp small{font-size:12px}
+.more-fx{display:flex;flex-direction:column;gap:6px}
+.more-fx .mfx{display:flex;align-items:center;gap:6px}
+.more-fx .mfx .note{flex:none}
+.more-fx .mfk{flex:1;min-width:0;width:auto}
+.more-fx .mfx input{width:80px;flex:none}
+.more-fx .mfx button{flex:none}
 .pick-player{min-width:120px;min-height:120px;border-radius:14px;font-weight:700;font-size:16px}
 .bst{display:inline-block;margin-left:6px;padding:2px 8px;border-radius:99px;font:700 12px/1.4 var(--ui);vertical-align:middle;white-space:nowrap}
 .bst.blk{background:#2d6fb3;color:#fff}.bst.vul{background:#8a3fb0;color:#fff}
@@ -794,6 +800,8 @@ nav.tabs button{position:relative}
                 <label class="f">なにをする<select id="fxKind"></select></label>
                 <label class="f" id="fxNWrap">数<input type="number" id="fxN" min="1" max="9999" value="100"></label>
               </div>
+              <div id="moreFx" class="more-fx"></div>
+              <button class="small" type="button" id="btnMoreFx">＋ 効果をもうひとつ追加（同じタイミングで続けて出る）</button>
               <div class="row" id="condRow" hidden>
                 <label class="f">勝利の条件<select id="fxCond"></select></label>
                 <label class="f" id="fxCnWrap">数<input type="number" id="fxCn" min="1" max="9999" value="3"></label>
@@ -1228,6 +1236,8 @@ function ssText(c){
   const ss = ssOf(c); if (!ss) return "";
   return `${ss.only ? "このカードは普通には召喚できない。" : ""}【特殊召喚】${SS_CONDS[ss.cond].text(ss.n, ss.name)}${SS_COSTS[ss.cost].text(ss.cn)}手札から特殊召喚できる`;
 }
+// extra effects that follow the main one (same timing), e.g. 「100ダメージを与えて、1枚引く」
+const moreFx = fx => (fx && Array.isArray(fx.more) ? fx.more : []).filter(m => m && KINDS[m.kind] && m.kind !== "none" && m.kind !== "win");
 function fxText(c){ return [isPersist(c) ? "【永続】使ったあとも場に残る" : "", ssText(c), fxText0(c)].filter(Boolean).join("。"); }
 function fxText0(c){
   const fx = normFx(c), cb = normCombo(c); if (!fx && !cb) return "";
@@ -1236,9 +1246,9 @@ function fxText0(c){
   if (fx){
     const cond = fx.kind === "win" && fx.cond && CONDS[fx.cond] ? CONDS[fx.cond].text(fx.cn) : "";
     const ask = fx.ask ? `「${fx.ask}」に「はい」なら、` : "";
-    out = (isMon ? `【${trigLabel(t, fx.trig)}】` : isPersist(c) && fx.trig !== "use" ? `【${PERSIST_TRIG_LABEL[fx.trig]}】` : "") + ask + cond + KINDS[fx.kind].text(fx.n);
+    out = (isMon ? `【${trigLabel(t, fx.trig)}】` : isPersist(c) && fx.trig !== "use" ? `【${PERSIST_TRIG_LABEL[fx.trig]}】` : "") + ask + cond + KINDS[fx.kind].text(fx.n) + moreFx(fx).map(m => "、" + KINDS[m.kind].text(m.n)).join("");
     if (t === "equip") out = out.replace(/このモンスター/g, "装備したモンスター");
-    if (c.frame === "spire" && (fx.kind === "dmg" || fx.kind === "bash")) out = out.replace("相手に", "相手か相手のモンスター1体に");
+    if (c.frame === "spire") out = out.replace(/相手に(\d+)ダメージ/g, "相手か相手のモンスター1体に$1ダメージ");
   }
   if (cb){
     const head = fx ? (fx.trig === cb.trig ? "。さらに" : `。【${TRIGS[cb.trig]}】`) : (isMon ? `【${TRIGS[cb.trig]}】` : "");
@@ -1951,6 +1961,7 @@ function setMkType(t){
   const kinds = Object.entries(KINDS).filter(([, v]) => (!v.trap || t === "trap") && (!v.mon || t === "monster" || t === "equip") && (!v.chain || t === "trap" || t === "magic"));
   const opts = kinds.map(([k, v]) => `<option value="${k}">${v.label}</option>`).join("");
   $("#fxKind").innerHTML = opts; $("#cbKind").innerHTML = opts;
+  if (typeof refreshMoreFx === "function") refreshMoreFx();
   $("#fxKind").value = kinds.some(([k]) => k === curK) ? curK : "none";
   $("#cbKind").value = kinds.some(([k]) => k === curCb) ? curCb : "none";
   syncFxForm();
@@ -1981,6 +1992,8 @@ function readFx(){
   if ($("#fxAskOn").checked && $("#fxAsk").value.trim()) fx.ask = $("#fxAsk").value.trim();
   if (KINDS[kind].n) fx.n = Math.max(1, Math.round(+$("#fxN").value || 1));
   if (kind === "win"){ fx.cond = $("#fxCond").value; if (CONDS[fx.cond].n) fx.cn = Math.max(1, Math.round(+$("#fxCn").value || 1)); }
+  const more = [...document.querySelectorAll("#moreFx .mfx")].map(r => { const k = r.querySelector(".mfk").value, m = { kind: k }; if (KINDS[k] && KINDS[k].n) m.n = Math.max(1, Math.round(+r.querySelector(".mfn").value || 1)); return m; }).filter(m => KINDS[m.kind] && m.kind !== "none");
+  if (more.length) fx.more = more;
   return fx;
 }
 function readCombo(){
@@ -1995,6 +2008,7 @@ function syncFxForm(){
   const kind = $("#fxKind").value;
   $("#cbNWrap").hidden = !(KINDS[$("#cbKind").value] && KINDS[$("#cbKind").value].n);
   $("#fxNWrap").hidden = !(KINDS[kind] && KINDS[kind].n);
+  if (typeof syncMoreFx === "function") syncMoreFx();
   $("#condRow").hidden = kind !== "win";
   $("#fxCnWrap").hidden = !(CONDS[$("#fxCond").value] || {}).n;
   $("#mkFxLine").textContent = fxText({ type: MK.type, fx: readFx(), combo: readCombo(), ss: readSS() });
@@ -2021,9 +2035,29 @@ const smallN = k => ["draw", "discard", "manaNow", "manaMax", "manaDrain"].inclu
 }));
 $("#cbWhere").innerHTML = Object.entries(WHERE).map(([k, v]) => `<option value="${k}">自分の${v}</option>`).join("");
 ["#fxTrig", "#fxKind", "#fxN", "#fxCond", "#fxCn", "#cbName", "#cbMatch", "#cbWhere", "#cbKind", "#cbN"].forEach(s => $(s).addEventListener("input", syncFxForm));
+// 追加の効果 rows (any number): what to do + a number, run right after the main effect
+function moreKindOpts(){ return [...$("#fxKind").options].filter(o => o.value !== "none" && o.value !== "win").map(o => `<option value="${o.value}">${o.textContent}</option>`).join(""); }
+function addMoreFx(m){
+  const r = document.createElement("div"); r.className = "mfx";
+  r.innerHTML = `<span class="note">そのあと</span><select class="mfk">${moreKindOpts()}</select><input type="number" class="mfn" min="1" max="9999" value="${m && m.n ? m.n : 100}"><button class="small ghost" type="button" data-mfdel aria-label="この効果を消す">×</button>`;
+  if (m && m.kind && r.querySelector(`.mfk option[value="${m.kind}"]`)) r.querySelector(".mfk").value = m.kind;
+  $("#moreFx").appendChild(r); syncMoreFx();
+}
+function syncMoreFx(){
+  const on = $("#fxKind").value && $("#fxKind").value !== "none";
+  $("#btnMoreFx").hidden = !on; $("#moreFx").hidden = !on;
+  document.querySelectorAll("#moreFx .mfx").forEach(r => { const k = r.querySelector(".mfk").value; r.querySelector(".mfn").hidden = !(KINDS[k] && KINDS[k].n); });
+}
+function refreshMoreFx(){ const cur = [...document.querySelectorAll("#moreFx .mfx")].map(r => ({ kind: r.querySelector(".mfk").value, n: +r.querySelector(".mfn").value })); $("#moreFx").innerHTML = ""; cur.forEach(m => { if ([...$("#fxKind").options].some(o => o.value === m.kind)) addMoreFx(m); }); syncMoreFx(); }
+$("#btnMoreFx").addEventListener("click", () => { addMoreFx({ kind: "draw", n: 1 }); syncFxForm(); });
+$("#moreFx").addEventListener("click", e => { const d = e.target.closest("[data-mfdel]"); if (d){ d.closest(".mfx").remove(); syncFxForm(); } });
+$("#moreFx").addEventListener("input", () => { syncMoreFx(); syncFxForm(); });
+$("#moreFx").addEventListener("change", e => { const s = e.target.closest(".mfk"); if (s){ const n = s.parentNode.querySelector(".mfn"), v = +n.value || 0; if (smallN(s.value) && v > 5) n.value = 1; if (!smallN(s.value) && v < 50) n.value = 100; } syncMoreFx(); syncFxForm(); });
 function loadFxForm(c){
   const fx = normFx(c);
+  $("#moreFx").innerHTML = "";
   $("#fxKind").value = fx ? fx.kind : "none";
+  moreFx(fx).forEach(m => addMoreFx(m));
   if (fx && (MK.type === "monster" || MK.type === "equip" || isPersist(c))) $("#fxTrig").value = fx.trig;
   $("#fxAskOn").checked = !!(fx && fx.ask); $("#fxAsk").value = fx && fx.ask ? fx.ask : "";
   $("#fxN").value = fx && fx.n ? fx.n : 100;
@@ -3074,7 +3108,7 @@ function comboMet(st, s, cb, ctx = {}){
 function runCard(st, s, c, trig, ctx = {}, then){
   const list = [];
   const fx = normFx(c), cb = normCombo(c);
-  if (fx && fx.trig === trig) list.push(fx);
+  if (fx && fx.trig === trig){ list.push(fx); moreFx(fx).forEach(m => list.push({ kind: m.kind, n: m.n, trig })); }
   if (cb && cb.trig === trig){
     if (comboMet(st, s, cb, ctx)){ log(st, s, `${cb.match === "part" ? `名前に「${cb.name}」が入ったカード` : `「${cb.name}」`}があるので「${c.name}」の追加効果が発動！`); list.push({ kind: cb.kind, n: cb.n, trig }); }
   }
