@@ -359,8 +359,9 @@ ruby rt{font-size:.5em;line-height:1;font-style:normal}
 .more-fx .mfx{display:flex;align-items:center;gap:6px}
 .more-fx .mfx .note{flex:none}
 .more-fx .mfk{flex:1;min-width:0;width:auto}
-.more-fx .kp-g,.more-fx .kp-v{flex:1;min-width:0;width:auto}
-.kp-vwrap[hidden],.kp-v[hidden],#fxKind[hidden],#cbKind[hidden],.mfk[hidden]{display:none!important}
+.more-fx .kp-g,.more-fx .kp-v,.more-fx .kp-t{flex:1;min-width:0;width:auto}
+.more-fx .mfx{flex-wrap:wrap}
+.kp-vwrap[hidden],.kp-v[hidden],.kp-t[hidden],#fxKind[hidden],#cbKind[hidden],.mfk[hidden]{display:none!important}
 .more-fx .mfx input{width:80px;flex:none}
 .more-fx .mfx button{flex:none}
 .pick-player{min-width:120px;min-height:120px;border-radius:14px;font-weight:700;font-size:16px}
@@ -1263,6 +1264,39 @@ function ssText(c){
 // extra effects that follow the main one (same timing), e.g. 「100ダメージを与えて、1枚引く」
 const moreFx = fx => (fx && Array.isArray(fx.more) ? fx.more : []).filter(m => m && KINDS[m.kind] && m.kind !== "none" && m.kind !== "win");
 const costLabel = c => c && c.costX ? "X" : costOf(c);
+
+/* ---- 「だれに」: one base effect (ダメージ / 弱体 / 魅了 / ATKダウン / 破壊) + who it goes to ---- */
+const TARGETABLE = { dmg: ["one", "two", "random", "all"], vuln: ["one", "two", "random", "all"], atkDown: ["one", "two", "random", "all"], charm: ["one", "two", "random", "all"], destroy: ["one", "two", "random", "all"] };
+const TO_LABEL = { one: "1体をえらぶ", two: "ちがう2体をえらぶ", random: "ランダムに1体", all: "全体" };
+const TO_ALL = { dmg: "dmgAll", vuln: "vulnAll", atkDown: "atkDownAll", charm: "charmAll", destroy: "destroyAll" };
+const TO_LEGACY = { dmgRand: ["dmg", "random"], dmgAll: ["dmg", "all"], vulnAll: ["vuln", "all"], atkDownAll: ["atkDown", "all"], charmAll: ["charm", "all"], destroyAll: ["destroy", "all"] };
+const hitsPlayer = k => k === "dmg" || k === "vuln";
+// the words for who gets it: 相手 / 相手のモンスター …
+function toPhrase(kind, to, spire){
+  const pl = hitsPlayer(kind);
+  if (to === "all") return pl ? "相手と相手のモンスターすべて" : "相手のモンスターすべて";
+  if (to === "random") return pl ? "ランダムな敵（相手か相手のモンスター）" : "ランダムな相手のモンスター1体";
+  if (to === "two") return pl ? "相手と相手のモンスターからちがう2つ" : "相手のモンスター2体";
+  return pl ? (spire ? "相手か相手のモンスター1体" : "相手") : "相手のモンスター1体";
+}
+function toText(kind, n, to, spire){
+  const w = toPhrase(kind, to, spire);
+  if (kind === "dmg") return `${w}に${n}ダメージ`;
+  if (kind === "vuln") return `${w}を弱体${n}にする`;
+  if (kind === "atkDown") return `${w}のATK−${n}`;
+  if (kind === "charm") return `${w}を魅了する（このカードが場にある間、攻撃できない）`;
+  if (kind === "destroy") return `${w}を破壊`;
+  return KINDS[kind].text(n);
+}
+// one effect → what the engine runs (全体 → the old 全体 kinds, 2体 → twice with different targets, ランダム → a random pick)
+function expandFx(f){
+  const to = f.to, k = f.kind;
+  if (!to || to === "one" || !TARGETABLE[k]) return [f];
+  if (to === "all") return [{ ...f, kind: TO_ALL[k], to: null }];
+  if (to === "random") return [{ ...f, rand: true }];
+  if (to === "two") return [{ ...f, distinct: true }, { ...f, distinct: true, ask: "" }];
+  return [f];
+}
 function fxText(c){ return [isPersist(c) ? "【永続】使ったあとも場に残る" : "", ssText(c), fxText0(c)].filter(Boolean).join("。"); }
 function fxText0(c){
   const fx = normFx(c), cb = normCombo(c); if (!fx && !cb) return "";
@@ -1271,7 +1305,7 @@ function fxText0(c){
   if (fx){
     const cond = fx.kind === "win" && fx.cond && CONDS[fx.cond] ? CONDS[fx.cond].text(fx.cn) : "";
     const ask = fx.ask ? `「${fx.ask}」に「はい」なら、` : "";
-    out = (isMon ? `【${trigLabel(t, fx.trig)}】` : isPersist(c) && fx.trig !== "use" ? `【${PERSIST_TRIG_LABEL[fx.trig]}】` : "") + ask + cond + KINDS[fx.kind].text(fx.n) + moreFx(fx).map((m, k, all) => { let t = KINDS[m.kind].text(m.n); const aim = x => ["dmg", "bash", "vuln"].includes(x); if (c.frame === "spire" && aim(m.kind) && [fx, ...all.slice(0, k)].some(x => aim(x.kind))) t = t.replace(/^相手(に|を)/, "同じ相手$1"); return "、" + t; }).join("");
+    out = (isMon ? `【${trigLabel(t, fx.trig)}】` : isPersist(c) && fx.trig !== "use" ? `【${PERSIST_TRIG_LABEL[fx.trig]}】` : "") + ask + cond + (fx.to && TARGETABLE[fx.kind] ? toText(fx.kind, fx.n, fx.to, c.frame === "spire") : KINDS[fx.kind].text(fx.n)) + moreFx(fx).map((m, k, all) => { const one = x => !x.to || x.to === "one"; let t = m.to && TARGETABLE[m.kind] ? toText(m.kind, m.n, m.to, c.frame === "spire") : KINDS[m.kind].text(m.n); const aim = x => ["dmg", "bash", "vuln"].includes(x.kind) && one(x); if (c.frame === "spire" && aim(m) && [fx, ...all.slice(0, k)].some(aim)) t = t.replace(/^相手(に|を)/, "同じ相手$1"); return "、" + t; }).join("");
     if (t === "equip") out = out.replace(/このモンスター/g, "装備したモンスター");
     if (c.frame === "spire") out = out.replace(/(?<!同じ)相手に(\d+)ダメージ/g, "相手か相手のモンスター1体に$1ダメージ").replace(/(?<!同じ)相手を弱体/g, "相手か相手のモンスター1体を弱体");
     if (c.costX) out = "【X回くり返す】" + out;
@@ -1279,7 +1313,7 @@ function fxText0(c){
   if (cb){
     const head = fx ? (fx.trig === cb.trig ? "。さらに" : `。【${TRIGS[cb.trig]}】`) : (isMon ? `【${TRIGS[cb.trig]}】` : "");
     const who = cb.match === "part" ? `名前に「${cb.name}」が入ったカード` : `「${cb.name}」`;
-    out += `${head}${who}が自分の${WHERE[cb.where]}にあれば、${fx ? "" : "追加で"}${KINDS[cb.kind].text(cb.n)}`;
+    out += `${head}${who}が自分の${WHERE[cb.where]}にあれば、${fx ? "" : "追加で"}${(cb.to && TARGETABLE[cb.kind] ? toText(cb.kind, cb.n, cb.to, c.frame === "spire") : KINDS[cb.kind].text(cb.n))}`;
   }
   return out;
 }
@@ -2017,8 +2051,9 @@ function readFx(){
   const fx = { trig: MK.type === "monster" || MK.type === "equip" || ((MK.type === "magic" || MK.type === "trap") && $("#mkPersist").checked) ? $("#fxTrig").value : "use", kind };
   if ($("#fxAskOn").checked && $("#fxAsk").value.trim()) fx.ask = $("#fxAsk").value.trim();
   if (KINDS[kind].n) fx.n = Math.max(1, Math.round(+$("#fxN").value || 1));
+  if (TARGETABLE[kind] && $("#fxKind").dataset.to && $("#fxKind").dataset.to !== "one") fx.to = $("#fxKind").dataset.to;
   if (kind === "win"){ fx.cond = $("#fxCond").value; if (CONDS[fx.cond].n) fx.cn = Math.max(1, Math.round(+$("#fxCn").value || 1)); }
-  const more = [...document.querySelectorAll("#moreFx .mfx")].map(r => { const k = r.querySelector(".mfk").value, m = { kind: k }; if (KINDS[k] && KINDS[k].n) m.n = Math.max(1, Math.round(+r.querySelector(".mfn").value || 1)); return m; }).filter(m => KINDS[m.kind] && m.kind !== "none");
+  const more = [...document.querySelectorAll("#moreFx .mfx")].map(r => { const s = r.querySelector(".mfk"), k = s.value, m = { kind: k }; if (TARGETABLE[k] && s.dataset.to && s.dataset.to !== "one") m.to = s.dataset.to; if (KINDS[k] && KINDS[k].n) m.n = Math.max(1, Math.round(+r.querySelector(".mfn").value || 1)); return m; }).filter(m => KINDS[m.kind] && m.kind !== "none");
   if (more.length) fx.more = more;
   return fx;
 }
@@ -2028,6 +2063,7 @@ function readCombo(){
   if (!name || !kind || kind === "none") return null;
   const cb = { name, where: $("#cbWhere").value, match: $("#cbMatch").value, kind, trig: MK.type === "monster" ? $("#fxTrig").value : "use" };
   if (KINDS[kind].n) cb.n = Math.max(1, Math.round(+$("#cbN").value || 1));
+  if (TARGETABLE[kind] && $("#cbKind").dataset.to && $("#cbKind").dataset.to !== "one") cb.to = $("#cbKind").dataset.to;
   return cb;
 }
 
@@ -2035,10 +2071,10 @@ function readCombo(){
    The original <select> stays as the value everything else reads; these two just drive it. ---- */
 const KIND_GROUPS = [
   { g: "none",    label: "なし",                     v: [["none", "なし"]] },
-  { g: "dmg",     label: "ダメージを与える",          v: [["dmg", "相手（スパイア風は相手かモンスター1体）"], ["dmgRand", "ランダムな敵"], ["dmgAll", "相手と相手のモンスター全部"]] },
-  { g: "destroy", label: "モンスターを破壊する",      v: [["destroy", "相手のモンスター1体"], ["destroyAll", "相手のモンスター全部"], ["killAtk", "攻撃してきたモンスター（罠）"]] },
+  { g: "dmg",     label: "ダメージを与える",          v: [["dmg", "ダメージ"]] },
+  { g: "destroy", label: "モンスターを破壊する",      v: [["destroy", "相手のモンスター"], ["killAtk", "攻撃してきたモンスター（罠）"]] },
+  { g: "debuff",  label: "デバフをつける",            v: [["vuln", "弱体"], ["charm", "魅了"], ["atkDown", "ATKダウン"]] },
   { g: "atkUp",   label: "ATKを上げる",               v: [["selfAtk", "このモンスター"], ["atkUp", "自分のモンスター1体"], ["atkAll", "自分のモンスター全部"]] },
-  { g: "debuff",  label: "デバフをつける",            v: [["vuln", "弱体（受けるダメージ1.5倍）：相手（スパイア風は相手かモンスター1体）"], ["vulnAll", "弱体：相手と相手のモンスター全部"], ["charm", "魅了（攻撃できない）：相手のモンスター1体"], ["charmAll", "魅了：相手のモンスター全部"], ["atkDown", "ATKダウン：相手のモンスター1体"], ["atkDownAll", "ATKダウン：相手のモンスター全部"]] },
   { g: "heal",    label: "LPを回復する",              v: [["heal", "自分"]] },
   { g: "block",   label: "ブロックを得る",            v: [["block", "自分"]] },
   { g: "draw",    label: "カードを引く",              v: [["draw", "自分"]] },
@@ -2052,21 +2088,28 @@ const KIND_GROUPS = [
   { g: "free",    label: "次に使うカードのコストを0にする", v: [["freeAttack", "アタック"], ["freeSkill", "スキル"], ["freePower", "パワー"]] },
   { g: "win",     label: "ゲームに勝利する",          v: [["win", "自分"]] }
 ];
+// kinds shown only when an older card already uses them (they're now 基本の効果 + 「だれに」)
+const PICK_HIDDEN = ["bash", "dmgRand", "dmgAll", "vulnAll", "atkDownAll", "charmAll", "destroyAll"];
 function attachKindPicker(sel){
   if (!sel) return;
   if (!sel._kp){
-    const g = document.createElement("select"), v = document.createElement("select");
-    g.className = "kp-g"; v.className = "kp-v"; g.setAttribute("aria-label", "なにをする"); v.setAttribute("aria-label", "だれに・どれ");
+    const mk = (cls, aria) => { const x = document.createElement("select"); x.className = cls; x.setAttribute("aria-label", aria); return x; };
+    const g = mk("kp-g", "なにをする"), v = mk("kp-v", "どれ"), t = mk("kp-t", "だれに");
     const lab = sel.parentElement && sel.parentElement.tagName === "LABEL" ? sel.parentElement : null;
     sel.hidden = true;
-    if (lab){ sel.after(g); const w = document.createElement("label"); w.className = "f kp-vwrap"; w.append("だれに・どれ", v); lab.after(w); sel._kpWrap = w; }
-    else sel.after(g, v);
-    const push = () => { sel.value = v.value; sel.dispatchEvent(new Event("input", { bubbles: true })); sel.dispatchEvent(new Event("change", { bubbles: true })); };
-    g.addEventListener("change", () => { fillV(sel); push(); });
-    v.addEventListener("change", push);
-    sel._kp = { g, v, sig: "" };
+    if (lab){
+      sel.after(g);
+      const wv = document.createElement("label"); wv.className = "f kp-vwrap"; wv.append("どれ", v);
+      const wt = document.createElement("label"); wt.className = "f kp-vwrap"; wt.append("だれに", t);
+      lab.after(wv, wt); sel._kpWrap = wv; sel._kpTWrap = wt;
+    } else sel.after(g, v, t);
+    const push = () => { sel.value = v.value; sel.dataset.to = t.value || ""; sel.dispatchEvent(new Event("input", { bubbles: true })); sel.dispatchEvent(new Event("change", { bubbles: true })); };
+    g.addEventListener("change", () => { fillV(sel); fillT(sel); push(); });
+    v.addEventListener("change", () => { fillT(sel); push(); });
+    t.addEventListener("change", push);
+    sel._kp = { g, v, t, sig: "" };
   }
-  const HIDDEN = ["bash"], avail = [...sel.options].map(o => o.value).filter(k => !HIDDEN.includes(k) || k === sel.value), { g } = sel._kp, sig = avail.join(",");
+  const avail = [...sel.options].map(o => o.value).filter(k => !PICK_HIDDEN.includes(k) || k === sel.value), { g } = sel._kp, sig = avail.join(",");
   if (sig !== sel._kp.sig){
     sel._kp.sig = sig;
     const known = new Set(KIND_GROUPS.flatMap(x => x.v.map(y => y[0])));
@@ -2077,13 +2120,21 @@ function attachKindPicker(sel){
   }
   const cur = sel._kp.groups.find(x => x.v.some(([k]) => k === sel.value)) || sel._kp.groups[0];
   if (cur) g.value = cur.g;
-  fillV(sel, sel.value);
+  fillV(sel, sel.value); fillT(sel, sel.dataset.to);
 }
 function fillV(sel, want){
   const { g, v } = sel._kp, grp = sel._kp.groups.find(x => x.g === g.value); if (!grp) return;
   v.innerHTML = grp.v.map(([k, l]) => `<option value="${k}">${l || (KINDS[k] || {}).label || k}</option>`).join("");
   v.value = grp.v.some(([k]) => k === want) ? want : grp.v[0][0];
   const one = grp.v.length < 2; v.hidden = one; if (sel._kpWrap) sel._kpWrap.hidden = one;
+}
+// 「だれに」: for effects aimed at the opponent's side
+function fillT(sel, want){
+  const { v, t } = sel._kp, k = v.value, opts = TARGETABLE[k];
+  t.innerHTML = opts ? opts.map(o => `<option value="${o}">${o === "one" && hitsPlayer(k) ? "相手（スパイア風は相手かモンスター1体をえらぶ）" : TO_LABEL[o]}</option>`).join("") : "";
+  t.value = opts && opts.includes(want) ? want : opts ? opts[0] : "";
+  t.hidden = !opts; if (sel._kpTWrap) sel._kpTWrap.hidden = !opts;
+  sel.dataset.to = t.value || "";
 }
 function syncFxForm(){
   attachKindPicker($("#fxKind")); attachKindPicker($("#cbKind"));
@@ -2108,7 +2159,7 @@ function syncTypePressed(){ const sk = mkSk(), map = { monster: "attack", magic:
 function syncTypeNames(){ const sp = $("#mkFrame").value === "spire"; document.querySelectorAll("#mkType button").forEach(b => { b.dataset.base = b.dataset.base || b.textContent; b.textContent = sp ? SPIRE_LABEL[b.dataset.t] : b.dataset.base; b.hidden = sp ? b.dataset.t === "equip" || b.dataset.t === "trap" : b.dataset.t === "power"; }); if (sp && MK.type !== "magic"){ const k = MK.type === "trap" ? "power" : "attack"; MK.sk = k; $("#mkPersist").checked = k === "power"; setMkType("magic"); } else setMkType(MK.type || "monster"); if (MK.type) $("#mkTab").textContent = mkTabLabel(); }
 $("#mkType").addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return; if ($("#mkFrame").value === "spire"){ const k = { monster: "attack", magic: "skill", power: "power" }[b.dataset.t]; if (!k) return; MK.sk = k; $("#mkPersist").checked = k === "power"; setMkType("magic"); return; } setMkType(b.dataset.t); });
 // sensible default numbers when the effect kind changes (cards to draw vs. points)
-const smallN = k => ["draw", "discard", "manaNow", "manaMax", "manaDrain"].includes(k);
+const smallN = k => ["draw", "discard", "manaNow", "manaMax", "manaDrain", "vuln", "draft"].includes(k);
 [["#fxKind", "#fxN"], ["#cbKind", "#cbN"]].forEach(([k, n]) => $(k).addEventListener("change", () => {
   const v = +$(n).value || 0, kind = $(k).value;
   if (smallN(kind) && v > 5) $(n).value = 1;
@@ -2122,7 +2173,9 @@ function moreKindOpts(){ return [...$("#fxKind").options].filter(o => o.value !=
 function addMoreFx(m){
   const r = document.createElement("div"); r.className = "mfx";
   r.innerHTML = `<span class="note">そのあと</span><select class="mfk">${moreKindOpts()}</select><input type="number" class="mfn" min="1" max="9999" value="${m && m.n ? m.n : 100}"><button class="small ghost" type="button" data-mfdel aria-label="この効果を消す">×</button>`;
-  if (m && m.kind && r.querySelector(`.mfk option[value="${m.kind}"]`)) r.querySelector(".mfk").value = m.kind;
+  const lg = m && TO_LEGACY[m.kind]; const mk = lg ? lg[0] : m && m.kind;
+  if (mk && r.querySelector(`.mfk option[value="${mk}"]`)) r.querySelector(".mfk").value = mk;
+  r.querySelector(".mfk").dataset.to = lg ? lg[1] : (m && m.to) || "";
   $("#moreFx").appendChild(r); syncMoreFx();
 }
 function syncMoreFx(){
@@ -2130,15 +2183,15 @@ function syncMoreFx(){
   $("#btnMoreFx").hidden = !on; $("#moreFx").hidden = !on;
   document.querySelectorAll("#moreFx .mfx").forEach(r => { const s = r.querySelector(".mfk"), k = s.value; attachKindPicker(s); r.querySelector(".mfn").hidden = !(KINDS[k] && KINDS[k].n); });
 }
-function refreshMoreFx(){ const cur = [...document.querySelectorAll("#moreFx .mfx")].map(r => ({ kind: r.querySelector(".mfk").value, n: +r.querySelector(".mfn").value })); $("#moreFx").innerHTML = ""; cur.forEach(m => { if ([...$("#fxKind").options].some(o => o.value === m.kind)) addMoreFx(m); }); syncMoreFx(); }
+function refreshMoreFx(){ const cur = [...document.querySelectorAll("#moreFx .mfx")].map(r => ({ kind: r.querySelector(".mfk").value, n: +r.querySelector(".mfn").value, to: r.querySelector(".mfk").dataset.to })); $("#moreFx").innerHTML = ""; cur.forEach(m => { if ([...$("#fxKind").options].some(o => o.value === m.kind)) addMoreFx(m); }); syncMoreFx(); }
 $("#btnMoreFx").addEventListener("click", () => { addMoreFx({ kind: "draw", n: 1 }); syncFxForm(); });
 $("#moreFx").addEventListener("click", e => { const d = e.target.closest("[data-mfdel]"); if (d){ d.closest(".mfx").remove(); syncFxForm(); } });
-$("#moreFx").addEventListener("input", e => { if (e.target.closest(".kp-g,.kp-v")) return; syncMoreFx(); syncFxForm(); });
-$("#moreFx").addEventListener("change", e => { if (e.target.closest(".kp-g,.kp-v")) return; const s = e.target.closest(".mfk"); if (s){ const n = s.parentNode.querySelector(".mfn"), v = +n.value || 0; if (smallN(s.value) && v > 5) n.value = 1; if (!smallN(s.value) && v < 50) n.value = 100; } syncMoreFx(); syncFxForm(); });
+$("#moreFx").addEventListener("input", e => { if (e.target.closest(".kp-g,.kp-v,.kp-t")) return; syncMoreFx(); syncFxForm(); });
+$("#moreFx").addEventListener("change", e => { if (e.target.closest(".kp-g,.kp-v,.kp-t")) return; const s = e.target.closest(".mfk"); if (s){ const n = s.parentNode.querySelector(".mfn"), v = +n.value || 0; if (smallN(s.value) && v > 5) n.value = 1; if (!smallN(s.value) && v < 50) n.value = 100; } syncMoreFx(); syncFxForm(); });
 function loadFxForm(c){
   const fx = normFx(c);
   $("#moreFx").innerHTML = "";
-  $("#fxKind").value = fx ? fx.kind : "none";
+  { const lg = fx && TO_LEGACY[fx.kind]; $("#fxKind").value = fx ? (lg ? lg[0] : fx.kind) : "none"; $("#fxKind").dataset.to = lg ? lg[1] : (fx && fx.to) || ""; }
   moreFx(fx).forEach(m => addMoreFx(m));
   if (fx && (MK.type === "monster" || MK.type === "equip" || isPersist(c))) $("#fxTrig").value = fx.trig;
   $("#fxAskOn").checked = !!(fx && fx.ask); $("#fxAsk").value = fx && fx.ask ? fx.ask : "";
@@ -2147,7 +2200,7 @@ function loadFxForm(c){
   $("#fxCn").value = fx && fx.cn ? fx.cn : 3;
   const cb = normCombo(c);
   if (cb && MK.type === "monster" && !fx) $("#fxTrig").value = cb.trig;
-  $("#cbName").value = cb ? cb.name : ""; $("#cbBox").open = !!cb; $("#cbWhere").value = cb ? cb.where : "field"; $("#cbMatch").value = cb ? cb.match : "exact"; $("#cbKind").value = cb ? cb.kind : "none"; $("#cbN").value = cb && cb.n ? cb.n : 100;
+  $("#cbName").value = cb ? cb.name : ""; $("#cbBox").open = !!cb; $("#cbWhere").value = cb ? cb.where : "field"; $("#cbMatch").value = cb ? cb.match : "exact"; { const lg = cb && TO_LEGACY[cb.kind]; $("#cbKind").value = cb ? (lg ? lg[0] : cb.kind) : "none"; $("#cbKind").dataset.to = lg ? lg[1] : (cb && cb.to) || ""; } $("#cbN").value = cb && cb.n ? cb.n : 100;
   syncFxForm();
 }
 function resetMaker(){
@@ -3129,6 +3182,7 @@ function destroyMonster(st, s, i, why, opt = {}){
 function applyEffect(st, s, c, target, ctx = {}, fx = normFx(c)){
   if (!fx) return;
   if (ctx.hit && ctx.spireAtk && typeof target === "string") ctx.hit.t = target;
+  if (ctx.hit && target != null) (ctx.hit.picked = ctx.hit.picked || []).push(String(target));
   const me = P(st, s), op = P(st, O(s)), n = fx.n || 0, src = `「${c.name}」`;
   switch (fx.kind){
     case "heal": me.lp += n; log(st, s, `${src}でLPを${n}回復`); break;
@@ -3218,9 +3272,11 @@ function runEffect(st, s, c, ctx = {}, then, fx = normFx(c)){
     fx = { ...fx, ask: "" };
   }
   if (fx.kind === "draft" && !ctx.draft) ctx = { ...ctx, draft: draftPick(fx.n) };
-  if (c && c.frame === "spire" && (fx.kind === "dmg" || fx.kind === "bash" || fx.kind === "vuln")) ctx = { ...ctx, spireAtk: true };
-  const opts = targetOptions(st, s, fx.kind, ctx);
-  if (opts && ctx.spireAtk && ctx.hit && ctx.hit.t && opts.includes(ctx.hit.t)){ applyEffect(st, s, c, ctx.hit.t, ctx, fx); then && then(st); return; }
+  if ((c && c.frame === "spire" || fx.rand || fx.distinct) && (fx.kind === "dmg" || fx.kind === "bash" || fx.kind === "vuln")) ctx = { ...ctx, spireAtk: true };
+  let opts = targetOptions(st, s, fx.kind, ctx);
+  if (opts && fx.distinct && ctx.hit && ctx.hit.picked) opts = opts.filter(o => !ctx.hit.picked.includes(String(o)));
+  if (opts && opts.length && fx.rand){ applyEffect(st, s, c, opts[Math.floor(Math.random() * opts.length)], ctx, fx); then && then(st); return; }
+  if (opts && !fx.distinct && ctx.spireAtk && ctx.hit && ctx.hit.t && opts.includes(ctx.hit.t)){ applyEffect(st, s, c, ctx.hit.t, ctx, fx); then && then(st); return; }
   if (opts === null){ applyEffect(st, s, c, undefined, ctx, fx); then && then(st); return; }
   if (!opts.length){ log(st, s, `「${c.name}」：対象がいない`); then && then(st); return; }
   if (isHumanHere(s)){
@@ -3243,9 +3299,9 @@ function runCard(st, s, c, trig, ctx = {}, then){
   ctx = { ...ctx, hit: {} };
   const list = [];
   const fx = normFx(c), cb = normCombo(c);
-  if (fx && fx.trig === trig){ list.push(fx); moreFx(fx).forEach(m => list.push({ kind: m.kind, n: m.n, trig })); }
+  if (fx && fx.trig === trig){ list.push(...expandFx(fx)); moreFx(fx).forEach(m => list.push(...expandFx({ kind: m.kind, n: m.n, to: m.to, trig }))); }
   if (cb && cb.trig === trig){
-    if (comboMet(st, s, cb, ctx)){ log(st, s, `${cb.match === "part" ? `名前に「${cb.name}」が入ったカード` : `「${cb.name}」`}があるので「${c.name}」の追加効果が発動！`); list.push({ kind: cb.kind, n: cb.n, trig }); }
+    if (comboMet(st, s, cb, ctx)){ log(st, s, `${cb.match === "part" ? `名前に「${cb.name}」が入ったカード` : `「${cb.name}」`}があるので「${c.name}」の追加効果が発動！`); list.push(...expandFx({ kind: cb.kind, n: cb.n, to: cb.to, trig })); }
   }
   if (c && c.costX && ctx.x != null && list.length){ const one = list.splice(0); for (let r = 0; r < ctx.x; r++) list.push(...one); if (!ctx.x) log(st, s, `「${c.name}」：X が0なので効果なし`); }
   const step = (st2, k) => { if (k >= list.length){ then && then(st2); return; } runEffect(st2, s, c, ctx, st3 => step(st3, k + 1), list[k]); };
@@ -3947,7 +4003,7 @@ function renderOverlay(){
     const q = G.chooseQ[0];
     html = `<div class="box"><h2 style="margin:0">「${esc(q.c.name)}」</h2><p style="margin:0;font-size:18px;font-weight:700">${esc(q.fx.ask)}</p><p class="muted" style="margin:0">「はい」なら：${esc(KINDS[q.fx.kind].text(q.fx.n))}</p><div class="row"><button class="primary" data-ask="yes">はい</button><button data-ask="no">いいえ</button></div></div>`;
   } else if (G.chooseQ.length){
-    const q = G.chooseQ[0], opts = targetOptions(st, q.s, q.fx.kind, q.ctx) || [];
+    const q = G.chooseQ[0], opts = (targetOptions(st, q.s, q.fx.kind, q.ctx) || []).filter(o => !(q.fx.distinct && q.ctx.hit && (q.ctx.hit.picked || []).includes(String(o))));
     const t = KINDS[q.fx.kind].target;
     const list = opts.map(o => {
       if (t === "grave" || t === "draft") return cardHTML(card(o), "sm pick", `data-opt="${esc(o)}" tabindex="0" role="button"`, mOpt(q.s));
