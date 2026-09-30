@@ -359,6 +359,8 @@ ruby rt{font-size:.5em;line-height:1;font-style:normal}
 .more-fx .mfx{display:flex;align-items:center;gap:6px}
 .more-fx .mfx .note{flex:none}
 .more-fx .mfk{flex:1;min-width:0;width:auto}
+.more-fx .kp-g,.more-fx .kp-v{flex:1;min-width:0;width:auto}
+.kp-vwrap[hidden],.kp-v[hidden],#fxKind[hidden],#cbKind[hidden],.mfk[hidden]{display:none!important}
 .more-fx .mfx input{width:80px;flex:none}
 .more-fx .mfx button{flex:none}
 .pick-player{min-width:120px;min-height:120px;border-radius:14px;font-weight:700;font-size:16px}
@@ -2025,7 +2027,65 @@ function readCombo(){
   if (KINDS[kind].n) cb.n = Math.max(1, Math.round(+$("#cbN").value || 1));
   return cb;
 }
+
+/* ---- effect picker: "なにをする" (a group) + "だれに・どれ" (which one), instead of one long list.
+   The original <select> stays as the value everything else reads; these two just drive it. ---- */
+const KIND_GROUPS = [
+  { g: "none",    label: "なし",                     v: [["none", "なし"]] },
+  { g: "dmg",     label: "ダメージを与える",          v: [["dmg", "相手（スパイア風は相手かモンスター1体）"], ["dmgRand", "ランダムな敵"], ["dmgAll", "相手と相手のモンスター全部"], ["bash", "相手（＋弱体2）"]] },
+  { g: "destroy", label: "モンスターを破壊する",      v: [["destroy", "相手のモンスター1体"], ["destroyAll", "相手のモンスター全部"], ["killAtk", "攻撃してきたモンスター（罠）"]] },
+  { g: "atkUp",   label: "ATKを上げる",               v: [["selfAtk", "このモンスター"], ["atkUp", "自分のモンスター1体"], ["atkAll", "自分のモンスター全部"]] },
+  { g: "atkDown", label: "ATKを下げる",               v: [["atkDown", "相手のモンスター1体"]] },
+  { g: "charm",   label: "魅了する（攻撃できなくする）", v: [["charm", "相手のモンスター1体"]] },
+  { g: "vuln",    label: "弱体にする（受けるダメージ1.5倍）", v: [["vuln", "相手（スパイア風は相手かモンスター1体）"]] },
+  { g: "heal",    label: "LPを回復する",              v: [["heal", "自分"]] },
+  { g: "block",   label: "ブロックを得る",            v: [["block", "自分"]] },
+  { g: "draw",    label: "カードを引く",              v: [["draw", "自分"]] },
+  { g: "discard", label: "手札を捨てさせる",          v: [["discard", "相手（ランダム）"]] },
+  { g: "grave",   label: "墓地のモンスターを使う",    v: [["revive", "手札に戻す"], ["reborn", "場に出す"]] },
+  { g: "addCard", label: "墓地にカードを加える",      v: [["copyGrave", "このカードのコピー"], ["draft", "スパイア風カードを○枚から1枚えらんで"]] },
+  { g: "equip",   label: "装備を動かす",              v: [["moveEquips", "別のモンスターに付けかえる"], ["equipsToHand", "ほかの装備を手札に戻す"]] },
+  { g: "blast",   label: "自爆する",                  v: [["blast", "装備の枚数×○以下のATKを全部破壊"]] },
+  { g: "negate",  label: "無効にする",                v: [["cancel", "魔法・罠の発動かモンスターの召喚（打ち消し）"], ["negate", "相手の攻撃（罠）"]] },
+  { g: "mana",    label: "マナ",                      v: [["manaNow", "自分のマナを回復（このターン）"], ["manaMax", "自分の最大マナを増やす"], ["manaDrain", "相手のマナを減らす"]] },
+  { g: "free",    label: "次に使うカードのコストを0にする", v: [["freeAttack", "アタック"], ["freeSkill", "スキル"], ["freePower", "パワー"]] },
+  { g: "win",     label: "ゲームに勝利する",          v: [["win", "自分"]] }
+];
+function attachKindPicker(sel){
+  if (!sel) return;
+  if (!sel._kp){
+    const g = document.createElement("select"), v = document.createElement("select");
+    g.className = "kp-g"; v.className = "kp-v"; g.setAttribute("aria-label", "なにをする"); v.setAttribute("aria-label", "だれに・どれ");
+    const lab = sel.parentElement && sel.parentElement.tagName === "LABEL" ? sel.parentElement : null;
+    sel.hidden = true;
+    if (lab){ sel.after(g); const w = document.createElement("label"); w.className = "f kp-vwrap"; w.append("だれに・どれ", v); lab.after(w); sel._kpWrap = w; }
+    else sel.after(g, v);
+    const push = () => { sel.value = v.value; sel.dispatchEvent(new Event("input", { bubbles: true })); sel.dispatchEvent(new Event("change", { bubbles: true })); };
+    g.addEventListener("change", () => { fillV(sel); push(); });
+    v.addEventListener("change", push);
+    sel._kp = { g, v, sig: "" };
+  }
+  const { g } = sel._kp, avail = [...sel.options].map(o => o.value), sig = avail.join(",");
+  if (sig !== sel._kp.sig){
+    sel._kp.sig = sig;
+    const known = new Set(KIND_GROUPS.flatMap(x => x.v.map(y => y[0])));
+    const groups = KIND_GROUPS.map(x => ({ ...x, v: x.v.filter(([k]) => avail.includes(k)) })).filter(x => x.v.length);
+    avail.filter(k => !known.has(k)).forEach(k => groups.push({ g: "k_" + k, label: (KINDS[k] || {}).label || k, v: [[k, ""]] }));
+    sel._kp.groups = groups;
+    g.innerHTML = groups.map(x => `<option value="${x.g}">${x.label}</option>`).join("");
+  }
+  const cur = sel._kp.groups.find(x => x.v.some(([k]) => k === sel.value)) || sel._kp.groups[0];
+  if (cur) g.value = cur.g;
+  fillV(sel, sel.value);
+}
+function fillV(sel, want){
+  const { g, v } = sel._kp, grp = sel._kp.groups.find(x => x.g === g.value); if (!grp) return;
+  v.innerHTML = grp.v.map(([k, l]) => `<option value="${k}">${l || (KINDS[k] || {}).label || k}</option>`).join("");
+  v.value = grp.v.some(([k]) => k === want) ? want : grp.v[0][0];
+  const one = grp.v.length < 2; v.hidden = one; if (sel._kpWrap) sel._kpWrap.hidden = one;
+}
 function syncFxForm(){
+  attachKindPicker($("#fxKind")); attachKindPicker($("#cbKind"));
   const kind = $("#fxKind").value;
   $("#cbNWrap").hidden = !(KINDS[$("#cbKind").value] && KINDS[$("#cbKind").value].n);
   $("#fxNWrap").hidden = !(KINDS[kind] && KINDS[kind].n);
@@ -2067,13 +2127,13 @@ function addMoreFx(m){
 function syncMoreFx(){
   const on = $("#fxKind").value && $("#fxKind").value !== "none";
   $("#btnMoreFx").hidden = !on; $("#moreFx").hidden = !on;
-  document.querySelectorAll("#moreFx .mfx").forEach(r => { const k = r.querySelector(".mfk").value; r.querySelector(".mfn").hidden = !(KINDS[k] && KINDS[k].n); });
+  document.querySelectorAll("#moreFx .mfx").forEach(r => { const s = r.querySelector(".mfk"), k = s.value; attachKindPicker(s); r.querySelector(".mfn").hidden = !(KINDS[k] && KINDS[k].n); });
 }
 function refreshMoreFx(){ const cur = [...document.querySelectorAll("#moreFx .mfx")].map(r => ({ kind: r.querySelector(".mfk").value, n: +r.querySelector(".mfn").value })); $("#moreFx").innerHTML = ""; cur.forEach(m => { if ([...$("#fxKind").options].some(o => o.value === m.kind)) addMoreFx(m); }); syncMoreFx(); }
 $("#btnMoreFx").addEventListener("click", () => { addMoreFx({ kind: "draw", n: 1 }); syncFxForm(); });
 $("#moreFx").addEventListener("click", e => { const d = e.target.closest("[data-mfdel]"); if (d){ d.closest(".mfx").remove(); syncFxForm(); } });
-$("#moreFx").addEventListener("input", () => { syncMoreFx(); syncFxForm(); });
-$("#moreFx").addEventListener("change", e => { const s = e.target.closest(".mfk"); if (s){ const n = s.parentNode.querySelector(".mfn"), v = +n.value || 0; if (smallN(s.value) && v > 5) n.value = 1; if (!smallN(s.value) && v < 50) n.value = 100; } syncMoreFx(); syncFxForm(); });
+$("#moreFx").addEventListener("input", e => { if (e.target.closest(".kp-g,.kp-v")) return; syncMoreFx(); syncFxForm(); });
+$("#moreFx").addEventListener("change", e => { if (e.target.closest(".kp-g,.kp-v")) return; const s = e.target.closest(".mfk"); if (s){ const n = s.parentNode.querySelector(".mfn"), v = +n.value || 0; if (smallN(s.value) && v > 5) n.value = 1; if (!smallN(s.value) && v < 50) n.value = 100; } syncMoreFx(); syncFxForm(); });
 function loadFxForm(c){
   const fx = normFx(c);
   $("#moreFx").innerHTML = "";
