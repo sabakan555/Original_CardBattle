@@ -989,7 +989,7 @@ nav.tabs button{position:relative}
           <li>モンスターの召喚も、相手が「打ち消し」を持っていればチェーンできる。打ち消されたモンスターは墓地へ（召喚の権利・マナは戻らない）</li>
           <li>魔法・罠が発動されたら、相手は罠か速攻魔法で「チェーン」できる。チェーンは交互に何回でも続けられて、あとから発動したものから順に処理する</li>
           <li>速攻魔法は自分のターンなら普通の魔法と同じ。相手のターンでも「攻撃されたとき」と「相手がターンを終えるとき」に、手札かセットから使える</li>
-          <li>場のモンスターはそれぞれ1回攻撃できる（先攻の1ターン目は攻撃できない）</li>
+          <li>場のモンスターはそれぞれ1回攻撃できる（先攻の1ターン目は攻撃できない）。出したターンは召喚酔いで攻撃できず、次の自分のターンから攻撃できる（「速攻」の能力があれば出たターンから攻撃できる）</li>
           <li>終わったら「ターン終了」</li>
         </ol>
       </div>
@@ -1142,6 +1142,7 @@ const EQ_AB = { none: "なし", twice: "1ターンに2回攻撃できる", direc
 // self: the text is about this card itself, not "the monster"
 const ABS = {
   twice:      { label: "1ターンに2回攻撃できる" },
+  haste:      { label: "速攻（出たターンから攻撃できる）" },
   direct:     { label: "相手の場にモンスターがいても直接攻撃できる" },
   guard:      { label: "戦闘では破壊されない" },
   noEffect:   { label: "効果では破壊されない" },
@@ -2935,7 +2936,9 @@ function autoTarget(st, s, kind, opts){
   if (t === "draft") return opts[0];
 }
 /* ---- equips stick to a monster: m.eqs = [{ c, o (owner), u }] from left to right ---- */
-function mkMon(st, id){ st.un = (st.un || 0) + 1; return { c: id, mod: 0, attacked: false, eqs: [], u: st.un }; }
+// born: the turn it came out — 召喚酔い: it can attack from its owner's next turn (unless it has 速攻)
+function mkMon(st, id){ st.un = (st.un || 0) + 1; return { c: id, mod: 0, attacked: false, eqs: [], u: st.un, born: st.turnNo }; }
+const sick = (st, s, i) => { const m = P(st, s).mz[i]; return !!m && m.born === st.turnNo && !hasAb(st, s, i, "haste"); };
 const monAt = (st, ref) => { const m = ref && P(st, ref.s).mz[ref.i]; return m && m.u === ref.u ? m : null; };
 function findEq(st, u){ for (const s of ["a", "b"]){ const mz = P(st, s).mz; for (let i = 0; i < mz.length; i++){ const k = eqsOf(mz[i]).findIndex(e => e.u === u); if (k >= 0) return { s, i, k, e: mz[i].eqs[k] }; } } return null; }
 // all equips on monster (s,i) go to their owners' graveyards
@@ -2964,7 +2967,7 @@ function charmActive(st, m){
 }
 function canAttack(st, s, i){
   const m = P(st, s).mz[i];
-  return !!m && !m.attacked && st.turnNo > 1 && !hasAb(st, s, i, "noAttack") && !charmActive(st, m);
+  return !!m && !m.attacked && st.turnNo > 1 && !sick(st, s, i) && !hasAb(st, s, i, "noAttack") && !charmActive(st, m);
 }
 function canEquipOn(st, id, ts, ti){
   const m = P(st, ts).mz[ti]; if (!m || cardType(card(id)) !== "equip") return false;
@@ -3633,7 +3636,7 @@ function renderBoard(){
     }
     if (sel && sel.z === "mz" && sel.s === "me"){
       const m = pm.mz[sel.i];
-      if (m){ const why = st.turnNo === 1 ? "" : hasAb(st, me, sel.i, "noAttack") ? "（攻撃できない）" : charmActive(st, m) ? "（魅了されている）" : ""; acts += `<button class="primary" data-act="attack" ${canAttack(st, me, sel.i) ? "" : "disabled"}>攻撃する${why}</button>`; }
+      if (m){ const why = st.turnNo === 1 ? "" : sick(st, me, sel.i) ? "（出たターンは攻撃できない）" : hasAb(st, me, sel.i, "noAttack") ? "（攻撃できない）" : charmActive(st, m) ? "（魅了されている）" : ""; acts += `<button class="primary" data-act="attack" ${canAttack(st, me, sel.i) ? "" : "disabled"}>攻撃する${why}</button>`; }
     }
     if (sel && sel.z === "sz" && sel.s === "me"){
       const z = pm.sz[sel.i];
