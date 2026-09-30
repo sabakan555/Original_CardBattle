@@ -153,6 +153,12 @@ label.f{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:13p
 .abs-list{display:flex;flex-direction:column;gap:4px}
 .abs-list label{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:14px}
 .abs-list input[type=number]{width:80px}.abs-list input[type=text]{width:120px}
+/* 召喚酔い: the monster dozes (a bit grey, Zzz floating up) until its owner's next turn */
+.card.sick{filter:saturate(.45) brightness(.88);animation:doze 2.6s ease-in-out infinite}
+.card.sick::after{content:"Z";position:absolute;right:6%;top:18%;z-index:6;font:900 calc(var(--w)*.16)/1 var(--ui);color:#fff;-webkit-text-stroke:2px #3b4a8a;paint-order:stroke fill;text-shadow:calc(var(--w)*.09) calc(var(--w)*-.1) 0 rgba(255,255,255,.75),calc(var(--w)*.16) calc(var(--w)*-.2) 0 rgba(255,255,255,.45);pointer-events:none;animation:zzz 2.6s ease-in-out infinite}
+@keyframes doze{0%,100%{transform:rotate(0)}50%{transform:rotate(-1.5deg) translateY(1px)}}
+@keyframes zzz{0%{transform:translateY(6px) scale(.8);opacity:0}25%{opacity:1}100%{transform:translateY(-14px) scale(1.1);opacity:0}}
+@media (prefers-reduced-motion:reduce){.card.sick,.card.sick::after{animation:none}.card.sick::after{opacity:1}}
 .card .dmgc{position:absolute;top:-8px;left:50%;transform:translateX(-50%);background:#c0392b;color:#fff;font:700 11px/1.5 var(--ui);padding:0 8px;border-radius:99px;z-index:5;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,.4)}
 .card .eqb{position:absolute;top:-8px;left:-6px;background:var(--magic);color:#fff;font-family:var(--ui);font-size:11px;padding:0 7px;border-radius:99px;z-index:1}
 .c-in{height:100%;background:var(--cbg);border-radius:calc(var(--w)*.028);display:flex;flex-direction:column;overflow:hidden;position:relative}
@@ -3595,7 +3601,8 @@ function renderBoard(){
     const eqB = es.length ? `装備${es.length} ${eqUsed(z)}/${cap}` : "";
     const ttl = es.length ? ` title="${esc("装備（左から）：" + es.map(e => card(e.c).name).join("→"))}"` : "";
     const stt = z.attacked && s === st.turn ? "攻撃済" : (z.atkCount && s === st.turn ? "あと1回" : "") || (charmActive(st, z) ? "魅了" : "");
-    return cardHTML(card(z.c), cls, attrs + ttl, { mod: modOf(z), done: stt, eq: eqB, dmg: z.dmg || 0, ...mOpt(s) });
+    const zz = sick(st, s, i) ? " sick" : "";
+    return cardHTML(card(z.c), cls + zz, attrs + (zz ? ` title="召喚酔い：次の自分のターンから攻撃できる"` : ttl), { mod: modOf(z), done: stt, eq: eqB, dmg: z.dmg || 0, ...mOpt(s) });
   }).join("");
 
   // action bar
