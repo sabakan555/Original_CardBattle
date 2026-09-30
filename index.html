@@ -978,7 +978,7 @@ nav.tabs button{position:relative}
         <h3 style="margin-top:14px">自分のターンでできること</h3>
         <ol>
           <li>モンスターの召喚は1ターンに1回だけ</li>
-          <li>スパイアデッキ（デッキ編集でチェック）は、試合のはじめにレリックを3つ（秘術の巻物・若葉・轟音のほら貝）から1つえらべる。また、「選択の祭壇」が最初から魔法・罠ゾーンに表向きで置かれる。自分のターンのはじめに、ランダムなスパイア風カード3枚から1枚えらんで墓地に加えられる。山札がなくなったら墓地をシャッフルして山札に戻すので、山札切れで負けない。スパイア風のアタック（ダメージを与えるカード）は、相手か相手のモンスター1体をえらべる。モンスターに当てたときは、ダメージがATK以上なら破壊、与えたダメージはそのモンスターにダメージカウンターとして乗り続けて（ATKは変わらない）、カウンターの合計がATK以上になったら破壊。祭壇があると自分のマナは毎ターン3で固定。祭壇の候補には攻撃・防御・強打は出ない。候補はレアリティで出やすさが変わる（コモン6：アンコモン3：レア1）。ブロックは次の自分のターンのはじめまで、受けるダメージを先に引き受けてくれる（残った分だけLPが減る）。脆弱になったプレイヤーは受けるダメージが1.5倍（そのプレイヤーのターンが終わるたびに1へる）。祭壇があるあいだは、自分のターンのはじめに手札が5枚になるまで引いて、ターンのおわりに手札をすべて墓地に捨てる。デッキの枚数は自由で、モンスターが入っていなくてもOK。</li>
+          <li>スパイアデッキ（デッキ編集でチェック）は、試合のはじめ、最初の手札を引く前にレリックを3つ（秘術の巻物・若葉・轟音のほら貝）から1つえらべる。また、「選択の祭壇」が最初から魔法・罠ゾーンに表向きで置かれる。自分のターンのはじめに、ランダムなスパイア風カード3枚から1枚えらんで墓地に加えられる。山札がなくなったら墓地をシャッフルして山札に戻すので、山札切れで負けない。スパイア風のアタック（ダメージを与えるカード）は、相手か相手のモンスター1体をえらべる。モンスターに当てたときは、ダメージがATK以上なら破壊、与えたダメージはそのモンスターにダメージカウンターとして乗り続けて（ATKは変わらない）、カウンターの合計がATK以上になったら破壊。祭壇があると自分のマナは毎ターン3で固定。祭壇の候補には攻撃・防御・強打は出ない。候補はレアリティで出やすさが変わる（コモン6：アンコモン3：レア1）。ブロックは次の自分のターンのはじめまで、受けるダメージを先に引き受けてくれる（残った分だけLPが減る）。脆弱になったプレイヤーは受けるダメージが1.5倍（そのプレイヤーのターンが終わるたびに1へる）。祭壇があるあいだは、自分のターンのはじめに手札が5枚になるまで引いて、ターンのおわりに手札をすべて墓地に捨てる。デッキの枚数は自由で、モンスターが入っていなくてもOK。</li>
           <li>「永続」の魔法・罠（スパイア風ではパワー）は、使ったあとも魔法・罠ゾーンに表向きで残って、書いてあるタイミング（ターンのはじめ、召喚するたび など）で何度も効果が出る。ゾーンは5つまでなので、置けるのも5枚まで。</li>
           <li>「廃棄」がついた魔法・罠は、使ったあと墓地に行かず、そのゲームからなくなる（墓地から戻す効果でも戻せない）。</li>
           <li>「特殊召喚」できるモンスターは、カードに書いた条件を満たせば手札から出せる（1ターンの召喚回数は使わない）。特殊召喚で出たときは「召喚したとき」の効果は出ず、「特殊召喚したとき」の効果が出る。墓地から場に出す効果も特殊召喚。手札からの特殊召喚は、普通の召喚と同じく相手が打ち消しで無効にできる（払ったものは戻らない）</li>
@@ -2705,7 +2705,8 @@ function newPlayer(deckIds, name, mana, spire){
   const deck = shuffle([...deckIds]); const hand = deck.splice(0, 5);
   const p = { name: name || S.name, lp: START_LP, deck, hand, grave: [], mz: Array(ZONES).fill(null), sz: Array(ZONES).fill(null), mana: mana ? { max: 0, cur: 0 } : null, sleeve: name ? null : (mySleeve() || null), deckIds: [...deckIds] };
   // スパイアデッキ: the altar starts on the field, and the deck never runs out (the graveyard is shuffled back in)
-  if (spire){ p.spire = true; p.relicPick = ["scroll", "sprout", "conch"]; if (!p.mana) p.mana = { max: 0, cur: 0 }; p.sz[0] = { c: SPIRE_ALTAR.id, turn: 0, face: true, u: -1 }; }
+  // スパイアデッキ: the opening hand is drawn only after the relic is picked (若葉 can change any card of the deck)
+  if (spire){ p.spire = true; p.relicPick = ["scroll", "sprout", "conch"]; p.deck = shuffle([...p.hand, ...p.deck]); p.hand = []; p.openHand = 5; if (!p.mana) p.mana = { max: 0, cur: 0 }; p.sz[0] = { c: SPIRE_ALTAR.id, turn: 0, face: true, u: -1 }; }
   return p;
 }
 // 選択の祭壇 (face-up): turn start → draw up to 5 cards, turn end → the whole hand goes to the graveyard
@@ -2717,8 +2718,8 @@ function altarTurn(st, s, trig){
 // ネオーのレリック: at the start of a スパイアデッキ game the player picks 1 of these 3
 const RELICS = {
   scroll: { name: "秘術の巻物", text: "ランダムなレアのスパイア風カード1枚をデッキに加える" },
-  sprout: { name: "若葉", text: "デッキか手札のカードを1枚えらんで、ランダムなスパイア風カードに変える" },
-  conch:  { name: "轟音のほら貝", text: "すぐにカードを2枚引き、最初のターンだけマナが1増える" }
+  sprout: { name: "若葉", text: "デッキのカードを1枚えらんで、ランダムなスパイア風カードに変える" },
+  conch:  { name: "轟音のほら貝", text: "最初の手札が2枚多くなり、最初のターンだけマナが1増える" }
 };
 function randSpire(rare){ const pool = draftPool(), rp = pool.filter(c => rarityOf(c) === "rare"); const L = rare && rp.length ? rp : pool; return L.length ? L[Math.floor(Math.random() * L.length)].id : null; }
 // pick relic `key` for player s (step 2 of 若葉: `target` = "deck:i" or "hand:i")
@@ -2733,8 +2734,10 @@ function chooseRelic(st, s, key, target){
     if (arr[+i] && id){ const old = arr[+i]; arr[+i] = id; log(st, s, `${nm}で「${card(old).name}」を「${card(id).name}」に変えた`); }
     else log(st, s, `${nm}：変えられるカードがない`);
   }
-  if (key === "conch"){ drawN(st, s, 2, nm); if (p.mana){ if (st.turn === s && st.turnNo <= 1) p.mana.cur += 1; else p.conch = true; } log(st, s, `${nm}：最初のターンはマナ+1`); }
-  if (key !== "sprout" || target != null) log(st, s, `${p.name} はレリック「${RELICS[key].name}」を選んだ`);
+  if (key === "conch"){ if (p.mana){ if (st.turn === s && st.turnNo <= 1) p.mana.cur += 1; else p.conch = true; } log(st, s, `${nm}：最初のターンはマナ+1`); }
+  log(st, s, `${p.name} はレリック「${RELICS[key].name}」を選んだ`);
+  // now the opening hand (ほら貝: 2 more)
+  if (p.openHand){ const want = p.openHand + (key === "conch" ? 2 : 0), k = Math.max(0, want - p.hand.length); p.openHand = 0; if (k) drawN(st, s, k, "最初の手札"); }
   return true;
 }
 // the CPU picks at random (若葉 turns its first 攻撃 into something else)
@@ -3825,9 +3828,9 @@ function renderOverlay(){
   let html = "";
   const myP = !G.spectate && st.players && st.players[me], rp = myP && !st.winner ? myP.relicPick : null;
   if (rp === "sprout"){
-    const L = [...myP.hand.map((id, i) => ["hand:" + i, id]), ...myP.deck.map((id, i) => ["deck:" + i, id])];
-    const seen = new Set(), list = L.filter(([, id]) => !seen.has(id) && seen.add(id)).map(([k, id]) => cardHTML(card(id), "sm pick", `data-sprout="${k}" tabindex="0" role="button"`, mOpt(me))).join("");
-    html = `<div class="box"><h2 style="margin:0">若葉：変えるカードをえらぶ</h2><p class="muted" style="margin:0">えらんだカードが1枚、ランダムなスパイア風カードに変わります（デッキか手札から）</p><div class="gallery">${list || '<p class="muted">カードがありません</p>'}</div></div>`;
+    const L = [...myP.deck.map((id, i) => ["deck:" + i, id]), ...myP.hand.map((id, i) => ["hand:" + i, id])].sort((a, b) => card(a[1]).name.localeCompare(card(b[1]).name, "ja"));
+    const list = L.map(([k, id]) => cardHTML(card(id), "sm pick", `data-sprout="${k}" tabindex="0" role="button"`, mOpt(me))).join("");
+    html = `<div class="box"><h2 style="margin:0">若葉：変えるカードをえらぶ</h2><p class="muted" style="margin:0">デッキの${L.length}枚からえらんだ1枚が、ランダムなスパイア風カードに変わります（手札はこのあと引きます）</p><div class="gallery">${list || '<p class="muted">カードがありません</p>'}</div></div>`;
   } else if (Array.isArray(rp)){
     html = `<div class="box"><h2 style="margin:0">ネオーの祝福：レリックを1つえらぶ</h2><p class="muted" style="margin:0">スパイアデッキのはじまりに、どれか1つだけ手に入る</p><div class="relic-pick">${rp.filter(k => RELICS[k]).map(k => `<button data-relic="${k}"><b>${esc(RELICS[k].name)}</b>${esc(RELICS[k].text)}</button>`).join("")}</div></div>`;
   } else if (G.chooseQ.length && G.chooseQ[0].ask){
