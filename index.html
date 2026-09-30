@@ -989,7 +989,7 @@ nav.tabs button{position:relative}
         <h3 style="margin-top:14px">自分のターンでできること</h3>
         <ol>
           <li>モンスターの召喚は1ターンに1回だけ</li>
-          <li>スパイアデッキ（デッキ編集でチェック）は、試合のはじめ、最初の手札を引く前にレリックを3つ（秘術の巻物・若葉・轟音のほら貝）から1つえらべる。また、「選択の祭壇」が最初から魔法・罠ゾーンに表向きで置かれる。自分のターンのはじめに、ランダムなスパイア風カード3枚から1枚えらんで墓地に加えられる。山札がなくなったら墓地をシャッフルして山札に戻すので、山札切れで負けない。スパイア風のアタック（ダメージを与えるカード）は、相手か相手のモンスター1体をえらべる。モンスターに当てたときは、ダメージがATK以上なら破壊、与えたダメージはそのモンスターにダメージカウンターとして乗り続けて（ATKは変わらない）、カウンターの合計がATK以上になったら破壊。祭壇があると自分のマナは毎ターン3で固定。祭壇の候補には攻撃・防御・強打は出ない。コストXのカードは、使うときにあるマナを全部使って、そのぶん（X回）効果をくり返す。「次に使う○○のコストを0にする」は、次にそのタイプのスパイア風カードを使うまで続く。候補はレアリティで出やすさが変わる（コモン6：アンコモン3：レア1）。ブロックは次の自分のターンのはじめまで、受けるダメージを先に引き受けてくれる（残った分だけLPが減る）。弱体になったプレイヤーやモンスターは受けるダメージが1.5倍（持ち主のターンのはじめに1へって、0でとける）。祭壇があるあいだは、自分のターンのはじめに手札が5枚になるまで引いて、ターンのおわりに手札をすべて墓地に捨てる。デッキの枚数は自由で、モンスターが入っていなくてもOK。</li>
+          <li>スパイアデッキ（デッキ編集でチェック）は、試合のはじめ、最初の手札を引く前にレリックを3つ（秘術の巻物・若葉・轟音のほら貝）から1つえらべる。また、「選択の祭壇」が最初から魔法・罠ゾーンに表向きで置かれる。自分のターンのはじめに、ランダムなスパイア風カード3枚から1枚えらんで墓地に加えられる。山札がなくなったら墓地をシャッフルして山札に戻すので、山札切れで負けない。スパイア風のアタック（ダメージを与えるカード）は、相手の場にモンスターがいればそのモンスター1体をえらんで当てる（いなければ相手に当たる。ランダムと全体は別）。モンスターに当てたときは、ダメージがATK以上なら破壊、与えたダメージはそのモンスターにダメージカウンターとして乗り続けて（ATKは変わらない）、カウンターの合計がATK以上になったら破壊。祭壇があると自分のマナは毎ターン3で固定。祭壇の候補には攻撃・防御・強打は出ない。コストXのカードは、使うときにあるマナを全部使って、そのぶん（X回）効果をくり返す。「次に使う○○のコストを0にする」は、次にそのタイプのスパイア風カードを使うまで続く。候補はレアリティで出やすさが変わる（コモン6：アンコモン3：レア1）。ブロックは次の自分のターンのはじめまで、受けるダメージを先に引き受けてくれる（残った分だけLPが減る）。弱体になったプレイヤーやモンスターは受けるダメージが1.5倍（持ち主のターンのはじめに1へって、0でとける）。祭壇があるあいだは、自分のターンのはじめに手札が5枚になるまで引いて、ターンのおわりに手札をすべて墓地に捨てる。デッキの枚数は自由で、モンスターが入っていなくてもOK。</li>
           <li>「永続」の魔法・罠（スパイア風ではパワー）は、使ったあとも魔法・罠ゾーンに表向きで残って、書いてあるタイミング（ターンのはじめ、召喚するたび など）で何度も効果が出る。ゾーンは5つまでなので、置けるのも5枚まで。</li>
           <li>「廃棄」がついた魔法・罠は、使ったあと墓地に行かず、そのゲームからなくなる（墓地から戻す効果でも戻せない）。</li>
           <li>「特殊召喚」できるモンスターは、カードに書いた条件を満たせば手札から出せる（1ターンの召喚回数は使わない）。特殊召喚で出たときは「召喚したとき」の効果は出ず、「特殊召喚したとき」の効果が出る。墓地から場に出す効果も特殊召喚。手札からの特殊召喚は、普通の召喚と同じく相手が打ち消しで無効にできる（払ったものは戻らない）</li>
@@ -1276,8 +1276,8 @@ function toPhrase(kind, to, spire){
   const pl = hitsPlayer(kind);
   if (to === "all") return pl ? "相手と相手のモンスターすべて" : "相手のモンスターすべて";
   if (to === "random") return pl ? "ランダムな敵（相手か相手のモンスター）" : "ランダムな相手のモンスター1体";
-  if (to === "two") return pl ? "相手と相手のモンスターからちがう2つ" : "相手のモンスター2体";
-  return pl ? (spire ? "相手か相手のモンスター1体" : "相手") : "相手のモンスター1体";
+  if (to === "two") return pl ? "相手のモンスターちがう2体（足りなければ相手も）" : "相手のモンスター2体";
+  return pl ? (spire ? "相手のモンスター1体（いなければ相手）" : "相手") : "相手のモンスター1体";
 }
 function toText(kind, n, to, spire){
   const w = toPhrase(kind, to, spire);
@@ -1307,7 +1307,7 @@ function fxText0(c){
     const ask = fx.ask ? `「${fx.ask}」に「はい」なら、` : "";
     out = (isMon ? `【${trigLabel(t, fx.trig)}】` : isPersist(c) && fx.trig !== "use" ? `【${PERSIST_TRIG_LABEL[fx.trig]}】` : "") + ask + cond + (fx.to && TARGETABLE[fx.kind] ? toText(fx.kind, fx.n, fx.to, c.frame === "spire") : KINDS[fx.kind].text(fx.n)) + moreFx(fx).map((m, k, all) => { const one = x => !x.to || x.to === "one"; let t = m.to && TARGETABLE[m.kind] ? toText(m.kind, m.n, m.to, c.frame === "spire") : KINDS[m.kind].text(m.n); const aim = x => ["dmg", "bash", "vuln"].includes(x.kind) && one(x); if (c.frame === "spire" && aim(m) && [fx, ...all.slice(0, k)].some(aim)) t = t.replace(/^相手(に|を)/, "同じ相手$1"); return "、" + t; }).join("");
     if (t === "equip") out = out.replace(/このモンスター/g, "装備したモンスター");
-    if (c.frame === "spire") out = out.replace(/(?<!同じ)相手に(\d+)ダメージ/g, "相手か相手のモンスター1体に$1ダメージ").replace(/(?<!同じ)相手を弱体/g, "相手か相手のモンスター1体を弱体");
+    if (c.frame === "spire") out = out.replace(/(?<!同じ)相手に(\d+)ダメージ/g, "相手のモンスター1体（いなければ相手）に$1ダメージ").replace(/(?<!同じ)相手を弱体/g, "相手のモンスター1体（いなければ相手）を弱体");
     if (c.costX) out = "【X回くり返す】" + out;
   }
   if (cb){
@@ -2131,7 +2131,7 @@ function fillV(sel, want){
 // 「だれに」: for effects aimed at the opponent's side
 function fillT(sel, want){
   const { v, t } = sel._kp, k = v.value, opts = TARGETABLE[k];
-  t.innerHTML = opts ? opts.map(o => `<option value="${o}">${o === "one" && hitsPlayer(k) ? "相手（スパイア風は相手かモンスター1体をえらぶ）" : TO_LABEL[o]}</option>`).join("") : "";
+  t.innerHTML = opts ? opts.map(o => `<option value="${o}">${o === "one" && hitsPlayer(k) ? "1体をえらぶ（スパイア風は相手のモンスター優先、ふつうの枠は相手）" : TO_LABEL[o]}</option>`).join("") : "";
   t.value = opts && opts.includes(want) ? want : opts ? opts[0] : "";
   t.hidden = !opts; if (sel._kpTWrap) sel._kpTWrap.hidden = !opts;
   sel.dataset.to = t.value || "";
@@ -3035,7 +3035,8 @@ function freeZone(arr){ return arr.findIndex(x => !x); }
 const tauntIdx = (st, s) => P(st, s).mz.map((m, i) => m && hasAb(st, s, i, "taunt") ? i : -1).filter(i => i >= 0);
 function targetOptions(st, s, kind, ctx = {}){
   // スパイア attack: the opponent ("p") or one of their monsters ("m:i"); only asks when there is a monster to hit
-  if (ctx.spireAtk && (kind === "dmg" || kind === "bash" || kind === "vuln")){ const tt = tauntIdx(st, O(s)), ms = (tt.length ? tt : P(st, O(s)).mz.map((m, i) => m ? i : -1).filter(i => i >= 0)).map(i => "m:" + i); return ms.length ? ["p", ...ms] : null; }
+  // 1体/2体 aim at the opponent's monsters first; the player only when there is none (ランダム can hit either)
+  if (ctx.spireAtk && (kind === "dmg" || kind === "bash" || kind === "vuln")){ const tt = tauntIdx(st, O(s)), ms = (tt.length ? tt : P(st, O(s)).mz.map((m, i) => m ? i : -1).filter(i => i >= 0)).map(i => "m:" + i); if (ctx.anyEnemy) return ms.length ? ["p", ...ms] : null; const left = ms.filter(o => !(ctx.hit && (ctx.hit.picked || []).includes(o))); return left.length ? ms : ["p"]; }
   const t = KINDS[kind] && KINDS[kind].target;
   if (t === "opp"){ const tt = tauntIdx(st, O(s)); return tt.length ? tt : P(st, O(s)).mz.map((m, i) => m ? i : -1).filter(i => i >= 0); }
   if (t === "any"){
@@ -3055,6 +3056,7 @@ function targetOptions(st, s, kind, ctx = {}){
 }
 function autoTarget(st, s, kind, opts){
   // CPU スパイア attack: go for the strongest monster unless the opponent is nearly out of LP
+  if (opts.length && opts.every(o => typeof o === "string" && o.startsWith("m:"))){ const op = P(st, O(s)); return opts.slice().sort((x, y) => atkOf(op.mz[+y.slice(2)]) - atkOf(op.mz[+x.slice(2)]))[0]; }
   if (opts[0] === "p"){ const ms = opts.slice(1).sort((x, y) => atkOf(P(st, O(s)).mz[+y.slice(2)]) - atkOf(P(st, O(s)).mz[+x.slice(2)])); return ms.length && P(st, O(s)).lp > 300 ? ms[0] : "p"; }
   const t = KINDS[kind].target;
   if (t === "opp") return opts.slice().sort((a, b) => atkOf(P(st, O(s)).mz[b]) - atkOf(P(st, O(s)).mz[a]))[0];
@@ -3275,6 +3277,8 @@ function runEffect(st, s, c, ctx = {}, then, fx = normFx(c)){
   if ((c && c.frame === "spire" || fx.rand || fx.distinct) && (fx.kind === "dmg" || fx.kind === "bash" || fx.kind === "vuln")) ctx = { ...ctx, spireAtk: true };
   let opts = targetOptions(st, s, fx.kind, ctx);
   if (opts && fx.distinct && ctx.hit && ctx.hit.picked) opts = opts.filter(o => !ctx.hit.picked.includes(String(o)));
+  if (fx.rand && ctx.spireAtk) ctx = { ...ctx, anyEnemy: true }, opts = targetOptions(st, s, fx.kind, ctx);
+  if (opts && opts.length === 1 && opts[0] === "p" && ctx.spireAtk){ applyEffect(st, s, c, "p", ctx, fx); then && then(st); return; }
   if (opts && opts.length && fx.rand){ applyEffect(st, s, c, opts[Math.floor(Math.random() * opts.length)], ctx, fx); then && then(st); return; }
   if (opts && !fx.distinct && ctx.spireAtk && ctx.hit && ctx.hit.t && opts.includes(ctx.hit.t)){ applyEffect(st, s, c, ctx.hit.t, ctx, fx); then && then(st); return; }
   if (opts === null){ applyEffect(st, s, c, undefined, ctx, fx); then && then(st); return; }
