@@ -356,6 +356,10 @@ ruby rt{font-size:.5em;line-height:1;font-style:normal}
 .more-fx .mfx button{flex:none}
 .pick-player{min-width:120px;min-height:120px;border-radius:14px;font-weight:700;font-size:16px}
 .bst{display:inline-block;margin-left:6px;padding:2px 8px;border-radius:99px;font:700 12px/1.4 var(--ui);vertical-align:middle;white-space:nowrap}
+.bst.rel{background:#b8860b;color:#fff}
+.relic-pick{display:flex;flex-wrap:wrap;gap:10px}
+.relic-pick button{flex:1 1 180px;text-align:left;padding:12px 14px;border-radius:14px;line-height:1.4}
+.relic-pick button b{display:block;font-size:17px;margin-bottom:4px}
 .bst.blk{background:#2d6fb3;color:#fff}.bst.vul{background:#8a3fb0;color:#fff}
 .lp b{font-size:28px;font-weight:600;font-variant-numeric:tabular-nums}
 .lp.low b{color:var(--hit)}
@@ -974,7 +978,7 @@ nav.tabs button{position:relative}
         <h3 style="margin-top:14px">自分のターンでできること</h3>
         <ol>
           <li>モンスターの召喚は1ターンに1回だけ</li>
-          <li>スパイアデッキ（デッキ編集でチェック）は、「選択の祭壇」が最初から魔法・罠ゾーンに表向きで置かれる。自分のターンのはじめに、ランダムなスパイア風カード3枚から1枚えらんで墓地に加えられる。山札がなくなったら墓地をシャッフルして山札に戻すので、山札切れで負けない。スパイア風のアタック（ダメージを与えるカード）は、相手か相手のモンスター1体をえらべる。モンスターに当てたときは、ダメージがATK以上なら破壊、与えたダメージはそのモンスターにダメージカウンターとして乗り続けて（ATKは変わらない）、カウンターの合計がATK以上になったら破壊。祭壇があると自分のマナは毎ターン3で固定。祭壇の候補には攻撃・防御・強打は出ない。候補はレアリティで出やすさが変わる（コモン6：アンコモン3：レア1）。ブロックは次の自分のターンのはじめまで、受けるダメージを先に引き受けてくれる（残った分だけLPが減る）。脆弱になったプレイヤーは受けるダメージが1.5倍（そのプレイヤーのターンが終わるたびに1へる）。祭壇があるあいだは、自分のターンのはじめに手札が5枚になるまで引いて、ターンのおわりに手札をすべて墓地に捨てる。デッキの枚数は自由で、モンスターが入っていなくてもOK。</li>
+          <li>スパイアデッキ（デッキ編集でチェック）は、試合のはじめにレリックを3つ（秘術の巻物・若葉・轟音のほら貝）から1つえらべる。また、「選択の祭壇」が最初から魔法・罠ゾーンに表向きで置かれる。自分のターンのはじめに、ランダムなスパイア風カード3枚から1枚えらんで墓地に加えられる。山札がなくなったら墓地をシャッフルして山札に戻すので、山札切れで負けない。スパイア風のアタック（ダメージを与えるカード）は、相手か相手のモンスター1体をえらべる。モンスターに当てたときは、ダメージがATK以上なら破壊、与えたダメージはそのモンスターにダメージカウンターとして乗り続けて（ATKは変わらない）、カウンターの合計がATK以上になったら破壊。祭壇があると自分のマナは毎ターン3で固定。祭壇の候補には攻撃・防御・強打は出ない。候補はレアリティで出やすさが変わる（コモン6：アンコモン3：レア1）。ブロックは次の自分のターンのはじめまで、受けるダメージを先に引き受けてくれる（残った分だけLPが減る）。脆弱になったプレイヤーは受けるダメージが1.5倍（そのプレイヤーのターンが終わるたびに1へる）。祭壇があるあいだは、自分のターンのはじめに手札が5枚になるまで引いて、ターンのおわりに手札をすべて墓地に捨てる。デッキの枚数は自由で、モンスターが入っていなくてもOK。</li>
           <li>「永続」の魔法・罠（スパイア風ではパワー）は、使ったあとも魔法・罠ゾーンに表向きで残って、書いてあるタイミング（ターンのはじめ、召喚するたび など）で何度も効果が出る。ゾーンは5つまでなので、置けるのも5枚まで。</li>
           <li>「廃棄」がついた魔法・罠は、使ったあと墓地に行かず、そのゲームからなくなる（墓地から戻す効果でも戻せない）。</li>
           <li>「特殊召喚」できるモンスターは、カードに書いた条件を満たせば手札から出せる（1ターンの召喚回数は使わない）。特殊召喚で出たときは「召喚したとき」の効果は出ず、「特殊召喚したとき」の効果が出る。墓地から場に出す効果も特殊召喚。手札からの特殊召喚は、普通の召喚と同じく相手が打ち消しで無効にできる（払ったものは戻らない）</li>
@@ -2701,14 +2705,44 @@ function newPlayer(deckIds, name, mana, spire){
   const deck = shuffle([...deckIds]); const hand = deck.splice(0, 5);
   const p = { name: name || S.name, lp: START_LP, deck, hand, grave: [], mz: Array(ZONES).fill(null), sz: Array(ZONES).fill(null), mana: mana ? { max: 0, cur: 0 } : null, sleeve: name ? null : (mySleeve() || null), deckIds: [...deckIds] };
   // スパイアデッキ: the altar starts on the field, and the deck never runs out (the graveyard is shuffled back in)
-  if (spire){ p.spire = true; if (!p.mana) p.mana = { max: 0, cur: 0 }; p.sz[0] = { c: SPIRE_ALTAR.id, turn: 0, face: true, u: -1 }; }
+  if (spire){ p.spire = true; p.relicPick = ["scroll", "sprout", "conch"]; if (!p.mana) p.mana = { max: 0, cur: 0 }; p.sz[0] = { c: SPIRE_ALTAR.id, turn: 0, face: true, u: -1 }; }
   return p;
 }
 // 選択の祭壇 (face-up): turn start → draw up to 5 cards, turn end → the whole hand goes to the graveyard
 function altarTurn(st, s, trig){
   const p = P(st, s); if (!p.sz.some(z => z && z.face && z.c === SPIRE_ALTAR.id)) return;
-  if (trig === "turnStart"){ if (p.mana){ p.mana.max = 3; p.mana.cur = 3; } const k = 5 - p.hand.length; if (k > 0) drawN(st, s, k, "「選択の祭壇」"); }
+  if (trig === "turnStart"){ if (p.mana){ p.mana.max = 3; p.mana.cur = 3; if (p.conch){ p.mana.cur += 1; p.conch = false; } } const k = 5 - p.hand.length; if (k > 0) drawN(st, s, k, "「選択の祭壇」"); }
   if (trig === "turnEnd" && p.hand.length){ const n = p.hand.length; p.grave.push(...p.hand.splice(0)); log(st, s, `「選択の祭壇」で手札${n}枚を墓地に捨てた`); }
+}
+// ネオーのレリック: at the start of a スパイアデッキ game the player picks 1 of these 3
+const RELICS = {
+  scroll: { name: "秘術の巻物", text: "ランダムなレアのスパイア風カード1枚をデッキに加える" },
+  sprout: { name: "若葉", text: "デッキか手札のカードを1枚えらんで、ランダムなスパイア風カードに変える" },
+  conch:  { name: "轟音のほら貝", text: "すぐにカードを2枚引き、最初のターンだけマナが1増える" }
+};
+function randSpire(rare){ const pool = draftPool(), rp = pool.filter(c => rarityOf(c) === "rare"); const L = rare && rp.length ? rp : pool; return L.length ? L[Math.floor(Math.random() * L.length)].id : null; }
+// pick relic `key` for player s (step 2 of 若葉: `target` = "deck:i" or "hand:i")
+function chooseRelic(st, s, key, target){
+  const p = P(st, s); if (!p.relicPick || !RELICS[key]) return false;
+  if (key === "sprout" && target == null){ p.relicPick = "sprout"; return true; }
+  p.relicPick = null; p.relics = [...(p.relics || []), key];
+  const nm = `レリック「${RELICS[key].name}」`;
+  if (key === "scroll"){ const id = randSpire(true); if (id){ p.deck.splice(Math.floor(Math.random() * (p.deck.length + 1)), 0, id); log(st, s, `${nm}で「${card(id).name}」をデッキに加えた`); } else log(st, s, `${nm}：加えられるスパイア風カードがない`); }
+  if (key === "sprout"){
+    const [where, i] = String(target).split(":"), arr = where === "hand" ? p.hand : p.deck, id = randSpire(false);
+    if (arr[+i] && id){ const old = arr[+i]; arr[+i] = id; log(st, s, `${nm}で「${card(old).name}」を「${card(id).name}」に変えた`); }
+    else log(st, s, `${nm}：変えられるカードがない`);
+  }
+  if (key === "conch"){ drawN(st, s, 2, nm); if (p.mana){ if (st.turn === s && st.turnNo <= 1) p.mana.cur += 1; else p.conch = true; } log(st, s, `${nm}：最初のターンはマナ+1`); }
+  if (key !== "sprout" || target != null) log(st, s, `${p.name} はレリック「${RELICS[key].name}」を選んだ`);
+  return true;
+}
+// the CPU picks at random (若葉 turns its first 攻撃 into something else)
+function autoRelic(st, s){
+  const p = P(st, s); if (!p.relicPick) return;
+  const key = ["scroll", "sprout", "conch"][Math.floor(Math.random() * 3)];
+  if (key === "sprout"){ let i = p.deck.indexOf("spire-strike"); chooseRelic(st, s, "sprout", i >= 0 ? "deck:" + i : p.deck.length ? "deck:0" : "hand:0"); }
+  else chooseRelic(st, s, key);
 }
 function refill(st, s){
   const p = P(st, s); if (p.deck.length || !p.spire || !p.grave.length) return;
@@ -2766,6 +2800,7 @@ $("#btnCpu").addEventListener("click", () => {
   const cpuMana = cd ? !!cd.mana : chosenMana(), cpuIds = (cd || (cpuMana ? sampleManaDeck() : starterDeck())).cards.filter(id => S.cards.has(id));
   if ((!(cd && cd.spire) && cpuIds.length < MIN_DECK) || (!(cd && cd.spire) && !cpuIds.some(id => cardType(S.cards.get(id)) === "monster"))){ toast("CPUのデッキのカードが足りません。別のデッキをえらんでね"); return; }
   G = { mode: "cpu", slot: "a", st: startState(newPlayer(ids, null, chosenMana(), chosenSpire()), newPlayer(cpuIds, cd ? `CPU（${cd.name}）` : "CPU", cpuMana, !!(cd && cd.spire))), sel: null, atkFrom: null, chooseQ: [], evSeen: 0 };
+  autoRelic(G.st, "b");
   after(false);
 });
 /* ---- rematch: same players, same decks, fresh game (online: both have to say yes) ---- */
@@ -2784,7 +2819,7 @@ function rematch(){
   if (!G || !G.st || !G.st.winner || G.spectate) return;
   if (G.mode !== "online"){
     const old = G.st; clearTimeout(G.cpuT); G.cpuT = null;
-    G.st = startState(freshFrom(old, "a"), freshFrom(old, "b")); resetLocal(); after(false); return;
+    G.st = startState(freshFrom(old, "a"), freshFrom(old, "b")); autoRelic(G.st, "b"); resetLocal(); after(false); return;
   }
   const me = G.slot;
   act(st => {
@@ -2831,7 +2866,7 @@ function monDmg(st, s, i, n, src){
   if (m.dmg >= a){ log(st, O(s), `「${nm}」のダメージカウンター${m.dmg}がATK${fmtN(a)}に届いた！`); destroyMonster(st, s, i, src); }
   else log(st, O(s), `「${nm}」にダメージカウンターが${n}乗った（合計 ${m.dmg} / ATK ${fmtN(a)}）`);
 }
-const statChips = p => (p.block ? `<span class="bst blk" title="次の自分のターンのはじめまで、受けるダメージを先に引き受ける">ブロック ${p.block}</span>` : "") + (p.vuln > 0 ? `<span class="bst vul" title="受けるダメージが1.5倍">脆弱 ${p.vuln}</span>` : "");
+const statChips = p => (p.relics || []).filter(k => RELICS[k]).map(k => `<span class="bst rel" title="${esc(RELICS[k].text)}">${esc(RELICS[k].name)}</span>`).join("") + (p.block ? `<span class="bst blk" title="次の自分のターンのはじめまで、受けるダメージを先に引き受ける">ブロック ${p.block}</span>` : "") + (p.vuln > 0 ? `<span class="bst vul" title="受けるダメージが1.5倍">脆弱 ${p.vuln}</span>` : "");
 function dealDmg(st, s, n){
   const p = P(st, s); if (n === Infinity){ p.lp = Math.min(0, p.lp); return; }
   if (n > 0 && p.vuln > 0){ n = Math.floor(n * 1.5); log(st, s, `脆弱で${n}ダメージに！`); }
@@ -3788,7 +3823,14 @@ function renderOverlay(){
   if (!G || !G.st || !G.st.started || S.tab !== "play"){ ov.hidden = true; ov.innerHTML = ""; return; }
   const st = G.st, me = G.slot;
   let html = "";
-  if (G.chooseQ.length && G.chooseQ[0].ask){
+  const myP = !G.spectate && st.players && st.players[me], rp = myP && !st.winner ? myP.relicPick : null;
+  if (rp === "sprout"){
+    const L = [...myP.hand.map((id, i) => ["hand:" + i, id]), ...myP.deck.map((id, i) => ["deck:" + i, id])];
+    const seen = new Set(), list = L.filter(([, id]) => !seen.has(id) && seen.add(id)).map(([k, id]) => cardHTML(card(id), "sm pick", `data-sprout="${k}" tabindex="0" role="button"`, mOpt(me))).join("");
+    html = `<div class="box"><h2 style="margin:0">若葉：変えるカードをえらぶ</h2><p class="muted" style="margin:0">えらんだカードが1枚、ランダムなスパイア風カードに変わります（デッキか手札から）</p><div class="gallery">${list || '<p class="muted">カードがありません</p>'}</div></div>`;
+  } else if (Array.isArray(rp)){
+    html = `<div class="box"><h2 style="margin:0">ネオーの祝福：レリックを1つえらぶ</h2><p class="muted" style="margin:0">スパイアデッキのはじまりに、どれか1つだけ手に入る</p><div class="relic-pick">${rp.filter(k => RELICS[k]).map(k => `<button data-relic="${k}"><b>${esc(RELICS[k].name)}</b>${esc(RELICS[k].text)}</button>`).join("")}</div></div>`;
+  } else if (G.chooseQ.length && G.chooseQ[0].ask){
     const q = G.chooseQ[0];
     html = `<div class="box"><h2 style="margin:0">「${esc(q.c.name)}」</h2><p style="margin:0;font-size:18px;font-weight:700">${esc(q.fx.ask)}</p><p class="muted" style="margin:0">「はい」なら：${esc(KINDS[q.fx.kind].text(q.fx.n))}</p><div class="row"><button class="primary" data-ask="yes">はい</button><button data-ask="no">いいえ</button></div></div>`;
   } else if (G.chooseQ.length){
@@ -3854,6 +3896,10 @@ $("#overlay").addEventListener("click", e => {
   if (e.target.closest("[data-ssgo]") && G.ssPick){ const sp = G.ssPick; G.ssPick = null; act(st => specialSummon(st, G.slot, sp.hi, sp.picked)); return; }
   const ep = e.target.closest("[data-eqpos]");
   if (ep && G.eqPlace){ const x = G.eqPlace; G.eqPlace = null; G.sel = null; act(st => equip(st, G.slot, x.hi, x.s, x.i, +ep.dataset.eqpos)); return; }
+  const rl = e.target.closest("[data-relic]");
+  if (rl){ const k = rl.dataset.relic; act(st => chooseRelic(st, G.slot, k)); return; }
+  const sw = e.target.closest("[data-sprout]");
+  if (sw){ const k = sw.dataset.sprout; act(st => chooseRelic(st, G.slot, "sprout", k)); return; }
   const opt = e.target.closest("[data-opt]");
   if (opt && G.chooseQ.length){
     const q = G.chooseQ.shift(); const t = KINDS[q.fx.kind].target;
