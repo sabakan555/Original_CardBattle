@@ -1129,6 +1129,9 @@ const KINDS = {
   freePower:  { label: "次に使うパワーのコストを0にする", text: () => `次に使うパワーのコストを0にする` },
   draft:      { label: "スパイアのカードを○枚から1枚えらんで墓地に加える", n: true, target: "draft", text: n => `ランダムなスパイア風カード${n}枚から1枚えらんで墓地に加える` },
   atkAll:     { label: "自分のモンスター全部のATKアップ", n: true, text: n => `自分のモンスターすべてのATK+${n}` },
+  charmAll:   { label: "相手モンスター全部を魅了（攻撃できなくする）", mon: true, text: () => `相手のモンスターすべてを魅了する（このカードが場にある間、攻撃できない）` },
+  vulnAll:    { label: "相手と相手のモンスター全部を弱体にする", n: true, text: n => `相手と相手のモンスターすべてを弱体${n}にする` },
+  atkDownAll: { label: "相手のモンスター全部のATKダウン", n: true, text: n => `相手のモンスターすべてのATK−${n}` },
   atkDown:    { label: "相手のモンスターのATKダウン", n: true, target: "opp", text: n => `相手のモンスター1体のATK−${n}` },
   revive:     { label: "墓地から手札に戻す", target: "grave", text: () => `墓地のモンスター1体を手札に戻す` },
   reborn:     { label: "墓地から場に出す", target: "grave", text: () => `墓地のモンスター1体を自分の場に出す` },
@@ -2035,9 +2038,7 @@ const KIND_GROUPS = [
   { g: "dmg",     label: "ダメージを与える",          v: [["dmg", "相手（スパイア風は相手かモンスター1体）"], ["dmgRand", "ランダムな敵"], ["dmgAll", "相手と相手のモンスター全部"], ["bash", "相手（＋弱体2）"]] },
   { g: "destroy", label: "モンスターを破壊する",      v: [["destroy", "相手のモンスター1体"], ["destroyAll", "相手のモンスター全部"], ["killAtk", "攻撃してきたモンスター（罠）"]] },
   { g: "atkUp",   label: "ATKを上げる",               v: [["selfAtk", "このモンスター"], ["atkUp", "自分のモンスター1体"], ["atkAll", "自分のモンスター全部"]] },
-  { g: "atkDown", label: "ATKを下げる",               v: [["atkDown", "相手のモンスター1体"]] },
-  { g: "charm",   label: "魅了する（攻撃できなくする）", v: [["charm", "相手のモンスター1体"]] },
-  { g: "vuln",    label: "弱体にする（受けるダメージ1.5倍）", v: [["vuln", "相手（スパイア風は相手かモンスター1体）"]] },
+  { g: "debuff",  label: "デバフをつける",            v: [["vuln", "弱体（受けるダメージ1.5倍）：相手（スパイア風は相手かモンスター1体）"], ["vulnAll", "弱体：相手と相手のモンスター全部"], ["charm", "魅了（攻撃できない）：相手のモンスター1体"], ["charmAll", "魅了：相手のモンスター全部"], ["atkDown", "ATKダウン：相手のモンスター1体"], ["atkDownAll", "ATKダウン：相手のモンスター全部"]] },
   { g: "heal",    label: "LPを回復する",              v: [["heal", "自分"]] },
   { g: "block",   label: "ブロックを得る",            v: [["block", "自分"]] },
   { g: "draw",    label: "カードを引く",              v: [["draw", "自分"]] },
@@ -3183,6 +3184,9 @@ function applyEffect(st, s, c, target, ctx = {}, fx = normFx(c)){
       break;
     }
     case "atkUp": if (me.mz[target]){ me.mz[target].mod = (me.mz[target].mod || 0) + n; log(st, s, `${src}で「${card(me.mz[target].c).name}」のATK+${n}`); } break;
+    case "charmAll": op.mz.forEach(m => { if (m) m.charm = { eu: ctx.eqU || null, mu: ctx.mon ? ctx.mon.u : null, c: c.id }; }); log(st, s, `${src}で相手のモンスターをすべて魅了した（攻撃できない）`); break;
+    case "vulnAll": addVuln(st, s, "p", n, src); op.mz.forEach((m, i) => { if (m) addVuln(st, s, "m:" + i, n, src); }); break;
+    case "atkDownAll": op.mz.forEach(m => { if (m) m.mod = (m.mod || 0) - n; }); log(st, s, `${src}で相手のモンスターすべてのATK−${n}`); break;
     case "atkDown": if (op.mz[target]){ op.mz[target].mod = (op.mz[target].mod || 0) - n; log(st, s, `${src}で「${card(op.mz[target].c).name}」のATK−${n}`); } break;
     case "revive": { const gi = me.grave.indexOf(target); if (gi >= 0){ me.grave.splice(gi, 1); me.hand.push(target); log(st, s, `${src}で墓地の「${card(target).name}」を手札に戻した`); } break; }
     case "reborn": { const gi = me.grave.indexOf(target), z = freeZone(me.mz); if (gi >= 0 && z >= 0){ me.grave.splice(gi, 1); me.mz[z] = mkMon(st, target); ev(st, { type: "summon", s, z }); log(st, s, `${src}で墓地の「${card(target).name}」を場に出した（特殊召喚）`); trigger(st, s, card(target), "ssummon", { zone: z, mon: { s, i: z, u: me.mz[z].u } }); } break; }
