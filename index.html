@@ -356,6 +356,7 @@ ruby rt{font-size:.5em;line-height:1;font-style:normal}
 .more-fx .mfx button{flex:none}
 .pick-player{min-width:120px;min-height:120px;border-radius:14px;font-weight:700;font-size:16px}
 .bst{display:inline-block;margin-left:6px;padding:2px 8px;border-radius:99px;font:700 12px/1.4 var(--ui);vertical-align:middle;white-space:nowrap}
+.bst.free{background:#2e8b57;color:#fff}
 .bst.rel{background:#b8860b;color:#fff}
 .relic-pick{display:flex;flex-wrap:wrap;gap:10px}
 .relic-pick button{flex:1 1 180px;text-align:left;padding:12px 14px;border-radius:14px;line-height:1.4}
@@ -978,7 +979,7 @@ nav.tabs button{position:relative}
         <h3 style="margin-top:14px">自分のターンでできること</h3>
         <ol>
           <li>モンスターの召喚は1ターンに1回だけ</li>
-          <li>スパイアデッキ（デッキ編集でチェック）は、試合のはじめ、最初の手札を引く前にレリックを3つ（秘術の巻物・若葉・轟音のほら貝）から1つえらべる。また、「選択の祭壇」が最初から魔法・罠ゾーンに表向きで置かれる。自分のターンのはじめに、ランダムなスパイア風カード3枚から1枚えらんで墓地に加えられる。山札がなくなったら墓地をシャッフルして山札に戻すので、山札切れで負けない。スパイア風のアタック（ダメージを与えるカード）は、相手か相手のモンスター1体をえらべる。モンスターに当てたときは、ダメージがATK以上なら破壊、与えたダメージはそのモンスターにダメージカウンターとして乗り続けて（ATKは変わらない）、カウンターの合計がATK以上になったら破壊。祭壇があると自分のマナは毎ターン3で固定。祭壇の候補には攻撃・防御・強打は出ない。候補はレアリティで出やすさが変わる（コモン6：アンコモン3：レア1）。ブロックは次の自分のターンのはじめまで、受けるダメージを先に引き受けてくれる（残った分だけLPが減る）。脆弱になったプレイヤーは受けるダメージが1.5倍（そのプレイヤーのターンが終わるたびに1へる）。祭壇があるあいだは、自分のターンのはじめに手札が5枚になるまで引いて、ターンのおわりに手札をすべて墓地に捨てる。デッキの枚数は自由で、モンスターが入っていなくてもOK。</li>
+          <li>スパイアデッキ（デッキ編集でチェック）は、試合のはじめ、最初の手札を引く前にレリックを3つ（秘術の巻物・若葉・轟音のほら貝）から1つえらべる。また、「選択の祭壇」が最初から魔法・罠ゾーンに表向きで置かれる。自分のターンのはじめに、ランダムなスパイア風カード3枚から1枚えらんで墓地に加えられる。山札がなくなったら墓地をシャッフルして山札に戻すので、山札切れで負けない。スパイア風のアタック（ダメージを与えるカード）は、相手か相手のモンスター1体をえらべる。モンスターに当てたときは、ダメージがATK以上なら破壊、与えたダメージはそのモンスターにダメージカウンターとして乗り続けて（ATKは変わらない）、カウンターの合計がATK以上になったら破壊。祭壇があると自分のマナは毎ターン3で固定。祭壇の候補には攻撃・防御・強打は出ない。コストXのカードは、使うときにあるマナを全部使って、そのぶん（X回）効果をくり返す。「次に使う○○のコストを0にする」は、次にそのタイプのスパイア風カードを使うまで続く。候補はレアリティで出やすさが変わる（コモン6：アンコモン3：レア1）。ブロックは次の自分のターンのはじめまで、受けるダメージを先に引き受けてくれる（残った分だけLPが減る）。脆弱になったプレイヤーは受けるダメージが1.5倍（そのプレイヤーのターンが終わるたびに1へる）。祭壇があるあいだは、自分のターンのはじめに手札が5枚になるまで引いて、ターンのおわりに手札をすべて墓地に捨てる。デッキの枚数は自由で、モンスターが入っていなくてもOK。</li>
           <li>「永続」の魔法・罠（スパイア風ではパワー）は、使ったあとも魔法・罠ゾーンに表向きで残って、書いてあるタイミング（ターンのはじめ、召喚するたび など）で何度も効果が出る。ゾーンは5つまでなので、置けるのも5枚まで。</li>
           <li>「廃棄」がついた魔法・罠は、使ったあと墓地に行かず、そのゲームからなくなる（墓地から戻す効果でも戻せない）。</li>
           <li>「特殊召喚」できるモンスターは、カードに書いた条件を満たせば手札から出せる（1ターンの召喚回数は使わない）。特殊召喚で出たときは「召喚したとき」の効果は出ず、「特殊召喚したとき」の効果が出る。墓地から場に出す効果も特殊召喚。手札からの特殊召喚は、普通の召喚と同じく相手が打ち消しで無効にできる（払ったものは戻らない）</li>
@@ -1111,6 +1112,12 @@ const KINDS = {
   block:      { label: "ブロックを得る（次の自分のターンまでダメージを肩代わり）", n: true, text: n => `ブロックを${n}得る` },
   vuln:       { label: "相手を脆弱にする（受けるダメージ1.5倍・○ターン）", n: true, text: n => `相手を脆弱${n}にする` },
   bash:       { label: "相手にダメージ＋脆弱2", n: true, text: n => `相手に${n}ダメージを与え、脆弱2にする` },
+  dmgRand:    { label: "ランダムな敵に○ダメージ（相手か相手のモンスター）", n: true, text: n => `ランダムな敵（相手か相手のモンスター）に${n}ダメージ` },
+  dmgAll:     { label: "相手と相手のモンスター全部に○ダメージ", n: true, text: n => `相手と相手のモンスターすべてに${n}ダメージ` },
+  copyGrave:  { label: "このカードのコピーを墓地に加える", text: () => `このカードのコピーを1枚墓地に加える` },
+  freeAttack: { label: "次に使うアタックのコストを0にする", text: () => `次に使うアタックのコストを0にする` },
+  freeSkill:  { label: "次に使うスキルのコストを0にする", text: () => `次に使うスキルのコストを0にする` },
+  freePower:  { label: "次に使うパワーのコストを0にする", text: () => `次に使うパワーのコストを0にする` },
   draft:      { label: "スパイアのカードを○枚から1枚えらんで墓地に加える", n: true, target: "draft", text: n => `ランダムなスパイア風カード${n}枚から1枚えらんで墓地に加える` },
   atkAll:     { label: "自分のモンスター全部のATKアップ", n: true, text: n => `自分のモンスターすべてのATK+${n}` },
   atkDown:    { label: "相手のモンスターのATKダウン", n: true, target: "opp", text: n => `相手のモンスター1体のATK−${n}` },
@@ -1242,6 +1249,7 @@ function ssText(c){
 }
 // extra effects that follow the main one (same timing), e.g. 「100ダメージを与えて、1枚引く」
 const moreFx = fx => (fx && Array.isArray(fx.more) ? fx.more : []).filter(m => m && KINDS[m.kind] && m.kind !== "none" && m.kind !== "win");
+const costLabel = c => c && c.costX ? "X" : costOf(c);
 function fxText(c){ return [isPersist(c) ? "【永続】使ったあとも場に残る" : "", ssText(c), fxText0(c)].filter(Boolean).join("。"); }
 function fxText0(c){
   const fx = normFx(c), cb = normCombo(c); if (!fx && !cb) return "";
@@ -1253,6 +1261,7 @@ function fxText0(c){
     out = (isMon ? `【${trigLabel(t, fx.trig)}】` : isPersist(c) && fx.trig !== "use" ? `【${PERSIST_TRIG_LABEL[fx.trig]}】` : "") + ask + cond + KINDS[fx.kind].text(fx.n) + moreFx(fx).map(m => "、" + KINDS[m.kind].text(m.n)).join("");
     if (t === "equip") out = out.replace(/このモンスター/g, "装備したモンスター");
     if (c.frame === "spire") out = out.replace(/相手に(\d+)ダメージ/g, "相手か相手のモンスター1体に$1ダメージ");
+    if (c.costX) out = "【X回くり返す】" + out;
   }
   if (cb){
     const head = fx ? (fx.trig === cb.trig ? "。さらに" : `。【${TRIGS[cb.trig]}】`) : (isMon ? `【${TRIGS[cb.trig]}】` : "");
@@ -1463,7 +1472,7 @@ function cardHTML(c, cls = "", attrs = "", opts = {}){
   const sv = []; if (fc) sv.push(`--cf:${fc}`); if (c.nameSize && c.nameSize !== "m") sv.push(`--nk:${sizeK(c.nameSize)}`); if (c.textSize && c.textSize !== "m") sv.push(`--tk:${sizeK(c.textSize)}`); if (cl !== 5) sv.push(`--cl:${cl};--cls:${cl}`);
   if (c.frame === "socra") return socraHTML(c, t, cls, attrs, opts, sv, showCost);
   if (c.frame === "spire") return spireHTML(c, t, cls, attrs, opts, sv, showCost);
-  return `<div class="card ${t}${showCost ? " costed" : ""}${fl ? " frameless" : ""} ${cls}" ${attrs}${sv.length ? ` style='${sv.join(";")}'` : ""}>${opts.done ? `<span class="done">${opts.done}</span>` : ""}${opts.eq ? `<span class="eqb">${esc(opts.eq)}</span>` : ""}${opts.dmg ? `<span class="dmgc" title="ダメージカウンター（ATK以上になると破壊）">ダメージ ${opts.dmg}</span>` : ""}<div class="c-in">${fl ? `<div class="c-bgart">${art}</div>` : ""}${showCost ? `<span class="c-cost" title="コスト">${costOf(c)}</span>` : ""}<div class="c-name">${rubyHTML(c.nameRuby || c.name)}</div><div class="c-art">${fl ? "" : art}${eqc}<div class="c-tab">${typeLabel(c)}</div></div><div class="c-text${atk ? " ha" : ""}"><div class="body">${eqTxt}${ft ? `<span class="fx">${esc(ft)}</span> ` : ""}${rubyHTML(c.effect || "")}${exhausts(c) ? ` <span class="fx">廃棄</span>` : ""}</div>${flv ? `<div class="flv">${rubyHTML(flv)}</div>` : ""}${c.id ? `<span class="c-lim">${lim ? "×" + lim : "∞"}</span>` : ""}${atk}</div></div></div>`;
+  return `<div class="card ${t}${showCost ? " costed" : ""}${fl ? " frameless" : ""} ${cls}" ${attrs}${sv.length ? ` style='${sv.join(";")}'` : ""}>${opts.done ? `<span class="done">${opts.done}</span>` : ""}${opts.eq ? `<span class="eqb">${esc(opts.eq)}</span>` : ""}${opts.dmg ? `<span class="dmgc" title="ダメージカウンター（ATK以上になると破壊）">ダメージ ${opts.dmg}</span>` : ""}<div class="c-in">${fl ? `<div class="c-bgart">${art}</div>` : ""}${showCost ? `<span class="c-cost" title="コスト">${costLabel(c)}</span>` : ""}<div class="c-name">${rubyHTML(c.nameRuby || c.name)}</div><div class="c-art">${fl ? "" : art}${eqc}<div class="c-tab">${typeLabel(c)}</div></div><div class="c-text${atk ? " ha" : ""}"><div class="body">${eqTxt}${ft ? `<span class="fx">${esc(ft)}</span> ` : ""}${rubyHTML(c.effect || "")}${exhausts(c) ? ` <span class="fx">廃棄</span>` : ""}</div>${flv ? `<div class="flv">${rubyHTML(flv)}</div>` : ""}${c.id ? `<span class="c-lim">${lim ? "×" + lim : "∞"}</span>` : ""}${atk}</div></div></div>`;
 }
 // ソクラテスラ frame (hand-drawn club cards): 「・憤怒　の▷」 banner for equips, a band for monsters,
 // equip capacity / cost in a circle at the bottom left, ATK (or the equip's ATK change) outlined at the bottom right
@@ -1484,7 +1493,7 @@ function socraHTML(c, t, cls, attrs, opts, sv, showCost){
   if (t === "monster"){ const base = baseAtk(c), mod = opts.mod || 0; num = `<span class="s-atk s-box ${mod > 0 ? "up" : mod < 0 ? "dn" : ""}">${fmtN(Math.max(0, base + mod))}</span>`; }
   else if (t === "equip" && c.eqN) num = `<span class="s-atk">${c.eqN > 0 ? "+" : "−"}${Math.abs(c.eqN)}</span>`;
   const art = c.img ? `<img alt="" src="${c.img}">` : "";
-  return `<div class="card socra ${t}${showCost ? " costed" : ""} ${cls}" ${attrs}${sv.length ? ` style='${sv.join(";")}'` : ""}>${opts.done ? `<span class="done">${opts.done}</span>` : ""}${opts.eq ? `<span class="eqb">${esc(opts.eq)}</span>` : ""}${opts.dmg ? `<span class="dmgc" title="ダメージカウンター（ATK以上になると破壊）">ダメージ ${opts.dmg}</span>` : ""}<div class="c-in">${showCost ? `<span class="c-cost" title="コスト">${costOf(c)}</span>` : ""}<div class="s-name">${nameH}</div><div class="c-art">${art}</div><div class="c-text"><div class="body">${body}</div>${c.flavor ? `<div class="flv">${rubyHTML(c.flavor)}</div>` : ""}</div>${cap}${num}</div></div>`;
+  return `<div class="card socra ${t}${showCost ? " costed" : ""} ${cls}" ${attrs}${sv.length ? ` style='${sv.join(";")}'` : ""}>${opts.done ? `<span class="done">${opts.done}</span>` : ""}${opts.eq ? `<span class="eqb">${esc(opts.eq)}</span>` : ""}${opts.dmg ? `<span class="dmgc" title="ダメージカウンター（ATK以上になると破壊）">ダメージ ${opts.dmg}</span>` : ""}<div class="c-in">${showCost ? `<span class="c-cost" title="コスト">${costLabel(c)}</span>` : ""}<div class="s-name">${nameH}</div><div class="c-art">${art}</div><div class="c-text"><div class="body">${body}</div>${c.flavor ? `<div class="flv">${rubyHTML(c.flavor)}</div>` : ""}</div>${cap}${num}</div></div>`;
 }
 // スパイア風 frame: gem cost at the top left, ribbon name over an arched picture, type plaque, centered text
 const exhausts = c => !!(c && c.exhaust && (cardType(c) === "magic" || cardType(c) === "trap"));
@@ -1501,7 +1510,7 @@ function spireHTML(c, t, cls, attrs, opts, sv, showCost){
   if (t === "monster"){ const base = baseAtk(c), mod = opts.mod || 0; num = `<span class="p-atk ${mod > 0 ? "up" : mod < 0 ? "dn" : ""}"><small>ATK</small><b>${fmtN(Math.max(0, base + mod))}</b></span>`; if (hasEqCap(c)) cap = `<span class="p-cap" title="装備キャパ">${eqCapOf(c)}</span>`; }
   else if (t === "equip"){ if (c.eqN) num = `<span class="p-atk ${c.eqN > 0 ? "up" : "dn"}"><small>ATK</small><b>${c.eqN > 0 ? "+" : "−"}${Math.abs(c.eqN)}</b></span>`; if (eqCostOf(c)) cap = `<span class="p-cap" title="装備コスト">−${eqCostOf(c)}</span>`; }
   const art = c.img ? `<img alt="" src="${c.img}">` : "";
-  return `<div class="card spire ${t} sk-${spireKind(c)} rar-${rarityOf(c)}${showCost ? " costed" : ""} ${cls}" ${attrs}${sv.length ? ` style='${sv.join(";")}'` : ""}>${opts.done ? `<span class="done">${opts.done}</span>` : ""}${opts.eq ? `<span class="eqb">${esc(opts.eq)}</span>` : ""}${opts.dmg ? `<span class="dmgc" title="ダメージカウンター（ATK以上になると破壊）">ダメージ ${opts.dmg}</span>` : ""}<div class="p-base"></div><div class="p-art">${art}</div><div class="p-over"></div><div class="p-gemimg"></div>${showCost ? `<span class="p-gem" title="コスト">${costOf(c)}</span>` : ""}<div class="p-name"><span>${rubyHTML(c.nameRuby || c.name || "")}</span></div><div class="p-type">${SPIRE_LABEL[spireKind(c)]}</div><div class="p-text"><div class="body">${body}</div>${c.flavor ? `<div class="flv">${rubyHTML(c.flavor)}</div>` : ""}</div>${cap}${num}</div>`;
+  return `<div class="card spire ${t} sk-${spireKind(c)} rar-${rarityOf(c)}${showCost ? " costed" : ""} ${cls}" ${attrs}${sv.length ? ` style='${sv.join(";")}'` : ""}>${opts.done ? `<span class="done">${opts.done}</span>` : ""}${opts.eq ? `<span class="eqb">${esc(opts.eq)}</span>` : ""}${opts.dmg ? `<span class="dmgc" title="ダメージカウンター（ATK以上になると破壊）">ダメージ ${opts.dmg}</span>` : ""}<div class="p-base"></div><div class="p-art">${art}</div><div class="p-over"></div><div class="p-gemimg"></div>${showCost ? `<span class="p-gem" title="コスト">${costLabel(c)}</span>` : ""}<div class="p-name"><span>${rubyHTML(c.nameRuby || c.name || "")}</span></div><div class="p-type">${SPIRE_LABEL[spireKind(c)]}</div><div class="p-text"><div class="body">${body}</div>${c.flavor ? `<div class="flv">${rubyHTML(c.flavor)}</div>` : ""}</div>${cap}${num}</div>`;
 }
 // card back: the owner's own sleeve if they drew one
 const backHTML = (cls = "", attrs = "", sleeve = "") => sleeve && /^data:image\//.test(sleeve)
@@ -1904,7 +1913,7 @@ function syncCost(){
   const v = MK.deck === "normal" ? "" : $("#mkCost").value;
   $("#mkCostBadge").textContent = v; $("#mkCostBadge").hidden = v === ""; $("#editCard").classList.toggle("costed", v !== "");
 }
-$("#mkCost").innerHTML = Array.from({ length: MAX_MANA + 1 }, (_, k) => `<option value="${k}">${k}</option>`).join("");
+$("#mkCost").innerHTML = Array.from({ length: MAX_MANA + 1 }, (_, k) => `<option value="${k}">${k}</option>`).join("") + `<option value="X">X（あるマナを全部使って、効果をX回くり返す）</option>`;
 $("#mkCost").value = "1";
 const MODE_NOTE = { normal: "マナを使わない、ふつうのデッキ用。コストはつかない", cost: "コストデッキ専用。ふつうのデッキには入れられない", both: "どちらのデッキにも入れられる。ふつうのデッキで遊ぶときはコストが表示されない" };
 function setMkDeck(m){ MK.deck = DECK_LABEL[m] ? m : "normal"; document.querySelectorAll("#mkMode button").forEach(b => b.setAttribute("aria-pressed", b.dataset.m === MK.deck)); $("#costRow").hidden = MK.deck === "normal"; $("#modeNote").textContent = MODE_NOTE[MK.deck]; syncCost(); }
@@ -2118,7 +2127,7 @@ $("#btnSave").addEventListener("click", async () => {
   const id = S.editId || uid("c");
   const prev = S.cards.get(id);
   let eqN = Math.round(+$("#mkEq").value || 0); $("#mkEq").value = eqN;
-  const doc = { type: MK.type, name, atk: MK.type === "monster" ? atk : 0, atkInf, eqN: MK.type === "equip" ? eqN : 0, eqAb: "none", eqCost: MK.type === "equip" ? Math.max(0, Math.round(+$("#mkEqCost").value || 0)) : null, eqCap: MK.type === "monster" && $("#mkFrame").value === "socra" && $("#mkEqCap").value.trim() !== "" ? Math.max(0, Math.round(+$("#mkEqCap").value || 0)) : null, abs: MK.type === "monster" || MK.type === "equip" ? readAbs() : [], frame: $("#mkFrame").value || null, ss: readSS(), effect: $("#mkEff").value.trim(), flavor: $("#mkFlv").value.trim(), nameSize: $("#mkNameSize").value, textSize: $("#mkTextSize").value, fx: readFx(), combo: readCombo(), font: $("#mkFont").value, quick: MK.type === "magic" && $("#mkFrame").value !== "spire" && $("#mkQuick").checked, persist: (MK.type === "magic" || MK.type === "trap") && $("#mkPersist").checked, sk: mkSk(), rarity: $("#mkFrame").value === "spire" ? $("#mkRarity").value : null, exhaust: (MK.type === "magic" || MK.type === "trap") && $("#mkExhaust").checked, cost: MK.deck === "normal" ? null : +$("#mkCost").value, deckMode: MK.deck, limit: +$("#mkLimit").value,
+  const doc = { type: MK.type, name, atk: MK.type === "monster" ? atk : 0, atkInf, eqN: MK.type === "equip" ? eqN : 0, eqAb: "none", eqCost: MK.type === "equip" ? Math.max(0, Math.round(+$("#mkEqCost").value || 0)) : null, eqCap: MK.type === "monster" && $("#mkFrame").value === "socra" && $("#mkEqCap").value.trim() !== "" ? Math.max(0, Math.round(+$("#mkEqCap").value || 0)) : null, abs: MK.type === "monster" || MK.type === "equip" ? readAbs() : [], frame: $("#mkFrame").value || null, ss: readSS(), effect: $("#mkEff").value.trim(), flavor: $("#mkFlv").value.trim(), nameSize: $("#mkNameSize").value, textSize: $("#mkTextSize").value, fx: readFx(), combo: readCombo(), font: $("#mkFont").value, quick: MK.type === "magic" && $("#mkFrame").value !== "spire" && $("#mkQuick").checked, persist: (MK.type === "magic" || MK.type === "trap") && $("#mkPersist").checked, sk: mkSk(), rarity: $("#mkFrame").value === "spire" ? $("#mkRarity").value : null, exhaust: (MK.type === "magic" || MK.type === "trap") && $("#mkExhaust").checked, cost: MK.deck === "normal" ? null : $("#mkCost").value === "X" ? 0 : +$("#mkCost").value, costX: MK.deck !== "normal" && $("#mkCost").value === "X", deckMode: MK.deck, limit: +$("#mkLimit").value,
     img: prev && prev.img && !MK.artDirty ? prev.img : encodeArt(out), frameless: MK.frameless, author: S.name, ownerId: prev?.ownerId || S.uid || null, updatedAt: Date.now() };
   $("#btnSave").disabled = true;
   try{
@@ -2155,7 +2164,7 @@ $("#gallery").addEventListener("click", async e => {
   if (ed){
     const c = S.cards.get(ed.dataset.edit); if (!c || !(isMine(c) || (c.starter && isAdmin()))) return;
     S.editId = c.id; setFrameless(!!c.frameless); MK.artDirty = false; $("#mkName").value = c.nameRuby || c.name; $("#mkEff").value = c.effect || ""; $("#mkFlv").value = c.flavor || ""; $("#mkNameSize").value = SIZES_T[c.nameSize] ? c.nameSize : "m"; $("#mkTextSize").value = SIZES_T[c.textSize] ? c.textSize : "m"; syncSizes(); $("#mkAtk").value = c.atkInf ? "∞" : (c.atk || 0); $("#mkLimit").value = String(cardLimit(c));
-    $("#mkQuick").checked = !!c.quick; $("#mkExhaust").checked = !!c.exhaust; $("#mkPersist").checked = !!c.persist; MK.sk = c.sk || null; $("#mkRarity").value = rarityOf(c); setMkType(cardType(c)); loadFxForm(c); $("#mkFont").value = FONTS[c.font] ? c.font : "klee"; syncFont(); $("#mkCost").value = hasCost(c) ? String(costOf(c)) : "1"; setMkDeck(deckModeOf(c)); $("#mkEq").value = c.eqN || 0; $("#mkEqAb").value = "none"; $("#mkEqCost").value = String(eqCostOf(c)); $("#mkEqCap").value = hasEqCap(c) ? String(+c.eqCap) : ""; loadAbs(absOf(c)); syncEqLine(); $("#mkFrame").value = c.frame === "socra" || c.frame === "spire" ? c.frame : ""; syncFrame(); loadSS(c);
+    $("#mkQuick").checked = !!c.quick; $("#mkExhaust").checked = !!c.exhaust; $("#mkPersist").checked = !!c.persist; MK.sk = c.sk || null; $("#mkRarity").value = rarityOf(c); setMkType(cardType(c)); loadFxForm(c); $("#mkFont").value = FONTS[c.font] ? c.font : "klee"; syncFont(); $("#mkCost").value = c.costX ? "X" : hasCost(c) ? String(costOf(c)) : "1"; setMkDeck(deckModeOf(c)); $("#mkEq").value = c.eqN || 0; $("#mkEqAb").value = "none"; $("#mkEqCost").value = String(eqCostOf(c)); $("#mkEqCap").value = hasEqCap(c) ? String(+c.eqCap) : ""; loadAbs(absOf(c)); syncEqLine(); $("#mkFrame").value = c.frame === "socra" || c.frame === "spire" ? c.frame : ""; syncFrame(); loadSS(c);
     if (!c.img){ clearCanvas(); undoStack = []; MK.artDirty = false; }
     else { const im = new Image(); im.onload = () => { clearCanvas(); setPhoto(im); setMode("draw"); composite(); undoStack = []; MK.artDirty = false; }; im.src = c.img; }
     $("#mkTitle").textContent = "カードを編集中"; $("#btnNew").hidden = false; $("#btnSave").textContent = "変更を保存";
@@ -2262,7 +2271,7 @@ function renderCardView(){
   if (t === "monster") rows.push(["ATK", fmtN(baseAtk(c))]);
   if (t === "equip") rows.push(["ATK", `${(c.eqN || 0) >= 0 ? "+" : "−"}${Math.abs(c.eqN || 0)}`], ["装備コスト", String(eqCostOf(c))]);
   if (t === "monster") rows.push(["装備キャパ", String(eqCapOf(c)) + (hasEqCap(c) ? "" : "（ATK÷100）")]);
-  if (hasCost(c) && mana !== false) rows.push(["コスト", String(costOf(c))]);
+  if (hasCost(c) && mana !== false) rows.push(["コスト", String(costLabel(c))]);
   if (!c.starter) rows.push(["使えるデッキ", DECK_LABEL[deckModeOf(c)]]);
   rows.push(["デッキ上限", lim ? `${lim}枚まで` : "制限なし"]);
   rows.push(["作った人", c.author || "？"]);
@@ -2869,7 +2878,7 @@ function monDmg(st, s, i, n, src){
   if (m.dmg >= a){ log(st, O(s), `「${nm}」のダメージカウンター${m.dmg}がATK${fmtN(a)}に届いた！`); destroyMonster(st, s, i, src); }
   else log(st, O(s), `「${nm}」にダメージカウンターが${n}乗った（合計 ${m.dmg} / ATK ${fmtN(a)}）`);
 }
-const statChips = p => (p.relics || []).filter(k => RELICS[k]).map(k => `<span class="bst rel" title="${esc(RELICS[k].text)}">${esc(RELICS[k].name)}</span>`).join("") + (p.block ? `<span class="bst blk" title="次の自分のターンのはじめまで、受けるダメージを先に引き受ける">ブロック ${p.block}</span>` : "") + (p.vuln > 0 ? `<span class="bst vul" title="受けるダメージが1.5倍">脆弱 ${p.vuln}</span>` : "");
+const statChips = p => Object.entries(p.free || {}).filter(([, v]) => v > 0).map(([k, v]) => `<span class="bst free" title="次に使うこの種類のカードはコスト0">次の${SPIRE_LABEL[k]}0コスト${v > 1 ? "×" + v : ""}</span>`).join("") + (p.relics || []).filter(k => RELICS[k]).map(k => `<span class="bst rel" title="${esc(RELICS[k].text)}">${esc(RELICS[k].name)}</span>`).join("") + (p.block ? `<span class="bst blk" title="次の自分のターンのはじめまで、受けるダメージを先に引き受ける">ブロック ${p.block}</span>` : "") + (p.vuln > 0 ? `<span class="bst vul" title="受けるダメージが1.5倍">脆弱 ${p.vuln}</span>` : "");
 function dealDmg(st, s, n){
   const p = P(st, s); if (n === Infinity){ p.lp = Math.min(0, p.lp); return; }
   if (n > 0 && p.vuln > 0){ n = Math.floor(n * 1.5); log(st, s, `脆弱で${n}ダメージに！`); }
@@ -3044,6 +3053,10 @@ function applyEffect(st, s, c, target, ctx = {}, fx = normFx(c)){
   const me = P(st, s), op = P(st, O(s)), n = fx.n || 0, src = `「${c.name}」`;
   switch (fx.kind){
     case "heal": me.lp += n; log(st, s, `${src}でLPを${n}回復`); break;
+    case "dmgRand": { const L = ["p", ...op.mz.map((m, i) => m ? "m:" + i : null).filter(Boolean)], t = L[Math.floor(Math.random() * L.length)]; if (t === "p"){ log(st, s, `${src}で${op.name}に${n}ダメージ（ランダム）`); dealDmg(st, O(s), n); } else monDmg(st, O(s), +t.slice(2), n, src + "（ランダム）"); break; }
+    case "dmgAll": { op.mz.map((m, i) => m ? i : -1).filter(i => i >= 0).forEach(i => monDmg(st, O(s), i, n, src)); log(st, s, `${src}で${op.name}に${n}ダメージ`); dealDmg(st, O(s), n); break; }
+    case "copyGrave": if (c && S.cards.has(c.id)){ me.grave.push(c.id); log(st, s, `${src}のコピーを墓地に加えた`); } break;
+    case "freeAttack": case "freeSkill": case "freePower": { const k = fx.kind.slice(4).toLowerCase(); me.free = { ...(me.free || {}), [k]: ((me.free || {})[k] || 0) + 1 }; log(st, s, `${src}：次に使う${SPIRE_LABEL[k]}のコストが0になる`); break; }
     case "draft": if (target && S.cards.has(target)){ me.grave.push(target); log(st, s, `${src}で「${card(target).name}」を墓地に加えた`); } break;
     case "atkAll": { let k = 0; me.mz.forEach(m => { if (m){ m.mod = (m.mod || 0) + n; k++; } }); log(st, s, `${src}で自分のモンスター${k}体のATK+${n}`); break; }
     case "dmg": if (typeof target === "string" && target.startsWith("m:")){ monDmg(st, O(s), +target.slice(2), n, src); break; } log(st, s, `${src}で${op.name}に${n}ダメージ`); dealDmg(st, O(s), n); break;
@@ -3150,14 +3163,24 @@ function runCard(st, s, c, trig, ctx = {}, then){
   if (cb && cb.trig === trig){
     if (comboMet(st, s, cb, ctx)){ log(st, s, `${cb.match === "part" ? `名前に「${cb.name}」が入ったカード` : `「${cb.name}」`}があるので「${c.name}」の追加効果が発動！`); list.push({ kind: cb.kind, n: cb.n, trig }); }
   }
+  if (c && c.costX && ctx.x != null && list.length){ const one = list.splice(0); for (let r = 0; r < ctx.x; r++) list.push(...one); if (!ctx.x) log(st, s, `「${c.name}」：X が0なので効果なし`); }
   const step = (st2, k) => { if (k >= list.length){ then && then(st2); return; } runEffect(st2, s, c, ctx, st3 => step(st3, k + 1), list[k]); };
   step(st, 0);
 }
 function trigger(st, s, c, trig, ctx){ if (cardType(c) === "monster") runCard(st, s, c, trig, ctx); }
 
 // mana: can player s pay for card c right now? (players without a cost deck always can)
-function canPay(st, s, c){ const m = P(st, s).mana; return !m || m.cur >= costOf(c); }
-function pay(st, s, c){ const m = P(st, s).mana; if (!m) return true; const k = costOf(c); if (m.cur < k) return false; m.cur -= k; return true; }
+// what card c costs player s right now: コストX costs nothing up front (it takes all mana when paid); a スパイア card may be free after 「次に使う○○のコストを0」
+function freeKey(st, s, c){ const f = P(st, s).free, k = c && c.frame === "spire" ? spireKind(c) : null; return k && f && f[k] > 0 ? k : null; }
+function effCost(st, s, c){ return c && c.costX ? 0 : freeKey(st, s, c) ? 0 : costOf(c); }
+function canPay(st, s, c){ const m = P(st, s).mana; return !m || m.cur >= effCost(st, s, c); }
+function pay(st, s, c){
+  const p = P(st, s), m = p.mana, fk = freeKey(st, s, c);
+  const k = !m ? 0 : c && c.costX ? (fk ? 0 : m.cur) : effCost(st, s, c);
+  if (m && m.cur < k) return false;
+  if (fk){ p.free[fk]--; log(st, s, `「${c.name}」はコスト0で使える！`); }
+  if (m) m.cur -= k; p.lastPaid = k; return true;
+}
 function canSummonNow(st, s){ return P(st, s).mana ? true : !st.summoned; }
 function canAct(st, s){ return !(G && G.spectate) && st.turn === s && !st.pending && !st.winner && !(G && G.chooseQ.length); }
 function summon(st, s, hi, zi){
@@ -3262,6 +3285,7 @@ function activate(st, s, from, i, ctx = {}){
   const keep = isPersist(c), pz = keep ? (from === "hand" ? freeZone(p.sz) : i) : -1;
   if (keep && pz < 0) return false;
   if (!pay(st, s, c)) return false;
+  if (c.costX){ ctx = { ...ctx, x: p.lastPaid || 0 }; log(st, s, `「${c.name}」：X = ${p.lastPaid || 0}`); }
   if (from === "hand") p.hand.splice(i, 1);
   else p.sz[i] = null;
   // 永続: stays face-up in the magic/trap zone
@@ -3594,7 +3618,7 @@ function renderBoard(){
     hint = st.turnNo === 1 ? "先攻の1ターン目は攻撃できません" : "カードをえらんで行動しよう";
     if (sel && sel.z === "hand"){
       const c = card(pm.hand[sel.i]), t = cardType(c);
-      const afford = canPay(st, me, c), short = !afford ? `（マナが${costOf(c) - pm.mana.cur}足りない）` : "";
+      const afford = canPay(st, me, c), short = !afford ? `（マナが${effCost(st, me, c) - pm.mana.cur}足りない）` : "";
       if (t === "monster"){
         const ss = ssOf(c);
         if (!(ss && ss.only)){ const ok = canSummonNow(st, me) && afford && freeZone(pm.mz) >= 0; acts += `<button class="primary" data-act="summon" ${ok ? "" : "disabled"}>召喚する${!canSummonNow(st, me) ? "（このターンは召喚ずみ）" : short}</button>`; if (ok) hint = "光っているモンスターゾーンをクリックしても召喚できます"; }
@@ -3778,7 +3802,7 @@ function renderDetail(info, anim){
   if (info.hidden){ box.innerHTML = `${CLOSE}<h3>カード詳細</h3><div class="detailcard">${backHTML("detail", "", info.sleeve)}</div><p class="note" style="margin:0">相手がセットしたカード。中身はひみつ。</p>`; return; }
   const c = card(info.id), t = cardType(c), ft = fxText(c), lim = cardLimit(c);
   const rows = [["種類", isQuick(c) ? "速攻魔法（相手のターンにも使える）" : TYPE_LABEL[t]]];
-  if (hasCost(c) && info.mana !== false) rows.push(["コスト", String(costOf(c))]);
+  if (hasCost(c) && info.mana !== false) rows.push(["コスト", String(costLabel(c))]);
   if (!c.starter) rows.push(["使えるデッキ", DECK_LABEL[deckModeOf(c)]]);
   if (t === "monster"){
     const base = baseAtk(c), now = Math.max(0, base + (info.mod || 0));
