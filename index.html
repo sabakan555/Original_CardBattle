@@ -110,10 +110,10 @@ label.f{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:13p
 .card.spire .p-name span{overflow:hidden;text-overflow:ellipsis;padding:0 calc(var(--u)*6)}
 .card.spire .p-name rt{font-size:.42em;-webkit-text-stroke-width:calc(var(--u)*4)}
 .card.spire .p-gemimg,.card.editor.spire .c-in::before{content:"";position:absolute;left:calc(var(--u)*-31);top:calc(var(--u)*-34);width:calc(var(--u)*686);height:calc(var(--u)*923);background:var(--sp-gem) 0 0/100% 100% no-repeat;pointer-events:none;z-index:3}
-/* rarity: コモン = silver ribbon and frame, アンコモン = teal, レア = gold (the Figma colors) */
-.card.spire.rar-common .p-over,.card.editor.spire.rar-common::after{filter:grayscale(1) brightness(1.08) contrast(.95)}
+/* rarity: コモン = iron ribbon and frame, アンコモン = teal, レア = gold (the Figma colors) */
+.card.spire.rar-common .p-over,.card.editor.spire.rar-common::after{filter:grayscale(1) sepia(.25) hue-rotate(175deg) saturate(.9) brightness(.6) contrast(1.25)}
 .card.spire.rar-uncommon .p-over,.card.editor.spire.rar-uncommon::after{filter:hue-rotate(150deg) saturate(.7) brightness(.85)}
-.card.spire.rar-common .p-type,.card.editor.spire.rar-common .c-tab{background:#dcdcdc;box-shadow:0 calc(var(--u)*6.2) 0 #8a8a8a,0 calc(var(--u)*8) calc(var(--u)*6) rgba(60,60,60,.6)}
+.card.spire.rar-common .p-type,.card.editor.spire.rar-common .c-tab{background:#8d959c;box-shadow:0 calc(var(--u)*6.2) 0 #454c52,0 calc(var(--u)*8) calc(var(--u)*6) rgba(30,34,38,.6)}
 .card.spire.rar-uncommon .p-type,.card.editor.spire.rar-uncommon .c-tab{background:#86dcdc;box-shadow:0 calc(var(--u)*6.2) 0 #2d8a92,0 calc(var(--u)*8) calc(var(--u)*6) rgba(20,90,96,.6)}
 .card.spire .p-type{position:absolute;left:calc(var(--u)*313.3);top:calc(var(--u)*444.3);transform:translateX(-50%);z-index:3;min-width:calc(var(--u)*121.5);height:calc(var(--u)*55.7);box-sizing:border-box;padding:0 calc(var(--u)*12);border-radius:calc(var(--u)*8);background:#ffc367;box-shadow:0 calc(var(--u)*6.2) 0 #c7670e,0 calc(var(--u)*8) calc(var(--u)*6) rgba(167,82,0,.8);display:grid;place-items:center;font:500 calc(var(--u)*28)/1 "Zen Maru Gothic",var(--ui);color:#000;white-space:nowrap}
 .card.spire .p-text{position:absolute;left:calc(var(--u)*62);width:calc(var(--u)*506);top:calc(var(--u)*508);height:calc(var(--u)*252);z-index:3;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;font-size:calc(var(--u)*34*var(--tk,1));line-height:1.35;color:#e5e1bf;text-shadow:calc(var(--u)*3) calc(var(--u)*3) calc(var(--u)*4) #212121;overflow:hidden}
@@ -777,7 +777,7 @@ nav.tabs button{position:relative}
 
         <div class="mk-pane" data-pane="look" hidden>
           <label class="f">カードの枠<select id="mkFrame"><option value="">ふつう</option><option value="socra">ソクラテスラ（紙っぽい・矢印の名前）</option><option value="spire">スパイア風（宝石のコスト・リボンの名前）</option></select></label>
-          <label class="f" id="rarityRow" hidden>レアリティ（リボンの色）<select id="mkRarity"><option value="common">コモン（銀）</option><option value="uncommon">アンコモン（青緑）</option><option value="rare">レア（金）</option></select></label>
+          <label class="f" id="rarityRow" hidden>レアリティ（リボンの色）<select id="mkRarity"><option value="common">コモン（鉄色）</option><option value="uncommon">アンコモン（青緑）</option><option value="rare">レア（金）</option></select></label>
           <label class="row" style="gap:6px;font-weight:700;cursor:pointer"><input type="checkbox" id="mkFrameless"> 半フレームレス（絵を下の文字の欄まで広げる）</label>
           <label class="f">文字のフォント<select id="mkFont" aria-label="カードのフォント"></select></label>
           <div><h3>文字の大きさ</h3><div class="row"><label class="f" style="flex-direction:row;align-items:center;gap:6px">名前<select id="mkNameSize"></select></label><label class="f" style="flex-direction:row;align-items:center;gap:6px">効果・フレーバー<select id="mkTextSize"></select></label></div></div>
