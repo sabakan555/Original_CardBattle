@@ -955,8 +955,9 @@ nav.tabs button{position:relative}
             </div>
           </details>
           <details class="mk-sec" id="secSs">
-            <summary><span class="mk-st">特殊召喚</span><span class="mk-sum" id="sumSs"></span></summary>
+            <summary><span class="mk-st">召喚の条件（生贄・特殊召喚）</span><span class="mk-sum" id="sumSs"></span></summary>
             <div class="fxform" id="ssBox">
+              <label class="row" style="gap:6px;font-weight:700">生贄召喚：召喚するとき自分のモンスターを<select id="mkTrib"><option value="0">0（いらない）</option><option value="1">1</option><option value="2">2</option><option value="3">3</option></select>体 墓地へ送る</label>
               <label class="row" style="gap:6px;font-weight:700;cursor:pointer"><input type="checkbox" id="ssOn"> 手札から特殊召喚できる</label>
               <div id="ssOpts" hidden>
                 <div class="row"><label class="f">条件<select id="ssCond"></select></label><label class="f" id="ssNWrap">数<input type="number" id="ssN" min="0" max="9999" value="1"></label><label class="f" id="ssNameWrap">名前<input type="text" id="ssName" maxlength="20" placeholder="例: ガブリン"></label></div>
@@ -1403,6 +1404,8 @@ const SS_COSTS = {
   lp:      { label: "LPを○払う", n: true, text: n => `LPを${n}払って、` }
 };
 const ssOf = c => c && cardType(c) === "monster" && c.ss && c.ss.on ? { cond: SS_CONDS[c.ss.cond] ? c.ss.cond : "none", n: +c.ss.n || 0, name: c.ss.name || "", cost: SS_COSTS[c.ss.cost] ? c.ss.cost : "none", cn: Math.max(1, +c.ss.cn || 1), only: !!c.ss.only } : null;
+// 生贄召喚: a normal summon that sends this many of your own monsters to the graveyard first
+const tribOf = c => c && cardType(c) === "monster" && +c.trib > 0 ? Math.min(3, Math.round(+c.trib)) : 0;
 function ssText(c){
   const ss = ssOf(c); if (!ss) return "";
   return `${ss.only ? "このカードは普通には召喚できない。" : ""}【特殊召喚】${SS_CONDS[ss.cond].text(ss.n, ss.name)}${SS_COSTS[ss.cost].text(ss.cn)}手札から特殊召喚できる`;
@@ -1449,7 +1452,7 @@ const payLpOf = c => c && c.payLp > 0 ? Math.round(+c.payLp) : 0;
 const payDiscOf = c => c && c.payDisc > 0 ? Math.round(+c.payDisc) : 0;
 const payMaxOf = c => c && c.payMax > 0 ? Math.round(+c.payMax) : 0;
 function extraCostText(c){ const L = [payLpOf(c) ? `LPを${payLpOf(c)}払う` : "", payDiscOf(c) ? `手札を${payDiscOf(c)}枚捨てる` : "", payMaxOf(c) ? `最大マナを${payMaxOf(c)}減らす` : ""].filter(Boolean); return L.length ? "【コスト】" + L.join("、") : ""; }
-function fxText(c){ return (c && c.token ? "【トークン】" : "") + [isPersist(c) ? "【永続】使ったあとも場に残る" : "", extraCostText(c), ssText(c), fxText0(c)].filter(Boolean).join("。"); }
+function fxText(c){ return (c && c.token ? "【トークン】" : "") + [isPersist(c) ? "【永続】使ったあとも場に残る" : "", extraCostText(c), tribOf(c) ? `【生贄召喚】自分のモンスター${tribOf(c)}体を墓地へ送って召喚する` : "", ssText(c), fxText0(c)].filter(Boolean).join("。"); }
 /* ================= effect blocks: いつ / もし / なにを / ちがったら =================
    c.blocks = [{ trig, conds: [{k, op, n | name, where, match | text}], join: "and"|"or", then: [{kind, n, to}], else: [...] }]
    Older cards (c.fx + c.combo) are read as blocks too, so everything below runs on blocks. */
@@ -1470,6 +1473,7 @@ const COND_DEFS = {
   myStr:    { label: "自分の筋力", who: "自分の筋力が", unit: "", val: (st, s) => P(st, s).str || 0 },
   sameHand: { label: "手札のこのカードの枚数", who: "手札にこのカードが", unit: "枚", val: (st, s, c, ctx) => P(st, s).hand.filter(id => id === c.id).length + (ctx && ctx.fromHand ? 1 : 0) },
   card:     { label: "特定のカードがある" },
+  costDeck: { label: "自分がコストデッキを使っている" },
   ask:      { label: "質問して「はい」と答えた" }
 };
 const OPS = { ge: "以上", le: "以下" };
@@ -1492,10 +1496,12 @@ const isNumCond = k => !!(COND_DEFS[k] && COND_DEFS[k].val);
 function condPhrase(x){
   if (x.k === "card"){ const cnt = +(x.cnt ?? 1), op = x.op === "le" ? "le" : "ge"; return `${x.match === "part" ? `名前に「${x.name || "？"}」が入ったカード` : `「${x.name || "？"}」`}が自分の${WHERE[x.where] || WHERE.field}に${cnt === 1 && op === "ge" ? "ある" : `${cnt}枚${OPS[op]}ある`}`; }
   if (x.k === "ask") return `「${x.text || "？"}」に「はい」`;
+  if (x.k === "costDeck") return "自分がコストデッキを使っている";
   const d = COND_DEFS[x.k]; return `${d.who}${x.n ?? 0}${d.unit}${OPS[x.op] || OPS.ge}`;
 }
 const condsText = b => b.conds && b.conds.length ? b.conds.map(condPhrase).join(b.join === "or" ? "か、" : "、かつ") + "なら、" : "";
 function condMet(st, s, c, x, ctx){
+  if (x.k === "costDeck") return !!P(st, s).mana;
   if (x.k === "card"){ if (!x.name) return false; const v = comboCount(st, s, { name: x.name, where: WHERE[x.where] ? x.where : "field", match: x.match === "part" ? "part" : "exact" }, ctx || {}), n = Math.max(0, +(x.cnt ?? 1)); return x.op === "le" ? v <= n : v >= n; }
   const d = COND_DEFS[x.k]; if (!d || !d.val) return true;
   const v = d.val(st, s, c, ctx), n = +x.n || 0;
@@ -2547,7 +2553,7 @@ function kindGroups(avail){
   return gs;
 }
 const defN = k => smallN(k) ? 1 : 100;
-function mkPreviewCard(){ return { ...(MK.kind === "relic" ? { relicView: true } : {}), type: MK.type, frame: MK.kind === "potion" || MK.kind === "relic" ? "spire" : $("#mkFrame").value, persist: (MK.type === "magic" || MK.type === "trap") && $("#mkPersist").checked, costX: $("#mkCost").value === "X", ...mkPays(), blocks: readBlocks(), ss: readSS(), eqN: Math.round(+$("#mkEq").value || 0), abs: readAbs() }; }
+function mkPreviewCard(){ return { trib: MK.type === "monster" ? +$("#mkTrib").value || 0 : 0, ...(MK.kind === "relic" ? { relicView: true } : {}), type: MK.type, frame: MK.kind === "potion" || MK.kind === "relic" ? "spire" : $("#mkFrame").value, persist: (MK.type === "magic" || MK.type === "trap") && $("#mkPersist").checked, costX: $("#mkCost").value === "X", ...mkPays(), blocks: readBlocks(), ss: readSS(), eqN: Math.round(+$("#mkEq").value || 0), abs: readAbs() }; }
 function readBlocks(){
   const bs = (MK.blocks || []).map(b => ({ trig: b.trig, join: b.join === "or" ? "or" : "and", conds: (b.conds || []).map(x => ({ ...x })), then: (b.then || []).map(cleanEff).filter(Boolean), else: (b.conds || []).length ? (b.else || []).map(cleanEff).filter(Boolean) : [] })).filter(b => b.then.length || b.else.length);
   return bs.length ? bs : null;
@@ -2663,7 +2669,7 @@ function initBlocksUI(){
 initBlocksUI();
 function resetMaker(){
   S.editId = null; setFrameless(false); $("#mkName").value = ""; $("#mkEff").value = ""; $("#mkFlv").value = ""; $("#mkNameSize").value = $("#mkTextSize").value = "m"; syncSizes(); $("#mkAtk").value = 300; $("#mkEq").value = 200; $("#mkEqAb").value = "none"; $("#mkEqCost").value = "1"; $("#mkEqCap").value = ""; $("#mkFrame").value = ""; syncFrame(); $("#mkFont").value = "klee"; syncFont(); $("#mkQuick").checked = false; $("#mkExhaust").checked = false; $("#mkToken").checked = false; $("#mkNeow").checked = false; $("#mkPayLp").value = "0"; $("#mkPayDisc").value = "0"; $("#mkPayMax").value = "0"; $("#mkPersist").checked = false; MK.sk = null; $("#mkRarity").value = "common"; $("#mkCost").value = "1"; setMkDeck("normal"); $("#mkLimit").value = "3"; clearCanvas(); undoStack = [];
-  setMkType("monster"); loadFxForm(null); loadAbs([]); loadSS(null);
+  setMkType("monster"); loadFxForm(null); loadAbs([]); loadSS(null); $("#mkTrib").value = "0";
   $("#mkTitle").textContent = "カードを描く"; $("#btnNew").hidden = true; $("#btnSave").textContent = "カードを保存"; potionModeUI();
 }
 setMkType("monster"); loadFxForm(null);
@@ -2690,9 +2696,10 @@ function updateSecs(){
   else sum("#sumEq", $("#mkEqCap").value.trim() === "" ? "自動（ATK÷100）" : `キャパ ${$("#mkEqCap").value}`, $("#mkEqCap").value.trim() !== "");
   $("#secSs").hidden = t !== "monster";
   const ss = readSS();
-  sum("#sumSs", ss ? (ss.only ? "特殊召喚のみ・" : "") + (SS_CONDS[ss.cond] ? SS_CONDS[ss.cond].label : "") : "なし", !!ss);
+  { const tn = +$("#mkTrib").value || 0; sum("#sumSs", [tn ? `生贄${tn}体` : "", ss ? (ss.only ? "特殊召喚のみ・" : "") + (SS_CONDS[ss.cond] ? SS_CONDS[ss.cond].label : "") : ""].filter(Boolean).join("・") || "なし", !!ss || tn > 0); }
 }
 ["#mkEqCost", "#mkEqCap"].forEach(q => $(q).addEventListener("input", updateSecs));
+$("#mkTrib").addEventListener("change", () => updateBkText());
 $("#mkAbs").addEventListener("change", updateSecs);
 setMkPane(["draw", "look", "fx", "deck"].includes(ls.get("cb_mkpane", "draw")) ? ls.get("cb_mkpane", "draw") : "draw");
 updateSecs();
@@ -2709,7 +2716,7 @@ $("#btnSave").addEventListener("click", async () => {
   const id = S.editId || uid("c");
   const prev = S.cards.get(id) || userPotion(id) || userRelic(id) || builtinPotionCard(id);
   let eqN = Math.round(+$("#mkEq").value || 0); $("#mkEq").value = eqN;
-  const doc = { type: MK.type, name, atk: MK.type === "monster" ? atk : 0, atkInf, eqN: MK.type === "equip" ? eqN : 0, eqAb: "none", eqCost: MK.type === "equip" ? Math.max(0, Math.round(+$("#mkEqCost").value || 0)) : null, eqCap: MK.type === "monster" && $("#mkFrame").value === "socra" && $("#mkEqCap").value.trim() !== "" ? Math.max(0, Math.round(+$("#mkEqCap").value || 0)) : null, abs: MK.type === "monster" || MK.type === "equip" ? readAbs() : [], frame: $("#mkFrame").value || null, ss: readSS(), effect: $("#mkEff").value.trim(), flavor: $("#mkFlv").value.trim(), nameSize: $("#mkNameSize").value, textSize: $("#mkTextSize").value, fx: null, combo: null, blocks: readBlocks(), font: $("#mkFont").value, quick: MK.type === "magic" && $("#mkFrame").value !== "spire" && $("#mkQuick").checked, persist: (MK.type === "magic" || MK.type === "trap") && $("#mkPersist").checked, sk: mkSk(), rarity: $("#mkFrame").value === "spire" ? $("#mkRarity").value : null, exhaust: (MK.type === "magic" || MK.type === "trap") && $("#mkExhaust").checked, token: $("#mkToken").checked || null, ...mkPays(true), cost: MK.deck === "normal" ? null : $("#mkCost").value === "X" ? 0 : +$("#mkCost").value, costX: MK.deck !== "normal" && $("#mkCost").value === "X", deckMode: MK.deck, limit: +$("#mkLimit").value,
+  const doc = { type: MK.type, name, atk: MK.type === "monster" ? atk : 0, atkInf, eqN: MK.type === "equip" ? eqN : 0, eqAb: "none", eqCost: MK.type === "equip" ? Math.max(0, Math.round(+$("#mkEqCost").value || 0)) : null, eqCap: MK.type === "monster" && $("#mkFrame").value === "socra" && $("#mkEqCap").value.trim() !== "" ? Math.max(0, Math.round(+$("#mkEqCap").value || 0)) : null, abs: MK.type === "monster" || MK.type === "equip" ? readAbs() : [], frame: $("#mkFrame").value || null, ss: readSS(), trib: MK.type === "monster" ? (+$("#mkTrib").value || null) : null, effect: $("#mkEff").value.trim(), flavor: $("#mkFlv").value.trim(), nameSize: $("#mkNameSize").value, textSize: $("#mkTextSize").value, fx: null, combo: null, blocks: readBlocks(), font: $("#mkFont").value, quick: MK.type === "magic" && $("#mkFrame").value !== "spire" && $("#mkQuick").checked, persist: (MK.type === "magic" || MK.type === "trap") && $("#mkPersist").checked, sk: mkSk(), rarity: $("#mkFrame").value === "spire" ? $("#mkRarity").value : null, exhaust: (MK.type === "magic" || MK.type === "trap") && $("#mkExhaust").checked, token: $("#mkToken").checked || null, ...mkPays(true), cost: MK.deck === "normal" ? null : $("#mkCost").value === "X" ? 0 : +$("#mkCost").value, costX: MK.deck !== "normal" && $("#mkCost").value === "X", deckMode: MK.deck, limit: +$("#mkLimit").value,
     img: prev && prev.img && !MK.artDirty ? prev.img : encodeArt(out, MK.kind === "potion" || MK.kind === "relic"), frameless: MK.frameless, author: S.name, ownerId: prev?.ownerId || S.uid || null, updatedAt: Date.now() };
   if (prev && prev.builtinPotion && !MK.artDirty && doc.img === potionArt(prev.potKey)) delete doc.img;
   if (MK.kind === "potion" || MK.kind === "relic") Object.assign(doc, { type: MK.kind, neow: MK.kind === "relic" && $("#mkNeow").checked || null, atk: 0, atkInf: false, eqN: 0, eqCost: null, eqCap: null, abs: [], frame: null, ss: null, quick: false, persist: false, sk: null, rarity: null, exhaust: false, payLp: null, payDisc: null, payMax: null, cost: null, costX: false, deckMode: "normal", limit: 0 });
@@ -2815,7 +2822,7 @@ $("#gallery").addEventListener("click", async e => {
   if (ed){
     const c = S.cards.get(ed.dataset.edit); if (!c || !(isMine(c) || (c.starter && isAdmin()))) return;
     setMkKind("card"); S.editId = c.id; setFrameless(!!c.frameless); MK.artDirty = false; $("#mkName").value = c.nameRuby || c.name; $("#mkEff").value = c.effect || ""; $("#mkFlv").value = c.flavor || ""; $("#mkNameSize").value = SIZES_T[c.nameSize] ? c.nameSize : "m"; $("#mkTextSize").value = SIZES_T[c.textSize] ? c.textSize : "m"; syncSizes(); $("#mkAtk").value = c.atkInf ? "∞" : (c.atk || 0); $("#mkLimit").value = String(cardLimit(c));
-    $("#mkQuick").checked = !!c.quick; $("#mkExhaust").checked = !!c.exhaust; $("#mkToken").checked = !!c.token; $("#mkPayLp").value = String(payLpOf(c)); $("#mkPayDisc").value = String(payDiscOf(c)); $("#mkPayMax").value = String(payMaxOf(c)); $("#mkPersist").checked = !!c.persist; MK.sk = c.sk || null; $("#mkRarity").value = rarityOf(c); setMkType(cardType(c)); loadFxForm(c); $("#mkFont").value = FONTS[c.font] ? c.font : "klee"; syncFont(); $("#mkCost").value = c.costX ? "X" : hasCost(c) ? String(costOf(c)) : "1"; setMkDeck(deckModeOf(c)); $("#mkEq").value = c.eqN || 0; $("#mkEqAb").value = "none"; $("#mkEqCost").value = String(eqCostOf(c)); $("#mkEqCap").value = hasEqCap(c) ? String(+c.eqCap) : ""; loadAbs(absOf(c)); syncEqLine(); $("#mkFrame").value = c.frame === "socra" || c.frame === "spire" ? c.frame : ""; syncFrame(); loadSS(c);
+    $("#mkTrib").value = String(tribOf(c)); $("#mkQuick").checked = !!c.quick; $("#mkExhaust").checked = !!c.exhaust; $("#mkToken").checked = !!c.token; $("#mkPayLp").value = String(payLpOf(c)); $("#mkPayDisc").value = String(payDiscOf(c)); $("#mkPayMax").value = String(payMaxOf(c)); $("#mkPersist").checked = !!c.persist; MK.sk = c.sk || null; $("#mkRarity").value = rarityOf(c); setMkType(cardType(c)); loadFxForm(c); $("#mkFont").value = FONTS[c.font] ? c.font : "klee"; syncFont(); $("#mkCost").value = c.costX ? "X" : hasCost(c) ? String(costOf(c)) : "1"; setMkDeck(deckModeOf(c)); $("#mkEq").value = c.eqN || 0; $("#mkEqAb").value = "none"; $("#mkEqCost").value = String(eqCostOf(c)); $("#mkEqCap").value = hasEqCap(c) ? String(+c.eqCap) : ""; loadAbs(absOf(c)); syncEqLine(); $("#mkFrame").value = c.frame === "socra" || c.frame === "spire" ? c.frame : ""; syncFrame(); loadSS(c);
     if (!c.img){ clearCanvas(); undoStack = []; MK.artDirty = false; }
     else { const im = new Image(); im.onload = () => { clearCanvas(); setPhoto(im); setMode("draw"); composite(); undoStack = []; MK.artDirty = false; }; im.src = c.img; }
     $("#mkTitle").textContent = "カードを編集中"; $("#btnNew").hidden = false; $("#btnSave").textContent = "変更を保存";
@@ -4202,12 +4209,15 @@ function withDiscard(c, hi, go){
 }
 function canSummonNow(st, s){ return P(st, s).mana ? true : !st.summoned; }
 function canAct(st, s){ return !(G && G.spectate) && st.turn === s && !st.pending && !st.winner && !(G && G.chooseQ.length); }
-function summon(st, s, hi, zi, disc){
-  const p = P(st, s), id = p.hand[hi], z = (zi != null && !p.mz[zi]) ? zi : freeZone(p.mz);
-  if (!canSummonNow(st, s) || z < 0 || cardType(card(id)) !== "monster" || !canPay(st, s, card(id)) || (ssOf(card(id)) || {}).only) return false;
+function summon(st, s, hi, zi, disc, trib){
+  const p = P(st, s), id = p.hand[hi], need = tribOf(card(id));
+  let z = (zi != null && !p.mz[zi]) ? zi : freeZone(p.mz);
+  if (need){ trib = [...new Set((trib || []).map(Number))].filter(i => p.mz[i]); if (trib.length !== need) return false; }
+  if (!canSummonNow(st, s) || (z < 0 && !need) || cardType(card(id)) !== "monster" || !canPay(st, s, card(id)) || (ssOf(card(id)) || {}).only) return false;
   if (!pay(st, s, card(id))) return false;
   p.hand.splice(hi, 1); if (!p.mana) st.summoned = true;
   discardCost(st, s, card(id), shiftPicks(disc, hi));
+  if (need){ log(st, s, `${trib.map(i => `「${card(p.mz[i].c).name}」`).join("")}を生贄にした`); trib.forEach(i => sendToGrave(st, s, i)); z = (zi != null && !p.mz[zi]) ? zi : trib.includes(z) || z < 0 ? trib[0] : z; }
   const label = `「${card(id).name}」（ATK ${fmtN(baseAtk(card(id)))}）を召喚${p.mana ? `（コスト${costOf(card(id))}）` : ""}`;
   // the opponent gets a window only if they hold something that can counter it
   if (responseOptions(st, O(s), "summon").length){
@@ -4566,9 +4576,17 @@ function cpuStep(st, s){
     if (specialSummon(st, s, i, picks)) return;
   }
   // 2. summon strongest
-  if (canSummonNow(st, s) && freeZone(p.mz) >= 0){
+  if (canSummonNow(st, s)){
     const mons = p.hand.map((id, i) => [i, card(id)]).filter(([, c]) => cardType(c) === "monster" && canPay(st, s, c) && !(ssOf(c) || {}).only).sort((a, b) => cmpNum(baseAtk(b[1]), baseAtk(a[1])));
-    if (mons.length){ summon(st, s, mons[0][0]); return; }
+    for (const [i, c] of mons){
+      const need = tribOf(c);
+      if (!need){ if (freeZone(p.mz) >= 0){ summon(st, s, i); return; } continue; }
+      // 生贄召喚: only when the weakest ones it gives up are all weaker than it
+      const mine = p.mz.map((m, j) => m ? j : -1).filter(j => j >= 0).sort((a, b) => cmpNum(atkOf(p.mz[a]), atkOf(p.mz[b])));
+      if (mine.length < need) continue;
+      const picks = mine.slice(0, need); if (picks.some(j => cmpNum(atkOf(p.mz[j]), baseAtk(c)) >= 0)) continue;
+      if (summon(st, s, i, null, null, picks)) return;
+    }
   }
   // 3. set traps
   const ti = p.hand.findIndex(id => cardType(card(id)) === "trap");
@@ -4662,7 +4680,8 @@ function renderBoard(){
       const afford = canPay(st, me, c), short = afford ? "" : costWhy(st, me, c) ? `（${costWhy(st, me, c)}）` : `（マナが${effCost(st, me, c) - pm.mana.cur}足りない）`;
       if (t === "monster"){
         const ss = ssOf(c);
-        if (!(ss && ss.only)){ const ok = canSummonNow(st, me) && afford && freeZone(pm.mz) >= 0; acts += `<button class="primary" data-act="summon" ${ok ? "" : "disabled"}>召喚する${!canSummonNow(st, me) ? "（このターンは召喚ずみ）" : short}</button>`; if (ok) hint = "光っているモンスターゾーンをクリックしても召喚できます"; }
+        const tn = tribOf(c), mineN = pm.mz.filter(Boolean).length;
+        if (!(ss && ss.only)){ const ok = canSummonNow(st, me) && afford && (tn ? mineN >= tn : freeZone(pm.mz) >= 0); acts += `<button class="primary" data-act="summon" ${ok ? "" : "disabled"}>${tn ? "生贄召喚する" : "召喚する"}${!canSummonNow(st, me) ? "（このターンは召喚ずみ）" : tn && mineN < tn ? `（生贄が${tn}体いる）` : short}</button>`; if (ok) hint = tn ? `自分のモンスター${tn}体を生贄にして召喚します` : "光っているモンスターゾーンをクリックしても召喚できます"; }
         else hint = "このカードは特殊召喚でしか出せません";
         if (ss){ const why = ssBlock(st, me, sel.i); acts += `<button class="mg" data-act="ssummon" ${why ? "disabled" : ""}>特殊召喚する${why ? `（${why}）` : ""}</button>`; }
       }
@@ -4971,7 +4990,7 @@ function renderOverlay(){
     const sp = G.ssPick, pm = P(st, me), c = card(pm.hand[sp.hi]);
     const opts = sp.kind === "tribute" ? pm.mz.map((m, i) => m ? i : -1).filter(i => i >= 0) : pm.hand.map((id, i) => i).filter(i => i !== sp.hi);
     const list = opts.map(i => { const on = sp.picked.includes(i), cc = sp.kind === "tribute" ? card(pm.mz[i].c) : card(pm.hand[i]); return cardHTML(cc, `sm pick ${on ? "sel" : ""}`, `data-sspick="${i}" tabindex="0" role="button" aria-pressed="${on}"`, sp.kind === "tribute" ? { mod: modOf(pm.mz[i]), ...mOpt(me) } : mOpt(me)); }).join("");
-    html = `<div class="box"><h2 style="margin:0">「${esc(c.name)}」を特殊召喚</h2><p class="muted" style="margin:0">${sp.kind === "tribute" ? `墓地へ送るモンスターを${sp.need}体えらんでね` : `捨てる手札を${sp.need}枚えらんでね`}（${sp.picked.length} / ${sp.need}）</p><div class="gallery">${list}</div><div class="row"><button class="primary" data-ssgo ${sp.picked.length === sp.need ? "" : "disabled"}>特殊召喚する</button><button class="ghost" data-close="sspick">やめる</button></div></div>`;
+    html = `<div class="box"><h2 style="margin:0">「${esc(c.name)}」を${sp.normal ? "生贄召喚" : "特殊召喚"}</h2><p class="muted" style="margin:0">${sp.kind === "tribute" ? `墓地へ送るモンスターを${sp.need}体えらんでね` : `捨てる手札を${sp.need}枚えらんでね`}（${sp.picked.length} / ${sp.need}）</p><div class="gallery">${list}</div><div class="row"><button class="primary" data-ssgo ${sp.picked.length === sp.need ? "" : "disabled"}>${sp.normal ? "生贄召喚する" : "特殊召喚する"}</button><button class="ghost" data-close="sspick">やめる</button></div></div>`;
   } else if (G.eqPlace){
     const ep = G.eqPlace, m = P(st, ep.s).mz[ep.i], id = P(st, me).hand[ep.hi];
     if (m && id){
@@ -5001,7 +5020,7 @@ $("#overlay").addEventListener("click", e => {
   if (e.target.closest("[data-cpgo]") && G.costPick){ const cp = G.costPick; G.costPick = null; cp.go(cp.picked.slice()); return; }
   const spk = e.target.closest("[data-sspick]");
   if (spk && G.ssPick){ const i = +spk.dataset.sspick, sp = G.ssPick; if (sp.picked.includes(i)) sp.picked = sp.picked.filter(x => x !== i); else if (sp.picked.length < sp.need) sp.picked.push(i); renderAll(); return; }
-  if (e.target.closest("[data-ssgo]") && G.ssPick){ const sp = G.ssPick; G.ssPick = null; act(st => specialSummon(st, G.slot, sp.hi, sp.picked)); return; }
+  if (e.target.closest("[data-ssgo]") && G.ssPick){ const sp = G.ssPick; G.ssPick = null; if (sp.normal) withDiscard(card(P(st0(), G.slot).hand[sp.hi]), sp.hi, d => act(st => summon(st, G.slot, sp.hi, null, d, sp.picked))); else act(st => specialSummon(st, G.slot, sp.hi, sp.picked)); return; }
   const ep = e.target.closest("[data-eqpos]");
   if (ep && G.eqPlace){ const x = G.eqPlace; G.eqPlace = null; G.sel = null; const pos = +ep.dataset.eqpos; withDiscard(card(P(st0(), G.slot).hand[x.hi]), x.hi, d => act(st => equip(st, G.slot, x.hi, x.s, x.i, pos, d))); return; }
   const rw = e.target.closest("[data-rw]");
@@ -5057,7 +5076,7 @@ $("#board").addEventListener("click", e => {
     const occupied = z === "hand" || P(st, s === "me" ? me : O(me))[z][i];
     if (!occupied){
       const dk = s === "me" ? dropTarget(st, me) : null;
-      if (dk && dk === z){ const hi = G.sel.i; G.sel = null; if (dk === "mz") withDiscard(card(P(st, me).hand[hi]), hi, d => act(st => summon(st, me, hi, i, d))); else act(st => setCard(st, me, hi, i)); }
+      if (dk && dk === z){ const hi = G.sel.i; G.sel = null; if (dk === "mz"){ const tn = tribOf(card(P(st, me).hand[hi])); if (tn){ G.ssPick = { hi, kind: "tribute", need: tn, picked: [], normal: true }; renderAll(); } else withDiscard(card(P(st, me).hand[hi]), hi, d => act(st => summon(st, me, hi, i, d))); } else act(st => setCard(st, me, hi, i)); }
       return;
     }
     const same = G.sel && G.sel.z === z && G.sel.s === s && G.sel.i === i;
@@ -5093,7 +5112,7 @@ $("#board").addEventListener("click", e => {
   if (k === "cancelEq"){ G.equipFrom = null; renderAll(); return; }
   if (k === "direct"){ const from = G.atkFrom; G.atkFrom = null; G.sel = null; act(st => declareAttack(st, me, from, "direct")); return; }
   if (!sel) return;
-  if (k === "summon"){ G.sel = null; withDiscard(card(P(st, me).hand[sel.i]), sel.i, d => act(st => summon(st, me, sel.i, null, d))); }
+  if (k === "summon"){ G.sel = null; const tn = tribOf(card(P(st, me).hand[sel.i])); if (tn){ G.ssPick = { hi: sel.i, kind: "tribute", need: tn, picked: [], normal: true }; renderAll(); } else withDiscard(card(P(st, me).hand[sel.i]), sel.i, d => act(st => summon(st, me, sel.i, null, d))); }
   if (k === "ssummon"){
     const ss = ssOf(card(P(st, me).hand[sel.i])); G.sel = null;
     if (ss && (ss.cost === "tribute" || ss.cost === "discard")){ G.ssPick = { hi: sel.i, kind: ss.cost, need: ss.cn, picked: [] }; renderAll(); }
