@@ -3088,7 +3088,6 @@ function chooseRelic(st, s, key, target){
   log(st, s, `${p.name} はレリック「${RELICS[key].name}」を選んだ`);
   // now the opening hand (ほら貝: 2 more)
   if (p.openHand){ const want = p.openHand + (key === "conch" ? 2 : 0), k = Math.max(0, want - p.hand.length); p.openHand = 0; if (k) drawN(st, s, k, "最初の手札"); }
-  if (p.spire && Math.random() < POTION_DROP) givePotion(st, s, "はじまりの");
   return true;
 }
 // the CPU picks at random (若葉 turns its first 攻撃 into something else)
