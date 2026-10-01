@@ -1494,7 +1494,7 @@ const payDiscOf = c => c && c.payDisc > 0 ? Math.round(+c.payDisc) : 0;
 const payDiscAll = c => !!(c && +c.payDisc === -1);
 const payMaxOf = c => c && c.payMax > 0 ? Math.round(+c.payMax) : 0;
 function extraCostText(c){ const L = [payLpOf(c) ? `LPを${payLpOf(c)}払う` : "", payDiscAll(c) ? "手札をすべて捨てる" : payDiscOf(c) ? `手札${c.payDiscTag ? `のタグ「${c.payDiscTag}」のカード` : ""}を${payDiscOf(c)}枚捨てる` : "", payMaxOf(c) ? `最大マナを${payMaxOf(c)}減らす` : ""].filter(Boolean); return L.length ? "【コスト】" + L.join("、") : ""; }
-function fxText(c){ return (tagsOf(c).length ? tagsOf(c).map(t => "#" + t).join(" ") + "　" : "") + (c && c.token ? "【トークン】" : "") + [isPersist(c) ? "【永続】使ったあとも場に残る" : "", extraCostText(c), tribText(c), atkCondText(c), ssText(c), fxText0(c)].filter(Boolean).join("。"); }
+function fxText(c){ return (c && c.token ? "【トークン】" : "") + [isPersist(c) ? "【永続】使ったあとも場に残る" : "", extraCostText(c), tribText(c), atkCondText(c), ssText(c), fxText0(c)].filter(Boolean).join("。"); }
 /* ================= effect blocks: いつ / もし / なにを / ちがったら =================
    c.blocks = [{ trig, conds: [{k, op, n | name, where, match | text}], join: "and"|"or", then: [{kind, n, to}], else: [...] }]
    Older cards (c.fx + c.combo) are read as blocks too, so everything below runs on blocks. */
@@ -3058,6 +3058,7 @@ function renderCardView(){
   if (hasCost(c) && mana !== false) rows.push(["コスト", String(costLabel(c))]);
   if (!c.starter) rows.push(["使えるデッキ", DECK_LABEL[deckModeOf(c)]]);
   rows.push(["デッキ上限", lim ? `${lim}枚まで` : "制限なし"]);
+  if (tagsOf(c).length) rows.push(["タグ", tagsOf(c).map(t => "#" + t).join(" ")]);
   rows.push(["作った人", c.author || "？"]);
   let text = "";
   { const et = t === "equip" ? eqText(c) : monAbsText(c); if (et) text += `<p class="cv-fx">${esc(et)}</p>`; }
@@ -5065,6 +5066,7 @@ function renderDetail(info, anim){
   if (info.attacked) rows.push(["状態", "このターンは攻撃ずみ"]);
   if (t === "trap" && info.setTurn != null) rows.push(["発動", info.setTurn < G.st.turnNo ? "いま発動できる" : "次のターンから発動できる"]);
   rows.push(["デッキ上限", lim ? `${lim}枚まで` : "制限なし"]);
+  if (tagsOf(c).length) rows.push(["タグ", tagsOf(c).map(t => "#" + t).join(" ")]);
   rows.push(["作った人", c.author || "？"]);
   // equips stuck on this monster, shown as cards from left to right (tap one to read it)
   const eqRow = info.eqList && info.eqList.length ? `<div class="eqrow"><div class="eqlbl">装備（左から順）　${esc(info.cap || "")}</div><div class="eqlist">${info.eqList.map((e, k) => `${k ? `<span class="eqarr">→</span>` : ""}<button class="eqi" data-eqcid="${esc(e.c)}" aria-label="「${esc(card(e.c).name)}」の詳細">${cardHTML(card(e.c), "xs", "", { mana: e.mana })}${e.mult > 1 || e.used || e.opp ? `<span class="eqtag">${[e.mult > 1 ? "×2" : "", e.used ? "使用ずみ" : "", e.opp ? "相手の" : ""].filter(Boolean).join("・")}</span>` : ""}</button>`).join("")}</div></div>` : "";
