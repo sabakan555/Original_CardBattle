@@ -731,6 +731,16 @@ nav.tabs button{position:relative}
 .dk-strip .ds-atk{position:absolute;right:3px;top:2px;color:#fff;font-size:10px;font-weight:700;background:rgba(10,12,30,.7);border-radius:4px;padding:0 4px}
 .dk-strip:hover{border-color:#f2c14e!important}
 .dk-strips-wrap{margin-top:16px}
+.dk-edit-grid{display:flex;flex-direction:column}
+.dk-edit-main{min-width:0}
+.dk-side{order:-1}
+@media (min-width:900px){
+  .dk-edit-grid{display:grid;grid-template-columns:minmax(0,1fr) 290px;gap:16px;align-items:start}
+  .dk-side{order:0;position:sticky;top:12px;max-height:calc(100vh - 24px);overflow:auto;margin-bottom:0}
+  .dk-side .dkv-grid{grid-template-columns:1fr;gap:3px}
+  .dk-side .dk-strip{height:32px}
+  .dk-side .dkv-head{flex-direction:column;align-items:flex-start;gap:8px}
+}
 .dk-strips-wrap .dkv-grid{margin-top:10px}
 @media (max-width:640px){.dkv-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.dk-strip .ds-name{font-size:11px}}
 .dk-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
@@ -1062,9 +1072,13 @@ nav.tabs button{position:relative}
         <button class="danger small" id="btnDeckDel" hidden>このデッキを消す</button>
       </div>
     </div>
-    <details class="box dkv-box" id="deckViewBox" open><summary><b>デッキの中身</b> <span class="note" id="deckViewNote"></span></summary><div id="deckView"></div></details>
+    <div class="dk-edit-grid">
+    <div class="dk-edit-main">
     <div class="filters" id="deckFilters"></div>
     <div class="deck-pool" id="deckPool"></div>
+    </div>
+    <details class="box dkv-box dk-side" id="deckViewBox" open><summary><b>デッキの中身</b> <span class="note" id="deckViewNote"></span></summary><div id="deckView"></div></details>
+    </div>
     <div class="deck-float" id="deckFloat"><span id="deckFloatMeter"></span><button class="primary small" id="btnDeckSave2">デッキを保存</button></div>
     </div>
   </section>
