@@ -1379,7 +1379,7 @@ function normFx0(c){
   if (isPersist(c)) trig = PERSIST_TRIGS.includes(fx.trig) ? fx.trig : "use";
   return { ...fx, trig };
 }
-const WHERE = { field: "場", grave: "墓地", hand: "手札", any: "場か墓地" };
+const WHERE = { field: "場", grave: "墓地", hand: "手札", any: "場か墓地", deck: "山札", all: "場・手札・山札・墓地のどこか" };
 function normCombo(c){
   const cb = c && c.combo; if (!cb || !cb.name || !cb.kind || cb.kind === "none" || !KINDS[cb.kind]) return null;
   const t = cardType(c); if (t === "equip") return null;
@@ -1490,13 +1490,13 @@ const perVal = (st, s, c, fx, t, ctx) => PER_DEFS[fx.per] ? PER_DEFS[fx.per].val
 const perText = m => !m.per || !PER_DEFS[m.per] ? "" : m.hits ? `（${PER_DEFS[m.per].label}${PER_DEFS[m.per].u}につき、もう1回）` : `（${PER_DEFS[m.per].label}${PER_DEFS[m.per].u}につき+${m.pm ?? 1}）`;
 const isNumCond = k => !!(COND_DEFS[k] && COND_DEFS[k].val);
 function condPhrase(x){
-  if (x.k === "card") return `${x.match === "part" ? `名前に「${x.name || "？"}」が入ったカード` : `「${x.name || "？"}」`}が自分の${WHERE[x.where] || WHERE.field}にある`;
+  if (x.k === "card"){ const cnt = +(x.cnt ?? 1), op = x.op === "le" ? "le" : "ge"; return `${x.match === "part" ? `名前に「${x.name || "？"}」が入ったカード` : `「${x.name || "？"}」`}が自分の${WHERE[x.where] || WHERE.field}に${cnt === 1 && op === "ge" ? "ある" : `${cnt}枚${OPS[op]}ある`}`; }
   if (x.k === "ask") return `「${x.text || "？"}」に「はい」`;
   const d = COND_DEFS[x.k]; return `${d.who}${x.n ?? 0}${d.unit}${OPS[x.op] || OPS.ge}`;
 }
 const condsText = b => b.conds && b.conds.length ? b.conds.map(condPhrase).join(b.join === "or" ? "か、" : "、かつ") + "なら、" : "";
 function condMet(st, s, c, x, ctx){
-  if (x.k === "card") return !!x.name && comboMet(st, s, { name: x.name, where: WHERE[x.where] ? x.where : "field", match: x.match === "part" ? "part" : "exact" }, ctx || {});
+  if (x.k === "card"){ if (!x.name) return false; const v = comboCount(st, s, { name: x.name, where: WHERE[x.where] ? x.where : "field", match: x.match === "part" ? "part" : "exact" }, ctx || {}), n = Math.max(0, +(x.cnt ?? 1)); return x.op === "le" ? v <= n : v >= n; }
   const d = COND_DEFS[x.k]; if (!d || !d.val) return true;
   const v = d.val(st, s, c, ctx), n = +x.n || 0;
   return x.op === "le" ? v <= n : v >= n;
@@ -2592,7 +2592,7 @@ function renderBlocksUI(){
     if (j > 0) h += `<select data-f="join" aria-label="つなぎ" class="bk-join">${opt("and", "かつ", b.join)}${opt("or", "または", b.join)}</select>`;
     h += `<select data-f="k" aria-label="なにが">${Object.entries(COND_DEFS).map(([k, d]) => opt(k, d.label, x.k)).join("")}</select>`;
     if (isNumCond(x.k)) h += `<select data-f="op" aria-label="くらべかた">${opt("ge", "以上", x.op)}${opt("le", "以下", x.op)}</select><input type="number" data-f="n" min="0" max="99999" value="${esc(x.n ?? 1)}" aria-label="数">`;
-    if (x.k === "card") h += `<input type="text" data-f="name" maxlength="40" placeholder="カード名" value="${esc(x.name || "")}" aria-label="カード名"><select data-f="where" aria-label="どこに">${Object.entries(WHERE).map(([k, v]) => opt(k, "自分の" + v, x.where || "field")).join("")}</select><select data-f="match" aria-label="名前の合わせ方">${opt("exact", "名前がぴったり", x.match)}${opt("part", "名前に含む", x.match)}</select>`;
+    if (x.k === "card") h += `<input type="text" data-f="name" maxlength="40" placeholder="カード名" value="${esc(x.name || "")}" aria-label="カード名"><select data-f="where" aria-label="どこに">${Object.entries(WHERE).map(([k, v]) => opt(k, "自分の" + v, x.where || "field")).join("")}</select><select data-f="match" aria-label="名前の合わせ方">${opt("exact", "名前がぴったり", x.match)}${opt("part", "名前に含む", x.match)}</select><input type="number" data-f="cnt" min="0" max="99" value="${esc(x.cnt ?? 1)}" aria-label="枚数" style="width:64px">枚<select data-f="op" aria-label="くらべかた">${opt("ge", "以上", x.op || "ge")}${opt("le", "以下", x.op)}</select>`;
     if (x.k === "ask") h += `<input type="text" data-f="text" maxlength="40" placeholder="例: 物理学実験を履修していますか？" value="${esc(x.text || "")}" aria-label="質問">`;
     return h + `<button type="button" class="small ghost" data-bk="delRow" aria-label="この条件を消す">×</button></div>`;
   };
@@ -2627,7 +2627,7 @@ function bkEvent(e, rerenderOnInput){
     const x = b.conds[j]; if (!x) return;
     if (f === "join"){ b.join = v; return renderBlocksUI(); }
     if (f === "k"){ b.conds[j] = v === "card" ? { k: v, name: "", where: "field", match: "exact" } : v === "ask" ? { k: v, text: "" } : { k: v, op: v === "lp" ? "le" : "ge", n: v === "lp" || v === "oppLp" ? 300 : 1 }; return renderBlocksUI(); }
-    x[f] = f === "n" ? Math.max(0, Math.round(+v || 0)) : v;
+    x[f] = f === "n" || f === "cnt" ? Math.max(0, Math.round(+v || 0)) : v;
     return f === "op" || f === "where" || f === "match" ? renderBlocksUI() : updateBkText();
   }
   const list = b[part], x = list && list[j]; if (!x) return;
@@ -4105,15 +4105,19 @@ function runEffect(st, s, c, ctx = {}, then, fx = normFx(c)){
   } else { applyEffect(st, s, c, autoTarget(st, s, fx.kind, opts, fx), ctx, fx); then && then(st); }
 }
 // is a card with this name in player s's field / graveyard / hand? (the triggering monster itself doesn't count)
-function comboMet(st, s, cb, ctx = {}){
+function comboMet(st, s, cb, ctx = {}){ return comboCount(st, s, cb, ctx) >= 1; }
+// how many cards with that name player s has there (場 counts monsters, magic/trap zone and the equips they own)
+function comboCount(st, s, cb, ctx = {}){
   const p = P(st, s), want = normQ(cb.name).trim();
   const is = cb.match === "part" ? (id => normQ(card(id).name).includes(want)) : (id => normQ(card(id).name).trim() === want);
-  const field = () => p.mz.some((m, i) => m && !(ctx.zone != null && i === ctx.zone) && is(m.c)) || p.sz.some(z => z && is(z.c)) || ["a", "b"].some(o => P(st, o).mz.some(m => eqsOf(m).some(e => e.o === s && e.u !== ctx.eqU && is(e.c))));
-  const grave = () => p.grave.some(is);
+  const field = () => p.mz.filter((m, i) => m && !(ctx.zone != null && i === ctx.zone) && is(m.c)).length + p.sz.filter(z => z && is(z.c)).length + ["a", "b"].reduce((a, o) => a + P(st, o).mz.reduce((b, m) => b + eqsOf(m).filter(e => e.o === s && e.u !== ctx.eqU && is(e.c)).length, 0), 0);
+  const grave = () => p.grave.filter(is).length, hand = () => p.hand.filter(is).length, deck = () => p.deck.filter(is).length;
   if (cb.where === "field") return field();
   if (cb.where === "grave") return grave();
-  if (cb.where === "hand") return p.hand.some(is);
-  return field() || grave();
+  if (cb.where === "hand") return hand();
+  if (cb.where === "deck") return deck();
+  if (cb.where === "all") return field() + grave() + hand() + deck();
+  return field() + grave();
 }
 // run a card's main effect and (if its condition holds) its extra effect, in order
 function runCard(st, s, c, trig, ctx = {}, then){
