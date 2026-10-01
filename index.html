@@ -2444,32 +2444,25 @@ function readCombo(){
 /* ---- effect picker: "なにをする" (a group) + "だれに・どれ" (which one), instead of one long list.
    The original <select> stays as the value everything else reads; these two just drive it. ---- */
 const KIND_GROUPS = [
-  { g: "none",    label: "なし",                     v: [["none", "なし"]] },
-  { g: "dmg",     label: "ダメージを与える",          v: [["dmg", "ダメージ"]] },
-  { g: "destroy", label: "モンスターを破壊する",      v: [["destroy", "相手のモンスター"], ["killAtk", "攻撃してきたモンスター（罠）"]] },
-  { g: "debuff",  label: "デバフをつける",            v: [["vuln", "弱体"], ["weak", "脱力"], ["charm", "魅了"], ["atkDown", "ATKダウン"]] },
-  { g: "str",     label: "筋力（与えるダメージ+○）",  v: [["str", "自分が得る"], ["strTemp", "自分が得る（このターンだけ）"], ["oppStr", "相手が得る"], ["oppStrDown", "相手が失う（相手の次のターンの終わりまで）"]] },
-  { g: "atkUp",   label: "ATKを上げる",               v: [["selfAtk", "このモンスター"], ["atkUp", "自分のモンスター1体"], ["atkAll", "自分のモンスター全部"]] },
-  { g: "heal",    label: "LPを回復する",              v: [["heal", "自分"]] },
-  { g: "lose",    label: "LPを失う",                  v: [["loseLp", "自分（ブロックでは防げない）"]] },
-  { g: "block",   label: "ブロックを得る",            v: [["block", "自分"]] },
-  { g: "draw",    label: "カードを引く",              v: [["draw", "自分"]] },
-  { g: "discard", label: "手札を捨てさせる",          v: [["discard", "相手（ランダム）"]] },
-  { g: "grave",   label: "墓地のモンスターを使う",    v: [["revive", "手札に戻す"], ["reborn", "場に出す"]] },
-  { g: "exhaust", label: "カードを廃棄する",          v: [["exhaustHand", "手札から○枚えらんで"], ["exhaustRand", "手札からランダムに○枚"], ["exhaustAll", "手札をすべて"], ["exhaustNonAtk", "手札のアタック以外をすべて"]] },
-  { g: "deck",    label: "山札・墓地をあやつる",      v: [["graveToTop", "墓地のカードを山札の一番上に"], ["playTop", "山札の一番上をプレイ（○枚）"], ["playTopEx", "山札の一番上をプレイして廃棄（○枚）"], ["drawUntil", "アタック以外を引くまで引く"], ["playHandAtk", "手札のランダムなアタックをプレイ"], ["noDraw", "このターンもう引けない"]] },
-  { g: "power",   label: "ずっと続く効果（パワー向け）", v: [["barricade", "ブロックが消えない"], ["plate", "プレート"], ["corrupt", "スキルが0コスト＆廃棄"], ["vulnBonus", "弱体へのダメージ+○%"], ["firstBlock2", "最初のブロックが2倍"]] },
-  { g: "turn",    label: "このターンだけの効果",      v: [["rageNow", "アタックを使うたびブロック"], ["thornsNow", "攻撃されたら反撃（次の自分のターンまで）"], ["dblAtk", "次のアタックをもう1回"]] },
-  { g: "auto",    label: "自動で使う",                v: [["autoPlay", "名前に○が入ったカードを引いたとき"]] },
-  { g: "tag",     label: "タグのカードを持ってくる・出す", v: [["tagSearch", "山札から手札へ（えらぶ）"], ["tagGraveHand", "墓地から手札へ（えらぶ）"], ["tagSummonHand", "手札から場に出す"], ["tagSummonDeck", "山札から場に出す"], ["tagSummonGrave", "墓地から場に出す"], ["tagGen", "ランダムに生み出して手札へ"]] },
-  { g: "transform", label: "カードを変化させる",       v: [["transformHand", "手札から○枚えらんで"], ["transformRand", "手札からランダムに○枚"], ["transformAtk", "手札のアタックすべて"], ["transformAll", "手札すべて"]] },
-  { g: "addCard", label: "カードを生み出す・加える",  v: [["copyGrave", "このカードのコピーを墓地に"], ["copyHand", "このカードのコピーを手札に"], ["copyDeck", "このカードのコピーを山札に"], ["genAttack", "ランダムなアタックを手札に"], ["genAttack0", "ランダムなアタックを手札に（このターンコスト0）"], ["genSkill", "ランダムなスキルを手札に"], ["genPower", "ランダムなパワーを手札に"], ["copyLastAtk", "直前に使ったアタックのコピーを手札に"], ["genNamed", "名前を指定したカード（トークンなど）を手札に"], ["graveAtkToHand", "墓地のランダムなアタックを手札に"], ["draft", "スパイア風カードを○枚から1枚えらんで墓地に"]] },
-  { g: "equip",   label: "装備を動かす",              v: [["moveEquips", "別のモンスターに付けかえる"], ["equipsToHand", "ほかの装備を手札に戻す"]] },
-  { g: "blast",   label: "自爆する",                  v: [["blast", "装備の枚数×○以下のATKを全部破壊"]] },
-  { g: "negate",  label: "無効にする",                v: [["cancel", "魔法・罠の発動かモンスターの召喚（打ち消し）"], ["negate", "相手の攻撃（罠）"]] },
-  { g: "mana",    label: "マナ",                      v: [["manaNow", "自分のマナを回復（このターン）"], ["manaMax", "自分の最大マナを増やす"], ["manaDrain", "相手のマナを減らす"]] },
-  { g: "free",    label: "次に使うカードのコストを0にする", v: [["freeAttack", "アタック"], ["freeSkill", "スキル"], ["freePower", "パワー"]] },
-  { g: "win",     label: "ゲームに勝利する",          v: [["win", "自分"]] }
+  { g: "none",    label: "なし", v: [["none", "なし"]] },
+  { g: "dmg",     label: "ダメージを与える", v: [["dmg", "ダメージ"]] },
+  { g: "destroy", label: "モンスターを倒す", v: [["destroy", "相手のモンスターを破壊"], ["killAtk", "攻撃してきたモンスターを破壊（罠）"], ["blast", "自爆して、装備の枚数×○以下のATKを全部破壊"]] },
+  { g: "debuff",  label: "相手を弱らせる（デバフ）", v: [["vuln", "弱体（受けるダメージ1.5倍）"], ["weak", "脱力（与えるダメージが減る）"], ["atkDown", "ATKを下げる"], ["charm", "魅了（攻撃できなくする）"], ["oppStrDown", "筋力を失わせる（相手の次のターンの終わりまで）"], ["discard", "手札を捨てさせる（ランダム）"], ["manaDrain", "マナを減らす"]] },
+  { g: "buff",    label: "自分を強くする（バフ）", v: [["str", "筋力を得る（与えるダメージ+○）"], ["strTemp", "筋力を得る（このターンだけ）"], ["selfAtk", "このモンスターのATKを上げる"], ["atkUp", "自分のモンスター1体のATKを上げる"], ["atkAll", "自分のモンスター全部のATKを上げる"], ["vulnBonus", "弱体の相手へのダメージ+○%（ずっと）"]] },
+  { g: "guard",   label: "守る・回復する", v: [["block", "ブロックを得る"], ["heal", "LPを回復する"], ["plate", "プレート（ターンのおわりにブロック）"], ["barricade", "ブロックが消えなくなる（ずっと）"], ["firstBlock2", "毎ターン最初のブロックが2倍（ずっと）"], ["rageNow", "このターン、アタックを使うたびブロック"], ["thornsNow", "攻撃されたら反撃（次の自分のターンまで）"]] },
+  { g: "draw",    label: "カードを引く", v: [["draw", "○枚引く"], ["drawUntil", "アタック以外を引くまで引く"]] },
+  { g: "fetch",   label: "カードを手札に持ってくる", v: [["tagSearch", "タグのカードを山札から（えらぶ）"], ["tagGraveHand", "タグのカードを墓地から（えらぶ）"], ["revive", "墓地のモンスターを手札に"], ["graveAtkToHand", "墓地のランダムなアタックを手札に"]] },
+  { g: "make",    label: "カードを生み出す・コピーする", v: [["copyHand", "このカードのコピーを手札に"], ["copyDeck", "このカードのコピーを山札に"], ["copyGrave", "このカードのコピーを墓地に"], ["copyLastAtk", "直前に使ったアタックのコピーを手札に"], ["genAttack", "ランダムなアタックを手札に"], ["genAttack0", "ランダムなアタックを手札に（このターンコスト0）"], ["genSkill", "ランダムなスキルを手札に"], ["genPower", "ランダムなパワーを手札に"], ["genNamed", "名前を指定したカード（トークンなど）を手札に"], ["tagGen", "タグのカードをランダムに生み出して手札に"], ["draft", "スパイア風カードを○枚から1枚えらんで墓地に"]] },
+  { g: "summon",  label: "モンスターを場に出す", v: [["reborn", "墓地のモンスターを場に"], ["tagSummonHand", "タグのモンスターを手札から"], ["tagSummonDeck", "タグのモンスターを山札から"], ["tagSummonGrave", "タグのモンスターを墓地から"]] },
+  { g: "free",    label: "踏み倒す（コストを払わずに使う）", v: [["playTop", "山札の一番上をプレイ（○枚）"], ["playTopEx", "山札の一番上をプレイして廃棄（○枚）"], ["playHandAtk", "手札のランダムなアタックをプレイ"], ["autoPlay", "名前に○が入ったカードを引いたら自動で使う"], ["dblAtk", "次のアタックをもう1回使う"], ["freeAttack", "次に使うアタックのコストを0に"], ["freeSkill", "次に使うスキルのコストを0に"], ["freePower", "次に使うパワーのコストを0に"], ["corrupt", "スキルがずっと0コスト（使うと廃棄）"]] },
+  { g: "mana",    label: "マナ", v: [["manaNow", "マナを回復（このターン）"], ["manaMax", "最大マナを増やす"], ["manaDrain", "相手のマナを減らす"]] },
+  { g: "deck",    label: "山札・墓地をあやつる", v: [["graveToTop", "墓地のカードを山札の一番上に"], ["playTop", "山札の一番上をプレイ（○枚）"], ["playTopEx", "山札の一番上をプレイして廃棄（○枚）"], ["drawUntil", "アタック以外を引くまで引く"], ["draft", "スパイア風カードを○枚から1枚えらんで墓地に"]] },
+  { g: "exhaust", label: "カードを廃棄する", v: [["exhaustHand", "手札から○枚えらんで"], ["exhaustRand", "手札からランダムに○枚"], ["exhaustAll", "手札をすべて"], ["exhaustNonAtk", "手札のアタック以外をすべて"]] },
+  { g: "transform", label: "カードを変化させる", v: [["transformHand", "手札から○枚えらんで"], ["transformRand", "手札からランダムに○枚"], ["transformAtk", "手札のアタックすべて"], ["transformAll", "手札すべて"]] },
+  { g: "negate",  label: "打ち消す・無効にする", v: [["cancel", "魔法・罠の発動かモンスターの召喚を打ち消す"], ["negate", "相手の攻撃を無効にする（罠）"]] },
+  { g: "equip",   label: "装備を動かす", v: [["moveEquips", "別のモンスターに付けかえる"], ["equipsToHand", "ほかの装備を手札に戻す"]] },
+  { g: "minus",   label: "自分にデメリット", v: [["loseLp", "LPを失う（ブロックでは防げない）"], ["oppStr", "相手が筋力を得る"], ["noDraw", "このターンもう引けない"]] },
+  { g: "win",     label: "ゲームに勝つ", v: [["win", "勝利する"]] }
 ];
 // kinds shown only when an older card already uses them (they're now 基本の効果 + 「だれに」)
 const intoText = into => into ? `「${into}」` : "ランダムなスパイア風カード";
@@ -2547,7 +2540,9 @@ function syncTypePressed(){ const sk = mkSk(), map = { monster: "attack", magic:
 function syncTypeNames(){ const sp = $("#mkFrame").value === "spire"; document.querySelectorAll("#mkType button").forEach(b => { b.dataset.base = b.dataset.base || b.textContent; b.textContent = sp ? SPIRE_LABEL[b.dataset.t] : b.dataset.base; b.hidden = sp ? b.dataset.t === "equip" || b.dataset.t === "trap" : b.dataset.t === "power"; }); if (sp && MK.type !== "magic"){ const k = MK.type === "trap" ? "power" : "attack"; MK.sk = k; $("#mkPersist").checked = k === "power"; setMkType("magic"); } else setMkType(MK.type || "monster"); if (MK.type) $("#mkTab").textContent = mkTabLabel(); }
 $("#mkType").addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return; if ($("#mkFrame").value === "spire"){ const k = { monster: "attack", magic: "skill", power: "power" }[b.dataset.t]; if (!k) return; MK.sk = k; $("#mkPersist").checked = k === "power"; setMkType("magic"); return; } setMkType(b.dataset.t); });
 // sensible default numbers when the effect kind changes (cards to draw vs. points)
-const smallN = k => ["draw", "discard", "manaNow", "manaMax", "manaDrain", "vuln", "draft"].includes(k);
+// 数の入れ方: ダメージ・ATK・LP・ブロックのような「量」は100くらい、それ以外（枚数・回数・ターン数）は1から
+const BIG_N = ["dmg", "heal", "block", "selfAtk", "atkUp", "atkAll", "atkDown", "loseLp", "plate", "thornsNow", "rageNow", "blast", "str", "strTemp", "oppStr", "oppStrDown", "vulnBonus", "bash", "dmgRand", "dmgAll", "atkDownAll"];
+const smallN = k => !BIG_N.includes(k);
 [["#fxKind", "#fxN"], ["#cbKind", "#cbN"]].forEach(([k, n]) => $(k).addEventListener("change", () => {
   const v = +$(n).value || 0, kind = $(k).value;
   if (smallN(kind) && v > 5) $(n).value = 1;
@@ -2619,7 +2614,8 @@ function mkKinds(){
 }
 function mkTrigs(){ if (MK.kind === "relic") return RELIC_TRIGS; const t = MK.type, pers = (t === "magic" || t === "trap") && $("#mkPersist").checked; return t === "monster" ? MON_TRIGS : t === "equip" ? EQ_TRIGS : pers ? PERSIST_TRIGS : ["use"]; }
 const mkTrigLabel = k => { if (MK.kind === "relic") return RELIC_TRIG_LABEL[k]; const t = MK.type, pers = (t === "magic" || t === "trap") && $("#mkPersist").checked; return pers ? PERSIST_TRIG_LABEL[k] : trigLabel(t, k); };
-function kindGroups(avail){
+function kindGroups(avail, cur){
+  avail = avail.filter(k => !PICK_HIDDEN.includes(k) || k === cur);
   const known = new Set(KIND_GROUPS.flatMap(x => x.v.map(y => y[0])));
   const gs = KIND_GROUPS.filter(x => x.g !== "none").map(x => ({ ...x, v: x.v.filter(([k]) => avail.includes(k)) })).filter(x => x.v.length);
   avail.filter(k => !known.has(k)).forEach(k => gs.push({ g: "k_" + k, label: (KINDS[k] || {}).label || k, v: [[k, ""]] }));
@@ -2645,17 +2641,18 @@ function bkNormalize(){
   MK.blocks.forEach(b => {
     if (!trigs.includes(b.trig)) b.trig = trigs[0];
     b.conds = b.conds || []; b.else = b.else || []; b.join = b.join === "or" ? "or" : "and";
-    b.then = (b.then || []).filter(e => kinds.includes(e.kind)); b.else = b.else.filter(e => kinds.includes(e.kind));
+    const unLegacy = e => { const lg = TO_LEGACY[e.kind]; return lg && kinds.includes(lg[0]) ? { ...e, kind: lg[0], to: lg[1] } : e; };
+    b.then = (b.then || []).map(unLegacy).filter(e => kinds.includes(e.kind)); b.else = b.else.map(unLegacy).filter(e => kinds.includes(e.kind));
   });
 }
 function renderBlocksUI(){
   const box = $("#bkUI"); if (!box) return;
   bkNormalize();
   const trigs = mkTrigs(), kinds = mkKinds(), groups = kindGroups(kinds), easy = !!MK.easy, ek = easyKinds();
-  const gFor = e => easy ? kindGroups(kinds.filter(k => ek.includes(k) || k === e.kind)) : groups;
+  const gFor = e => kindGroups(easy ? kinds.filter(k => ek.includes(k) || k === e.kind) : kinds, e.kind);
   const opt = (v, l, cur) => `<option value="${esc(v)}"${String(v) === String(cur) ? " selected" : ""}>${esc(l)}</option>`;
   const effRow = (bi, part, e, j) => {
-    const gs = gFor(e), g = gs.find(x => x.v.some(([k]) => k === e.kind)) || gs[0];
+    const gs = gFor(e), has = x => x.v.some(([k]) => k === e.kind), g = (e._g && gs.find(x => x.g === e._g && has(x))) || gs.find(has) || gs[0];
     const tg = TARGETABLE[e.kind];
     return `<div class="bk-row" data-part="${part}" data-i="${j}"><span class="bk-no">${j + 1}</span>`
       + `<select data-f="g" aria-label="なにをする">${gs.map(x => opt(x.g, x.label, g && g.g)).join("")}</select>`
@@ -2697,6 +2694,8 @@ function updateBkText(){
   if (typeof updateSecs === "function") updateSecs();
 }
 function bkSync(){ if ($("#bkUI")) renderBlocksUI(); }
+// remember which menu (group) a row was picked from — a kind can sit in two menus (e.g. 踏み倒す and 山札・墓地). Not saved.
+function setG(o, g){ if (g) Object.defineProperty(o, "_g", { value: g, writable: true, configurable: true, enumerable: false }); return o; }
 function bkEvent(e, rerenderOnInput){
   const el = e.target.closest("[data-f]"); if (!el) return;
   const bi = +el.closest(".bk").dataset.b, b = MK.blocks[bi]; if (!b) return;
@@ -2711,8 +2710,8 @@ function bkEvent(e, rerenderOnInput){
     return f === "op" || f === "where" || f === "match" ? renderBlocksUI() : updateBkText();
   }
   const list = b[part], x = list && list[j]; if (!x) return;
-  if (f === "g"){ const g = (MK.easy && kindGroups(easyKinds()).find(q => q.g === v)) || kindGroups(mkKinds()).find(q => q.g === v); if (g){ list[j] = { kind: g.v[0][0], n: defN(g.v[0][0]) }; } return renderBlocksUI(); }
-  if (f === "kind"){ list[j] = { kind: v, n: x.n ?? defN(v), to: x.to, ...(x.times > 1 ? { times: x.times } : {}), ...(KINDS[v] && KINDS[v].name && x.into ? { into: x.into } : {}), ...(PER_OK[v] && x.per ? { per: x.per, pm: x.pm, hits: v === "dmg" && x.hits } : {}) }; return renderBlocksUI(); }
+  if (f === "g"){ const g = (MK.easy && kindGroups(easyKinds()).find(q => q.g === v)) || kindGroups(mkKinds()).find(q => q.g === v); if (g){ list[j] = setG({ kind: g.v[0][0], n: defN(g.v[0][0]) }, g.g); } return renderBlocksUI(); }
+  if (f === "kind"){ list[j] = setG({ kind: v, n: x.n != null && smallN(v) === smallN(x.kind) ? x.n : defN(v), to: x.to, ...(x.times > 1 ? { times: x.times } : {}), ...(KINDS[v] && KINDS[v].name && x.into ? { into: x.into } : {}), ...(PER_OK[v] && x.per ? { per: x.per, pm: x.pm, hits: v === "dmg" && x.hits } : {}) }, x._g); return renderBlocksUI(); }
   if (f === "into"){ x.into = v.trim(); return updateBkText(); }
   if (f === "times"){ x.times = Math.max(1, Math.min(20, Math.round(+v || 1))); return updateBkText(); }
   if (f === "per"){ x.per = v || null; if (!v){ x.hits = false; } else if (x.pm == null) x.pm = x.kind === "dmg" || x.kind === "block" ? (v === "myBlock" ? 1 : 40) : 1; return renderBlocksUI(); }
