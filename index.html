@@ -3705,7 +3705,7 @@ function monDmg(st, s, i, n, src){
   log(st, O(s), `${src}で「${nm}」に${n}ダメージ`);
   m.dmg = (m.dmg || 0) + n;
   if (n > 0) ev(st, { type: "hit", s, z: i, d: n });
-  if (m.dmg >= a){ log(st, O(s), `「${nm}」のダメージカウンター${m.dmg}がATK${fmtN(a)}に届いた！`); destroyMonster(st, s, i, src); }
+  if (m.dmg >= a){ log(st, O(s), `「${nm}」のダメージカウンター${m.dmg}がATK${fmtN(a)}に届いた！`); destroyMonster(st, s, i, "ルールによる破壊", { rule: true }); }
   else log(st, O(s), `「${nm}」にダメージカウンターが${n}乗った（合計 ${m.dmg} / ATK ${fmtN(a)}）`);
 }
 const potionChips = (p, mine) => (p.potions || []).map((k, i) => [k, i, potionDef(k)]).filter(x => x[2]).map(([k, i, d]) => mine ? `<button class="bst pot" data-potion="${i}" title="${esc(d.text)}" ${G && G.st && canAct(G.st, G.slot) ? "" : "disabled"}>${d.img ? `<img alt="" src="${d.img}">` : "🧪"}${esc(d.name)}</button>` : `<span class="bst pot" title="${esc(d.text)}">${d.img ? `<img alt="" src="${d.img}">` : "🧪"}${esc(d.name)}</span>`).join("");
@@ -3890,7 +3890,8 @@ function ev(st, e){ st.evn = (st.evn || 0) + 1; (st.ev || (st.ev = [])).push({ .
 function destroyMonster(st, s, i, why, opt = {}){
   const p = P(st, s), m = p.mz[i]; if (!m) return false;
   const name = card(m.c).name;
-  if (!opt.force){
+  // opt.rule: ダメージカウンターがATKに届いた → ルールによる破壊 (効果での破壊ではないので、耐性も身代わりも効かない)
+  if (!opt.force && !opt.rule){
     if (!opt.battle && hasAb(st, s, i, "noEffect")){ log(st, s, `「${name}」は効果では破壊されない！`); return false; }
     const es = eqsOf(m);
     if (es.some(e => absOf(card(e.c)).some(a => a.k === "substitute"))){
