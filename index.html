@@ -1405,11 +1405,31 @@ const COND_DEFS = {
   mana:     { label: "自分のマナ", who: "自分のマナが", unit: "", val: (st, s) => { const m = P(st, s).mana; return m ? m.cur : 0; } },
   block:    { label: "自分のブロック", who: "自分のブロックが", unit: "", val: (st, s) => P(st, s).block || 0 },
   oppVuln:  { label: "相手の弱体", who: "相手の弱体が", unit: "", val: (st, s) => P(st, O(s)).vuln || 0 },
+  lostNow:  { label: "このターンLPを失った回数", who: "このターンLPを失った回数が", unit: "回", val: (st, s) => P(st, s).lostNow || 0 },
+  exNow:    { label: "このターン廃棄した枚数", who: "このターン廃棄したカードが", unit: "枚", val: (st, s) => P(st, s).exhaustedNow || 0 },
+  exile:    { label: "廃棄札の枚数", who: "廃棄札のカードが", unit: "枚", val: (st, s) => (P(st, s).exile || []).length },
+  atkNow:   { label: "このターン使ったアタックの枚数", who: "このターン使ったアタックが", unit: "枚", val: (st, s) => P(st, s).atkNow || 0 },
+  myStr:    { label: "自分の筋力", who: "自分の筋力が", unit: "", val: (st, s) => P(st, s).str || 0 },
   sameHand: { label: "手札のこのカードの枚数", who: "手札にこのカードが", unit: "枚", val: (st, s, c, ctx) => P(st, s).hand.filter(id => id === c.id).length + (ctx && ctx.fromHand ? 1 : 0) },
   card:     { label: "特定のカードがある" },
   ask:      { label: "質問して「はい」と答えた" }
 };
 const OPS = { ge: "以上", le: "以下" };
+// 「○1つにつき」: what a number can grow with (ダメージ / ブロック / マナ / 回復, or the number of hits)
+const PER_DEFS = {
+  myBlock:  { label: "自分のブロック", u: "1", val: (st, s) => P(st, s).block || 0 },
+  strike:   { label: "名前に「ストライク」が入った自分のカード", u: "1枚", val: (st, s) => { const p = P(st, s); return [...p.hand, ...p.deck, ...p.grave].filter(id => /ストライク/.test(card(id).name || "")).length; } },
+  tgtVuln:  { label: "対象の弱体", u: "1", val: (st, s, c, t) => { const op = P(st, O(s)); if (typeof t === "string" && t.startsWith("m:")){ const m = op.mz[+t.slice(2)]; return m ? m.vuln || 0 : 0; } return op.vuln || 0; } },
+  exile:    { label: "廃棄札のカード", u: "1枚", val: (st, s) => (P(st, s).exile || []).length },
+  exN:      { label: "直前の効果で廃棄したカード", u: "1枚", val: (st, s, c, t, ctx) => (ctx && ctx.exN) || 0 },
+  used:     { label: "この試合でこのカードを使った回数（今回をのぞく）", u: "1回", val: (st, s, c) => Math.max(0, ((P(st, s).usedCount || {})[c && c.id] || 0) - 1) },
+  lostTotal:{ label: "この試合でLPを失った回数", u: "1回", val: (st, s) => P(st, s).lostTotal || 0 },
+  handAtk:  { label: "手札のアタック", u: "1枚", val: (st, s) => P(st, s).hand.filter(id => isAttackCard(card(id))).length },
+  atkNow:   { label: "このターン使ったアタック", u: "1枚", val: (st, s) => P(st, s).atkNow || 0 }
+};
+const PER_OK = { dmg: true, block: true, manaNow: true, heal: true, draw: true };
+const perVal = (st, s, c, fx, t, ctx) => PER_DEFS[fx.per] ? PER_DEFS[fx.per].val(st, s, c, t, ctx) : 0;
+const perText = m => !m.per || !PER_DEFS[m.per] ? "" : m.hits ? `（${PER_DEFS[m.per].label}${PER_DEFS[m.per].u}につき、もう1回）` : `（${PER_DEFS[m.per].label}${PER_DEFS[m.per].u}につき+${m.pm ?? 1}）`;
 const isNumCond = k => !!(COND_DEFS[k] && COND_DEFS[k].val);
 function condPhrase(x){
   if (x.k === "card") return `${x.match === "part" ? `名前に「${x.name || "？"}」が入ったカード` : `「${x.name || "？"}」`}が自分の${WHERE[x.where] || WHERE.field}にある`;
@@ -1430,7 +1450,7 @@ function normTrig(c, trig){
   if (isPersist(c)) return PERSIST_TRIGS.includes(trig) ? trig : "use";
   return "use";
 }
-const cleanEff = e => e && KINDS[e.kind] && e.kind !== "none" ? { kind: e.kind, ...(e.n != null ? { n: e.n } : {}), ...(e.to && e.to !== "one" ? { to: e.to } : {}) } : null;
+const cleanEff = e => e && KINDS[e.kind] && e.kind !== "none" ? { kind: e.kind, ...(e.n != null ? { n: e.n } : {}), ...(e.to && e.to !== "one" ? { to: e.to } : {}), ...(e.per && PER_DEFS[e.per] && PER_OK[e.kind] ? { per: e.per, pm: e.pm ?? 1, ...(e.hits && e.kind === "dmg" ? { hits: true } : {}) } : {}) } : null;
 const LEGACY_COND = { lp: { k: "lp", op: "le" }, grave: { k: "grave", op: "ge" }, hand: { k: "sameHand", op: "ge" } };
 function blocksOf(c){
   if (!c) return [];
@@ -1455,12 +1475,14 @@ const hasTrig = (c, trig) => blocksOf(c).some(b => b.trig === trig);
 function effsText(c, effs){
   const spire = c.frame === "spire" || !!c.potionView, t = cardType(c), one = x => !x.to || x.to === "one", aim = x => ["dmg", "bash", "vuln", "weak"].includes(x.kind) && one(x);
   let out = effs.map((m, k) => {
-    let tx = m.to && TARGETABLE[m.kind] ? toText(m.kind, m.n, m.to, spire) : KINDS[m.kind].text(m.n);
+    // base 0 + 「○1つにつき」 reads as 「○1つにつき100ダメージ」
+    const pz = m.per && !m.hits && !m.n && PER_DEFS[m.per], nn = pz ? `${PER_DEFS[m.per].label}${PER_DEFS[m.per].u}につき${m.pm ?? 1}` : m.n;
+    let tx = (m.to && TARGETABLE[m.kind] ? toText(m.kind, nn, m.to, spire) : KINDS[m.kind].text(nn)) + (pz ? "" : perText(m));
     if (spire && k > 0 && aim(m) && effs.slice(0, k).some(aim)) tx = tx.replace(/^相手(に|を)/, "同じ相手$1");
     return tx;
   }).join("、");
   if (t === "equip") out = out.replace(/このモンスター/g, "装備したモンスター");
-  if (spire) out = out.replace(/(?<!同じ)相手に(\d+)ダメージ/g, "相手のモンスター1体（いなければ相手）に$1ダメージ").replace(/(?<!同じ)相手を弱体/g, "相手のモンスター1体（いなければ相手）を弱体").replace(/(?<!同じ)相手を脱力/g, "相手のモンスター1体（いなければ相手）を脱力");
+  if (spire) out = out.replace(/(?<!同じ)相手に([^、。]+?)ダメージ/g, "相手のモンスター1体（いなければ相手）に$1ダメージ").replace(/(?<!同じ)相手を弱体/g, "相手のモンスター1体（いなければ相手）を弱体").replace(/(?<!同じ)相手を脱力/g, "相手のモンスター1体（いなければ相手）を脱力");
   return out;
 }
 function blockText(c, b){
@@ -2447,7 +2469,8 @@ function renderBlocksUI(){
       + `<select data-f="g" aria-label="なにをする">${groups.map(x => opt(x.g, x.label, g && g.g)).join("")}</select>`
       + (g && g.v.length > 1 ? `<select data-f="kind" aria-label="どれ">${g.v.map(([k, l]) => opt(k, l || KINDS[k].label, e.kind)).join("")}</select>` : "")
       + (tg ? `<select data-f="to" aria-label="だれに">${tg.map(o => opt(o, o === "one" && hitsPlayer(e.kind) ? ($("#mkFrame").value === "spire" ? "相手のモンスター1体（いなければ相手）" : "相手") : TO_LABEL[o], e.to || "one")).join("")}</select>` : "")
-      + (KINDS[e.kind] && KINDS[e.kind].n ? `<input type="number" data-f="n" min="1" max="9999" value="${esc(e.n ?? defN(e.kind))}" aria-label="数">` : "")
+      + (KINDS[e.kind] && KINDS[e.kind].n ? `<input type="number" data-f="n" min="${e.per ? 0 : 1}" max="9999" value="${esc(e.n ?? defN(e.kind))}" aria-label="数">` : "")
+      + (PER_OK[e.kind] ? `<select data-f="per" aria-label="ふえる">${opt("", "ふえない", e.per || "")}${Object.entries(PER_DEFS).map(([k, d]) => opt(k, d.label + d.u + "につき", e.per || "")).join("")}</select>` + (e.per ? (e.kind === "dmg" ? `<select data-f="hits" aria-label="ふえかた">${opt("", "数が＋", e.hits ? "1" : "")}${opt("1", "もう1回", e.hits ? "1" : "")}</select>` : "") + (e.hits ? "" : `<input type="number" data-f="pm" min="1" max="9999" value="${esc(e.pm ?? 1)}" aria-label="1つにつき増える数">`) : "") : "")
       + `<button type="button" class="small ghost" data-bk="delRow" aria-label="この行を消す">×</button></div>`;
   };
   const condRow = (b, x, j) => {
@@ -2495,9 +2518,12 @@ function bkEvent(e, rerenderOnInput){
   }
   const list = b[part], x = list && list[j]; if (!x) return;
   if (f === "g"){ const g = kindGroups(mkKinds()).find(q => q.g === v); if (g){ list[j] = { kind: g.v[0][0], n: defN(g.v[0][0]) }; } return renderBlocksUI(); }
-  if (f === "kind"){ list[j] = { kind: v, n: x.n ?? defN(v), to: x.to }; return renderBlocksUI(); }
+  if (f === "kind"){ list[j] = { kind: v, n: x.n ?? defN(v), to: x.to, ...(PER_OK[v] && x.per ? { per: x.per, pm: x.pm, hits: v === "dmg" && x.hits } : {}) }; return renderBlocksUI(); }
+  if (f === "per"){ x.per = v || null; if (!v){ x.hits = false; } else if (x.pm == null) x.pm = x.kind === "dmg" || x.kind === "block" ? (v === "myBlock" ? 1 : 40) : 1; return renderBlocksUI(); }
+  if (f === "hits"){ x.hits = v === "1"; return renderBlocksUI(); }
+  if (f === "pm"){ x.pm = Math.max(1, Math.round(+v || 1)); return updateBkText(); }
   if (f === "to"){ x.to = v; return updateBkText(); }
-  if (f === "n"){ x.n = Math.max(1, Math.round(+v || 1)); return updateBkText(); }
+  if (f === "n"){ x.n = Math.max(x.per ? 0 : 1, Math.round(+v || 0)); return updateBkText(); }
 }
 function initBlocksUI(){
   const box = $("#bkUI"); if (!box || box._on) return; box._on = true;
@@ -3492,6 +3518,7 @@ function exileCard(st, s, id, src){
   log(st, s, `${src}で「${card(id).name}」を廃棄した`);
   persistFire(st, s, "exhaust", {});
 }
+function countPlay(st, s, c){ const p = P(st, s); if (!c || !c.id) return; p.usedCount = { ...(p.usedCount || {}), [c.id]: ((p.usedCount || {})[c.id] || 0) + 1 }; if (isAttackCard(c)) p.atkNow = (p.atkNow || 0) + 1; }
 const isAttackCard = c => c && (c.frame === "spire" ? spireKind(c) === "attack" : cardType(c) === "monster");
 // play the top card of the deck for free (山札の一番上をプレイ)
 function playTopCard(st, s, src, ex, then){
@@ -3500,7 +3527,7 @@ function playTopCard(st, s, src, ex, then){
   if (!id){ log(st, s, `${src}：山札にカードがない`); then && then(st); return; }
   const c = card(id), t = cardType(c);
   if (t !== "magic" && t !== "trap"){ p.grave.push(id); log(st, s, `${src}で山札の一番上の「${c.name}」をめくった（プレイできないので墓地へ）`); then && then(st); return; }
-  log(st, s, `${src}で山札の一番上の「${c.name}」をプレイ！`); ev(st, { type: "spell", s, c: id });
+  log(st, s, `${src}で山札の一番上の「${c.name}」をプレイ！`); ev(st, { type: "spell", s, c: id }); countPlay(st, s, c);
   const pz = isPersist(c) && !ex ? freeZone(p.sz) : -1;
   if (pz >= 0){ st.un = (st.un || 0) + 1; p.sz[pz] = { c: id, turn: st.turnNo, face: true, u: st.un }; }
   else if (ex || exhausts(c)) exileCard(st, s, id, src);
@@ -3532,6 +3559,7 @@ function dealDmg(st, s, n){
   let blk = 0;
   if (n > 0 && p.block > 0){ const b = Math.min(p.block, n); p.block -= b; n -= b; blk = b; log(st, s, `ブロックで${b}ダメージを防いだ（残りブロック ${p.block}）`); }
   p.lp -= n;
+  if (n > 0){ p.lostNow = (p.lostNow || 0) + 1; p.lostTotal = (p.lostTotal || 0) + 1; }
   if (n > 0 || blk) ev(st, { type: "hit", s, d: n, blk });
 }
 function log(st, s, m){ st.log.push({ t: Date.now(), s: s || "", m }); if (st.log.length > 80) st.log.splice(0, st.log.length - 80); }
@@ -3721,6 +3749,7 @@ function applyEffect(st, s, c, target, ctx = {}, fx = normFx(c)){
   if (ctx.hit && target != null) (ctx.hit.picked = ctx.hit.picked || []).push(String(target));
   const me = P(st, s), op = P(st, O(s)), src = `「${c.name}」`;
   let n = fx.n || 0;
+  if (fx.per && !fx.hits) n += (fx.pm ?? 1) * perVal(st, s, c, fx, target, ctx);
   if (["dmg", "dmgAll", "dmgRand", "bash"].includes(fx.kind)) n = hitPower(st, s, n, ctx);
   switch (fx.kind){
     case "heal": me.lp += n; log(st, s, `${src}でLPを${n}回復`); break;
@@ -3785,7 +3814,7 @@ function applyEffect(st, s, c, target, ctx = {}, fx = normFx(c)){
     case "strTemp": me.str = (me.str || 0) + n; me.strTemp = (me.strTemp || 0) + n; log(st, s, `${src}でこのターン筋力${n}を得た（筋力 ${me.str}）`); break;
     case "oppStr": op.str = (op.str || 0) + n; log(st, s, `${src}で${op.name}が筋力${n}を得た（筋力 ${op.str}）`); break;
     case "oppStrDown": op.str = (op.str || 0) - n; op.strTemp = (op.strTemp || 0) - n; log(st, s, `${src}で${op.name}の筋力が${n}下がった（筋力 ${op.str}・${op.name}のターンの終わりまで）`); break;
-    case "loseLp": me.lp -= n; me.lostLp = (me.lostLp || 0) + 1; ev(st, { type: "hit", s, d: n, blk: 0 }); log(st, s, `${src}でLPを${n}失った`); break;
+    case "loseLp": me.lp -= n; me.lostNow = (me.lostNow || 0) + 1; me.lostTotal = (me.lostTotal || 0) + 1; ev(st, { type: "hit", s, d: n, blk: 0 }); log(st, s, `${src}でLPを${n}失った`); break;
     case "copyHand": if (c && S.cards.has(c.id)){ me.hand.push(c.id); log(st, s, `${src}のコピーを手札に加えた`); } break;
     case "copyDeck": if (c && S.cards.has(c.id)){ me.deck.splice(Math.floor(Math.random() * (me.deck.length + 1)), 0, c.id); log(st, s, `${src}のコピーを山札に混ぜた`); } break;
     case "exhaustHand": if (me.hand[target] != null) exileCard(st, s, me.hand.splice(target, 1)[0], src); break;
@@ -3830,6 +3859,8 @@ function runEffect(st, s, c, ctx = {}, then, fx = normFx(c)){
     fx = { ...fx, ask: "" };
   }
   if (fx.kind === "draft" && !ctx.draft) ctx = { ...ctx, draft: draftPick(fx.n) };
+  // 「○1つにつき、もう1回」: the hit is repeated (each one is a normal hit)
+  if (fx.hits && fx.per){ const k = 1 + Math.max(0, perVal(st, s, c, fx, null, ctx)), one = { ...fx, per: null, hits: false }, go = (st2, r) => { if (r <= 0 || st2.winner){ then && then(st2); return; } runEffect(st2, s, c, ctx, st3 => go(st3, r - 1), one); }; go(st, Math.min(k, 30)); return; }
   if (fx.kind === "playTop" || fx.kind === "playTopEx"){ const ex = fx.kind === "playTopEx", go = (st2, r) => { if (r <= 0 || st2.winner){ then && then(st2); return; } playTopCard(st2, s, `「${c.name}」`, ex, st3 => go(st3, r - 1)); }; go(st, Math.max(1, fx.n || 1)); return; }
   if ((c && c.frame === "spire" || fx.rand || fx.distinct) && (fx.kind === "dmg" || fx.kind === "bash" || fx.kind === "vuln" || fx.kind === "weak")) ctx = { ...ctx, spireAtk: true };
   let opts = targetOptions(st, s, fx.kind, ctx);
@@ -3879,7 +3910,7 @@ function runBlock(st, s, c, b, ctx, then){
 }
 function runEffects(st, s, c, effs, ctx, then){
   const list = [];
-  (effs || []).forEach(e => { if (KINDS[e.kind] && KINDS[e.kind].each && e.n > 1){ for (let r = 0; r < e.n; r++) list.push({ kind: e.kind, n: 1 }); } else list.push(...expandFx({ kind: e.kind, n: e.n, to: e.to })); });
+  (effs || []).forEach(e => { if (KINDS[e.kind] && KINDS[e.kind].each && e.n > 1){ for (let r = 0; r < e.n; r++) list.push({ kind: e.kind, n: 1 }); } else list.push(...expandFx({ kind: e.kind, n: e.n, to: e.to, ...(e.per ? { per: e.per, pm: e.pm, hits: e.hits } : {}) })); });
   if (c && c.costX && ctx.x != null && list.length){ const one = list.splice(0); for (let r = 0; r < ctx.x; r++) list.push(...one); if (!ctx.x) log(st, s, `「${c.name}」：X が0なので効果なし`); }
   const step = (st2, k) => { if (k >= list.length){ then && then(st2); return; } runEffect(st2, s, c, ctx, st3 => step(st3, k + 1), list[k]); };
   step(st, 0);
@@ -3916,7 +3947,7 @@ function pay(st, s, c){
   if (m && m.cur < k) return false;
   if (costWhy(st, s, c)) return false;
   const lpc = payLpOf(c), mx = payMaxOf(c);
-  if (lpc){ p.lp -= lpc; log(st, s, `「${c.name}」のコストでLPを${lpc}払った`); }
+  if (lpc){ p.lp -= lpc; p.lostNow = (p.lostNow || 0) + 1; p.lostTotal = (p.lostTotal || 0) + 1; log(st, s, `「${c.name}」のコストでLPを${lpc}払った`); }
   if (mx && m){ m.max -= mx; if (p.spire) p.maxAdj = (p.maxAdj || 0) - mx; log(st, s, `「${c.name}」のコストで最大マナが${mx}減った（${m.cur}/${m.max}）`); }
   if (fk){ p.free[fk]--; log(st, s, `「${c.name}」はコスト0で使える！`); }
   else if (freeId(st, s, c) && !(c && c.costX)){ p.freeIds.splice(p.freeIds.indexOf(c.id), 1); }
@@ -4038,6 +4069,7 @@ function activate(st, s, from, i, ctx = {}){
   if (c.costX){ ctx = { ...ctx, x: p.lastPaid || 0 }; log(st, s, `「${c.name}」：X = ${p.lastPaid || 0}`); }
   if (from === "hand") p.hand.splice(i, 1);
   else p.sz[i] = null;
+  countPlay(st, s, c);
   discardCost(st, s, c, shiftPicks(ctx.disc, from === "hand" ? i : null));
   // 永続: stays face-up in the magic/trap zone
   if (keep){ st.un = (st.un || 0) + 1; p.sz[pz] = { c: id, turn: st.turnNo, face: true, u: st.un }; }
@@ -4200,7 +4232,8 @@ function passTurn(st, s){
   fireTurn(st, s, "turnEnd", st => {
     checkEnd(st); if (st.winner) return;
     P(st, s).mz.forEach(m => { if (m){ m.attacked = false; m.atkCount = 0; } });
-    { const ep = P(st, s); if (ep.strTemp){ ep.str = (ep.str || 0) - ep.strTemp; log(st, s, `一時的な筋力がもどった（筋力 ${ep.str}）`); ep.strTemp = 0; } ep.freeIds = []; ep.lostLp = 0; ep.exhaustedNow = 0; ep.noDraw = false;
+    { const ep = P(st, s); if (ep.strTemp){ ep.str = (ep.str || 0) - ep.strTemp; log(st, s, `一時的な筋力がもどった（筋力 ${ep.str}）`); ep.strTemp = 0; } ep.freeIds = []; ep.noDraw = false;
+      for (const o of ["a", "b"]){ const q = P(st, o); q.lostNow = 0; q.exhaustedNow = 0; q.atkNow = 0; }
       // 脱力 wears off at the end of its owner's own turn (it weakens what they deal on that turn)
       if (ep.weak > 0){ ep.weak--; if (!ep.weak) log(st, s, `${ep.name}の脱力がとけた`); }
       ep.mz.forEach(m => { if (m && m.weak > 0){ m.weak--; if (!m.weak) log(st, s, `「${card(m.c).name}」の脱力がとけた`); } }); }
