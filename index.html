@@ -441,6 +441,10 @@ button.chip{font-size:12px;border:1.5px solid var(--ink);border-radius:99px;padd
 .fxstamp.blast{color:#ff8a3d;border-color:#ff8a3d;text-align:center;line-height:1.1;padding:6px 22px}
 .fxstamp small{display:block;font-size:18px;color:#1e2328}
 @keyframes fxstamp{0%{transform:translate(-50%,-50%) rotate(-12deg) scale(2.2);opacity:0}25%{transform:translate(-50%,-50%) rotate(-12deg) scale(1);opacity:1}80%{opacity:1}100%{opacity:0}}
+.fxhit{transform:translate(-50%,0);font-family:var(--display);font-size:38px;line-height:1;color:var(--hit);-webkit-text-stroke:1.5px #1e2328;text-align:center;animation:fxhit 1.1s ease-out forwards}
+.fxhit small{display:block;font-size:15px;color:#7cc4ff;-webkit-text-stroke:0;text-shadow:0 1px 2px #000}
+.fxhit.blk{color:#7cc4ff}
+@keyframes fxhit{0%{transform:translate(-50%,6px) scale(.4);opacity:0}15%{transform:translate(-50%,-8px) scale(1.35);opacity:1}35%{transform:translate(-50%,-12px) scale(1)}100%{transform:translate(-50%,-56px) scale(1);opacity:0}}
 @media (prefers-reduced-motion:reduce){.fxa{display:none}}
 @keyframes shake{0%,100%{transform:none}25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
 .hurt{animation:shake .3s 2}
@@ -3297,6 +3301,7 @@ function monDmg(st, s, i, n, src){
   if (n > 0 && m.vuln > 0){ n = Math.floor(n * 1.5); log(st, O(s), `「${nm}」は弱体で${n}ダメージに！`); }
   log(st, O(s), `${src}で「${nm}」に${n}ダメージ`);
   m.dmg = (m.dmg || 0) + n;
+  if (n > 0) ev(st, { type: "hit", s, z: i, d: n });
   if (m.dmg >= a){ log(st, O(s), `「${nm}」のダメージカウンター${m.dmg}がATK${fmtN(a)}に届いた！`); destroyMonster(st, s, i, src); }
   else log(st, O(s), `「${nm}」にダメージカウンターが${n}乗った（合計 ${m.dmg} / ATK ${fmtN(a)}）`);
 }
@@ -3306,8 +3311,10 @@ const statChips = p => Object.entries(p.free || {}).filter(([, v]) => v > 0).map
 function dealDmg(st, s, n){
   const p = P(st, s); if (n === Infinity){ p.lp = Math.min(0, p.lp); return; }
   if (n > 0 && p.vuln > 0){ n = Math.floor(n * 1.5); log(st, s, `弱体で${n}ダメージに！`); }
-  if (n > 0 && p.block > 0){ const b = Math.min(p.block, n); p.block -= b; n -= b; log(st, s, `ブロックで${b}ダメージを防いだ（残りブロック ${p.block}）`); }
+  let blk = 0;
+  if (n > 0 && p.block > 0){ const b = Math.min(p.block, n); p.block -= b; n -= b; blk = b; log(st, s, `ブロックで${b}ダメージを防いだ（残りブロック ${p.block}）`); }
   p.lp -= n;
+  if (n > 0 || blk) ev(st, { type: "hit", s, d: n, blk });
 }
 function log(st, s, m){ st.log.push({ t: Date.now(), s: s || "", m }); if (st.log.length > 80) st.log.splice(0, st.log.length - 80); }
 const nm = (st, s) => P(st, s).name;
@@ -4241,7 +4248,10 @@ function playEvents(prevLp, nowLp){
     }
   }
   if (reduceMotion) return;
-  list.forEach((e, k) => setTimeout(() => { try{ animateEvent(e); }catch(err){} }, k * 320));
+  // one after another: a spell banner gets time to show before its hits, each hit gets its own beat (ツインストライク → 2 hits)
+  const GAP = { spell: 900, attack: 560, hit: 420 };
+  let t = 0;
+  list.forEach(e => { setTimeout(() => { try{ animateEvent(e); }catch(err){} }, t); t += GAP[e.type] || 320; });
 }
 function animateEvent(e){
   if (!G) return;
@@ -4263,6 +4273,13 @@ function animateEvent(e){
     setTimeout(() => { spark(ct.x, ct.y); t.animate([{ transform: "none" }, { transform: "translateX(-6px) rotate(-2deg)" }, { transform: "translateX(6px) rotate(2deg)" }, { transform: "none" }], { duration: 260 }); }, 340);
   }
   if (e.type === "destroy") burst(zoneEl(e.s, "mz", e.z), "撃破！");
+  if (e.type === "hit"){
+    const el = e.z != null ? zoneEl(e.s, "mz", e.z) : document.querySelector(sideOf(e.s) === "me" ? "#board .hand" : "#board .ohand");
+    if (!el) return;
+    const c = center(el), y = e.z != null ? c.y : c.y - 10;
+    if (e.d > 0){ spark(c.x + (Math.random() * 30 - 15), y); el.animate([{ transform: "none" }, { transform: "translateX(-7px) rotate(-1.5deg)" }, { transform: "translateX(7px) rotate(1.5deg)" }, { transform: "none" }], { duration: 240 }); }
+    fxEl("fxhit" + (e.d > 0 ? "" : " blk"), `${e.d > 0 ? "−" + e.d : "0"}${e.blk ? `<small>ブロック −${e.blk}</small>` : ""}`, c.x, y - 20);
+  }
   if (e.type === "spell"){
     const c = card(e.c), t = cardType(c);
     const label = t === "trap" ? "罠発動！" : isQuick(c) ? "速攻魔法！" : t === "equip" ? "装備！" : "魔法発動！";
