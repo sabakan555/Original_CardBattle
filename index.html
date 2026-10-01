@@ -452,6 +452,7 @@ body.dm-lock{overflow:hidden}
 .reward-pick{display:flex;flex-wrap:wrap;gap:10px;justify-content:center}
 .lp b{font-size:28px;font-weight:600;font-variant-numeric:tabular-nums}
 .lp.low b{color:var(--hit)}
+.pile-tabs button{font-size:13px}
 .pile{font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 button.chip{font-size:12px;border:1.5px solid var(--ink);border-radius:99px;padding:0 10px;background:var(--paper);font-weight:700;box-shadow:none}
 .adj{display:grid;grid-template-columns:auto 1fr;gap:8px 10px;align-items:center;font-size:13px}
@@ -5096,8 +5097,8 @@ function renderBoard(){
     </div>
     <aside class="side">
       <div class="box" style="display:flex;flex-direction:column;gap:12px">
-        <div class="pl"><div><div class="nm">${esc(po.name)}</div><div class="pile">山札 ${po.deck.length}<button class="chip" data-grave="op">墓地 ${po.grave.length}</button>${(po.exile || []).length ? ` 廃棄 ${po.exile.length}` : ""}</div></div>${lpBox(po, "op")}</div>${potRow(po, false)}
-        <div class="pl"><div><div class="nm">${esc(pm.name)}${G.spectate ? "" : "（あなた）"}</div><div class="pile">山札 ${pm.deck.length}<button class="chip" data-grave="me">墓地 ${pm.grave.length}</button>${(pm.exile || []).length ? ` 廃棄 ${pm.exile.length}` : ""}</div></div>${lpBox(pm, "me")}</div>${potRow(pm, !G.spectate, !G.spectate)}
+        <div class="pl"><div><div class="nm">${esc(po.name)}</div><div class="pile">山札 ${po.deck.length}<button class="chip" data-grave="op:grave">墓地 ${po.grave.length}</button>${(po.exile || []).length ? `<button class="chip" data-grave="op:exile">廃棄 ${po.exile.length}</button>` : ""}</div></div>${lpBox(po, "op")}</div>${potRow(po, false)}
+        <div class="pl"><div><div class="nm">${esc(pm.name)}${G.spectate ? "" : "（あなた）"}</div><div class="pile"><button class="chip" data-grave="me:deck">山札 ${pm.deck.length}</button><button class="chip" data-grave="me:grave">墓地 ${pm.grave.length}</button>${(pm.exile || []).length ? `<button class="chip" data-grave="me:exile">廃棄 ${pm.exile.length}</button>` : ""}</div></div>${lpBox(pm, "me")}</div>${potRow(pm, !G.spectate, !G.spectate)}
         ${G.mode === "online" ? `<div class="note">部屋 ${esc(G.code)}</div>` : ""}
       </div>
       <div class="box">
@@ -5343,8 +5344,13 @@ function renderOverlay(){
       html = `<div class="box"><h2 style="margin:0">「${esc(card(id).name)}」をどこに付ける？</h2><p class="muted" style="margin:0">「${esc(card(m.c).name)}」の装備の並び（左から）。「化身」のように左どなりに効く装備があるときは、並びが大事です</p><div class="eqplace">${ins(0)}${es.map((e, k) => cardHTML(card(e.c), "xs", "", mOpt(e.o)) + ins(k + 1)).join("")}</div><div class="row"><button class="ghost" data-close="eqplace">やめる</button></div></div>`;
     } else G.eqPlace = null;
   } else if (G.view){
-    const X = G.view === "me" ? P(st, me) : P(st, O(me));
-    html = `<div class="box"><h2 style="margin:0">${esc(X.name)} の墓地（${X.grave.length}枚）</h2><div class="gallery">${X.grave.map(id => cardHTML(card(id), "sm pick", `data-cid="${esc(id)}" tabindex="0" role="button"`, { mana: !!X.mana })).join("") || '<p class="muted">まだ空っぽ</p>'}</div><div class="row"><button data-close="view">とじる</button></div></div>`;
+    // 山札・墓地・廃棄札を見る（相手は墓地と廃棄札だけ。山札は並び順がわからないようにコスト順に並べ替える）
+    const [who, pile0] = String(G.view).split(":"), mine = who === "me", X = mine ? P(st, me) : P(st, O(me));
+    const piles = mine ? ["deck", "grave", "exile"] : ["grave", "exile"], pile = piles.includes(pile0) ? pile0 : "grave";
+    const LBL = { deck: "山札", grave: "墓地", exile: "廃棄札" }, list = pile === "deck" ? deckSortIds(X.deck.slice(), !!X.mana) : pile === "exile" ? (X.exile || []).slice() : X.grave.slice();
+    const tabs = `<div class="seg pile-tabs">${piles.map(k => `<button type="button" data-grave="${who}:${k}" aria-pressed="${k === pile}">${LBL[k]} ${k === "deck" ? X.deck.length : k === "exile" ? (X.exile || []).length : X.grave.length}</button>`).join("")}</div>`;
+    const note = pile === "deck" ? "並び順はひみつ（コスト順に並べ替えて表示）" : pile === "exile" ? "廃棄されたカード（このゲームではもう使えない）" : "上から古い順";
+    html = `<div class="box"><div class="row" style="justify-content:space-between"><h2 style="margin:0">${esc(X.name)} の${LBL[pile]}（${list.length}枚）</h2>${tabs}</div><p class="note" style="margin:0">${note}</p><div class="gallery">${list.map(id => cardHTML(card(id), "sm pick", `data-cid="${esc(id)}" tabindex="0" role="button"`, { mana: !!X.mana })).join("") || '<p class="muted">まだ空っぽ</p>'}</div><div class="row"><button data-close="view">とじる</button></div></div>`;
   } else if (G.graveHand){
     const ids = [...new Set(P(st, me).grave)];
     html = `<div class="box"><h2 style="margin:0">墓地から手札に戻すカードをえらぶ（手動）</h2><div class="gallery">${ids.map(id => cardHTML(card(id), "sm pick", `data-gh="${esc(id)}" tabindex="0" role="button"`, mOpt(me))).join("") || '<p class="muted">墓地は空っぽ</p>'}</div><div class="row"><button class="ghost" data-close="gh">やめる</button></div></div>`;
@@ -5352,6 +5358,7 @@ function renderOverlay(){
   ov.hidden = !html; ov.innerHTML = html;
 }
 $("#overlay").addEventListener("click", e => {
+  { const gv = e.target.closest("[data-grave]"); if (gv && G){ G.view = gv.dataset.grave; renderAll(); return; } }
   if (!G) return;
   const ak = e.target.closest("[data-ask]");
   if (ak && G.chooseQ.length && G.chooseQ[0].ask){
