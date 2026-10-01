@@ -803,7 +803,7 @@ nav.tabs button{position:relative}
         <label class="row" id="quickRow" hidden style="gap:6px;font-weight:700;cursor:pointer"><input type="checkbox" id="mkQuick"> 速攻魔法（相手のターンにも使える）</label>
         <label class="row" id="persistRow" hidden style="gap:6px;font-weight:700;cursor:pointer"><input type="checkbox" id="mkPersist"> 永続（使ったあとも魔法・罠ゾーンに残って、効果が続く・最大5枚）</label>
         <label class="row" id="exhaustRow" hidden style="gap:6px;font-weight:700;cursor:pointer"><input type="checkbox" id="mkExhaust"> 廃棄（使ったら墓地に行かず、そのゲームから消える）</label>
-        <label class="row" id="payLpRow" style="gap:6px;font-weight:700;flex-wrap:wrap">コストでLPを払う <input type="number" id="mkPayLp" min="0" step="10" value="0" style="width:90px"> <span class="muted" style="font-weight:400;font-size:13px">0ならなし。LPが足りないと使えない</span></label>
+        <div class="row" id="payRow" style="gap:6px 12px;flex-wrap:wrap;align-items:center"><b>追加コスト</b><label class="row" style="gap:4px">LPを<input type="number" id="mkPayLp" min="0" step="10" value="0" style="width:84px">払う</label><label class="row" style="gap:4px">手札を<input type="number" id="mkPayDisc" min="0" max="5" step="1" value="0" style="width:64px">枚捨てる</label><label class="row" style="gap:4px">最大マナを<input type="number" id="mkPayMax" min="0" max="5" step="1" value="0" style="width:64px">減らす</label><span class="muted" style="font-size:13px">0ならなし。払えないと使えない</span></div>
         <div class="mk-tabs" id="mkTabs" role="tablist">
           <button data-pane="draw" aria-pressed="true">絵</button><button data-pane="look" aria-pressed="false">見た目</button><button data-pane="fx" aria-pressed="false">効果・能力</button><button data-pane="deck" aria-pressed="false">デッキ</button>
         </div>
@@ -1333,8 +1333,12 @@ function expandFx(f){
   if (to === "two") return [{ ...f, distinct: true }, { ...f, distinct: true, ask: "" }];
   return [f];
 }
+// 追加コスト: LPを払う / 手札を捨てる / 最大マナを減らす（払えないと使えない）
 const payLpOf = c => c && c.payLp > 0 ? Math.round(+c.payLp) : 0;
-function fxText(c){ return [isPersist(c) ? "【永続】使ったあとも場に残る" : "", payLpOf(c) ? `【コスト】LPを${payLpOf(c)}払う` : "", ssText(c), fxText0(c)].filter(Boolean).join("。"); }
+const payDiscOf = c => c && c.payDisc > 0 ? Math.round(+c.payDisc) : 0;
+const payMaxOf = c => c && c.payMax > 0 ? Math.round(+c.payMax) : 0;
+function extraCostText(c){ const L = [payLpOf(c) ? `LPを${payLpOf(c)}払う` : "", payDiscOf(c) ? `手札を${payDiscOf(c)}枚捨てる` : "", payMaxOf(c) ? `最大マナを${payMaxOf(c)}減らす` : ""].filter(Boolean); return L.length ? "【コスト】" + L.join("、") : ""; }
+function fxText(c){ return [isPersist(c) ? "【永続】使ったあとも場に残る" : "", extraCostText(c), ssText(c), fxText0(c)].filter(Boolean).join("。"); }
 /* ================= effect blocks: いつ / もし / なにを / ちがったら =================
    c.blocks = [{ trig, conds: [{k, op, n | name, where, match | text}], join: "and"|"or", then: [{kind, n, to}], else: [...] }]
    Older cards (c.fx + c.combo) are read as blocks too, so everything below runs on blocks. */
@@ -2252,7 +2256,8 @@ function syncFxForm(){
 $("#mkQuick").addEventListener("change", () => { $("#mkTab").textContent = mkTabLabel(); });
 function mkTabLabel(){ const t = MK.type, pers = (t === "magic" || t === "trap") && $("#mkPersist").checked; if ($("#mkFrame").value === "spire") return SPIRE_LABEL[mkSk()]; return t === "magic" && $("#mkQuick").checked ? "速攻魔法" : (pers ? "永続" : "") + TYPE_LABEL[t]; }
 $("#mkPersist").addEventListener("change", () => setMkType(MK.type));
-$("#mkPayLp").addEventListener("input", () => updateBkText());
+["#mkPayLp", "#mkPayDisc", "#mkPayMax"].forEach(q => $(q).addEventListener("input", () => updateBkText()));
+function mkPays(save){ const v = q => Math.max(0, Math.round(+$(q).value || 0)) || (save ? null : 0); return { payLp: v("#mkPayLp"), payDisc: v("#mkPayDisc"), payMax: v("#mkPayMax") }; }
 // スパイア風: スキル = magic, パワー = 永続 magic (the kind buttons show which one is on)
 function syncTypePressed(){ const sk = mkSk(), map = { monster: "attack", magic: "skill", power: "power" }; document.querySelectorAll("#mkType button").forEach(b => { const k = b.dataset.t; b.setAttribute("aria-pressed", sk ? map[k] === sk : k === MK.type); }); }
 // スパイア風: the kind buttons read アタック / スキル / パワー and there is no 装備
@@ -2320,7 +2325,7 @@ function kindGroups(avail){
   return gs;
 }
 const defN = k => smallN(k) ? 1 : 100;
-function mkPreviewCard(){ return { type: MK.type, frame: $("#mkFrame").value, persist: (MK.type === "magic" || MK.type === "trap") && $("#mkPersist").checked, costX: $("#mkCost").value === "X", payLp: Math.max(0, Math.round(+$("#mkPayLp").value || 0)), blocks: readBlocks(), ss: readSS(), eqN: Math.round(+$("#mkEq").value || 0), abs: readAbs() }; }
+function mkPreviewCard(){ return { type: MK.type, frame: $("#mkFrame").value, persist: (MK.type === "magic" || MK.type === "trap") && $("#mkPersist").checked, costX: $("#mkCost").value === "X", ...mkPays(), blocks: readBlocks(), ss: readSS(), eqN: Math.round(+$("#mkEq").value || 0), abs: readAbs() }; }
 function readBlocks(){
   const bs = (MK.blocks || []).map(b => ({ trig: b.trig, join: b.join === "or" ? "or" : "and", conds: (b.conds || []).map(x => ({ ...x })), then: (b.then || []).map(cleanEff).filter(Boolean), else: (b.conds || []).length ? (b.else || []).map(cleanEff).filter(Boolean) : [] })).filter(b => b.then.length || b.else.length);
   return bs.length ? bs : null;
@@ -2427,7 +2432,7 @@ function initBlocksUI(){
 }
 initBlocksUI();
 function resetMaker(){
-  S.editId = null; setFrameless(false); $("#mkName").value = ""; $("#mkEff").value = ""; $("#mkFlv").value = ""; $("#mkNameSize").value = $("#mkTextSize").value = "m"; syncSizes(); $("#mkAtk").value = 300; $("#mkEq").value = 200; $("#mkEqAb").value = "none"; $("#mkEqCost").value = "1"; $("#mkEqCap").value = ""; $("#mkFrame").value = ""; syncFrame(); $("#mkFont").value = "klee"; syncFont(); $("#mkQuick").checked = false; $("#mkExhaust").checked = false; $("#mkPayLp").value = "0"; $("#mkPersist").checked = false; MK.sk = null; $("#mkRarity").value = "common"; $("#mkCost").value = "1"; setMkDeck("normal"); $("#mkLimit").value = "3"; clearCanvas(); undoStack = [];
+  S.editId = null; setFrameless(false); $("#mkName").value = ""; $("#mkEff").value = ""; $("#mkFlv").value = ""; $("#mkNameSize").value = $("#mkTextSize").value = "m"; syncSizes(); $("#mkAtk").value = 300; $("#mkEq").value = 200; $("#mkEqAb").value = "none"; $("#mkEqCost").value = "1"; $("#mkEqCap").value = ""; $("#mkFrame").value = ""; syncFrame(); $("#mkFont").value = "klee"; syncFont(); $("#mkQuick").checked = false; $("#mkExhaust").checked = false; $("#mkPayLp").value = "0"; $("#mkPayDisc").value = "0"; $("#mkPayMax").value = "0"; $("#mkPersist").checked = false; MK.sk = null; $("#mkRarity").value = "common"; $("#mkCost").value = "1"; setMkDeck("normal"); $("#mkLimit").value = "3"; clearCanvas(); undoStack = [];
   setMkType("monster"); loadFxForm(null); loadAbs([]); loadSS(null);
   $("#mkTitle").textContent = "カードを描く"; $("#btnNew").hidden = true; $("#btnSave").textContent = "カードを保存";
 }
@@ -2472,7 +2477,7 @@ $("#btnSave").addEventListener("click", async () => {
   const id = S.editId || uid("c");
   const prev = S.cards.get(id);
   let eqN = Math.round(+$("#mkEq").value || 0); $("#mkEq").value = eqN;
-  const doc = { type: MK.type, name, atk: MK.type === "monster" ? atk : 0, atkInf, eqN: MK.type === "equip" ? eqN : 0, eqAb: "none", eqCost: MK.type === "equip" ? Math.max(0, Math.round(+$("#mkEqCost").value || 0)) : null, eqCap: MK.type === "monster" && $("#mkFrame").value === "socra" && $("#mkEqCap").value.trim() !== "" ? Math.max(0, Math.round(+$("#mkEqCap").value || 0)) : null, abs: MK.type === "monster" || MK.type === "equip" ? readAbs() : [], frame: $("#mkFrame").value || null, ss: readSS(), effect: $("#mkEff").value.trim(), flavor: $("#mkFlv").value.trim(), nameSize: $("#mkNameSize").value, textSize: $("#mkTextSize").value, fx: null, combo: null, blocks: readBlocks(), font: $("#mkFont").value, quick: MK.type === "magic" && $("#mkFrame").value !== "spire" && $("#mkQuick").checked, persist: (MK.type === "magic" || MK.type === "trap") && $("#mkPersist").checked, sk: mkSk(), rarity: $("#mkFrame").value === "spire" ? $("#mkRarity").value : null, exhaust: (MK.type === "magic" || MK.type === "trap") && $("#mkExhaust").checked, payLp: Math.max(0, Math.round(+$("#mkPayLp").value || 0)) || null, cost: MK.deck === "normal" ? null : $("#mkCost").value === "X" ? 0 : +$("#mkCost").value, costX: MK.deck !== "normal" && $("#mkCost").value === "X", deckMode: MK.deck, limit: +$("#mkLimit").value,
+  const doc = { type: MK.type, name, atk: MK.type === "monster" ? atk : 0, atkInf, eqN: MK.type === "equip" ? eqN : 0, eqAb: "none", eqCost: MK.type === "equip" ? Math.max(0, Math.round(+$("#mkEqCost").value || 0)) : null, eqCap: MK.type === "monster" && $("#mkFrame").value === "socra" && $("#mkEqCap").value.trim() !== "" ? Math.max(0, Math.round(+$("#mkEqCap").value || 0)) : null, abs: MK.type === "monster" || MK.type === "equip" ? readAbs() : [], frame: $("#mkFrame").value || null, ss: readSS(), effect: $("#mkEff").value.trim(), flavor: $("#mkFlv").value.trim(), nameSize: $("#mkNameSize").value, textSize: $("#mkTextSize").value, fx: null, combo: null, blocks: readBlocks(), font: $("#mkFont").value, quick: MK.type === "magic" && $("#mkFrame").value !== "spire" && $("#mkQuick").checked, persist: (MK.type === "magic" || MK.type === "trap") && $("#mkPersist").checked, sk: mkSk(), rarity: $("#mkFrame").value === "spire" ? $("#mkRarity").value : null, exhaust: (MK.type === "magic" || MK.type === "trap") && $("#mkExhaust").checked, ...mkPays(true), cost: MK.deck === "normal" ? null : $("#mkCost").value === "X" ? 0 : +$("#mkCost").value, costX: MK.deck !== "normal" && $("#mkCost").value === "X", deckMode: MK.deck, limit: +$("#mkLimit").value,
     img: prev && prev.img && !MK.artDirty ? prev.img : encodeArt(out), frameless: MK.frameless, author: S.name, ownerId: prev?.ownerId || S.uid || null, updatedAt: Date.now() };
   $("#btnSave").disabled = true;
   try{
@@ -2509,7 +2514,7 @@ $("#gallery").addEventListener("click", async e => {
   if (ed){
     const c = S.cards.get(ed.dataset.edit); if (!c || !(isMine(c) || (c.starter && isAdmin()))) return;
     S.editId = c.id; setFrameless(!!c.frameless); MK.artDirty = false; $("#mkName").value = c.nameRuby || c.name; $("#mkEff").value = c.effect || ""; $("#mkFlv").value = c.flavor || ""; $("#mkNameSize").value = SIZES_T[c.nameSize] ? c.nameSize : "m"; $("#mkTextSize").value = SIZES_T[c.textSize] ? c.textSize : "m"; syncSizes(); $("#mkAtk").value = c.atkInf ? "∞" : (c.atk || 0); $("#mkLimit").value = String(cardLimit(c));
-    $("#mkQuick").checked = !!c.quick; $("#mkExhaust").checked = !!c.exhaust; $("#mkPayLp").value = String(payLpOf(c)); $("#mkPersist").checked = !!c.persist; MK.sk = c.sk || null; $("#mkRarity").value = rarityOf(c); setMkType(cardType(c)); loadFxForm(c); $("#mkFont").value = FONTS[c.font] ? c.font : "klee"; syncFont(); $("#mkCost").value = c.costX ? "X" : hasCost(c) ? String(costOf(c)) : "1"; setMkDeck(deckModeOf(c)); $("#mkEq").value = c.eqN || 0; $("#mkEqAb").value = "none"; $("#mkEqCost").value = String(eqCostOf(c)); $("#mkEqCap").value = hasEqCap(c) ? String(+c.eqCap) : ""; loadAbs(absOf(c)); syncEqLine(); $("#mkFrame").value = c.frame === "socra" || c.frame === "spire" ? c.frame : ""; syncFrame(); loadSS(c);
+    $("#mkQuick").checked = !!c.quick; $("#mkExhaust").checked = !!c.exhaust; $("#mkPayLp").value = String(payLpOf(c)); $("#mkPayDisc").value = String(payDiscOf(c)); $("#mkPayMax").value = String(payMaxOf(c)); $("#mkPersist").checked = !!c.persist; MK.sk = c.sk || null; $("#mkRarity").value = rarityOf(c); setMkType(cardType(c)); loadFxForm(c); $("#mkFont").value = FONTS[c.font] ? c.font : "klee"; syncFont(); $("#mkCost").value = c.costX ? "X" : hasCost(c) ? String(costOf(c)) : "1"; setMkDeck(deckModeOf(c)); $("#mkEq").value = c.eqN || 0; $("#mkEqAb").value = "none"; $("#mkEqCost").value = String(eqCostOf(c)); $("#mkEqCap").value = hasEqCap(c) ? String(+c.eqCap) : ""; loadAbs(absOf(c)); syncEqLine(); $("#mkFrame").value = c.frame === "socra" || c.frame === "spire" ? c.frame : ""; syncFrame(); loadSS(c);
     if (!c.img){ clearCanvas(); undoStack = []; MK.artDirty = false; }
     else { const im = new Image(); im.onload = () => { clearCanvas(); setPhoto(im); setMode("draw"); composite(); undoStack = []; MK.artDirty = false; }; im.src = c.img; }
     $("#mkTitle").textContent = "カードを編集中"; $("#btnNew").hidden = false; $("#btnSave").textContent = "変更を保存";
@@ -3066,7 +3071,7 @@ function newPlayer(deckIds, name, mana, spire){
 // 選択の祭壇 (face-up): turn start → draw up to 5 cards, turn end → the whole hand goes to the graveyard
 function altarTurn(st, s, trig){
   const p = P(st, s); if (!p.sz.some(z => z && z.face && z.c === SPIRE_ALTAR.id)) return;
-  if (trig === "turnStart"){ if (p.mana){ p.mana.max = 3; p.mana.cur = 3; if (p.conch){ p.mana.cur += 1; p.conch = false; } } const k = 5 - p.hand.length; if (k > 0) drawN(st, s, k, "「選択の祭壇」"); }
+  if (trig === "turnStart"){ if (p.mana){ p.mana.max = Math.max(0, 3 + (p.maxAdj || 0)); p.mana.cur = p.mana.max; if (p.conch){ p.mana.cur += 1; p.conch = false; } } const k = 5 - p.hand.length; if (k > 0) drawN(st, s, k, "「選択の祭壇」"); }
   if (trig === "turnEnd" && p.hand.length){ const n = p.hand.length; p.grave.push(...p.hand.splice(0)); log(st, s, `「選択の祭壇」で手札${n}枚を墓地に捨てた`); }
 }
 // ネオーのレリック: at the start of a スパイアデッキ game the player picks 1 of these 3
@@ -3236,7 +3241,7 @@ function freshFrom(st, s){
   const p = P(st, s), ids = p.deckIds && p.deckIds.length ? p.deckIds : allCardsOf(st, s);
   const n = newPlayer(ids, p.name, !!p.mana, !!p.spire); n.sleeve = p.sleeve || null; return n;
 }
-function resetLocal(){ Object.assign(G, { potPick: null, sel: null, atkFrom: null, chooseQ: [], evSeen: 0, recorded: false, prevLp: null, eqPlace: null, ssPick: null, view: null, graveHand: false, detailOpen: false, detailBack: null, lastDetail: null }); renderDetail(null); }
+function resetLocal(){ Object.assign(G, { costPick: null, potPick: null, sel: null, atkFrom: null, chooseQ: [], evSeen: 0, recorded: false, prevLp: null, eqPlace: null, ssPick: null, view: null, graveHand: false, detailOpen: false, detailBack: null, lastDetail: null }); renderDetail(null); }
 function rematch(){
   if (!G || !G.st || !G.st.winner || G.spectate) return;
   if (G.mode !== "online"){
@@ -3431,12 +3436,13 @@ function persistFire(st, s, trig, ctx, then){
   runList(st, L, then);
 }
 // stick equip hand[hi] of player s onto monster (ts,ti) at position pos (default: rightmost)
-function equip(st, s, hi, ts, ti, pos){
+function equip(st, s, hi, ts, ti, pos, disc){
   const p = P(st, s), id = p.hand[hi], c = card(id);
   if (!id || cardType(c) !== "equip") return false;
   const m = P(st, ts).mz[ti]; if (!m) return false;
   if (!canEquipOn(st, id, ts, ti) || !pay(st, s, c)) return false;
   p.hand.splice(hi, 1);
+  discardCost(st, s, c, shiftPicks(disc, hi));
   if (!m.eqs) m.eqs = [];
   const k = pos == null ? m.eqs.length : Math.max(0, Math.min(+pos, m.eqs.length));
   st.un = (st.un || 0) + 1;
@@ -3545,7 +3551,7 @@ function applyEffect(st, s, c, target, ctx = {}, fx = normFx(c)){
     case "revive": { const gi = me.grave.indexOf(target); if (gi >= 0){ me.grave.splice(gi, 1); me.hand.push(target); log(st, s, `${src}で墓地の「${card(target).name}」を手札に戻した`); } break; }
     case "reborn": { const gi = me.grave.indexOf(target), z = freeZone(me.mz); if (gi >= 0 && z >= 0){ me.grave.splice(gi, 1); me.mz[z] = mkMon(st, target); ev(st, { type: "summon", s, z }); log(st, s, `${src}で墓地の「${card(target).name}」を場に出した（特殊召喚）`); trigger(st, s, card(target), "ssummon", { zone: z, mon: { s, i: z, u: me.mz[z].u } }); } break; }
     case "manaNow": if (me.mana){ me.mana.cur += n; log(st, s, `${src}でマナを${n}回復（${me.mana.cur}/${me.mana.max}）`); } else log(st, s, `${src}：マナを使わないデッキなので効果なし`); break;
-    case "manaMax": if (me.mana){ const add = Math.min(n, MAX_MANA - me.mana.max); me.mana.max += add; me.mana.cur += n; log(st, s, `${src}で最大マナ+${add}、マナ+${n}（${me.mana.cur}/${me.mana.max}）`); } else log(st, s, `${src}：マナを使わないデッキなので効果なし`); break;
+    case "manaMax": if (me.mana){ const add = Math.min(n, MAX_MANA - me.mana.max); me.mana.max += add; me.mana.cur += n; if (me.spire) me.maxAdj = (me.maxAdj || 0) + add; log(st, s, `${src}で最大マナ+${add}、マナ+${n}（${me.mana.cur}/${me.mana.max}）`); } else log(st, s, `${src}：マナを使わないデッキなので効果なし`); break;
     case "manaDrain": if (op.mana){ const k = Math.min(n, op.mana.cur); op.mana.cur -= k; log(st, s, `${src}で${op.name}のマナを${k}減らした`); } else log(st, s, `${src}：相手はマナを使わないデッキなので効果なし`); break;
     case "negate": if (ctx.attack){ st.pending.negated = true; log(st, s, `${src}で攻撃を無効にした`); } else log(st, s, `${src}：無効にする攻撃がない`); break;
     case "killAtk": if (ctx.attack){ destroyMonster(st, ctx.attack.by, ctx.attack.from, src); } else log(st, s, `${src}：攻撃してきたモンスターがいない`); break;
@@ -3631,23 +3637,50 @@ function trigger(st, s, c, trig, ctx){ if (cardType(c) === "monster") runCard(st
 function freeKey(st, s, c){ const f = P(st, s).free, k = c && c.frame === "spire" ? spireKind(c) : null; return k && f && f[k] > 0 ? k : null; }
 function effCost(st, s, c){ return c && c.costX ? 0 : freeKey(st, s, c) ? 0 : costOf(c); }
 // 追加コスト「LPを○払う」: LPがそれより多くないと使えない（払ってLP0にはならない）
-function canPay(st, s, c){ const p = P(st, s), m = p.mana; return (!m || m.cur >= effCost(st, s, c)) && !(payLpOf(c) && p.lp <= payLpOf(c)); }
+function canPay(st, s, c){ const p = P(st, s), m = p.mana; return (!m || m.cur >= effCost(st, s, c)) && costWhy(st, s, c) === ""; }
+// why the 追加コスト can't be paid right now ("" = it can)
+function costWhy(st, s, c){
+  const p = P(st, s), m = p.mana;
+  if (payLpOf(c) && p.lp <= payLpOf(c)) return `LPが${payLpOf(c)}より多くないと使えない`;
+  if (payDiscOf(c) && p.hand.length - (c && p.hand.includes(c.id) ? 1 : 0) < payDiscOf(c)) return `捨てる手札が${payDiscOf(c)}枚いる`;
+  if (payMaxOf(c) && !(m && m.max >= payMaxOf(c))) return m ? `最大マナが${payMaxOf(c)}いる` : "マナを使うデッキ専用";
+  return "";
+}
+// 追加コスト「手札を捨てる」: picks = indices in the hand (after the used card has left it); missing / wrong picks → random
+function discardCost(st, s, c, picks){
+  const n = payDiscOf(c); if (!n) return;
+  const p = P(st, s); let L = [...new Set((picks || []).map(Number))].filter(j => p.hand[j] != null);
+  if (L.length !== n){ const all = shuffle(p.hand.map((_, j) => j)); L = all.slice(0, n); }
+  const gone = L.sort((a, b) => b - a).map(j => p.hand.splice(j, 1)[0]);
+  p.grave.push(...gone); log(st, s, `「${c.name}」のコストで手札の${gone.map(id => `「${card(id).name}」`).join("")}を捨てた`);
+}
+const shiftPicks = (picks, hi) => (picks || []).map(Number).map(j => hi != null && hi >= 0 && j > hi ? j - 1 : j);
 function pay(st, s, c){
   const p = P(st, s), m = p.mana, fk = freeKey(st, s, c);
   const k = !m ? 0 : c && c.costX ? (fk ? 0 : m.cur) : effCost(st, s, c);
   if (m && m.cur < k) return false;
-  const lpc = payLpOf(c); if (lpc && p.lp <= lpc) return false;
+  if (costWhy(st, s, c)) return false;
+  const lpc = payLpOf(c), mx = payMaxOf(c);
   if (lpc){ p.lp -= lpc; log(st, s, `「${c.name}」のコストでLPを${lpc}払った`); }
+  if (mx && m){ m.max -= mx; if (p.spire) p.maxAdj = (p.maxAdj || 0) - mx; log(st, s, `「${c.name}」のコストで最大マナが${mx}減った（${m.cur}/${m.max}）`); }
   if (fk){ p.free[fk]--; log(st, s, `「${c.name}」はコスト0で使える！`); }
   if (m) m.cur -= k; p.lastPaid = k; return true;
 }
+// a card with 「手札を捨てる」 cost: the human picks which ones first (hi = the used card's hand index, -1 if it isn't in the hand)
+const st0 = () => G.st;
+function withDiscard(c, hi, go){
+  const n = payDiscOf(c);
+  if (!n || !G || G.mode === "spectate"){ go([]); return; }
+  G.costPick = { name: c.name, hi, need: n, picked: [], go }; renderAll();
+}
 function canSummonNow(st, s){ return P(st, s).mana ? true : !st.summoned; }
 function canAct(st, s){ return !(G && G.spectate) && st.turn === s && !st.pending && !st.winner && !(G && G.chooseQ.length); }
-function summon(st, s, hi, zi){
+function summon(st, s, hi, zi, disc){
   const p = P(st, s), id = p.hand[hi], z = (zi != null && !p.mz[zi]) ? zi : freeZone(p.mz);
   if (!canSummonNow(st, s) || z < 0 || cardType(card(id)) !== "monster" || !canPay(st, s, card(id)) || (ssOf(card(id)) || {}).only) return false;
-  pay(st, s, card(id));
+  if (!pay(st, s, card(id))) return false;
   p.hand.splice(hi, 1); if (!p.mana) st.summoned = true;
+  discardCost(st, s, card(id), shiftPicks(disc, hi));
   const label = `「${card(id).name}」（ATK ${fmtN(baseAtk(card(id)))}）を召喚${p.mana ? `（コスト${costOf(card(id))}）` : ""}`;
   // the opponent gets a window only if they hold something that can counter it
   if (responseOptions(st, O(s), "summon").length){
@@ -3749,6 +3782,7 @@ function activate(st, s, from, i, ctx = {}){
   if (c.costX){ ctx = { ...ctx, x: p.lastPaid || 0 }; log(st, s, `「${c.name}」：X = ${p.lastPaid || 0}`); }
   if (from === "hand") p.hand.splice(i, 1);
   else p.sz[i] = null;
+  discardCost(st, s, c, shiftPicks(ctx.disc, from === "hand" ? i : null));
   // 永続: stays face-up in the magic/trap zone
   if (keep){ st.un = (st.un || 0) + 1; p.sz[pz] = { c: id, turn: st.turnNo, face: true, u: st.un }; }
   else if (exhausts(c)) (p.exile = p.exile || []).push(id);
@@ -3863,7 +3897,7 @@ function respond(st, s, choice){
     return;
   }
   const atk = pend.type === "attack" ? pend : (pend.type === "chain" && pend.resume && pend.resume.type === "attack" ? pend.resume : null);
-  const ok = activate(st, s, choice.from, choice.i, atk ? { attack: { by: atk.by, from: atk.from } } : {});
+  const ok = activate(st, s, choice.from, choice.i, { ...(atk ? { attack: { by: atk.by, from: atk.from } } : {}), ...(choice.disc ? { disc: choice.disc } : {}) });
   if (!ok){ if (pend.type === "chain") resolveChain(st, pend.resume); else afterChain(st); }
 }
 function resolveAttack(st){
@@ -4084,7 +4118,7 @@ function renderBoard(){
     if (sel && sel.z === "hand"){
       const a0 = acts.length;
       const c = card(pm.hand[sel.i]), t = cardType(c);
-      const afford = canPay(st, me, c), short = afford ? "" : payLpOf(c) && pm.lp <= payLpOf(c) ? `（LPが${payLpOf(c)}より多くないと使えない）` : `（マナが${effCost(st, me, c) - pm.mana.cur}足りない）`;
+      const afford = canPay(st, me, c), short = afford ? "" : costWhy(st, me, c) ? `（${costWhy(st, me, c)}）` : `（マナが${effCost(st, me, c) - pm.mana.cur}足りない）`;
       if (t === "monster"){
         const ss = ssOf(c);
         if (!(ss && ss.only)){ const ok = canSummonNow(st, me) && afford && freeZone(pm.mz) >= 0; acts += `<button class="primary" data-act="summon" ${ok ? "" : "disabled"}>召喚する${!canSummonNow(st, me) ? "（このターンは召喚ずみ）" : short}</button>`; if (ok) hint = "光っているモンスターゾーンをクリックしても召喚できます"; }
@@ -4342,6 +4376,10 @@ function renderOverlay(){
       return cardHTML(card(X.mz[o].c), "sm pick", `data-opt="${o}" tabindex="0" role="button"`, { mod: modOf(X.mz[o]), ...mOpt(t === "opp" ? O(q.s) : q.s) });
     }).join("");
     html = `<div class="box"><h2 style="margin:0">「${esc(q.c.name)}」の対象をえらぶ</h2><p class="muted" style="margin:0">${esc(q.ctx.spireAtk ? fxText0(q.c) : KINDS[q.fx.kind].text(q.fx.n))}</p><div class="gallery">${list || '<p class="muted">対象がいません</p>'}</div><div class="row"><button class="ghost" data-close="choose">使わない</button></div></div>`;
+  } else if (G.costPick && !st.winner){
+    const cp = G.costPick, pm = P(st, me), L = pm.hand.map((id, j) => j).filter(j => j !== cp.hi);
+    const list = L.map(j => { const on = cp.picked.includes(j); return cardHTML(card(pm.hand[j]), `sm pick ${on ? "sel" : ""}`, `data-cpick="${j}" tabindex="0" role="button" aria-pressed="${on}"`, mOpt(me)); }).join("");
+    html = `<div class="box"><h2 style="margin:0">「${esc(cp.name)}」のコスト</h2><p class="muted" style="margin:0">捨てる手札を${cp.need}枚えらんでね（${cp.picked.length} / ${cp.need}）</p><div class="gallery">${list}</div><div class="row"><button class="primary" data-cpgo ${cp.picked.length === cp.need ? "" : "disabled"}>捨てて使う</button><button class="ghost" data-close="costpick">やめる</button></div></div>`;
   } else if (st.pending && st.pending.wait && st.pending.by !== me && !st.winner && !G.spectate){
     const pd = st.pending, A = P(st, pd.by);
     const win = chainWindow(st);
@@ -4395,11 +4433,14 @@ $("#overlay").addEventListener("click", e => {
     act(st => { log(st, q.s, `「${q.c.name}」：「${q.fx.ask}」→ ${yes ? "はい" : "いいえ"}`); if (yes) runEffect(st, q.s, q.c, q.ctx, q.then, { ...q.fx, ask: "" }); else q.then && q.then(st); });
     return;
   }
+  const cpk = e.target.closest("[data-cpick]");
+  if (cpk && G.costPick){ const j = +cpk.dataset.cpick, cp = G.costPick; if (cp.picked.includes(j)) cp.picked = cp.picked.filter(x => x !== j); else if (cp.picked.length < cp.need) cp.picked.push(j); renderAll(); return; }
+  if (e.target.closest("[data-cpgo]") && G.costPick){ const cp = G.costPick; G.costPick = null; cp.go(cp.picked.slice()); return; }
   const spk = e.target.closest("[data-sspick]");
   if (spk && G.ssPick){ const i = +spk.dataset.sspick, sp = G.ssPick; if (sp.picked.includes(i)) sp.picked = sp.picked.filter(x => x !== i); else if (sp.picked.length < sp.need) sp.picked.push(i); renderAll(); return; }
   if (e.target.closest("[data-ssgo]") && G.ssPick){ const sp = G.ssPick; G.ssPick = null; act(st => specialSummon(st, G.slot, sp.hi, sp.picked)); return; }
   const ep = e.target.closest("[data-eqpos]");
-  if (ep && G.eqPlace){ const x = G.eqPlace; G.eqPlace = null; G.sel = null; act(st => equip(st, G.slot, x.hi, x.s, x.i, +ep.dataset.eqpos)); return; }
+  if (ep && G.eqPlace){ const x = G.eqPlace; G.eqPlace = null; G.sel = null; const pos = +ep.dataset.eqpos; withDiscard(card(P(st0(), G.slot).hand[x.hi]), x.hi, d => act(st => equip(st, G.slot, x.hi, x.s, x.i, pos, d))); return; }
   const rw = e.target.closest("[data-reward]");
   if (rw){ const id = rw.dataset.reward; act(st => takeReward(st, G.slot, id)); return; }
   const pu = e.target.closest("[data-potuse]");
@@ -4416,7 +4457,7 @@ $("#overlay").addEventListener("click", e => {
     return;
   }
   const tr = e.target.closest("[data-resp]");
-  if (tr){ const [from, i] = tr.dataset.resp.split(":"); act(st => respond(st, G.slot, { from, i: +i })); return; }
+  if (tr){ const [from, i] = tr.dataset.resp.split(":"), X = P(st0(), G.slot), rc = card(from === "hand" ? X.hand[+i] : from === "sz" && X.sz[+i] ? X.sz[+i].c : null); withDiscard(rc, from === "hand" ? +i : -1, d => act(st => respond(st, G.slot, { from, i: +i, disc: d }))); return; }
   const gh = e.target.closest("[data-gh]");
   if (gh){ const id = gh.dataset.gh; G.graveHand = false; act(st => { const p = P(st, G.slot), k = p.grave.indexOf(id); if (k < 0) return false; p.grave.splice(k, 1); p.hand.push(id); log(st, G.slot, `（手動）墓地の「${card(id).name}」を手札に戻した`); }); return; }
   const ci = e.target.closest("[data-cid]");
@@ -4430,6 +4471,7 @@ $("#overlay").addEventListener("click", e => {
   if (k === "eqplace"){ G.eqPlace = null; renderAll(); }
   if (k === "sspick"){ G.ssPick = null; renderAll(); }
   if (k === "potion"){ G.potPick = null; renderAll(); }
+  if (k === "costpick"){ G.costPick = null; renderAll(); }
 });
 $("#overlay").addEventListener("keydown", e => { const h = e.target.closest("[role=button]"); if (h && (e.key === "Enter" || e.key === " ")){ e.preventDefault(); h.click(); } });
 
@@ -4446,13 +4488,13 @@ $("#board").addEventListener("click", e => {
       const ts = s === "me" ? me : O(me);
       if (!canEquipOn(st, em.id, ts, i)){ toast("装備キャパが足りないので付けられません"); return; }
       if (eqsOf(P(st, ts).mz[i]).length){ G.eqPlace = { hi: em.i, s: ts, i }; renderAll(); return; }
-      G.sel = null; act(st => equip(st, me, em.i, ts, i)); return;
+      G.sel = null; withDiscard(card(em.id), em.i, d => act(st => equip(st, me, em.i, ts, i, null, d))); return;
     }
     if (G.atkFrom != null && s === "op" && z === "mz" && P(st, O(me)).mz[i]){ const tt = tauntIdx(st, O(me)); if (tt.length && !tt.includes(i)){ toast("このモンスターには攻撃できない（ほかに狙わなきゃいけないモンスターがいる）"); return; } const from = G.atkFrom; G.atkFrom = null; G.sel = null; act(st => declareAttack(st, me, from, i)); return; }
     const occupied = z === "hand" || P(st, s === "me" ? me : O(me))[z][i];
     if (!occupied){
       const dk = s === "me" ? dropTarget(st, me) : null;
-      if (dk && dk === z){ const hi = G.sel.i; G.sel = null; act(st => dk === "mz" ? summon(st, me, hi, i) : setCard(st, me, hi, i)); }
+      if (dk && dk === z){ const hi = G.sel.i; G.sel = null; if (dk === "mz") withDiscard(card(P(st, me).hand[hi]), hi, d => act(st => summon(st, me, hi, i, d))); else act(st => setCard(st, me, hi, i)); }
       return;
     }
     const same = G.sel && G.sel.z === z && G.sel.s === s && G.sel.i === i;
@@ -4488,7 +4530,7 @@ $("#board").addEventListener("click", e => {
   if (k === "cancelEq"){ G.equipFrom = null; renderAll(); return; }
   if (k === "direct"){ const from = G.atkFrom; G.atkFrom = null; G.sel = null; act(st => declareAttack(st, me, from, "direct")); return; }
   if (!sel) return;
-  if (k === "summon"){ G.sel = null; act(st => summon(st, me, sel.i)); }
+  if (k === "summon"){ G.sel = null; withDiscard(card(P(st, me).hand[sel.i]), sel.i, d => act(st => summon(st, me, sel.i, null, d))); }
   if (k === "ssummon"){
     const ss = ssOf(card(P(st, me).hand[sel.i])); G.sel = null;
     if (ss && (ss.cost === "tribute" || ss.cost === "discard")){ G.ssPick = { hi: sel.i, kind: ss.cost, need: ss.cn, picked: [] }; renderAll(); }
@@ -4502,7 +4544,7 @@ $("#board").addEventListener("click", e => {
     if (fx && (fx.kind === "negate" || fx.kind === "killAtk")){ toast("この罠は相手に攻撃されたときに使えます"); return; }
     const opts = fx ? targetOptions(st, me, fx.kind) : null;
     if (opts && !opts.length){ toast("効果の対象がいないので発動できません"); return; }
-    G.sel = null; act(st => activate(st, me, from, sel.i));
+    G.sel = null; withDiscard(card(id), from === "hand" ? sel.i : -1, d => act(st => activate(st, me, from, sel.i, d.length ? { disc: d } : {})));
   }
   if (k === "attack"){ G.atkFrom = sel.i; renderAll(); }
 
