@@ -426,6 +426,16 @@ button.bst.pot:disabled{opacity:.55;box-shadow:none;cursor:default}
 .card.editor.potion .c-text .fx,.card.editor.potion .fxline{color:#ffd7b0}
 .card.editor.potion input,.card.editor.potion textarea{color:#e7eaff;border-bottom-color:#6a73ad}
 .bk-times{display:inline-flex;align-items:center;gap:2px;font-size:13px;color:var(--muted)}.bk-times input{width:56px}
+.draw-modal{position:fixed;inset:0;z-index:40;background:rgba(14,16,36,.97);display:flex;align-items:flex-start;justify-content:center;padding:12px;overflow:auto;-webkit-user-select:none;user-select:none}
+.draw-modal[hidden]{display:none}
+.dm-box{width:min(100%,calc((100vh - 230px) * 560 / 400),980px);min-width:min(100%,320px);display:flex;flex-direction:column;gap:10px}
+.dm-head{display:flex;align-items:center;gap:10px}.dm-head b{font-size:18px}.dm-head .note{flex:1;font-size:12px}
+.dm-canvas{background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 8px 30px rgba(0,0,0,.5)}
+.draw-modal.potion .dm-canvas{background:repeating-conic-gradient(#ffffff 0 25%,#e3e6ee 0 50%) 0 0/22px 22px}
+.dm-canvas #cv{display:block;width:100%;height:auto;touch-action:none;background:transparent}
+.dm-tools .mk-pane{display:flex;flex-direction:column;gap:10px}
+.draw-modal #btnBigDraw{display:none}
+body.dm-lock{overflow:hidden}
 .reward-pick{display:flex;flex-wrap:wrap;gap:10px;justify-content:center}
 .lp b{font-size:28px;font-weight:600;font-variant-numeric:tabular-nums}
 .lp.low b{color:var(--hit)}
@@ -863,6 +873,7 @@ nav.tabs button{position:relative}
             <button class="small" id="btnErase" aria-pressed="false">消しゴム</button>
             <button class="small" id="btnUndo">1つ戻す</button>
             <button class="small danger" id="btnClear">ぜんぶ消す</button>
+            <button class="small primary" id="btnBigDraw" type="button">大きく描く</button>
             <span class="btn filebtn small" style="box-shadow:0 2px 0 var(--ink);padding:3px 10px;font-size:13px;border-radius:9px">写真を読みこむ<input type="file" id="mkFile" accept="image/*"></span>
             <button class="small" id="phEdit" hidden>写真の位置を変える</button>
           </div>
@@ -1137,6 +1148,7 @@ nav.tabs button{position:relative}
   </section>
 </div>
 <div id="overlay" class="overlay" hidden></div>
+<div id="drawModal" class="draw-modal" hidden role="dialog" aria-label="絵を描く"><div class="dm-box"><div class="dm-head"><b>絵を描く</b><span class="note">ここで描けば、文字入力（手書き変換）が出てきません</span><button class="primary" id="dmDone" type="button">できた</button></div><div class="dm-canvas"></div><div class="dm-tools"></div></div></div>
 <div id="potTray" hidden></div>
 <div id="cardView" class="overlay" hidden></div>
 <div id="tradeDlg" class="overlay" hidden></div>
@@ -2088,6 +2100,32 @@ function syncTools(){
 function pushUndo(){ MK.artDirty = true; try{ undoStack.push({ ink: ik.getImageData(0, 0, ink.width, ink.height), photo: photo ? { ...photo } : null }); if (undoStack.length > 25) undoStack.shift(); }catch(e){} }
 $("#btnUndo").addEventListener("click", () => { const d = undoStack.pop(); if (!d) return; MK.artDirty = true; ik.putImageData(d.ink, 0, 0); photo = d.photo; if (!photo && MK.mode === "photo") setMode("draw"); syncPhotoUI(); composite(); });
 $("#btnClear").addEventListener("click", () => { pushUndo(); clearCanvas(); });
+// 大きく描く: the canvas and the pen tools move into a popup (no text boxes nearby, so iPad's handwriting-to-text doesn't pop up)
+const DM = { open: false };
+function openDrawModal(){
+  if (DM.open) return; DM.open = true;
+  DM.ph = document.createComment("cv"); cv.parentNode.insertBefore(DM.ph, cv); $("#drawModal .dm-canvas").appendChild(cv);
+  const pane = document.querySelector('.tools-col .mk-pane[data-pane="draw"]');
+  DM.pane = pane; DM.pp = pane.parentNode; DM.pn = pane.nextSibling; DM.ph2 = pane.hidden; pane.hidden = false; $("#drawModal .dm-tools").appendChild(pane);
+  $("#drawModal").classList.toggle("potion", MK.kind === "potion" || MK.kind === "relic");
+  $("#drawModal").hidden = false; document.body.classList.add("dm-lock");
+  if (typeof composite === "function") composite();
+}
+function closeDrawModal(){
+  if (!DM.open) return; DM.open = false;
+  DM.ph.parentNode.insertBefore(cv, DM.ph); DM.ph.remove();
+  DM.pp.insertBefore(DM.pane, DM.pn); DM.pane.hidden = DM.ph2;
+  $("#drawModal").hidden = true; document.body.classList.remove("dm-lock");
+  if (typeof composite === "function") composite();
+}
+$("#dmDone").addEventListener("click", closeDrawModal);
+$("#btnBigDraw").addEventListener("click", openDrawModal);
+document.addEventListener("keydown", e => { if (e.key === "Escape" && DM.open) closeDrawModal(); });
+// with a pen or a finger, touching the small canvas on the card opens the popup instead
+document.addEventListener("pointerdown", e => {
+  if (DM.open || e.target !== cv || (e.pointerType !== "pen" && e.pointerType !== "touch")) return;
+  e.preventDefault(); e.stopImmediatePropagation(); openDrawModal();
+}, true);
 function pt(e){ const r = cv.getBoundingClientRect(); return { x: (e.clientX - r.left) * cv.width / r.width, y: (e.clientY - r.top) * cv.height / r.height }; }
 function stroke(a, b){
   ik.globalCompositeOperation = pen.erase ? "destination-out" : "source-over";
