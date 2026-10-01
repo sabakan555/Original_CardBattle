@@ -646,6 +646,7 @@ nav.tabs button{position:relative}
 .cv-text p{margin:0 0 6px}
 .cv-text p:last-child{margin-bottom:0}
 .cv-fx{color:#8fd3ff}
+.cv-cap{font-size:.78em;font-weight:700;color:var(--muted);margin:10px 0 2px!important;letter-spacing:.05em}
 .cv-flv{font-style:italic;color:var(--muted);border-top:1px dashed var(--line);padding-top:6px;margin-top:8px!important}
 .cv-foot{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;margin-top:16px;padding-top:12px;border-top:1px solid var(--line)}
 .cv-foot b{font-size:22px;font-family:var(--en,var(--ui));color:var(--accent)}
@@ -853,7 +854,7 @@ nav.tabs button{position:relative}
         <div class="c-art"><canvas id="cv" width="560" height="400" aria-label="イラストを描くところ"></canvas><div class="fl-guide" id="flGuide" hidden>ここから下は半透明の文字の欄</div><div class="c-tab" id="mkTab">モンスター</div></div>
         <div class="c-text">
           <div class="fxline" id="mkFxLine"></div>
-          <textarea id="mkEff" maxlength="120" placeholder="自由に書く効果（なくてもいい）"></textarea>
+          <textarea id="mkEff" maxlength="120" placeholder="カードに書く文（なくてもいい）。書くと、自動の効果の文の代わりにカードに出る。本来の効果はカードを開くと見られる"></textarea>
           <textarea id="mkFlv" maxlength="80" placeholder="フレーバーテキスト（なくてもいい）"></textarea>
           <div class="c-atk" id="atkRow">ATK <input type="text" inputmode="numeric" id="mkAtk" value="300" aria-label="ATK（∞も入力できます）"></div>
           <div class="c-atk" id="eqRow" hidden>ATK ± <input type="number" id="mkEq" step="1" value="200"></div>
@@ -1818,7 +1819,7 @@ function cardHTML(c, cls = "", attrs = "", opts = {}){
   const sv = []; if (fc) sv.push(`--cf:${fc}`); if (c.nameSize && c.nameSize !== "m") sv.push(`--nk:${sizeK(c.nameSize)}`); if (c.textSize && c.textSize !== "m") sv.push(`--tk:${sizeK(c.textSize)}`); if (cl !== 5) sv.push(`--cl:${cl};--cls:${cl}`);
   if (c.frame === "socra") return socraHTML(c, t, cls, attrs, opts, sv, showCost);
   if (c.frame === "spire") return spireHTML(c, t, cls, attrs, opts, sv, showCost);
-  return `<div class="card ${t}${showCost ? " costed" : ""}${fl ? " frameless" : ""} ${cls}" ${attrs}${sv.length ? ` style='${sv.join(";")}'` : ""}>${opts.done ? `<span class="done">${opts.done}</span>` : ""}${opts.eq ? `<span class="eqb">${esc(opts.eq)}</span>` : ""}${opts.dmg ? `<span class="dmgc" title="ダメージカウンター（ATK以上になると破壊）">ダメージ ${opts.dmg}</span>` : ""}${opts.vuln ? `<span class="vulc" title="弱体：受けるダメージが1.5倍">弱体${opts.vuln}</span>` : ""}${opts.weak ? `<span class="wkc" title="脱力：与える戦闘ダメージが0.75倍">脱力${opts.weak}</span>` : ""}<div class="c-in">${fl ? `<div class="c-bgart">${art}</div>` : ""}${showCost ? `<span class="c-cost" title="コスト">${costLabel(c)}</span>` : ""}<div class="c-name">${rubyHTML(c.nameRuby || c.name)}</div><div class="c-art">${fl ? "" : art}${eqc}<div class="c-tab">${typeLabel(c)}</div></div><div class="c-text${atk ? " ha" : ""}"><div class="body">${eqTxt}${ft ? `<span class="fx">${esc(ft)}</span> ` : ""}${rubyHTML(c.effect || "")}${exhausts(c) ? ` <span class="fx">廃棄</span>` : ""}</div>${flv ? `<div class="flv">${rubyHTML(flv)}</div>` : ""}${c.id ? `<span class="c-lim">${lim ? "×" + lim : "∞"}</span>` : ""}${atk}</div></div></div>`;
+  return `<div class="card ${t}${showCost ? " costed" : ""}${fl ? " frameless" : ""} ${cls}" ${attrs}${sv.length ? ` style='${sv.join(";")}'` : ""}>${opts.done ? `<span class="done">${opts.done}</span>` : ""}${opts.eq ? `<span class="eqb">${esc(opts.eq)}</span>` : ""}${opts.dmg ? `<span class="dmgc" title="ダメージカウンター（ATK以上になると破壊）">ダメージ ${opts.dmg}</span>` : ""}${opts.vuln ? `<span class="vulc" title="弱体：受けるダメージが1.5倍">弱体${opts.vuln}</span>` : ""}${opts.weak ? `<span class="wkc" title="脱力：与える戦闘ダメージが0.75倍">脱力${opts.weak}</span>` : ""}<div class="c-in">${fl ? `<div class="c-bgart">${art}</div>` : ""}${showCost ? `<span class="c-cost" title="コスト">${costLabel(c)}</span>` : ""}<div class="c-name">${rubyHTML(c.nameRuby || c.name)}</div><div class="c-art">${fl ? "" : art}${eqc}<div class="c-tab">${typeLabel(c)}</div></div><div class="c-text${atk ? " ha" : ""}"><div class="body">${freeText(c) ? rubyHTML(c.effect) : `${eqTxt}${ft ? `<span class="fx">${esc(ft)}</span> ` : ""}${exhausts(c) ? ` <span class="fx">廃棄</span>` : ""}`}</div>${flv ? `<div class="flv">${rubyHTML(flv)}</div>` : ""}${c.id ? `<span class="c-lim">${lim ? "×" + lim : "∞"}</span>` : ""}${atk}</div></div></div>`;
 }
 // ソクラテスラ frame (hand-drawn club cards): 「・憤怒　の▷」 banner for equips, a band for monsters,
 // equip capacity / cost in a circle at the bottom left, ATK (or the equip's ATK change) outlined at the bottom right
@@ -1831,8 +1832,8 @@ function socraHTML(c, t, cls, attrs, opts, sv, showCost){
   absOf(c).forEach(a => lines.push(ABS[a.k].self ? abPhrase(a) : `このモンスターは${abPhrase(a)}`));
   const ft = fxText(c); if (ft) lines.push(ft.replace(/装備したモンスター/g, "このモンスター"));
   let body = lines.map(l => `<div>・${esc(l)}</div>`).join("");
-  if (c.effect) body += `<div>${rubyHTML(c.effect)}</div>`;
   if (exhausts(c)) body += `<div>・廃棄</div>`;
+  if (freeText(c)) body = `<div>${rubyHTML(c.effect)}</div>`;
   if (!body && !c.flavor && t === "equip") body = `<div>・効果なし</div>`;
   const cap = t === "monster" ? `<span class="s-cap" title="装備キャパ">${eqCapOf(c)}</span>` : t === "equip" ? `<span class="s-cap" title="装備コスト">${eqCostOf(c) ? "−" + eqCostOf(c) : "0"}</span>` : "";
   let num = "";
@@ -1843,14 +1844,16 @@ function socraHTML(c, t, cls, attrs, opts, sv, showCost){
 }
 // スパイア風 frame: gem cost at the top left, ribbon name over an arched picture, type plaque, centered text
 const exhausts = c => !!(c && c.exhaust && (cardType(c) === "magic" || cardType(c) === "trap"));
+// 自由に書いた文があれば、カードの表にはそれだけを出す（本来の効果はカードを開くと見られる）
+function freeText(c){ return c && c.effect && plainRuby(c.effect).trim() ? c.effect : ""; }
 const spireKw = s => s.replace(/【[^】]*】|廃棄|ブロック|弱体/g, m => `<span class="kw">${m}</span>`);
 function spireHTML(c, t, cls, attrs, opts, sv, showCost){
   const parts = [];
   const eqT = t === "equip" ? eqText(c) : t === "monster" ? monAbsText(c) : "";
   if (eqT) parts.push(spireKw(esc(eqT)));
   const ft = fxText(c).replace(/^【永続】使ったあとも場に残る。?/, ""); if (ft) parts.push(spireKw(esc(ft)));
-  if (c.effect) parts.push(spireKw(rubyHTML(c.effect)));
   if (exhausts(c)) parts.push(`<span class="kw">廃棄</span>`);
+  if (freeText(c)) parts.splice(0, parts.length, spireKw(rubyHTML(c.effect)));
   const body = parts.map(p => /[。．.！!）)]$/.test(p.replace(/<[^>]*>/g, "")) ? p : p + "。").join("<br>");
   let num = "", cap = "";
   if (t === "monster"){ const base = baseAtk(c), mod = opts.mod || 0; num = `<span class="p-atk ${mod > 0 ? "up" : mod < 0 ? "dn" : ""}"><small>ATK</small><b>${fmtN(Math.max(0, base + mod))}</b></span>`; if (hasEqCap(c)) cap = `<span class="p-cap" title="装備キャパ">${eqCapOf(c)}</span>`; }
@@ -3087,10 +3090,12 @@ function renderCardView(){
   rows.push(["デッキ上限", lim ? `${lim}枚まで` : "制限なし"]);
   if (tagsOf(c).length) rows.push(["タグ", tagsOf(c).map(t => "#" + t).join(" ")]);
   rows.push(["作った人", c.author || "？"]);
-  let text = "";
-  { const et = t === "equip" ? eqText(c) : monAbsText(c); if (et) text += `<p class="cv-fx">${esc(et)}</p>`; }
-  if (ft) text += `<p class="cv-fx">${esc(ft)}</p>`;
-  if (c.effect) text += `<p>${rubyHTML(c.effect)}</p>`;
+  let text = "", auto = "";
+  { const et = t === "equip" ? eqText(c) : monAbsText(c); if (et) auto += `<p class="cv-fx">${esc(et)}</p>`; }
+  if (ft) auto += `<p class="cv-fx">${esc(ft)}</p>`;
+  if (exhausts(c)) auto += `<p class="cv-fx">廃棄</p>`;
+  if (freeText(c)) text = `<p>${rubyHTML(c.effect)}</p>` + (auto ? `<p class="cv-cap">本来の効果</p>${auto}` : "");
+  else text = auto;
   if (!text) text = `<p class="muted">効果なし</p>`;
   if (c.flavor) text += `<p class="cv-flv">${rubyHTML(c.flavor)}</p>`;
   let foot = "";
@@ -5084,8 +5089,8 @@ function renderDetail(info, anim){
 
   if (info.charm) rows.push(["状態", info.charm]);
   if (info.abs && info.abs.length) rows.push(["装備でついた能力", info.abs.join("／")]);
-  if (ft) rows.push(["自動の効果", ft]);
-  if (c.effect) rows.push(["効果", plainRuby(c.effect)]);
+  if (ft) rows.push([freeText(c) ? "本来の効果" : "自動の効果", ft]);
+  if (c.effect) rows.push([ft || monAbsText(c) || (t === "equip" && eqText(c)) ? "カードの文" : "効果", plainRuby(c.effect)]);
   if (c.flavor) rows.push(["フレーバー", plainRuby(c.flavor)]);
   if (t === "monster" && monAbsText(c)) rows.push(["能力（もとから）", monAbsText(c)]);
   if (!ft && !c.effect && t !== "equip" && !absOf(c).length) rows.push(["効果", "なし"]);
