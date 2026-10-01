@@ -541,6 +541,9 @@ input[type=password]{font:inherit;color:var(--ink);background:#1d2143;border:2px
 .lp{background:var(--deep);border-color:var(--accent);color:var(--ink);box-shadow:0 0 0 3px rgba(79,209,197,.15),0 4px 14px rgba(0,0,0,.45);font-family:var(--en)}
 .lp b{font-weight:700}
 .manabar{background:#15264a;border-color:var(--accent2);color:#8cc3ff}
+.blockbar{display:flex;align-items:center;gap:10px;justify-content:center;align-self:center;margin-top:6px;padding:3px 16px;border-radius:999px;border:2px solid #3a4470;background:#151a33;color:#8d96c4;font-weight:700}
+.blockbar.on{border-color:#5aa2ff;background:#123059;color:#cfe3ff}
+.blockbar .lbl{font-size:13px}.blockbar b{font-size:20px;font-variant-numeric:tabular-nums}.blockbar small{font-size:12px;opacity:.85}
 .manabar .lbl{color:var(--ink)}
 .manabar i{border-color:#0b0e22}.manabar i.off{background:#0b0e22}
 .chainrow .link{color:#1e2328}
@@ -4595,6 +4598,8 @@ function dropTarget(st, me){
   if (t === "monster") return canSummonNow(st, me) && canPay(st, me, card(P(st, me).hand[G.sel.i])) && !(ssOf(card(P(st, me).hand[G.sel.i])) || {}).only ? "mz" : null;
   return t === "equip" || card(P(st, me).hand[G.sel.i]).frame === "spire" ? null : "sz";
 }
+// ブロック under the mana bar (always for スパイアデッキ, otherwise only while there is some)
+const blockBox = (p, who) => p.spire || p.block > 0 ? `<div class="blockbar ${p.block > 0 ? "on" : ""}" title="ダメージを先に引き受ける${p.barricade ? "（ターンのはじめに消えない）" : "（次の自分のターンのはじめに消える）"}"><span class="lbl">${who}のブロック</span><b>🛡 ${p.block || 0}</b>${p.plate > 0 ? `<small>プレート ${p.plate}</small>` : ""}${p.barricade ? "<small>消えない</small>" : ""}</div>` : "";
 const mOpt = s => ({ mana: !!(G && G.st && G.st.players[s] && G.st.players[s].mana) });
 function renderBoard(){
   recordResult();
@@ -4697,7 +4702,7 @@ function renderBoard(){
   $("#board").innerHTML = `
   <div class="board">
     <div class="table">
-      ${manaBox(po, esc(po.name))}
+      ${manaBox(po, esc(po.name))}${blockBox(po, esc(po.name))}
       <div class="mstat"><span class="who">${esc(po.name)}</span><span>山札 ${po.deck.length}</span><span>墓地 ${po.grave.length}</span>${(po.exile || []).length ? `<span>廃棄 ${po.exile.length}</span>` : ""}<span class="lpv ${po.lp <= 300 ? "low" : ""}"><small>LP</small>${po.lp}</span></div>
       <div class="ohand">${backHTML("xs", "", po.sleeve)}<span class="cnt-x">×${po.hand.length}</span><span class="lbl">手札（${esc(po.name)}）</span></div>
       <span class="zlabel">相手の魔法・罠ゾーン</span>
@@ -4720,7 +4725,7 @@ function renderBoard(){
       <span class="zlabel">手札</span>
       <div class="hand">${handHTML}</div>
       ${handActs ? `<div class="actions hand-acts">${handActs}</div>` : ""}
-      ${manaBox(pm, "あなた")}
+      ${manaBox(pm, "あなた")}${blockBox(pm, "あなた")}
     </div>
     <aside class="side">
       <div class="box" style="display:flex;flex-direction:column;gap:12px">
