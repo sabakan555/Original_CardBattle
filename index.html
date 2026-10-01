@@ -396,6 +396,11 @@ ruby rt{font-size:.5em;line-height:1;font-style:normal}
 .relic-pick button{flex:1 1 180px;text-align:left;padding:12px 14px;border-radius:14px;line-height:1.4}
 .relic-pick button b{display:block;font-size:17px;margin-bottom:4px}
 .bst.blk{background:#2d6fb3;color:#fff}.bst.vul{background:#8a3fb0;color:#fff}
+.bst.pot{background:#c2410c;color:#fff;border:none;cursor:default}
+button.bst.pot{cursor:pointer;min-height:0;box-shadow:0 0 0 2px #fdba74}
+button.bst.pot:disabled{opacity:.55;box-shadow:none;cursor:default}
+.pots{display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-end;margin:4px 0 2px}.pots .bst{margin-left:0}
+.reward-pick{display:flex;flex-wrap:wrap;gap:10px;justify-content:center}
 .lp b{font-size:28px;font-weight:600;font-variant-numeric:tabular-nums}
 .lp.low b{color:var(--hit)}
 .pile{font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
@@ -3083,6 +3088,7 @@ function chooseRelic(st, s, key, target){
   log(st, s, `${p.name} はレリック「${RELICS[key].name}」を選んだ`);
   // now the opening hand (ほら貝: 2 more)
   if (p.openHand){ const want = p.openHand + (key === "conch" ? 2 : 0), k = Math.max(0, want - p.hand.length); p.openHand = 0; if (k) drawN(st, s, k, "最初の手札"); }
+  if (p.spire) givePotion(st, s, "はじまりの");
   return true;
 }
 // the CPU picks at random (若葉 turns its first 攻撃 into something else)
@@ -3091,6 +3097,71 @@ function autoRelic(st, s){
   const key = ["scroll", "sprout", "conch"][Math.floor(Math.random() * 3)];
   if (key === "sprout"){ let i = p.deck.indexOf("spire-strike"); chooseRelic(st, s, "sprout", i >= 0 ? "deck:" + i : p.deck.length ? "deck:0" : "hand:0"); }
   else chooseRelic(st, s, key);
+}
+// ポーション (スパイアデッキだけ): 3つまで持てる。自分のターンならいつでも、マナなしで使える（使うとなくなる）
+const POTIONS = {
+  fire:   { name: "炎のポーション", text: "相手のモンスター1体（いなければ相手）に400ダメージ", fx: [{ kind: "dmg", n: 400 }] },
+  blast:  { name: "爆発ポーション", text: "相手と相手のモンスターすべてに200ダメージ", fx: [{ kind: "dmg", n: 200, to: "all" }] },
+  block:  { name: "ブロックポーション", text: "ブロックを240得る", fx: [{ kind: "block", n: 240 }] },
+  energy: { name: "エナジーポーション", text: "このターン、マナを2回復する", fx: [{ kind: "manaNow", n: 2 }] },
+  speed:  { name: "スピードポーション", text: "カードを3枚引く", fx: [{ kind: "draw", n: 3 }] },
+  fear:   { name: "恐怖ポーション", text: "相手のモンスター1体（いなければ相手）を弱体3にする", fx: [{ kind: "vuln", n: 3 }] },
+  heal:   { name: "回復ポーション", text: "LPを200回復する", fx: [{ kind: "heal", n: 200 }] }
+};
+const POTION_MAX = 3, POTION_DROP = .4;
+// is player s played by the computer here? (CPU match, or the simulator)
+const isCpuSide = s => !G || (G.mode === "cpu" && s !== G.slot);
+function givePotion(st, s, why){
+  const p = P(st, s), ks = Object.keys(POTIONS), k = ks[Math.floor(Math.random() * ks.length)];
+  p.potions = p.potions || [];
+  if (p.potions.length >= POTION_MAX){ log(st, s, `${why}ポーションを見つけたが、もう持てない（${POTION_MAX}つまで）`); return; }
+  p.potions.push(k); log(st, s, `${why}「${POTIONS[k].name}」を手に入れた`);
+}
+const potionCard = k => ({ id: "potion-" + k, name: POTIONS[k].name, type: "magic", frame: "spire", sk: "skill", fx: null, blocks: [{ trig: "use", conds: [], join: "and", then: POTIONS[k].fx, else: [] }] });
+function usePotion(st, s, i, then){
+  const p = P(st, s), k = (p.potions || [])[i];
+  if (!k || !POTIONS[k] || st.turn !== s || st.pending || st.winner) return false;
+  p.potions.splice(i, 1); log(st, s, `${p.name} は「${POTIONS[k].name}」を使った`);
+  runEffects(st, s, potionCard(k), POTIONS[k].fx, { hit: {}, potion: k }, then);
+  return true;
+}
+// カード報酬: a スパイアデッキ player who destroys an opponent's monster picks 1 of 3 スパイア風 cards (→ graveyard, so it joins the deck at the next shuffle)
+// (stored as [{ ids }] because Firestore can't hold arrays inside arrays)
+function offerReward(st, s){
+  const ids = draftPick(3); if (!ids.length) return;
+  const p = P(st, s); (p.rewards = p.rewards || []).push({ ids });
+  if (isCpuSide(s)) takeReward(st, s, cpuRewardPick(st, s, ids));
+}
+function takeReward(st, s, id){
+  const p = P(st, s), r = (p.rewards || [])[0]; if (!r) return false;
+  p.rewards.shift();
+  if (id && r.ids.includes(id) && S.cards.has(id)){ p.grave.push(id); log(st, s, `カード報酬で「${card(id).name}」を墓地に加えた`); }
+  else log(st, s, "カード報酬をスキップした");
+  return true;
+}
+// CPU: the rarest one (ties at random)
+function cpuRewardPick(st, s, ids){ const w = { rare: 3, uncommon: 2, common: 1 }; return ids.slice().sort((a, b) => (w[rarityOf(card(b))] - w[rarityOf(card(a))]) || Math.random() - .5)[0]; }
+// CPU: when to drink a potion. phase "main" = while playing cards, "end" = right before ending the turn
+function cpuPotion(st, s, phase){
+  const p = P(st, s), op = P(st, O(s)), L = p.potions || []; if (!L.length || st.turn !== s || st.pending || st.winner) return false;
+  const ms = op.mz.map((m, i) => m ? i : -1).filter(i => i >= 0);
+  const rem = i => { const m = op.mz[i]; return (atkOf(m) - (m.dmg || 0)) / (m.vuln > 0 ? 1.5 : 1); };
+  const threat = ms.reduce((a, i) => a + atkOf(op.mz[i]), 0);
+  const oppHp = n => (op.vuln > 0 ? Math.floor(n * 1.5) : n) - (op.block || 0);
+  const handCost = p.hand.reduce((a, id) => a + (card(id).frame === "spire" ? effCost(st, s, card(id)) : 0), 0);
+  const attacks = p.hand.filter(id => card(id).frame === "spire" && spireKind(card(id)) === "attack").length;
+  const want = k => {
+    if (k === "heal") return p.lp <= 450 || (phase === "end" && L.length >= POTION_MAX && p.lp < START_LP);
+    if (k === "speed") return phase === "main" && p.mana && p.mana.cur >= 1;
+    if (k === "energy") return phase === "main" && p.mana && handCost > p.mana.cur;
+    if (k === "fire") return ms.length ? (ms.some(i => rem(i) <= 400) || threat >= 400) : oppHp(400) >= op.lp;
+    if (k === "blast") return ms.length >= 2 || ms.some(i => rem(i) <= 200) || oppHp(200) >= op.lp || (phase === "end" && L.length >= POTION_MAX);
+    if (k === "fear") return phase === "main" && attacks >= 1 && (ms.length ? ms.some(i => atkOf(op.mz[i]) >= 300 && !(op.mz[i].vuln > 0)) : !(op.vuln > 0) && attacks >= 2);
+    if (k === "block") return phase === "end" && threat > (p.block || 0) + 100;
+    return false;
+  };
+  const i = L.findIndex(want); if (i < 0) return false;
+  return usePotion(st, s, i);
 }
 function refill(st, s){
   const p = P(st, s); if (p.deck.length || !p.spire || !p.grave.length) return;
@@ -3162,7 +3233,7 @@ function freshFrom(st, s){
   const p = P(st, s), ids = p.deckIds && p.deckIds.length ? p.deckIds : allCardsOf(st, s);
   const n = newPlayer(ids, p.name, !!p.mana, !!p.spire); n.sleeve = p.sleeve || null; return n;
 }
-function resetLocal(){ Object.assign(G, { sel: null, atkFrom: null, chooseQ: [], evSeen: 0, recorded: false, prevLp: null, eqPlace: null, ssPick: null, view: null, graveHand: false, detailOpen: false, detailBack: null, lastDetail: null }); renderDetail(null); }
+function resetLocal(){ Object.assign(G, { potPick: null, sel: null, atkFrom: null, chooseQ: [], evSeen: 0, recorded: false, prevLp: null, eqPlace: null, ssPick: null, view: null, graveHand: false, detailOpen: false, detailBack: null, lastDetail: null }); renderDetail(null); }
 function rematch(){
   if (!G || !G.st || !G.st.winner || G.spectate) return;
   if (G.mode !== "online"){
@@ -3221,6 +3292,8 @@ function monDmg(st, s, i, n, src){
   if (m.dmg >= a){ log(st, O(s), `「${nm}」のダメージカウンター${m.dmg}がATK${fmtN(a)}に届いた！`); destroyMonster(st, s, i, src); }
   else log(st, O(s), `「${nm}」にダメージカウンターが${n}乗った（合計 ${m.dmg} / ATK ${fmtN(a)}）`);
 }
+const potionChips = (p, mine) => (p.potions || []).filter(k => POTIONS[k]).map((k, i) => mine ? `<button class="bst pot" data-potion="${i}" title="${esc(POTIONS[k].text)}" ${G && G.st && canAct(G.st, G.slot) ? "" : "disabled"}>🧪${esc(POTIONS[k].name)}</button>` : `<span class="bst pot" title="${esc(POTIONS[k].text)}">🧪${esc(POTIONS[k].name)}</span>`).join("");
+const potRow = (p, mine) => (p.potions || []).length ? `<div class="pots">${potionChips(p, mine)}</div>` : "";
 const statChips = p => Object.entries(p.free || {}).filter(([, v]) => v > 0).map(([k, v]) => `<span class="bst free" title="次に使うこの種類のカードはコスト0">次の${SPIRE_LABEL[k]}0コスト${v > 1 ? "×" + v : ""}</span>`).join("") + (p.relics || []).filter(k => RELICS[k]).map(k => `<span class="bst rel" title="${esc(RELICS[k].text)}">${esc(RELICS[k].name)}</span>`).join("") + (p.block ? `<span class="bst blk" title="次の自分のターンのはじめまで、受けるダメージを先に引き受ける">ブロック ${p.block}</span>` : "") + (p.vuln > 0 ? `<span class="bst vul" title="受けるダメージが1.5倍">弱体 ${p.vuln}</span>` : "");
 function dealDmg(st, s, n){
   const p = P(st, s); if (n === Infinity){ p.lp = Math.min(0, p.lp); return; }
@@ -3268,9 +3341,14 @@ function targetOptions(st, s, kind, ctx = {}){
   }
   return null;
 }
-function autoTarget(st, s, kind, opts){
-  // CPU スパイア attack: go for the strongest monster unless the opponent is nearly out of LP
-  if (opts.length && opts.every(o => typeof o === "string" && o.startsWith("m:"))){ const op = P(st, O(s)); return opts.slice().sort((x, y) => atkOf(op.mz[+y.slice(2)]) - atkOf(op.mz[+x.slice(2)]))[0]; }
+function autoTarget(st, s, kind, opts, fx){
+  // CPU スパイア attack: finish the strongest monster it can destroy now, otherwise the one closest to dying
+  if (opts.length && opts.every(o => typeof o === "string" && o.startsWith("m:"))){
+    const op = P(st, O(s)), n = fx && kind !== "vuln" ? fx.n || 0 : 0, m = o => op.mz[+o.slice(2)], left = o => (atkOf(m(o)) - (m(o).dmg || 0)) / (m(o).vuln > 0 ? 1.5 : 1);
+    if (kind === "vuln") return opts.slice().sort((x, y) => atkOf(m(y)) - atkOf(m(x)))[0];
+    const kill = opts.filter(o => left(o) <= n).sort((x, y) => atkOf(m(y)) - atkOf(m(x)));
+    return kill.length ? kill[0] : opts.slice().sort((x, y) => left(x) - left(y))[0];
+  }
   if (opts[0] === "p"){ const ms = opts.slice(1).sort((x, y) => atkOf(P(st, O(s)).mz[+y.slice(2)]) - atkOf(P(st, O(s)).mz[+x.slice(2)])); return ms.length && P(st, O(s)).lp > 300 ? ms[0] : "p"; }
   const t = KINDS[kind].target;
   if (t === "opp") return opts.slice().sort((a, b) => atkOf(P(st, O(s)).mz[b]) - atkOf(P(st, O(s)).mz[a]))[0];
@@ -3391,6 +3469,8 @@ function destroyMonster(st, s, i, why, opt = {}){
   log(st, s, `「${name}」が破壊された${why ? "（" + why + "）" : ""}`);
   es.forEach(e => P(st, e.o).grave.push(e.c));
   if (es.length) log(st, s, `付いていた装備${es.map(e => `「${card(e.c).name}」`).join("")}も墓地へ`);
+  // スパイアデッキ: beating an opponent's monster → カード報酬 + maybe a ポーション
+  if (!opt.force && P(st, O(s)).spire){ offerReward(st, O(s)); if (Math.random() < POTION_DROP) givePotion(st, O(s), "モンスターを倒して"); }
   runList(st, monTrigList(st, s, i, "destroyed", m, { eqs: es.map(e => ({ c: e.c, o: e.o, u: e.u })), eqCount: es.length }), st2 => persistFire(st2, s, "monDestroyed", {}, st3 => persistFire(st3, O(s), "monDestroyed", {}, opt.then)));
   return true;
 }
@@ -3499,7 +3579,7 @@ function runEffect(st, s, c, ctx = {}, then, fx = normFx(c)){
   if (!opts.length){ log(st, s, `「${c.name}」：対象がいない`); then && then(st); return; }
   if (isHumanHere(s)){
     G.chooseQ.push({ s, c, fx, ctx, then });
-  } else { applyEffect(st, s, c, autoTarget(st, s, fx.kind, opts), ctx, fx); then && then(st); }
+  } else { applyEffect(st, s, c, autoTarget(st, s, fx.kind, opts, fx), ctx, fx); then && then(st); }
 }
 // is a card with this name in player s's field / graveyard / hand? (the triggering monster itself doesn't count)
 function comboMet(st, s, cb, ctx = {}){
@@ -3879,6 +3959,7 @@ function scheduleCpu(){
 }
 function cpuStep(st, s){
   const p = P(st, s), op = P(st, O(s));
+  if (p.spire && cpuPotion(st, s, "main")) return;
   // 1. magic from hand (only if it has a useful target / effect)
   for (let i = 0; i < p.hand.length; i++){
     const c = card(p.hand[i]); if (cardType(c) !== "magic" || !canPay(st, s, c)) continue;
@@ -3924,6 +4005,7 @@ function cpuStep(st, s){
       if (beat.length){ declareAttack(st, s, i, beat[0]); return; }
     }
   }
+  if (p.spire && cpuPotion(st, s, "end")) return;
   endTurn(st, s);
 }
 
@@ -4066,8 +4148,8 @@ function renderBoard(){
     </div>
     <aside class="side">
       <div class="box" style="display:flex;flex-direction:column;gap:12px">
-        <div class="pl"><div><div class="nm">${esc(po.name)}</div><div class="pile">山札 ${po.deck.length}<button class="chip" data-grave="op">墓地 ${po.grave.length}</button>${(po.exile || []).length ? ` 廃棄 ${po.exile.length}` : ""}</div></div>${lpBox(po, "op")}</div>
-        <div class="pl"><div><div class="nm">${esc(pm.name)}${G.spectate ? "" : "（あなた）"}</div><div class="pile">山札 ${pm.deck.length}<button class="chip" data-grave="me">墓地 ${pm.grave.length}</button>${(pm.exile || []).length ? ` 廃棄 ${pm.exile.length}` : ""}</div></div>${lpBox(pm, "me")}</div>
+        <div class="pl"><div><div class="nm">${esc(po.name)}</div><div class="pile">山札 ${po.deck.length}<button class="chip" data-grave="op">墓地 ${po.grave.length}</button>${(po.exile || []).length ? ` 廃棄 ${po.exile.length}` : ""}</div></div>${lpBox(po, "op")}</div>${potRow(po, false)}
+        <div class="pl"><div><div class="nm">${esc(pm.name)}${G.spectate ? "" : "（あなた）"}</div><div class="pile">山札 ${pm.deck.length}<button class="chip" data-grave="me">墓地 ${pm.grave.length}</button>${(pm.exile || []).length ? ` 廃棄 ${pm.exile.length}` : ""}</div></div>${lpBox(pm, "me")}</div>${potRow(pm, !G.spectate)}
         ${G.mode === "online" ? `<div class="note">部屋 ${esc(G.code)}</div>` : ""}
       </div>
       <div class="box">
@@ -4268,6 +4350,12 @@ function renderOverlay(){
     }
     const chainHTML = st.chain && st.chain.length ? `<div class="chainrow">${st.chain.map((l, k) => `<span class="link ${l.s === me ? "mine" : ""}">${k + 1}. ${l.summon ? (l.special ? "特殊召喚：" : "召喚：") : ""}${esc(card(l.c).name)}<small>${l.s === me ? "あなた" : esc(P(st, l.s).name)}</small></span>`).join('<span class="arr">→</span>')}</div>` : "";
     html = `<div class="box"><h2 style="margin:0">${esc(head)}</h2>${chainHTML}<p style="margin:0">${esc(msg)}</p><div class="gallery">${list}</div><div class="row"><button data-close="notrap">${win === "chain" || win === "chainAttack" ? "チェーンしない" : "使わない"}</button></div></div>`;
+  } else if (G.potPick != null && myP && (myP.potions || [])[G.potPick] && canAct(st, me)){
+    const k = myP.potions[G.potPick];
+    html = `<div class="box"><h2 style="margin:0">🧪${esc(POTIONS[k].name)}</h2><p style="margin:0;font-size:17px">${esc(POTIONS[k].text)}</p><p class="muted" style="margin:0">マナはいらない。使うとなくなる</p><div class="row"><button class="primary" data-potuse="${G.potPick}">使う</button><button class="ghost" data-close="potion">やめる</button></div></div>`;
+  } else if (myP && !st.winner && (myP.rewards || []).length){
+    const r = myP.rewards[0];
+    html = `<div class="box"><h2 style="margin:0">カード報酬：1枚えらぶ</h2><p class="muted" style="margin:0">モンスターを倒した！えらんだカードは墓地に入り、山札がなくなったときデッキにまざります${myP.rewards.length > 1 ? `（のこり${myP.rewards.length}回）` : ""}</p><div class="gallery reward-pick">${r.ids.filter(id => S.cards.has(id)).map(id => cardHTML(card(id), "sm pick", `data-reward="${esc(id)}" tabindex="0" role="button"`, mOpt(me))).join("")}</div><div class="row"><button class="ghost" data-reward="">スキップ</button></div></div>`;
   } else if (G.ssPick && canAct(st, me)){
     const sp = G.ssPick, pm = P(st, me), c = card(pm.hand[sp.hi]);
     const opts = sp.kind === "tribute" ? pm.mz.map((m, i) => m ? i : -1).filter(i => i >= 0) : pm.hand.map((id, i) => i).filter(i => i !== sp.hi);
@@ -4302,6 +4390,10 @@ $("#overlay").addEventListener("click", e => {
   if (e.target.closest("[data-ssgo]") && G.ssPick){ const sp = G.ssPick; G.ssPick = null; act(st => specialSummon(st, G.slot, sp.hi, sp.picked)); return; }
   const ep = e.target.closest("[data-eqpos]");
   if (ep && G.eqPlace){ const x = G.eqPlace; G.eqPlace = null; G.sel = null; act(st => equip(st, G.slot, x.hi, x.s, x.i, +ep.dataset.eqpos)); return; }
+  const rw = e.target.closest("[data-reward]");
+  if (rw){ const id = rw.dataset.reward; act(st => takeReward(st, G.slot, id)); return; }
+  const pu = e.target.closest("[data-potuse]");
+  if (pu){ const i = +pu.dataset.potuse; G.potPick = null; act(st => usePotion(st, G.slot, i, () => {})); return; }
   const rl = e.target.closest("[data-relic]");
   if (rl){ const k = rl.dataset.relic; act(st => chooseRelic(st, G.slot, k)); return; }
   const sw = e.target.closest("[data-sprout]");
@@ -4321,18 +4413,21 @@ $("#overlay").addEventListener("click", e => {
   if (ci){ openDetail(["id", ci.dataset.cid]); return; }
   const cl = e.target.closest("[data-close]"); if (!cl) return;
   const k = cl.dataset.close;
-  if (k === "choose"){ const q = G.chooseQ.shift(); act(st => { log(st, q.s, `「${q.c.name}」：効果を使わなかった`); q.then && q.then(st); }); }
+  if (k === "choose"){ const q = G.chooseQ.shift(); act(st => { if (q.ctx && q.ctx.potion && POTIONS[q.ctx.potion]){ const p = P(st, q.s); (p.potions = p.potions || []).push(q.ctx.potion); log(st, q.s, `「${q.c.name}」を使うのをやめた`); } else log(st, q.s, `「${q.c.name}」：効果を使わなかった`); q.then && q.then(st); }); }
   if (k === "notrap") act(st => respond(st, G.slot, null));
   if (k === "view"){ G.view = null; renderAll(); }
   if (k === "gh"){ G.graveHand = false; renderAll(); }
   if (k === "eqplace"){ G.eqPlace = null; renderAll(); }
   if (k === "sspick"){ G.ssPick = null; renderAll(); }
+  if (k === "potion"){ G.potPick = null; renderAll(); }
 });
 $("#overlay").addEventListener("keydown", e => { const h = e.target.closest("[role=button]"); if (h && (e.key === "Enter" || e.key === " ")){ e.preventDefault(); h.click(); } });
 
 $("#board").addEventListener("click", e => {
   if (!G) return;
   const st = G.st, me = G.slot;
+  const pb = e.target.closest("[data-potion]");
+  if (pb){ if (canAct(st, me)){ G.potPick = +pb.dataset.potion; renderAll(); } return; }
   const zc = e.target.closest("[data-z]");
   if (zc){
     const z = zc.dataset.z, s = zc.dataset.s, i = +zc.dataset.i;
