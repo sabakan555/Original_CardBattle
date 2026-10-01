@@ -869,7 +869,7 @@ nav.tabs button{position:relative}
         <label class="row" id="quickRow" hidden style="gap:6px;font-weight:700;cursor:pointer"><input type="checkbox" id="mkQuick"> 速攻魔法（相手のターンにも使える）</label>
         <label class="row" id="persistRow" hidden style="gap:6px;font-weight:700;cursor:pointer"><input type="checkbox" id="mkPersist"> 永続（使ったあとも魔法・罠ゾーンに残って、効果が続く・最大5枚）</label>
         <label class="row" id="exhaustRow" hidden style="gap:6px;font-weight:700;cursor:pointer"><input type="checkbox" id="mkExhaust"> 廃棄（使ったら墓地に行かず、そのゲームから消える）</label>
-        <div class="row" id="payRow" style="gap:6px 12px;flex-wrap:wrap;align-items:center"><b>追加コスト</b><label class="row" style="gap:4px">LPを<input type="number" id="mkPayLp" min="0" step="10" value="0" style="width:84px">払う</label><label class="row" style="gap:4px">手札を<input type="number" id="mkPayDisc" min="0" max="5" step="1" value="0" style="width:64px">枚捨てる</label><label class="row" style="gap:4px">最大マナを<input type="number" id="mkPayMax" min="0" max="5" step="1" value="0" style="width:64px">減らす</label><span class="muted" style="font-size:13px">0ならなし。払えないと使えない</span></div>
+        <div class="row" id="payRow" style="gap:6px 12px;flex-wrap:wrap;align-items:center"><b>追加コスト</b><label class="row" style="gap:4px">LPを<input type="number" id="mkPayLp" min="0" step="10" value="0" style="width:84px">払う</label><label class="row" style="gap:4px">手札を<input type="number" id="mkPayDisc" min="0" max="5" step="1" value="0" style="width:64px">枚捨てる</label><label class="row" style="gap:4px;cursor:pointer"><input type="checkbox" id="mkPayDiscAll">手札を全部</label><label class="row" style="gap:4px">最大マナを<input type="number" id="mkPayMax" min="0" max="5" step="1" value="0" style="width:64px">減らす</label><span class="muted" style="font-size:13px">0ならなし。払えないと使えない</span></div>
         <div class="mk-tabs" id="mkTabs" role="tablist">
           <button data-pane="draw" aria-pressed="true">絵</button><button data-pane="look" aria-pressed="false">見た目</button><button data-pane="fx" aria-pressed="false">効果・能力</button><button data-pane="deck" aria-pressed="false">デッキ</button>
         </div>
@@ -1476,8 +1476,10 @@ function expandFx(f){
 // 追加コスト: LPを払う / 手札を捨てる / 最大マナを減らす（払えないと使えない）
 const payLpOf = c => c && c.payLp > 0 ? Math.round(+c.payLp) : 0;
 const payDiscOf = c => c && c.payDisc > 0 ? Math.round(+c.payDisc) : 0;
+// 「手札をすべて捨てる」 (payDisc -1): the rest of the hand goes, however many that is (0 is fine too)
+const payDiscAll = c => !!(c && +c.payDisc === -1);
 const payMaxOf = c => c && c.payMax > 0 ? Math.round(+c.payMax) : 0;
-function extraCostText(c){ const L = [payLpOf(c) ? `LPを${payLpOf(c)}払う` : "", payDiscOf(c) ? `手札を${payDiscOf(c)}枚捨てる` : "", payMaxOf(c) ? `最大マナを${payMaxOf(c)}減らす` : ""].filter(Boolean); return L.length ? "【コスト】" + L.join("、") : ""; }
+function extraCostText(c){ const L = [payLpOf(c) ? `LPを${payLpOf(c)}払う` : "", payDiscAll(c) ? "手札をすべて捨てる" : payDiscOf(c) ? `手札を${payDiscOf(c)}枚捨てる` : "", payMaxOf(c) ? `最大マナを${payMaxOf(c)}減らす` : ""].filter(Boolean); return L.length ? "【コスト】" + L.join("、") : ""; }
 function fxText(c){ return (c && c.token ? "【トークン】" : "") + [isPersist(c) ? "【永続】使ったあとも場に残る" : "", extraCostText(c), tribText(c), atkCondText(c), ssText(c), fxText0(c)].filter(Boolean).join("。"); }
 /* ================= effect blocks: いつ / もし / なにを / ちがったら =================
    c.blocks = [{ trig, conds: [{k, op, n | name, where, match | text}], join: "and"|"or", then: [{kind, n, to}], else: [...] }]
@@ -2513,7 +2515,8 @@ $("#mkQuick").addEventListener("change", () => { $("#mkTab").textContent = mkTab
 function mkTabLabel(){ const t = MK.type, pers = (t === "magic" || t === "trap") && $("#mkPersist").checked; if ($("#mkFrame").value === "spire") return SPIRE_LABEL[mkSk()]; return t === "magic" && $("#mkQuick").checked ? "速攻魔法" : (pers ? "永続" : "") + TYPE_LABEL[t]; }
 $("#mkPersist").addEventListener("change", () => setMkType(MK.type));
 ["#mkPayLp", "#mkPayDisc", "#mkPayMax"].forEach(q => $(q).addEventListener("input", () => updateBkText()));
-function mkPays(save){ const v = q => Math.max(0, Math.round(+$(q).value || 0)) || (save ? null : 0); return { payLp: v("#mkPayLp"), payDisc: v("#mkPayDisc"), payMax: v("#mkPayMax") }; }
+function mkPays(save){ const v = q => Math.max(0, Math.round(+$(q).value || 0)) || (save ? null : 0); return { payLp: v("#mkPayLp"), payDisc: $("#mkPayDiscAll").checked ? -1 : v("#mkPayDisc"), payMax: v("#mkPayMax") }; }
+$("#mkPayDiscAll").addEventListener("change", () => { $("#mkPayDisc").disabled = $("#mkPayDiscAll").checked; updateBkText(); });
 // スパイア風: スキル = magic, パワー = 永続 magic (the kind buttons show which one is on)
 function syncTypePressed(){ const sk = mkSk(), map = { monster: "attack", magic: "skill", power: "power" }; document.querySelectorAll("#mkType button").forEach(b => { const k = b.dataset.t; b.setAttribute("aria-pressed", sk ? map[k] === sk : k === MK.type); }); }
 // スパイア風: the kind buttons read アタック / スキル / パワー and there is no 装備
@@ -2696,7 +2699,7 @@ function initBlocksUI(){
 }
 initBlocksUI();
 function resetMaker(){
-  S.editId = null; setFrameless(false); $("#mkName").value = ""; $("#mkEff").value = ""; $("#mkFlv").value = ""; $("#mkNameSize").value = $("#mkTextSize").value = "m"; syncSizes(); $("#mkAtk").value = 300; $("#mkEq").value = 200; $("#mkEqAb").value = "none"; $("#mkEqCost").value = "1"; $("#mkEqCap").value = ""; $("#mkFrame").value = ""; syncFrame(); $("#mkFont").value = "klee"; syncFont(); $("#mkQuick").checked = false; $("#mkExhaust").checked = false; $("#mkToken").checked = false; $("#mkNeow").checked = false; $("#mkPayLp").value = "0"; $("#mkPayDisc").value = "0"; $("#mkPayMax").value = "0"; $("#mkPersist").checked = false; MK.sk = null; $("#mkRarity").value = "common"; $("#mkCost").value = "1"; setMkDeck("normal"); $("#mkLimit").value = "3"; clearCanvas(); undoStack = [];
+  S.editId = null; setFrameless(false); $("#mkName").value = ""; $("#mkEff").value = ""; $("#mkFlv").value = ""; $("#mkNameSize").value = $("#mkTextSize").value = "m"; syncSizes(); $("#mkAtk").value = 300; $("#mkEq").value = 200; $("#mkEqAb").value = "none"; $("#mkEqCost").value = "1"; $("#mkEqCap").value = ""; $("#mkFrame").value = ""; syncFrame(); $("#mkFont").value = "klee"; syncFont(); $("#mkQuick").checked = false; $("#mkExhaust").checked = false; $("#mkToken").checked = false; $("#mkNeow").checked = false; $("#mkPayLp").value = "0"; $("#mkPayDisc").value = "0"; $("#mkPayDiscAll").checked = false; $("#mkPayDisc").disabled = false; $("#mkPayMax").value = "0"; $("#mkPersist").checked = false; MK.sk = null; $("#mkRarity").value = "common"; $("#mkCost").value = "1"; setMkDeck("normal"); $("#mkLimit").value = "3"; clearCanvas(); undoStack = [];
   setMkType("monster"); loadFxForm(null); loadAbs([]); loadSS(null); mkLoadVars(null);
   $("#mkTitle").textContent = "カードを描く"; $("#btnNew").hidden = true; $("#btnSave").textContent = "カードを保存"; potionModeUI();
 }
@@ -2910,7 +2913,7 @@ $("#gallery").addEventListener("click", async e => {
   if (ed){
     const c = S.cards.get(ed.dataset.edit); if (!c || !(isMine(c) || (c.starter && isAdmin()))) return;
     setMkKind("card"); S.editId = c.id; setFrameless(!!c.frameless); MK.artDirty = false; $("#mkName").value = c.nameRuby || c.name; $("#mkEff").value = c.effect || ""; $("#mkFlv").value = c.flavor || ""; $("#mkNameSize").value = SIZES_T[c.nameSize] ? c.nameSize : "m"; $("#mkTextSize").value = SIZES_T[c.textSize] ? c.textSize : "m"; syncSizes(); $("#mkAtk").value = c.atkInf ? "∞" : (c.atk || 0); $("#mkLimit").value = String(cardLimit(c));
-    mkLoadVars(c); $("#mkQuick").checked = !!c.quick; $("#mkExhaust").checked = !!c.exhaust; $("#mkToken").checked = !!c.token; $("#mkPayLp").value = String(payLpOf(c)); $("#mkPayDisc").value = String(payDiscOf(c)); $("#mkPayMax").value = String(payMaxOf(c)); $("#mkPersist").checked = !!c.persist; MK.sk = c.sk || null; $("#mkRarity").value = rarityOf(c); setMkType(cardType(c)); loadFxForm(c); $("#mkFont").value = FONTS[c.font] ? c.font : "klee"; syncFont(); $("#mkCost").value = c.costX ? "X" : hasCost(c) ? String(costOf(c)) : "1"; setMkDeck(deckModeOf(c)); $("#mkEq").value = c.eqN || 0; $("#mkEqAb").value = "none"; $("#mkEqCost").value = String(eqCostOf(c)); $("#mkEqCap").value = hasEqCap(c) ? String(+c.eqCap) : ""; loadAbs(absOf(c)); syncEqLine(); $("#mkFrame").value = c.frame === "socra" || c.frame === "spire" ? c.frame : ""; syncFrame(); loadSS(c);
+    mkLoadVars(c); $("#mkQuick").checked = !!c.quick; $("#mkExhaust").checked = !!c.exhaust; $("#mkToken").checked = !!c.token; $("#mkPayLp").value = String(payLpOf(c)); $("#mkPayDisc").value = String(payDiscOf(c)); $("#mkPayDiscAll").checked = payDiscAll(c); $("#mkPayDisc").disabled = payDiscAll(c); $("#mkPayMax").value = String(payMaxOf(c)); $("#mkPersist").checked = !!c.persist; MK.sk = c.sk || null; $("#mkRarity").value = rarityOf(c); setMkType(cardType(c)); loadFxForm(c); $("#mkFont").value = FONTS[c.font] ? c.font : "klee"; syncFont(); $("#mkCost").value = c.costX ? "X" : hasCost(c) ? String(costOf(c)) : "1"; setMkDeck(deckModeOf(c)); $("#mkEq").value = c.eqN || 0; $("#mkEqAb").value = "none"; $("#mkEqCost").value = String(eqCostOf(c)); $("#mkEqCap").value = hasEqCap(c) ? String(+c.eqCap) : ""; loadAbs(absOf(c)); syncEqLine(); $("#mkFrame").value = c.frame === "socra" || c.frame === "spire" ? c.frame : ""; syncFrame(); loadSS(c);
     if (!c.img){ clearCanvas(); undoStack = []; MK.artDirty = false; }
     else { const im = new Image(); im.onload = () => { clearCanvas(); setPhoto(im); setMode("draw"); composite(); undoStack = []; MK.artDirty = false; }; im.src = c.img; }
     $("#mkTitle").textContent = "カードを編集中"; $("#btnNew").hidden = false; $("#btnSave").textContent = "変更を保存";
@@ -4287,6 +4290,7 @@ function costWhy(st, s, c){
 }
 // 追加コスト「手札を捨てる」: picks = indices in the hand (after the used card has left it); missing / wrong picks → random
 function discardCost(st, s, c, picks){
+  if (payDiscAll(c)){ const p = P(st, s), gone = p.hand.splice(0); p.grave.push(...gone); log(st, s, gone.length ? `「${c.name}」のコストで手札をすべて（${gone.length}枚）捨てた` : `「${c.name}」のコスト：捨てる手札はなかった`); return; }
   const n = payDiscOf(c); if (!n) return;
   const p = P(st, s); let L = [...new Set((picks || []).map(Number))].filter(j => p.hand[j] != null);
   if (L.length !== n){ const all = shuffle(p.hand.map((_, j) => j)); L = all.slice(0, n); }
