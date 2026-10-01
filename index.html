@@ -803,6 +803,7 @@ nav.tabs button{position:relative}
         <label class="row" id="quickRow" hidden style="gap:6px;font-weight:700;cursor:pointer"><input type="checkbox" id="mkQuick"> 速攻魔法（相手のターンにも使える）</label>
         <label class="row" id="persistRow" hidden style="gap:6px;font-weight:700;cursor:pointer"><input type="checkbox" id="mkPersist"> 永続（使ったあとも魔法・罠ゾーンに残って、効果が続く・最大5枚）</label>
         <label class="row" id="exhaustRow" hidden style="gap:6px;font-weight:700;cursor:pointer"><input type="checkbox" id="mkExhaust"> 廃棄（使ったら墓地に行かず、そのゲームから消える）</label>
+        <label class="row" id="payLpRow" style="gap:6px;font-weight:700;flex-wrap:wrap">コストでLPを払う <input type="number" id="mkPayLp" min="0" step="10" value="0" style="width:90px"> <span class="muted" style="font-weight:400;font-size:13px">0ならなし。LPが足りないと使えない</span></label>
         <div class="mk-tabs" id="mkTabs" role="tablist">
           <button data-pane="draw" aria-pressed="true">絵</button><button data-pane="look" aria-pressed="false">見た目</button><button data-pane="fx" aria-pressed="false">効果・能力</button><button data-pane="deck" aria-pressed="false">デッキ</button>
         </div>
@@ -1332,7 +1333,8 @@ function expandFx(f){
   if (to === "two") return [{ ...f, distinct: true }, { ...f, distinct: true, ask: "" }];
   return [f];
 }
-function fxText(c){ return [isPersist(c) ? "【永続】使ったあとも場に残る" : "", ssText(c), fxText0(c)].filter(Boolean).join("。"); }
+const payLpOf = c => c && c.payLp > 0 ? Math.round(+c.payLp) : 0;
+function fxText(c){ return [isPersist(c) ? "【永続】使ったあとも場に残る" : "", payLpOf(c) ? `【コスト】LPを${payLpOf(c)}払う` : "", ssText(c), fxText0(c)].filter(Boolean).join("。"); }
 /* ================= effect blocks: いつ / もし / なにを / ちがったら =================
    c.blocks = [{ trig, conds: [{k, op, n | name, where, match | text}], join: "and"|"or", then: [{kind, n, to}], else: [...] }]
    Older cards (c.fx + c.combo) are read as blocks too, so everything below runs on blocks. */
@@ -2250,6 +2252,7 @@ function syncFxForm(){
 $("#mkQuick").addEventListener("change", () => { $("#mkTab").textContent = mkTabLabel(); });
 function mkTabLabel(){ const t = MK.type, pers = (t === "magic" || t === "trap") && $("#mkPersist").checked; if ($("#mkFrame").value === "spire") return SPIRE_LABEL[mkSk()]; return t === "magic" && $("#mkQuick").checked ? "速攻魔法" : (pers ? "永続" : "") + TYPE_LABEL[t]; }
 $("#mkPersist").addEventListener("change", () => setMkType(MK.type));
+$("#mkPayLp").addEventListener("input", () => updateBkText());
 // スパイア風: スキル = magic, パワー = 永続 magic (the kind buttons show which one is on)
 function syncTypePressed(){ const sk = mkSk(), map = { monster: "attack", magic: "skill", power: "power" }; document.querySelectorAll("#mkType button").forEach(b => { const k = b.dataset.t; b.setAttribute("aria-pressed", sk ? map[k] === sk : k === MK.type); }); }
 // スパイア風: the kind buttons read アタック / スキル / パワー and there is no 装備
@@ -2317,7 +2320,7 @@ function kindGroups(avail){
   return gs;
 }
 const defN = k => smallN(k) ? 1 : 100;
-function mkPreviewCard(){ return { type: MK.type, frame: $("#mkFrame").value, persist: (MK.type === "magic" || MK.type === "trap") && $("#mkPersist").checked, costX: $("#mkCost").value === "X", blocks: readBlocks(), ss: readSS(), eqN: Math.round(+$("#mkEq").value || 0), abs: readAbs() }; }
+function mkPreviewCard(){ return { type: MK.type, frame: $("#mkFrame").value, persist: (MK.type === "magic" || MK.type === "trap") && $("#mkPersist").checked, costX: $("#mkCost").value === "X", payLp: Math.max(0, Math.round(+$("#mkPayLp").value || 0)), blocks: readBlocks(), ss: readSS(), eqN: Math.round(+$("#mkEq").value || 0), abs: readAbs() }; }
 function readBlocks(){
   const bs = (MK.blocks || []).map(b => ({ trig: b.trig, join: b.join === "or" ? "or" : "and", conds: (b.conds || []).map(x => ({ ...x })), then: (b.then || []).map(cleanEff).filter(Boolean), else: (b.conds || []).length ? (b.else || []).map(cleanEff).filter(Boolean) : [] })).filter(b => b.then.length || b.else.length);
   return bs.length ? bs : null;
@@ -2424,7 +2427,7 @@ function initBlocksUI(){
 }
 initBlocksUI();
 function resetMaker(){
-  S.editId = null; setFrameless(false); $("#mkName").value = ""; $("#mkEff").value = ""; $("#mkFlv").value = ""; $("#mkNameSize").value = $("#mkTextSize").value = "m"; syncSizes(); $("#mkAtk").value = 300; $("#mkEq").value = 200; $("#mkEqAb").value = "none"; $("#mkEqCost").value = "1"; $("#mkEqCap").value = ""; $("#mkFrame").value = ""; syncFrame(); $("#mkFont").value = "klee"; syncFont(); $("#mkQuick").checked = false; $("#mkExhaust").checked = false; $("#mkPersist").checked = false; MK.sk = null; $("#mkRarity").value = "common"; $("#mkCost").value = "1"; setMkDeck("normal"); $("#mkLimit").value = "3"; clearCanvas(); undoStack = [];
+  S.editId = null; setFrameless(false); $("#mkName").value = ""; $("#mkEff").value = ""; $("#mkFlv").value = ""; $("#mkNameSize").value = $("#mkTextSize").value = "m"; syncSizes(); $("#mkAtk").value = 300; $("#mkEq").value = 200; $("#mkEqAb").value = "none"; $("#mkEqCost").value = "1"; $("#mkEqCap").value = ""; $("#mkFrame").value = ""; syncFrame(); $("#mkFont").value = "klee"; syncFont(); $("#mkQuick").checked = false; $("#mkExhaust").checked = false; $("#mkPayLp").value = "0"; $("#mkPersist").checked = false; MK.sk = null; $("#mkRarity").value = "common"; $("#mkCost").value = "1"; setMkDeck("normal"); $("#mkLimit").value = "3"; clearCanvas(); undoStack = [];
   setMkType("monster"); loadFxForm(null); loadAbs([]); loadSS(null);
   $("#mkTitle").textContent = "カードを描く"; $("#btnNew").hidden = true; $("#btnSave").textContent = "カードを保存";
 }
@@ -2469,7 +2472,7 @@ $("#btnSave").addEventListener("click", async () => {
   const id = S.editId || uid("c");
   const prev = S.cards.get(id);
   let eqN = Math.round(+$("#mkEq").value || 0); $("#mkEq").value = eqN;
-  const doc = { type: MK.type, name, atk: MK.type === "monster" ? atk : 0, atkInf, eqN: MK.type === "equip" ? eqN : 0, eqAb: "none", eqCost: MK.type === "equip" ? Math.max(0, Math.round(+$("#mkEqCost").value || 0)) : null, eqCap: MK.type === "monster" && $("#mkFrame").value === "socra" && $("#mkEqCap").value.trim() !== "" ? Math.max(0, Math.round(+$("#mkEqCap").value || 0)) : null, abs: MK.type === "monster" || MK.type === "equip" ? readAbs() : [], frame: $("#mkFrame").value || null, ss: readSS(), effect: $("#mkEff").value.trim(), flavor: $("#mkFlv").value.trim(), nameSize: $("#mkNameSize").value, textSize: $("#mkTextSize").value, fx: null, combo: null, blocks: readBlocks(), font: $("#mkFont").value, quick: MK.type === "magic" && $("#mkFrame").value !== "spire" && $("#mkQuick").checked, persist: (MK.type === "magic" || MK.type === "trap") && $("#mkPersist").checked, sk: mkSk(), rarity: $("#mkFrame").value === "spire" ? $("#mkRarity").value : null, exhaust: (MK.type === "magic" || MK.type === "trap") && $("#mkExhaust").checked, cost: MK.deck === "normal" ? null : $("#mkCost").value === "X" ? 0 : +$("#mkCost").value, costX: MK.deck !== "normal" && $("#mkCost").value === "X", deckMode: MK.deck, limit: +$("#mkLimit").value,
+  const doc = { type: MK.type, name, atk: MK.type === "monster" ? atk : 0, atkInf, eqN: MK.type === "equip" ? eqN : 0, eqAb: "none", eqCost: MK.type === "equip" ? Math.max(0, Math.round(+$("#mkEqCost").value || 0)) : null, eqCap: MK.type === "monster" && $("#mkFrame").value === "socra" && $("#mkEqCap").value.trim() !== "" ? Math.max(0, Math.round(+$("#mkEqCap").value || 0)) : null, abs: MK.type === "monster" || MK.type === "equip" ? readAbs() : [], frame: $("#mkFrame").value || null, ss: readSS(), effect: $("#mkEff").value.trim(), flavor: $("#mkFlv").value.trim(), nameSize: $("#mkNameSize").value, textSize: $("#mkTextSize").value, fx: null, combo: null, blocks: readBlocks(), font: $("#mkFont").value, quick: MK.type === "magic" && $("#mkFrame").value !== "spire" && $("#mkQuick").checked, persist: (MK.type === "magic" || MK.type === "trap") && $("#mkPersist").checked, sk: mkSk(), rarity: $("#mkFrame").value === "spire" ? $("#mkRarity").value : null, exhaust: (MK.type === "magic" || MK.type === "trap") && $("#mkExhaust").checked, payLp: Math.max(0, Math.round(+$("#mkPayLp").value || 0)) || null, cost: MK.deck === "normal" ? null : $("#mkCost").value === "X" ? 0 : +$("#mkCost").value, costX: MK.deck !== "normal" && $("#mkCost").value === "X", deckMode: MK.deck, limit: +$("#mkLimit").value,
     img: prev && prev.img && !MK.artDirty ? prev.img : encodeArt(out), frameless: MK.frameless, author: S.name, ownerId: prev?.ownerId || S.uid || null, updatedAt: Date.now() };
   $("#btnSave").disabled = true;
   try{
@@ -2506,7 +2509,7 @@ $("#gallery").addEventListener("click", async e => {
   if (ed){
     const c = S.cards.get(ed.dataset.edit); if (!c || !(isMine(c) || (c.starter && isAdmin()))) return;
     S.editId = c.id; setFrameless(!!c.frameless); MK.artDirty = false; $("#mkName").value = c.nameRuby || c.name; $("#mkEff").value = c.effect || ""; $("#mkFlv").value = c.flavor || ""; $("#mkNameSize").value = SIZES_T[c.nameSize] ? c.nameSize : "m"; $("#mkTextSize").value = SIZES_T[c.textSize] ? c.textSize : "m"; syncSizes(); $("#mkAtk").value = c.atkInf ? "∞" : (c.atk || 0); $("#mkLimit").value = String(cardLimit(c));
-    $("#mkQuick").checked = !!c.quick; $("#mkExhaust").checked = !!c.exhaust; $("#mkPersist").checked = !!c.persist; MK.sk = c.sk || null; $("#mkRarity").value = rarityOf(c); setMkType(cardType(c)); loadFxForm(c); $("#mkFont").value = FONTS[c.font] ? c.font : "klee"; syncFont(); $("#mkCost").value = c.costX ? "X" : hasCost(c) ? String(costOf(c)) : "1"; setMkDeck(deckModeOf(c)); $("#mkEq").value = c.eqN || 0; $("#mkEqAb").value = "none"; $("#mkEqCost").value = String(eqCostOf(c)); $("#mkEqCap").value = hasEqCap(c) ? String(+c.eqCap) : ""; loadAbs(absOf(c)); syncEqLine(); $("#mkFrame").value = c.frame === "socra" || c.frame === "spire" ? c.frame : ""; syncFrame(); loadSS(c);
+    $("#mkQuick").checked = !!c.quick; $("#mkExhaust").checked = !!c.exhaust; $("#mkPayLp").value = String(payLpOf(c)); $("#mkPersist").checked = !!c.persist; MK.sk = c.sk || null; $("#mkRarity").value = rarityOf(c); setMkType(cardType(c)); loadFxForm(c); $("#mkFont").value = FONTS[c.font] ? c.font : "klee"; syncFont(); $("#mkCost").value = c.costX ? "X" : hasCost(c) ? String(costOf(c)) : "1"; setMkDeck(deckModeOf(c)); $("#mkEq").value = c.eqN || 0; $("#mkEqAb").value = "none"; $("#mkEqCost").value = String(eqCostOf(c)); $("#mkEqCap").value = hasEqCap(c) ? String(+c.eqCap) : ""; loadAbs(absOf(c)); syncEqLine(); $("#mkFrame").value = c.frame === "socra" || c.frame === "spire" ? c.frame : ""; syncFrame(); loadSS(c);
     if (!c.img){ clearCanvas(); undoStack = []; MK.artDirty = false; }
     else { const im = new Image(); im.onload = () => { clearCanvas(); setPhoto(im); setMode("draw"); composite(); undoStack = []; MK.artDirty = false; }; im.src = c.img; }
     $("#mkTitle").textContent = "カードを編集中"; $("#btnNew").hidden = false; $("#btnSave").textContent = "変更を保存";
@@ -3627,11 +3630,14 @@ function trigger(st, s, c, trig, ctx){ if (cardType(c) === "monster") runCard(st
 // what card c costs player s right now: コストX costs nothing up front (it takes all mana when paid); a スパイア card may be free after 「次に使う○○のコストを0」
 function freeKey(st, s, c){ const f = P(st, s).free, k = c && c.frame === "spire" ? spireKind(c) : null; return k && f && f[k] > 0 ? k : null; }
 function effCost(st, s, c){ return c && c.costX ? 0 : freeKey(st, s, c) ? 0 : costOf(c); }
-function canPay(st, s, c){ const m = P(st, s).mana; return !m || m.cur >= effCost(st, s, c); }
+// 追加コスト「LPを○払う」: LPがそれより多くないと使えない（払ってLP0にはならない）
+function canPay(st, s, c){ const p = P(st, s), m = p.mana; return (!m || m.cur >= effCost(st, s, c)) && !(payLpOf(c) && p.lp <= payLpOf(c)); }
 function pay(st, s, c){
   const p = P(st, s), m = p.mana, fk = freeKey(st, s, c);
   const k = !m ? 0 : c && c.costX ? (fk ? 0 : m.cur) : effCost(st, s, c);
   if (m && m.cur < k) return false;
+  const lpc = payLpOf(c); if (lpc && p.lp <= lpc) return false;
+  if (lpc){ p.lp -= lpc; log(st, s, `「${c.name}」のコストでLPを${lpc}払った`); }
   if (fk){ p.free[fk]--; log(st, s, `「${c.name}」はコスト0で使える！`); }
   if (m) m.cur -= k; p.lastPaid = k; return true;
 }
@@ -4078,14 +4084,14 @@ function renderBoard(){
     if (sel && sel.z === "hand"){
       const a0 = acts.length;
       const c = card(pm.hand[sel.i]), t = cardType(c);
-      const afford = canPay(st, me, c), short = !afford ? `（マナが${effCost(st, me, c) - pm.mana.cur}足りない）` : "";
+      const afford = canPay(st, me, c), short = afford ? "" : payLpOf(c) && pm.lp <= payLpOf(c) ? `（LPが${payLpOf(c)}より多くないと使えない）` : `（マナが${effCost(st, me, c) - pm.mana.cur}足りない）`;
       if (t === "monster"){
         const ss = ssOf(c);
         if (!(ss && ss.only)){ const ok = canSummonNow(st, me) && afford && freeZone(pm.mz) >= 0; acts += `<button class="primary" data-act="summon" ${ok ? "" : "disabled"}>召喚する${!canSummonNow(st, me) ? "（このターンは召喚ずみ）" : short}</button>`; if (ok) hint = "光っているモンスターゾーンをクリックしても召喚できます"; }
         else hint = "このカードは特殊召喚でしか出せません";
         if (ss){ const why = ssBlock(st, me, sel.i); acts += `<button class="mg" data-act="ssummon" ${why ? "disabled" : ""}>特殊召喚する${why ? `（${why}）` : ""}</button>`; }
       }
-      if (!afford && t !== "monster") hint = `マナが足りないので使えません${short}。セットはできます`;
+      if (!afford && t !== "monster") hint = `今は使えません${short}${c.frame === "spire" ? "" : "。セットはできます"}`;
       else if (t !== "equip") hint = "光っている魔法・罠ゾーンをクリックしてもセットできます";
       if (t === "magic"){ const full = isPersist(c) && freeZone(pm.sz) < 0; acts += `<button class="mg" data-act="activateHand" ${afford && !full ? "" : "disabled"}>発動する${full ? "（魔法・罠ゾーンがいっぱい）" : short}</button>`; }
       if (t === "equip" && afford){ const any = ["a", "b"].some(o => P(st, o).mz.some((m, j) => m && canEquipOn(st, pm.hand[sel.i], o, j))); hint = any ? `光っているモンスターをクリックして装備（相手のでもOK）。装備コスト ${eqCostOf(c)}` : "装備できるモンスターがいません（キャパが足りない）"; }
