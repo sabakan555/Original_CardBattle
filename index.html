@@ -954,6 +954,14 @@ nav.tabs button{position:relative}
               <label class="f">装備キャパ（付けられる装備コストの合計）<input type="number" id="mkEqCap" min="0" max="99" placeholder="空欄ならATK÷100"></label>
             </div>
           </details>
+          <details class="mk-sec" id="secAtk">
+            <summary><span class="mk-st">攻撃の条件</span><span class="mk-sum" id="sumAtk"></span></summary>
+            <div class="fxform">
+              <div id="atkCondUI" class="bk-col"></div>
+              <button class="small bk-add" type="button" id="btnAddAtkCond">＋ 条件を足す</button>
+              <p class="note" style="margin:0">条件を満たしているときだけ攻撃できる。なにも足さなければ、いつでも攻撃できる（例：「自分のほかのモンスターの数が2体以上」）</p>
+            </div>
+          </details>
           <details class="mk-sec" id="secSs">
             <summary><span class="mk-st">召喚の条件（生贄・特殊召喚）</span><span class="mk-sum" id="sumSs"></span></summary>
             <div class="fxform" id="ssBox">
@@ -1452,7 +1460,7 @@ const payLpOf = c => c && c.payLp > 0 ? Math.round(+c.payLp) : 0;
 const payDiscOf = c => c && c.payDisc > 0 ? Math.round(+c.payDisc) : 0;
 const payMaxOf = c => c && c.payMax > 0 ? Math.round(+c.payMax) : 0;
 function extraCostText(c){ const L = [payLpOf(c) ? `LPを${payLpOf(c)}払う` : "", payDiscOf(c) ? `手札を${payDiscOf(c)}枚捨てる` : "", payMaxOf(c) ? `最大マナを${payMaxOf(c)}減らす` : ""].filter(Boolean); return L.length ? "【コスト】" + L.join("、") : ""; }
-function fxText(c){ return (c && c.token ? "【トークン】" : "") + [isPersist(c) ? "【永続】使ったあとも場に残る" : "", extraCostText(c), tribOf(c) ? `【生贄召喚】自分のモンスター${tribOf(c)}体を墓地へ送って召喚する` : "", ssText(c), fxText0(c)].filter(Boolean).join("。"); }
+function fxText(c){ return (c && c.token ? "【トークン】" : "") + [isPersist(c) ? "【永続】使ったあとも場に残る" : "", extraCostText(c), tribOf(c) ? `【生贄召喚】自分のモンスター${tribOf(c)}体を墓地へ送って召喚する` : "", atkCondText(c), ssText(c), fxText0(c)].filter(Boolean).join("。"); }
 /* ================= effect blocks: いつ / もし / なにを / ちがったら =================
    c.blocks = [{ trig, conds: [{k, op, n | name, where, match | text}], join: "and"|"or", then: [{kind, n, to}], else: [...] }]
    Older cards (c.fx + c.combo) are read as blocks too, so everything below runs on blocks. */
@@ -1461,6 +1469,7 @@ const COND_DEFS = {
   oppLp:    { label: "相手のLP", who: "相手のLPが", unit: "", val: (st, s) => P(st, O(s)).lp },
   hand:     { label: "自分の手札の枚数", who: "自分の手札が", unit: "枚", val: (st, s) => P(st, s).hand.length },
   grave:    { label: "自分の墓地の枚数", who: "自分の墓地が", unit: "枚", val: (st, s) => P(st, s).grave.length },
+  otherMon: { label: "自分のほかのモンスターの数（このカード以外）", who: "自分のほかのモンスターが", unit: "体", val: (st, s, c, ctx) => P(st, s).mz.filter((m, i) => m && !(ctx && ctx.zone != null && i === ctx.zone)).length },
   myMon:    { label: "自分のモンスターの数", who: "自分のモンスターが", unit: "体", val: (st, s) => P(st, s).mz.filter(Boolean).length },
   oppMon:   { label: "相手のモンスターの数", who: "相手のモンスターが", unit: "体", val: (st, s) => P(st, O(s)).mz.filter(Boolean).length },
   mana:     { label: "自分のマナ", who: "自分のマナが", unit: "", val: (st, s) => { const m = P(st, s).mana; return m ? m.cur : 0; } },
@@ -2553,7 +2562,7 @@ function kindGroups(avail){
   return gs;
 }
 const defN = k => smallN(k) ? 1 : 100;
-function mkPreviewCard(){ return { trib: MK.type === "monster" ? +$("#mkTrib").value || 0 : 0, ...(MK.kind === "relic" ? { relicView: true } : {}), type: MK.type, frame: MK.kind === "potion" || MK.kind === "relic" ? "spire" : $("#mkFrame").value, persist: (MK.type === "magic" || MK.type === "trap") && $("#mkPersist").checked, costX: $("#mkCost").value === "X", ...mkPays(), blocks: readBlocks(), ss: readSS(), eqN: Math.round(+$("#mkEq").value || 0), abs: readAbs() }; }
+function mkPreviewCard(){ return { atkConds: MK.type === "monster" ? (MK.atkConds || []) : [], atkJoin: MK.atkJoin, trib: MK.type === "monster" ? +$("#mkTrib").value || 0 : 0, ...(MK.kind === "relic" ? { relicView: true } : {}), type: MK.type, frame: MK.kind === "potion" || MK.kind === "relic" ? "spire" : $("#mkFrame").value, persist: (MK.type === "magic" || MK.type === "trap") && $("#mkPersist").checked, costX: $("#mkCost").value === "X", ...mkPays(), blocks: readBlocks(), ss: readSS(), eqN: Math.round(+$("#mkEq").value || 0), abs: readAbs() }; }
 function readBlocks(){
   const bs = (MK.blocks || []).map(b => ({ trig: b.trig, join: b.join === "or" ? "or" : "and", conds: (b.conds || []).map(x => ({ ...x })), then: (b.then || []).map(cleanEff).filter(Boolean), else: (b.conds || []).length ? (b.else || []).map(cleanEff).filter(Boolean) : [] })).filter(b => b.then.length || b.else.length);
   return bs.length ? bs : null;
@@ -2669,7 +2678,7 @@ function initBlocksUI(){
 initBlocksUI();
 function resetMaker(){
   S.editId = null; setFrameless(false); $("#mkName").value = ""; $("#mkEff").value = ""; $("#mkFlv").value = ""; $("#mkNameSize").value = $("#mkTextSize").value = "m"; syncSizes(); $("#mkAtk").value = 300; $("#mkEq").value = 200; $("#mkEqAb").value = "none"; $("#mkEqCost").value = "1"; $("#mkEqCap").value = ""; $("#mkFrame").value = ""; syncFrame(); $("#mkFont").value = "klee"; syncFont(); $("#mkQuick").checked = false; $("#mkExhaust").checked = false; $("#mkToken").checked = false; $("#mkNeow").checked = false; $("#mkPayLp").value = "0"; $("#mkPayDisc").value = "0"; $("#mkPayMax").value = "0"; $("#mkPersist").checked = false; MK.sk = null; $("#mkRarity").value = "common"; $("#mkCost").value = "1"; setMkDeck("normal"); $("#mkLimit").value = "3"; clearCanvas(); undoStack = [];
-  setMkType("monster"); loadFxForm(null); loadAbs([]); loadSS(null); $("#mkTrib").value = "0";
+  setMkType("monster"); loadFxForm(null); loadAbs([]); loadSS(null); $("#mkTrib").value = "0"; MK.atkConds = []; MK.atkJoin = "and"; renderAtkConds();
   $("#mkTitle").textContent = "カードを描く"; $("#btnNew").hidden = true; $("#btnSave").textContent = "カードを保存"; potionModeUI();
 }
 setMkType("monster"); loadFxForm(null);
@@ -2695,11 +2704,41 @@ function updateSecs(){
   if (t === "equip") sum("#sumEq", `コスト ${Math.max(0, Math.round(+$("#mkEqCost").value || 0))}`, true);
   else sum("#sumEq", $("#mkEqCap").value.trim() === "" ? "自動（ATK÷100）" : `キャパ ${$("#mkEqCap").value}`, $("#mkEqCap").value.trim() !== "");
   $("#secSs").hidden = t !== "monster";
+  $("#secAtk").hidden = t !== "monster";
+  sum("#sumAtk", (MK.atkConds || []).length ? (MK.atkConds || []).map(condPhrase).join(MK.atkJoin === "or" ? "か、" : "、かつ") : "なし", (MK.atkConds || []).length);
   const ss = readSS();
   { const tn = +$("#mkTrib").value || 0; sum("#sumSs", [tn ? `生贄${tn}体` : "", ss ? (ss.only ? "特殊召喚のみ・" : "") + (SS_CONDS[ss.cond] ? SS_CONDS[ss.cond].label : "") : ""].filter(Boolean).join("・") || "なし", !!ss || tn > 0); }
 }
 ["#mkEqCost", "#mkEqCap"].forEach(q => $(q).addEventListener("input", updateSecs));
 $("#mkTrib").addEventListener("change", () => updateBkText());
+// 攻撃の条件 rows (the same conditions as 「もし」, without 質問)
+function renderAtkConds(){
+  const box = $("#atkCondUI"); if (!box) return;
+  MK.atkConds = MK.atkConds || [];
+  const opt = (v, l, cur) => `<option value="${esc(v)}"${String(v) === String(cur) ? " selected" : ""}>${esc(l)}</option>`;
+  box.innerHTML = MK.atkConds.map((x, j) => {
+    let h = `<div class="bk-row" data-i="${j}">`;
+    if (j > 0) h += `<select data-f="join" aria-label="つなぎ" class="bk-join">${opt("and", "かつ", MK.atkJoin)}${opt("or", "または", MK.atkJoin)}</select>`;
+    h += `<select data-f="k" aria-label="なにが">${Object.entries(COND_DEFS).filter(([k]) => k !== "ask").map(([k, d]) => opt(k, d.label, x.k)).join("")}</select>`;
+    if (isNumCond(x.k)) h += `<select data-f="op" aria-label="くらべかた">${opt("ge", "以上", x.op)}${opt("le", "以下", x.op)}</select><input type="number" data-f="n" min="0" max="99999" value="${esc(x.n ?? 1)}" aria-label="数">`;
+    if (x.k === "card") h += `<input type="text" data-f="name" maxlength="40" placeholder="カード名" value="${esc(x.name || "")}" aria-label="カード名"><select data-f="where" aria-label="どこに">${Object.entries(WHERE).map(([k, v]) => opt(k, "自分の" + v, x.where || "field")).join("")}</select><select data-f="match" aria-label="名前の合わせ方">${opt("exact", "名前がぴったり", x.match)}${opt("part", "名前に含む", x.match)}</select><input type="number" data-f="cnt" min="0" max="99" value="${esc(x.cnt ?? 1)}" aria-label="枚数" style="width:64px">枚<select data-f="op" aria-label="くらべかた">${opt("ge", "以上", x.op || "ge")}${opt("le", "以下", x.op)}</select>`;
+    return h + `<button type="button" class="small ghost" data-del="${j}" aria-label="この条件を消す">×</button></div>`;
+  }).join("") || `<span class="note">なし（いつでも攻撃できる）</span>`;
+  updateBkText();
+}
+function atkCondEvent(e, rerender){
+  const el = e.target.closest("[data-f]"); if (!el) return;
+  const j = +el.closest(".bk-row").dataset.i, x = MK.atkConds[j]; if (!x) return;
+  const f = el.dataset.f, v = el.value;
+  if (f === "join"){ MK.atkJoin = v; return renderAtkConds(); }
+  if (f === "k"){ MK.atkConds[j] = v === "card" ? { k: v, name: "", where: "field", match: "exact", cnt: 1, op: "ge" } : { k: v, op: v === "lp" ? "le" : "ge", n: v === "lp" || v === "oppLp" ? 300 : v === "otherMon" ? 2 : 1 }; return renderAtkConds(); }
+  x[f] = f === "n" || f === "cnt" ? Math.max(0, Math.round(+v || 0)) : v;
+  return rerender ? renderAtkConds() : updateBkText();
+}
+$("#atkCondUI").addEventListener("change", e => atkCondEvent(e, true));
+$("#atkCondUI").addEventListener("input", e => { if (e.target.matches("input")) atkCondEvent(e, false); });
+$("#atkCondUI").addEventListener("click", e => { const d = e.target.closest("[data-del]"); if (d){ MK.atkConds.splice(+d.dataset.del, 1); renderAtkConds(); } });
+$("#btnAddAtkCond").addEventListener("click", () => { (MK.atkConds = MK.atkConds || []).push({ k: "otherMon", op: "ge", n: 2 }); renderAtkConds(); });
 $("#mkAbs").addEventListener("change", updateSecs);
 setMkPane(["draw", "look", "fx", "deck"].includes(ls.get("cb_mkpane", "draw")) ? ls.get("cb_mkpane", "draw") : "draw");
 updateSecs();
@@ -2716,7 +2755,7 @@ $("#btnSave").addEventListener("click", async () => {
   const id = S.editId || uid("c");
   const prev = S.cards.get(id) || userPotion(id) || userRelic(id) || builtinPotionCard(id);
   let eqN = Math.round(+$("#mkEq").value || 0); $("#mkEq").value = eqN;
-  const doc = { type: MK.type, name, atk: MK.type === "monster" ? atk : 0, atkInf, eqN: MK.type === "equip" ? eqN : 0, eqAb: "none", eqCost: MK.type === "equip" ? Math.max(0, Math.round(+$("#mkEqCost").value || 0)) : null, eqCap: MK.type === "monster" && $("#mkFrame").value === "socra" && $("#mkEqCap").value.trim() !== "" ? Math.max(0, Math.round(+$("#mkEqCap").value || 0)) : null, abs: MK.type === "monster" || MK.type === "equip" ? readAbs() : [], frame: $("#mkFrame").value || null, ss: readSS(), trib: MK.type === "monster" ? (+$("#mkTrib").value || null) : null, effect: $("#mkEff").value.trim(), flavor: $("#mkFlv").value.trim(), nameSize: $("#mkNameSize").value, textSize: $("#mkTextSize").value, fx: null, combo: null, blocks: readBlocks(), font: $("#mkFont").value, quick: MK.type === "magic" && $("#mkFrame").value !== "spire" && $("#mkQuick").checked, persist: (MK.type === "magic" || MK.type === "trap") && $("#mkPersist").checked, sk: mkSk(), rarity: $("#mkFrame").value === "spire" ? $("#mkRarity").value : null, exhaust: (MK.type === "magic" || MK.type === "trap") && $("#mkExhaust").checked, token: $("#mkToken").checked || null, ...mkPays(true), cost: MK.deck === "normal" ? null : $("#mkCost").value === "X" ? 0 : +$("#mkCost").value, costX: MK.deck !== "normal" && $("#mkCost").value === "X", deckMode: MK.deck, limit: +$("#mkLimit").value,
+  const doc = { type: MK.type, name, atk: MK.type === "monster" ? atk : 0, atkInf, eqN: MK.type === "equip" ? eqN : 0, eqAb: "none", eqCost: MK.type === "equip" ? Math.max(0, Math.round(+$("#mkEqCost").value || 0)) : null, eqCap: MK.type === "monster" && $("#mkFrame").value === "socra" && $("#mkEqCap").value.trim() !== "" ? Math.max(0, Math.round(+$("#mkEqCap").value || 0)) : null, abs: MK.type === "monster" || MK.type === "equip" ? readAbs() : [], frame: $("#mkFrame").value || null, ss: readSS(), trib: MK.type === "monster" ? (+$("#mkTrib").value || null) : null, atkConds: MK.type === "monster" && (MK.atkConds || []).length ? JSON.parse(JSON.stringify(MK.atkConds)) : null, atkJoin: MK.atkJoin === "or" ? "or" : "and", effect: $("#mkEff").value.trim(), flavor: $("#mkFlv").value.trim(), nameSize: $("#mkNameSize").value, textSize: $("#mkTextSize").value, fx: null, combo: null, blocks: readBlocks(), font: $("#mkFont").value, quick: MK.type === "magic" && $("#mkFrame").value !== "spire" && $("#mkQuick").checked, persist: (MK.type === "magic" || MK.type === "trap") && $("#mkPersist").checked, sk: mkSk(), rarity: $("#mkFrame").value === "spire" ? $("#mkRarity").value : null, exhaust: (MK.type === "magic" || MK.type === "trap") && $("#mkExhaust").checked, token: $("#mkToken").checked || null, ...mkPays(true), cost: MK.deck === "normal" ? null : $("#mkCost").value === "X" ? 0 : +$("#mkCost").value, costX: MK.deck !== "normal" && $("#mkCost").value === "X", deckMode: MK.deck, limit: +$("#mkLimit").value,
     img: prev && prev.img && !MK.artDirty ? prev.img : encodeArt(out, MK.kind === "potion" || MK.kind === "relic"), frameless: MK.frameless, author: S.name, ownerId: prev?.ownerId || S.uid || null, updatedAt: Date.now() };
   if (prev && prev.builtinPotion && !MK.artDirty && doc.img === potionArt(prev.potKey)) delete doc.img;
   if (MK.kind === "potion" || MK.kind === "relic") Object.assign(doc, { type: MK.kind, neow: MK.kind === "relic" && $("#mkNeow").checked || null, atk: 0, atkInf: false, eqN: 0, eqCost: null, eqCap: null, abs: [], frame: null, ss: null, quick: false, persist: false, sk: null, rarity: null, exhaust: false, payLp: null, payDisc: null, payMax: null, cost: null, costX: false, deckMode: "normal", limit: 0 });
@@ -2745,7 +2784,7 @@ function potionList(){
 }
 const potItemHTML = c => `<div class="g-item">${potionHTML(c, "sm")}<div class="meta">${c.builtinPotion ? "はじめから" + (c.edited ? "（編集ずみ）" : "") : "by " + esc(c.author || "？")}</div>${c.builtinPotion && isAdmin() ? `<div class="row g-btns" style="gap:6px"><button class="small" data-pedit="${esc(c.id)}" title="はじめからあるポーションを編集（管理者）">編集</button>${c.edited ? `<button class="small" data-preset="${esc(c.id)}">${delArm === "pr:" + c.id ? "本当に戻す" : "元に戻す"}</button>` : ""}</div>` : ""}${!c.builtinPotion && isMine(c) ? `<div class="row" style="gap:6px"><button class="small" data-pedit="${esc(c.id)}">編集</button><button class="small danger" data-pdel="${esc(c.id)}">${delArm === c.id ? "本当に消す" : "消す"}</button></div>` : ""}</div>`;
 // レリック in the gallery (the built-in ネオーレリック are shown too)
-const builtinRelicCards = () => Object.keys(RELICS).map(k => ({ id: "relic-" + k, name: RELICS[k].name, effect: RELICS[k].text, fx: null, blocks: null, img: "", author: "はじめから", builtinRelic: true, neow: true, relicView: true }));
+function builtinRelicCards(){ return Object.keys(RELICS).map(k => ({ id: "relic-" + k, name: RELICS[k].name, effect: RELICS[k].text, fx: null, blocks: null, img: "", author: "はじめから", builtinRelic: true, neow: true, relicView: true })); }
 function relicList(){
   const f = S.filt.gal || {};
   let L = [...(S.userRelics || [])].sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0)).map(c => ({ ...c, relicView: true }));
@@ -2822,7 +2861,7 @@ $("#gallery").addEventListener("click", async e => {
   if (ed){
     const c = S.cards.get(ed.dataset.edit); if (!c || !(isMine(c) || (c.starter && isAdmin()))) return;
     setMkKind("card"); S.editId = c.id; setFrameless(!!c.frameless); MK.artDirty = false; $("#mkName").value = c.nameRuby || c.name; $("#mkEff").value = c.effect || ""; $("#mkFlv").value = c.flavor || ""; $("#mkNameSize").value = SIZES_T[c.nameSize] ? c.nameSize : "m"; $("#mkTextSize").value = SIZES_T[c.textSize] ? c.textSize : "m"; syncSizes(); $("#mkAtk").value = c.atkInf ? "∞" : (c.atk || 0); $("#mkLimit").value = String(cardLimit(c));
-    $("#mkTrib").value = String(tribOf(c)); $("#mkQuick").checked = !!c.quick; $("#mkExhaust").checked = !!c.exhaust; $("#mkToken").checked = !!c.token; $("#mkPayLp").value = String(payLpOf(c)); $("#mkPayDisc").value = String(payDiscOf(c)); $("#mkPayMax").value = String(payMaxOf(c)); $("#mkPersist").checked = !!c.persist; MK.sk = c.sk || null; $("#mkRarity").value = rarityOf(c); setMkType(cardType(c)); loadFxForm(c); $("#mkFont").value = FONTS[c.font] ? c.font : "klee"; syncFont(); $("#mkCost").value = c.costX ? "X" : hasCost(c) ? String(costOf(c)) : "1"; setMkDeck(deckModeOf(c)); $("#mkEq").value = c.eqN || 0; $("#mkEqAb").value = "none"; $("#mkEqCost").value = String(eqCostOf(c)); $("#mkEqCap").value = hasEqCap(c) ? String(+c.eqCap) : ""; loadAbs(absOf(c)); syncEqLine(); $("#mkFrame").value = c.frame === "socra" || c.frame === "spire" ? c.frame : ""; syncFrame(); loadSS(c);
+    $("#mkTrib").value = String(tribOf(c)); MK.atkConds = JSON.parse(JSON.stringify(atkCondsOf(c))); MK.atkJoin = c.atkJoin === "or" ? "or" : "and"; renderAtkConds(); $("#mkQuick").checked = !!c.quick; $("#mkExhaust").checked = !!c.exhaust; $("#mkToken").checked = !!c.token; $("#mkPayLp").value = String(payLpOf(c)); $("#mkPayDisc").value = String(payDiscOf(c)); $("#mkPayMax").value = String(payMaxOf(c)); $("#mkPersist").checked = !!c.persist; MK.sk = c.sk || null; $("#mkRarity").value = rarityOf(c); setMkType(cardType(c)); loadFxForm(c); $("#mkFont").value = FONTS[c.font] ? c.font : "klee"; syncFont(); $("#mkCost").value = c.costX ? "X" : hasCost(c) ? String(costOf(c)) : "1"; setMkDeck(deckModeOf(c)); $("#mkEq").value = c.eqN || 0; $("#mkEqAb").value = "none"; $("#mkEqCost").value = String(eqCostOf(c)); $("#mkEqCap").value = hasEqCap(c) ? String(+c.eqCap) : ""; loadAbs(absOf(c)); syncEqLine(); $("#mkFrame").value = c.frame === "socra" || c.frame === "spire" ? c.frame : ""; syncFrame(); loadSS(c);
     if (!c.img){ clearCanvas(); undoStack = []; MK.artDirty = false; }
     else { const im = new Image(); im.onload = () => { clearCanvas(); setPhoto(im); setMode("draw"); composite(); undoStack = []; MK.artDirty = false; }; im.src = c.img; }
     $("#mkTitle").textContent = "カードを編集中"; $("#btnNew").hidden = false; $("#btnSave").textContent = "変更を保存";
@@ -3872,8 +3911,16 @@ function charmActive(st, m){
 }
 function canAttack(st, s, i){
   const m = P(st, s).mz[i];
-  return !!m && !m.attacked && st.turnNo > 1 && !sick(st, s, i) && !hasAb(st, s, i, "noAttack") && !charmActive(st, m);
+  return !!m && !m.attacked && st.turnNo > 1 && !sick(st, s, i) && !hasAb(st, s, i, "noAttack") && !charmActive(st, m) && atkCondOk(st, s, i);
 }
+// 攻撃の条件: this monster can only attack while these hold
+function atkCondsOf(c){ return c && cardType(c) === "monster" && Array.isArray(c.atkConds) ? c.atkConds.filter(x => x && COND_DEFS[x.k] && x.k !== "ask") : []; }
+function atkCondOk(st, s, i){
+  const m = P(st, s).mz[i], c = m && card(m.c), L = atkCondsOf(c); if (!L.length) return true;
+  const ok = x => condMet(st, s, c, x, { zone: i, mon: { s, i, u: m.u } });
+  return c.atkJoin === "or" ? L.some(ok) : L.every(ok);
+}
+function atkCondText(c){ const L = atkCondsOf(c); return L.length ? `【攻撃の条件】${L.map(condPhrase).join(c.atkJoin === "or" ? "か、" : "、かつ")}なら攻撃できる（それ以外は攻撃できない）` : ""; }
 function canEquipOn(st, id, ts, ti){
   const m = P(st, ts).mz[ti]; if (!m || cardType(card(id)) !== "equip") return false;
   return eqUsed(m) + eqCostOf(card(id)) <= eqCapOf(card(m.c));
@@ -4695,7 +4742,7 @@ function renderBoard(){
     }
     if (sel && sel.z === "mz" && sel.s === "me"){
       const m = pm.mz[sel.i];
-      if (m){ const why = st.turnNo === 1 ? "" : sick(st, me, sel.i) ? "（出たターンは攻撃できない）" : hasAb(st, me, sel.i, "noAttack") ? "（攻撃できない）" : charmActive(st, m) ? "（魅了されている）" : ""; acts += `<button class="primary" data-act="attack" ${canAttack(st, me, sel.i) ? "" : "disabled"}>攻撃する${why}</button>`; }
+      if (m){ const why = st.turnNo === 1 ? "" : sick(st, me, sel.i) ? "（出たターンは攻撃できない）" : !atkCondOk(st, me, sel.i) ? "（攻撃の条件を満たしていない）" : hasAb(st, me, sel.i, "noAttack") ? "（攻撃できない）" : charmActive(st, m) ? "（魅了されている）" : ""; acts += `<button class="primary" data-act="attack" ${canAttack(st, me, sel.i) ? "" : "disabled"}>攻撃する${why}</button>`; }
     }
     if (sel && sel.z === "sz" && sel.s === "me"){
       const z = pm.sz[sel.i];
