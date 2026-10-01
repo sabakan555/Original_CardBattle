@@ -413,6 +413,8 @@ button.bst.pot:disabled{opacity:.55;box-shadow:none;cursor:default}
 .pi-big{width:200px;aspect-ratio:7/5;display:grid;place-items:center;font-size:80px}
 .pi-big img{width:100%;height:100%;object-fit:contain;filter:drop-shadow(0 0 2px rgba(255,255,255,.9)) drop-shadow(0 0 1px rgba(255,255,255,.9)) drop-shadow(0 6px 12px rgba(0,0,0,.5))}
 .bst.pot img{filter:drop-shadow(0 0 1px #fff)}
+.bst.rel img{height:20px;width:auto;vertical-align:middle;margin:-4px 3px -4px -2px;filter:drop-shadow(0 0 1px #fff)}
+.relic-pick .rl-img{display:block;height:56px;margin:0 0 6px;filter:drop-shadow(0 0 1.5px #fff)}
 .bst.pot img{height:20px;width:auto;vertical-align:middle;margin:-4px 3px -4px -2px}
 .card.editor.potion{background:transparent;box-shadow:none;padding:0}
 .card.editor.potion .c-in{background:transparent;overflow:visible}
@@ -826,7 +828,8 @@ nav.tabs button{position:relative}
       <div class="tools-col">
         <h2 id="mkTitle">カードを描く</h2>
         <div><h3>つくるもの</h3><div class="seg" id="mkKind"><button data-k="card" aria-pressed="true">カード</button><button data-k="potion" aria-pressed="false">カード以外</button></div>
-          <div class="row" id="mkKindSub" hidden style="margin-top:8px;gap:8px;align-items:center"><span class="note">なにを：</span><div class="seg"><button aria-pressed="true" disabled style="opacity:1">ポーション</button></div><span class="note">スパイアデッキで、モンスターを倒すと手に入ることがある</span></div></div>
+          <div class="row" id="mkKindSub" hidden style="margin-top:8px;gap:8px;align-items:center"><span class="note">なにを：</span><div class="seg" id="mkKind2"><button data-k2="potion" aria-pressed="true">ポーション</button><button data-k2="relic" aria-pressed="false">レリック</button></div><span class="note" id="mkKindNote">選択の祭壇を使うデッキで、モンスターを倒すと手に入ることがある</span></div>
+          <label class="row" id="neowRow" hidden style="gap:6px;font-weight:700;cursor:pointer;margin-top:8px"><input type="checkbox" id="mkNeow"> ネオーレリック（試合のはじめのレリック選びに出る。ふつうの戦闘では手に入らない）</label></div>
         <div id="mkTypeWrap"><h3>カードの種類</h3><div class="seg" id="mkType"><button data-t="monster" aria-pressed="true">モンスター</button><button data-t="magic" aria-pressed="false">魔法</button><button data-t="equip" aria-pressed="false">装備</button><button data-t="trap" aria-pressed="false">罠</button><button data-t="power" aria-pressed="false" hidden>パワー</button></div></div>
         <label class="row" id="quickRow" hidden style="gap:6px;font-weight:700;cursor:pointer"><input type="checkbox" id="mkQuick"> 速攻魔法（相手のターンにも使える）</label>
         <label class="row" id="persistRow" hidden style="gap:6px;font-weight:700;cursor:pointer"><input type="checkbox" id="mkPersist"> 永続（使ったあとも魔法・罠ゾーンに残って、効果が続く・最大5枚）</label>
@@ -953,6 +956,7 @@ nav.tabs button{position:relative}
       <div class="filters" id="galFilters"></div>
       <div class="gallery" id="gallery"></div>
       <div id="potWrap" hidden style="margin-top:22px"><h3 style="margin:0 0 10px">ポーション（カード以外）</h3><div class="gallery" id="potGallery"></div></div>
+      <div id="relWrap" hidden style="margin-top:22px"><h3 style="margin:0 0 10px">レリック（カード以外）</h3><div class="gallery" id="relGallery"></div></div>
     </div>
   </section>
 
@@ -1164,6 +1168,9 @@ const EQ_TRIGS = ["attach", "turnStart", "turnEnd", "destroyed", "battleLose"];
 // 永続魔法・永続罠 (スパイア風 のパワー): stay face-up in the magic/trap zone; their effect fires on one of these
 const PERSIST_TRIG_LABEL = { use: "発動したとき", turnStart: "自分のターンのはじめ", turnEnd: "自分のターンのおわり", mySummon: "自分がモンスターを召喚するたび", exhaust: "自分のカードが廃棄されるたび", monDestroyed: "モンスターが破壊されるたび", myLoseLp: "自分のターンにLPを失うたび", blockGain: "自分がブロックを得るたび", vulnApply: "相手に弱体を付与するたび", atkPlay: "自分がアタックを使うたび" };
 const PERSIST_TRIGS = Object.keys(PERSIST_TRIG_LABEL);
+// レリック (カード以外): always on; 「手に入れたとき」 + the same timings as 永続 cards
+const RELIC_TRIG_LABEL = { gain: "手に入れたとき", ...Object.fromEntries(Object.entries(PERSIST_TRIG_LABEL).filter(([k]) => k !== "use")) };
+const RELIC_TRIGS = Object.keys(RELIC_TRIG_LABEL);
 const isPersist = c => !!(c && c.persist && (cardType(c) === "magic" || cardType(c) === "trap"));
 const EQ_TRIG_LABEL = { destroyed: "装備したモンスターが破壊されたとき", battleLose: "装備したモンスターがバトルに負けたとき" };
 const trigLabel = (t, k) => (t === "equip" && EQ_TRIG_LABEL[k]) || TRIGS[k];
@@ -1462,6 +1469,7 @@ function condMet(st, s, c, x, ctx){
   return x.op === "le" ? v <= n : v >= n;
 }
 function normTrig(c, trig){
+  if (c && c.relicView) return RELIC_TRIGS.includes(trig) ? trig : "gain";
   const t = cardType(c);
   if (t === "monster"){ const k = OLD_TRIG[trig] || trig; return MON_TRIGS.includes(k) ? k : "summon"; }
   if (t === "equip") return EQ_TRIGS.includes(trig) ? trig : "attach";
@@ -1505,7 +1513,7 @@ function effsText(c, effs){
 }
 function blockText(c, b){
   const t = cardType(c), isMon = t === "monster" || t === "equip";
-  const head = isMon ? `【${trigLabel(t, b.trig)}】` : isPersist(c) && b.trig !== "use" ? `【${PERSIST_TRIG_LABEL[b.trig]}】` : "";
+  const head = c && c.relicView ? `【${RELIC_TRIG_LABEL[b.trig] || ""}】` : isMon ? `【${trigLabel(t, b.trig)}】` : isPersist(c) && b.trig !== "use" ? `【${PERSIST_TRIG_LABEL[b.trig]}】` : "";
   let s = head + condsText(b) + (b.then.length ? effsText(c, b.then) : "なにもしない");
   if (b.conds.length && b.else.length) s += `。そうでなければ、${effsText(c, b.else)}`;
   return s;
@@ -1646,7 +1654,7 @@ function buildStarters(){
   S.starters = S.starterBase;
 }
 // スパイアデッキ: this card is face-up in the magic/trap zone from the start; every turn it offers 3 random スパイア風 cards
-const SPIRE_ALTAR = { id: "spire-altar", type: "magic", frame: "spire", sk: "power", rarity: "rare", persist: true, name: "選択の祭壇", atk: 0, eqN: 0, eqAb: "none", abs: [], fx: { trig: "turnStart", kind: "draft", n: 3 }, combo: null, effect: "自分のマナは毎ターン3（増えない）。自分のターンのはじめ、手札が5枚になるまでカードを引く。自分のターンのおわり、手札をすべて墓地に捨てる。", flavor: "スパイアデッキの始まりの一枚", cost: 0, deckMode: "both", limit: 1, author: "スターター", starter: true, img: "" };
+const SPIRE_ALTAR = { id: "spire-altar", type: "magic", frame: "spire", sk: "power", rarity: "rare", persist: true, name: "選択の祭壇", atk: 0, eqN: 0, eqAb: "none", abs: [], fx: { trig: "turnStart", kind: "draft", n: 3 }, combo: null, effect: "自分のマナは毎ターン3（増えない）。自分のターンのはじめ、手札が5枚になるまでカードを引く。自分のターンのおわり、手札をすべて墓地に捨てる。相手のモンスターを倒すたび、カード報酬（3枚から1枚）をもらい、40%でポーション、10%でレリックを手に入れる。", flavor: "スパイアデッキの始まりの一枚", cost: 0, deckMode: "both", limit: 1, author: "スターター", starter: true, img: "" };
 // 攻撃 / 防御 / 強打: the basic スパイア cards (damage and block = the original ×20)
 const SPIRE_BASIC = [
   { id: "spire-strike", sk: "attack", name: "攻撃", cost: 1, fx: { kind: "dmg", n: 120 } },
@@ -1683,7 +1691,7 @@ async function deleteBuiltinDoc(id){
 function rebuildCards(){
   applyBuiltinEdits();
   // ポーション (カード以外) live in the cards collection too, but never act as cards
-  const allU = S.userCards || []; S.userPotions = allU.filter(c => c && c.type === "potion"); S.userCards = allU.filter(c => !(c && c.type === "potion"));
+  const allU = S.userCards || []; S.userPotions = allU.filter(c => c && c.type === "potion"); S.userRelics = allU.filter(c => c && c.type === "relic"); S.userCards = allU.filter(c => !(c && (c.type === "potion" || c.type === "relic")));
   S.userCards.forEach(c => { if (c && c.nameRuby == null && /《/.test(c.name || "")){ c.nameRuby = c.name; c.name = plainRuby(c.name); } });
   S.cards = new Map([...S.starters, ...S.userCards].map(c => [c.id, c]));
   rebuildOwned();
@@ -1956,7 +1964,7 @@ function fxOptionsHTML(){
 function initFilters(key, onChange){
   const box = $("#" + key + "Filters");
   box.innerHTML = `<input type="search" id="${key}Q" placeholder="カード名・効果でさがす" aria-label="カード検索">
-    <div class="seg" id="${key}Type">${[["all", "すべて"], ["monster", "モンスター"], ["magic", "魔法"], ["quick", "速攻魔法"], ["equip", "装備"], ["trap", "罠"], ...(key === "gal" ? [["potion", "ポーション"]] : [])].map(([v, l]) => `<button data-v="${v}" aria-pressed="${v === "all"}">${l}</button>`).join("")}</div>
+    <div class="seg" id="${key}Type">${[["all", "すべて"], ["monster", "モンスター"], ["magic", "魔法"], ["quick", "速攻魔法"], ["equip", "装備"], ["trap", "罠"], ...(key === "gal" ? [["potion", "ポーション"], ["relic", "レリック"]] : [])].map(([v, l]) => `<button data-v="${v}" aria-pressed="${v === "all"}">${l}</button>`).join("")}</div>
     <select id="${key}Fx" aria-label="効果で絞り込み">${fxOptionsHTML()}</select>
     <select id="${key}Sort" aria-label="並べ替え">${Object.entries(SORTS).map(([k, v]) => `<option value="${k}">${v}</option>`).join("")}</select>
     <span class="count" id="${key}Count"></span>`;
@@ -2004,7 +2012,7 @@ let photo = null; // { img, x, y, s, base, r }
 MK.mode = "draw";
 function composite(){
   cx.setTransform(1, 0, 0, 1, 0, 0);
-  if (MK.kind === "potion") cx.clearRect(0, 0, cv.width, cv.height);
+  if (MK.kind === "potion" || MK.kind === "relic") cx.clearRect(0, 0, cv.width, cv.height);
   else { cx.fillStyle = "#fff"; cx.fillRect(0, 0, cv.width, cv.height); }
   if (photo){
     cx.save(); cx.translate(photo.x, photo.y); cx.rotate(photo.r); cx.scale(photo.s, photo.s);
@@ -2193,7 +2201,7 @@ $("#mkRuby").addEventListener("click", () => {
 $("#mkInf").addEventListener("click", () => { $("#mkAtk").value = $("#mkAtk").value.trim() === "∞" ? "300" : "∞"; });
 $("#fxCond").innerHTML = Object.entries(CONDS).map(([k, v]) => `<option value="${k}">${v.label}</option>`).join("");
 function setMkType(t){
-  if (MK.kind === "potion") t = "magic";
+  if (MK.kind === "potion" || MK.kind === "relic") t = "magic";
   MK.type = t;
   document.querySelectorAll("#mkType button").forEach(b => b.setAttribute("aria-pressed", b.dataset.t === t));
   const ec = $("#editCard"); ec.classList.remove("monster", "magic", "trap", "equip"); ec.classList.add(t);
@@ -2231,7 +2239,10 @@ function setMkType(t){
 }
 // つくるもの: カード / カード以外（ポーション）
 function potionModeUI(){
-  const pot = MK.kind === "potion";
+  const pot = MK.kind === "potion" || MK.kind === "relic", rel = MK.kind === "relic", what = rel ? "レリック" : "ポーション";
+  document.querySelectorAll("#mkKind2 button").forEach(b => b.setAttribute("aria-pressed", b.dataset.k2 === MK.kind));
+  $("#neowRow").hidden = !rel;
+  $("#mkKindNote").textContent = rel ? "いつでも効果が続く。選択の祭壇を使うデッキで、モンスターを倒すと10%で手に入る" : "選択の祭壇を使うデッキで、モンスターを倒すと40%で手に入る";
   $("#editCard").classList.toggle("potion", pot);
   $("#mkKindSub").hidden = !pot; $("#mkTypeWrap").hidden = pot;
   ["#quickRow", "#persistRow", "#exhaustRow", "#payRow"].forEach(q => { if (pot) $(q).hidden = true; });
@@ -2243,15 +2254,17 @@ function potionModeUI(){
   if (pot) $("#rarityRow").hidden = true;
   const db = document.querySelector('#mkTabs button[data-pane="deck"]'); if (db) db.hidden = pot;
   if (pot && db && db.getAttribute("aria-pressed") === "true") setMkPane("draw");
-  if (pot){ $("#mkTab").textContent = "ポーション"; $("#mkCostBadge").hidden = true; }
-  $("#mkTitle").textContent = pot ? (S.editId ? "ポーションを編集中" : "ポーションを描く") : (S.editId ? "カードを編集中" : "カードを描く");
-  if (!S.editId) $("#btnSave").textContent = pot ? "ポーションを保存" : "カードを保存";
+  if (pot){ $("#mkTab").textContent = what; $("#mkCostBadge").hidden = true; }
+  $("#mkTitle").textContent = pot ? (S.editId ? `${what}を編集中` : `${what}を描く`) : (S.editId ? "カードを編集中" : "カードを描く");
+  if (!S.editId) $("#btnSave").textContent = pot ? `${what}を保存` : "カードを保存";
 }
 function setMkKind(k){
-  MK.kind = k === "potion" ? "potion" : "card";
-  document.querySelectorAll("#mkKind button").forEach(b => b.setAttribute("aria-pressed", b.dataset.k === MK.kind));
-  if (MK.kind === "potion"){ $("#mkFrame").value = ""; if (typeof syncFrame === "function") syncFrame(); setMkDeck("normal"); }
-  setMkType(MK.kind === "potion" ? "magic" : MK.type);
+  MK.kind = k === "potion" || k === "relic" ? k : "card";
+  const other = MK.kind !== "card";
+  document.querySelectorAll("#mkKind button").forEach(b => b.setAttribute("aria-pressed", b.dataset.k === (other ? "potion" : "card")));
+  if (other){ $("#mkFrame").value = ""; if (typeof syncFrame === "function") syncFrame(); setMkDeck("normal"); }
+  setMkType(other ? "magic" : MK.type);
+  if (typeof bkSync === "function") bkSync();
 }
 $("#ssCond").innerHTML = Object.entries(SS_CONDS).map(([k, v]) => `<option value="${k}">${v.label}</option>`).join("");
 $("#ssCost").innerHTML = Object.entries(SS_COSTS).map(([k, v]) => `<option value="${k}">${v.label}</option>`).join("");
@@ -2449,8 +2462,8 @@ function mkKinds(){
   const t = MK.type;
   return Object.entries(KINDS).filter(([k, v]) => k !== "none" && (!v.trap || t === "trap") && (!v.mon || t === "monster" || t === "equip") && (!v.chain || t === "trap" || t === "magic")).map(([k]) => k);
 }
-function mkTrigs(){ const t = MK.type, pers = (t === "magic" || t === "trap") && $("#mkPersist").checked; return t === "monster" ? MON_TRIGS : t === "equip" ? EQ_TRIGS : pers ? PERSIST_TRIGS : ["use"]; }
-const mkTrigLabel = k => { const t = MK.type, pers = (t === "magic" || t === "trap") && $("#mkPersist").checked; return pers ? PERSIST_TRIG_LABEL[k] : trigLabel(t, k); };
+function mkTrigs(){ if (MK.kind === "relic") return RELIC_TRIGS; const t = MK.type, pers = (t === "magic" || t === "trap") && $("#mkPersist").checked; return t === "monster" ? MON_TRIGS : t === "equip" ? EQ_TRIGS : pers ? PERSIST_TRIGS : ["use"]; }
+const mkTrigLabel = k => { if (MK.kind === "relic") return RELIC_TRIG_LABEL[k]; const t = MK.type, pers = (t === "magic" || t === "trap") && $("#mkPersist").checked; return pers ? PERSIST_TRIG_LABEL[k] : trigLabel(t, k); };
 function kindGroups(avail){
   const known = new Set(KIND_GROUPS.flatMap(x => x.v.map(y => y[0])));
   const gs = KIND_GROUPS.filter(x => x.g !== "none").map(x => ({ ...x, v: x.v.filter(([k]) => avail.includes(k)) })).filter(x => x.v.length);
@@ -2458,7 +2471,7 @@ function kindGroups(avail){
   return gs;
 }
 const defN = k => smallN(k) ? 1 : 100;
-function mkPreviewCard(){ return { type: MK.type, frame: MK.kind === "potion" ? "spire" : $("#mkFrame").value, persist: (MK.type === "magic" || MK.type === "trap") && $("#mkPersist").checked, costX: $("#mkCost").value === "X", ...mkPays(), blocks: readBlocks(), ss: readSS(), eqN: Math.round(+$("#mkEq").value || 0), abs: readAbs() }; }
+function mkPreviewCard(){ return { ...(MK.kind === "relic" ? { relicView: true } : {}), type: MK.type, frame: MK.kind === "potion" || MK.kind === "relic" ? "spire" : $("#mkFrame").value, persist: (MK.type === "magic" || MK.type === "trap") && $("#mkPersist").checked, costX: $("#mkCost").value === "X", ...mkPays(), blocks: readBlocks(), ss: readSS(), eqN: Math.round(+$("#mkEq").value || 0), abs: readAbs() }; }
 function readBlocks(){
   const bs = (MK.blocks || []).map(b => ({ trig: b.trig, join: b.join === "or" ? "or" : "and", conds: (b.conds || []).map(x => ({ ...x })), then: (b.then || []).map(cleanEff).filter(Boolean), else: (b.conds || []).length ? (b.else || []).map(cleanEff).filter(Boolean) : [] })).filter(b => b.then.length || b.else.length);
   return bs.length ? bs : null;
@@ -2571,7 +2584,7 @@ function initBlocksUI(){
 }
 initBlocksUI();
 function resetMaker(){
-  S.editId = null; setFrameless(false); $("#mkName").value = ""; $("#mkEff").value = ""; $("#mkFlv").value = ""; $("#mkNameSize").value = $("#mkTextSize").value = "m"; syncSizes(); $("#mkAtk").value = 300; $("#mkEq").value = 200; $("#mkEqAb").value = "none"; $("#mkEqCost").value = "1"; $("#mkEqCap").value = ""; $("#mkFrame").value = ""; syncFrame(); $("#mkFont").value = "klee"; syncFont(); $("#mkQuick").checked = false; $("#mkExhaust").checked = false; $("#mkToken").checked = false; $("#mkPayLp").value = "0"; $("#mkPayDisc").value = "0"; $("#mkPayMax").value = "0"; $("#mkPersist").checked = false; MK.sk = null; $("#mkRarity").value = "common"; $("#mkCost").value = "1"; setMkDeck("normal"); $("#mkLimit").value = "3"; clearCanvas(); undoStack = [];
+  S.editId = null; setFrameless(false); $("#mkName").value = ""; $("#mkEff").value = ""; $("#mkFlv").value = ""; $("#mkNameSize").value = $("#mkTextSize").value = "m"; syncSizes(); $("#mkAtk").value = 300; $("#mkEq").value = 200; $("#mkEqAb").value = "none"; $("#mkEqCost").value = "1"; $("#mkEqCap").value = ""; $("#mkFrame").value = ""; syncFrame(); $("#mkFont").value = "klee"; syncFont(); $("#mkQuick").checked = false; $("#mkExhaust").checked = false; $("#mkToken").checked = false; $("#mkNeow").checked = false; $("#mkPayLp").value = "0"; $("#mkPayDisc").value = "0"; $("#mkPayMax").value = "0"; $("#mkPersist").checked = false; MK.sk = null; $("#mkRarity").value = "common"; $("#mkCost").value = "1"; setMkDeck("normal"); $("#mkLimit").value = "3"; clearCanvas(); undoStack = [];
   setMkType("monster"); loadFxForm(null); loadAbs([]); loadSS(null);
   $("#mkTitle").textContent = "カードを描く"; $("#btnNew").hidden = true; $("#btnSave").textContent = "カードを保存"; potionModeUI();
 }
@@ -2583,6 +2596,7 @@ function setMkPane(p){
   ls.set("cb_mkpane", p);
 }
 $("#mkKind").addEventListener("click", e => { const b = e.target.closest("button[data-k]"); if (b && !S.editId) setMkKind(b.dataset.k); });
+$("#mkKind2").addEventListener("click", e => { const b = e.target.closest("button[data-k2]"); if (b && !S.editId) setMkKind(b.dataset.k2); });
 $("#mkTabs").addEventListener("click", e => { const b = e.target.closest("button[data-pane]"); if (b) setMkPane(b.dataset.pane); });
 function updateSecs(){
   const t = MK.type, sum = (id, txt, on) => { const el = $(id); if (!el) return; el.textContent = txt; el.classList.toggle("on", !!on); };
@@ -2615,16 +2629,16 @@ $("#btnSave").addEventListener("click", async () => {
   const out = document.createElement("canvas"); out.width = cv.width; out.height = cv.height; out.getContext("2d").drawImage(cv, 0, 0);
   MK.mode = wasMode; composite();
   const id = S.editId || uid("c");
-  const prev = S.cards.get(id) || userPotion(id) || builtinPotionCard(id);
+  const prev = S.cards.get(id) || userPotion(id) || userRelic(id) || builtinPotionCard(id);
   let eqN = Math.round(+$("#mkEq").value || 0); $("#mkEq").value = eqN;
   const doc = { type: MK.type, name, atk: MK.type === "monster" ? atk : 0, atkInf, eqN: MK.type === "equip" ? eqN : 0, eqAb: "none", eqCost: MK.type === "equip" ? Math.max(0, Math.round(+$("#mkEqCost").value || 0)) : null, eqCap: MK.type === "monster" && $("#mkFrame").value === "socra" && $("#mkEqCap").value.trim() !== "" ? Math.max(0, Math.round(+$("#mkEqCap").value || 0)) : null, abs: MK.type === "monster" || MK.type === "equip" ? readAbs() : [], frame: $("#mkFrame").value || null, ss: readSS(), effect: $("#mkEff").value.trim(), flavor: $("#mkFlv").value.trim(), nameSize: $("#mkNameSize").value, textSize: $("#mkTextSize").value, fx: null, combo: null, blocks: readBlocks(), font: $("#mkFont").value, quick: MK.type === "magic" && $("#mkFrame").value !== "spire" && $("#mkQuick").checked, persist: (MK.type === "magic" || MK.type === "trap") && $("#mkPersist").checked, sk: mkSk(), rarity: $("#mkFrame").value === "spire" ? $("#mkRarity").value : null, exhaust: (MK.type === "magic" || MK.type === "trap") && $("#mkExhaust").checked, token: $("#mkToken").checked || null, ...mkPays(true), cost: MK.deck === "normal" ? null : $("#mkCost").value === "X" ? 0 : +$("#mkCost").value, costX: MK.deck !== "normal" && $("#mkCost").value === "X", deckMode: MK.deck, limit: +$("#mkLimit").value,
-    img: prev && prev.img && !MK.artDirty ? prev.img : encodeArt(out, MK.kind === "potion"), frameless: MK.frameless, author: S.name, ownerId: prev?.ownerId || S.uid || null, updatedAt: Date.now() };
+    img: prev && prev.img && !MK.artDirty ? prev.img : encodeArt(out, MK.kind === "potion" || MK.kind === "relic"), frameless: MK.frameless, author: S.name, ownerId: prev?.ownerId || S.uid || null, updatedAt: Date.now() };
   if (prev && prev.builtinPotion && !MK.artDirty && doc.img === potionArt(prev.potKey)) delete doc.img;
-  if (MK.kind === "potion") Object.assign(doc, { type: "potion", atk: 0, atkInf: false, eqN: 0, eqCost: null, eqCap: null, abs: [], frame: null, ss: null, quick: false, persist: false, sk: null, rarity: null, exhaust: false, payLp: null, payDisc: null, payMax: null, cost: null, costX: false, deckMode: "normal", limit: 0 });
+  if (MK.kind === "potion" || MK.kind === "relic") Object.assign(doc, { type: MK.kind, neow: MK.kind === "relic" && $("#mkNeow").checked || null, atk: 0, atkInf: false, eqN: 0, eqCost: null, eqCap: null, abs: [], frame: null, ss: null, quick: false, persist: false, sk: null, rarity: null, exhaust: false, payLp: null, payDisc: null, payMax: null, cost: null, costX: false, deckMode: "normal", limit: 0 });
   $("#btnSave").disabled = true;
   try{
     if (prev && prev.starter){ await saveBuiltinDoc(id, { ...doc, author: prev.author, ownerId: null }); toast("はじめからあるカードを更新しました（みんなに反映されます）"); }
-    else { await saveCardDoc(id, doc); toast(MK.kind === "potion" ? (S.editId ? "ポーションを更新しました" : "ポーションを保存しました！") : S.editId ? "カードを更新しました" : "カードを保存しました！"); }
+    else { await saveCardDoc(id, doc); toast(MK.kind === "potion" || MK.kind === "relic" ? (MK.kind === "relic" ? "レリック" : "ポーション") + (S.editId ? "を更新しました" : "を保存しました！") : S.editId ? "カードを更新しました" : "カードを保存しました！"); }
     resetMaker();
   }
   catch(e){ writeErr(e); }
@@ -2645,7 +2659,18 @@ function potionList(){
   return L;
 }
 const potItemHTML = c => `<div class="g-item">${potionHTML(c, "sm")}<div class="meta">${c.builtinPotion ? "はじめから" + (c.edited ? "（編集ずみ）" : "") : "by " + esc(c.author || "？")}</div>${c.builtinPotion && isAdmin() ? `<div class="row g-btns" style="gap:6px"><button class="small" data-pedit="${esc(c.id)}" title="はじめからあるポーションを編集（管理者）">編集</button>${c.edited ? `<button class="small" data-preset="${esc(c.id)}">${delArm === "pr:" + c.id ? "本当に戻す" : "元に戻す"}</button>` : ""}</div>` : ""}${!c.builtinPotion && isMine(c) ? `<div class="row" style="gap:6px"><button class="small" data-pedit="${esc(c.id)}">編集</button><button class="small danger" data-pdel="${esc(c.id)}">${delArm === c.id ? "本当に消す" : "消す"}</button></div>` : ""}</div>`;
+// レリック in the gallery (the built-in ネオーレリック are shown too)
+const builtinRelicCards = () => Object.keys(RELICS).map(k => ({ id: "relic-" + k, name: RELICS[k].name, effect: RELICS[k].text, fx: null, blocks: null, img: "", author: "はじめから", builtinRelic: true, neow: true, relicView: true }));
+function relicList(){
+  const f = S.filt.gal || {};
+  let L = [...(S.userRelics || [])].sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0)).map(c => ({ ...c, relicView: true }));
+  if (S.galF === "mine") L = L.filter(c => isMine(c)); else L = L.concat(builtinRelicCards());
+  if (f.q){ const ws = normQ(f.q).split(/\s+/).filter(Boolean); L = L.filter(c => { const hay = normQ([c.name, plainRuby(c.effect || ""), fxText0({ ...c, type: "magic" }), c.author, "レリック", c.neow ? "ネオー" : ""].join(" ")); return ws.every(w => hay.includes(w)); }); }
+  return L;
+}
+const relItemHTML = c => `<div class="g-item">${potionHTML(c, "sm")}<div class="meta">${c.neow ? "ネオー・" : ""}${c.builtinRelic ? "はじめから" : "by " + esc(c.author || "？")}</div>${!c.builtinRelic && isMine(c) ? `<div class="row" style="gap:6px"><button class="small" data-pedit="${esc(c.id)}">編集</button><button class="small danger" data-pdel="${esc(c.id)}">${delArm === c.id ? "本当に消す" : "消す"}</button></div>` : ""}</div>`;
 function renderPotGallery(){
+  { const f = S.filt.gal || {}, L = relicList(); $("#relWrap").hidden = !L.length || f.type !== "all" || !!f.fx; $("#relGallery").innerHTML = L.map(relItemHTML).join(""); }
   const f = S.filt.gal || {}, L = potionList();
   // 「すべて」 shows them under the cards; 「ポーション」 shows only them (in the main list)
   $("#potWrap").hidden = !L.length || f.type !== "all" || !!f.fx;
@@ -2661,12 +2686,12 @@ async function potGalClick(e){
     return true;
   }
   if (ed){
-    const c = userPotion(ed.dataset.pedit) || (isAdmin() ? builtinPotionCard(ed.dataset.pedit) : null); if (!c || !(isMine(c) || (c.builtinPotion && isAdmin()))) return true;
-    resetMaker(); setMkKind("potion");
+    const c = userPotion(ed.dataset.pedit) || userRelic(ed.dataset.pedit) || (isAdmin() ? builtinPotionCard(ed.dataset.pedit) : null); if (!c || !(isMine(c) || (c.builtinPotion && isAdmin()))) return true;
+    resetMaker(); setMkKind(c.type === "relic" ? "relic" : "potion"); $("#mkNeow").checked = !!c.neow;
     S.editId = c.id; MK.artDirty = false; $("#mkName").value = c.nameRuby || c.name; $("#mkEff").value = c.effect || ""; $("#mkFlv").value = c.flavor || "";
     $("#mkNameSize").value = SIZES_T[c.nameSize] ? c.nameSize : "m"; $("#mkTextSize").value = SIZES_T[c.textSize] ? c.textSize : "m"; syncSizes();
     $("#mkFont").value = FONTS[c.font] ? c.font : "klee"; syncFont();
-    loadFxForm({ ...c, type: "magic" });
+    loadFxForm({ ...c, type: "magic", ...(c.type === "relic" ? { relicView: true } : {}) });
     if (!c.img){ clearCanvas(); undoStack = []; MK.artDirty = false; }
     else { const im = new Image(); im.onload = () => { clearCanvas(); setPhoto(im); setMode("draw"); composite(); undoStack = []; MK.artDirty = false; }; im.src = c.img; }
     potionModeUI(); $("#btnNew").hidden = false; $("#btnSave").textContent = "変更を保存";
@@ -2674,15 +2699,16 @@ async function potGalClick(e){
     return true;
   }
   if (del){
-    const id = del.dataset.pdel; if (!isMine(userPotion(id))) return true;
+    const id = del.dataset.pdel; if (!isMine(userPotion(id) || userRelic(id))) return true;
     if (delArm !== id){ delArm = id; renderGallery(); return true; }
     delArm = null;
-    try{ await deleteCardDoc(id); toast("ポーションを消しました"); } catch(err){ writeErr(err); }
+    try{ await deleteCardDoc(id); toast("消しました"); } catch(err){ writeErr(err); }
     return true;
   }
   return !!ed;
 }
 $("#potGallery").addEventListener("click", potGalClick);
+$("#relGallery").addEventListener("click", potGalClick);
 function renderGallery(){
   let list = [...S.userCards].sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
   if (S.galF === "mine") list = list.filter(c => isMine(c));
@@ -2700,6 +2726,7 @@ function renderGallery(){
     return `<div class="g-item">${cardHTML(c, "sm")}<div class="meta">by ${esc(c.author || "？")}</div>${!mine && S.db ? tradeBtnHTML(c) : ""}${mine ? `<div class="row" style="gap:6px"><button class="small" data-edit="${esc(c.id)}">編集</button><button class="small danger" data-del="${esc(c.id)}">${delArm === c.id ? "本当に消す" : "消す"}</button></div>${isAdmin() && S.starters.some(b => b.name === c.name) ? `<button class="small g-wide" data-toBuiltin="${esc(c.id)}">${delArm === "b:" + c.id ? "本当に？（このカードは消えます）" : "はじめからあるカードと入れ替え"}</button>` : ""}` : ""}</div>`;
   });
   renderPotGallery();
+  if ((S.filt.gal || {}).type === "relic"){ const L = relicList(); setCount("gal", L.length, L.length); $("#gallery").innerHTML = L.map(relItemHTML).join("") || `<p class="muted">レリックがありません。</p>`; return; }
   if ((S.filt.gal || {}).type === "potion"){ const L = potionList(); setCount("gal", L.length, L.length); $("#gallery").innerHTML = L.map(potItemHTML).join("") || `<p class="muted">ポーションがありません。上の「つくるもの」で「カード以外」をえらぶと作れます。</p>`; return; }
   $("#gallery").innerHTML = items2.join("") || (total ? `<p class="muted">条件に合うカードがありません。</p>` : `<p class="muted">まだ自分のカードはありません。上で描いてみよう！</p>`);
 }
@@ -3261,7 +3288,7 @@ function newPlayer(deckIds, name, mana, spire){
   const p = { name: name || S.name, lp: START_LP, deck, hand, grave: [], mz: Array(ZONES).fill(null), sz: Array(ZONES).fill(null), mana: mana ? { max: 0, cur: 0 } : null, sleeve: name ? null : (mySleeve() || null), deckIds: [...deckIds] };
   // スパイアデッキ: the altar starts on the field, and the deck never runs out (the graveyard is shuffled back in)
   // スパイアデッキ: the opening hand is drawn only after the relic is picked (若葉 can change any card of the deck)
-  if (spire){ p.spire = true; p.relicPick = ["scroll", "sprout", "conch"]; p.deck = shuffle([...p.hand, ...p.deck]); p.hand = []; p.openHand = 5; if (!p.mana) p.mana = { max: 0, cur: 0 }; p.sz[0] = { c: SPIRE_ALTAR.id, turn: 0, face: true, u: -1 }; }
+  if (spire){ p.spire = true; p.relicPick = neowChoices(); p.deck = shuffle([...p.hand, ...p.deck]); p.hand = []; p.openHand = 5; if (!p.mana) p.mana = { max: 0, cur: 0 }; p.sz[0] = { c: SPIRE_ALTAR.id, turn: 0, face: true, u: -1 }; }
   return p;
 }
 // 選択の祭壇 (face-up): turn start → draw up to 5 cards, turn end → the whole hand goes to the graveyard
@@ -3276,10 +3303,38 @@ const RELICS = {
   sprout: { name: "若葉", text: "デッキのカードを1枚えらんで、ランダムなスパイア風カードに変える" },
   conch:  { name: "轟音のほら貝", text: "最初の手札が2枚多くなり、最初のターンだけマナが1増える" }
 };
+// user-made レリック (cards collection, type "relic")
+const userRelic = k => (S.userRelics || []).find(c => c && c.id === k) || null;
+const relicCard = k => { const u = userRelic(k); return u ? { ...u, type: "magic", frame: "spire", sk: "power", persist: false, relicView: true, costX: false, payLp: null, payDisc: null, payMax: null } : null; };
+function relicDef(k){
+  if (RELICS[k]) return { name: RELICS[k].name, text: RELICS[k].text, img: "", key: k };
+  const c = userRelic(k); if (!c) return null;
+  return { name: c.name, text: [fxText0(relicCard(k)), plainRuby(c.effect || "")].filter(Boolean).join("。") || "（効果なし）", img: c.img || "", key: k, user: true, neow: !!c.neow };
+}
+// ネオーの祝福: 3 of the ネオーレリック (the built-in ones + ones marked ネオーレリック in the card maker)
+function neowChoices(){ const pool = [...Object.keys(RELICS), ...(S.userRelics || []).filter(c => c.neow).map(c => c.id)]; return pool.length <= 3 ? pool : shuffle(pool).slice(0, 3); }
+function gainRelic(st, s, k, why, then){
+  const p = P(st, s), d = relicDef(k); if (!d){ then && then(st); return; }
+  p.relics = [...(p.relics || []), k]; log(st, s, `${why}レリック「${d.name}」を手に入れた`);
+  const rc = relicCard(k); if (rc && hasTrig(rc, "gain")) runCard(st, s, rc, "gain", {}, then); else then && then(st);
+}
+// ふつうのレリック (not ネオー) that the player doesn't have yet
+function dropRelic(st, s){
+  const have = new Set(P(st, s).relics || []), pool = (S.userRelics || []).filter(c => !c.neow && !have.has(c.id));
+  if (!pool.length) return; gainRelic(st, s, pool[Math.floor(Math.random() * pool.length)].id, "モンスターを倒して");
+}
+const hasAltar = p => !!(p && p.sz.some(z => z && z.face && z.c === SPIRE_ALTAR.id));
 function randSpire(rare){ const pool = draftPool(), rp = pool.filter(c => rarityOf(c) === "rare"); const L = rare && rp.length ? rp : pool; return L.length ? L[Math.floor(Math.random() * L.length)].id : null; }
 // pick relic `key` for player s (step 2 of 若葉: `target` = "deck:i" or "hand:i")
 function chooseRelic(st, s, key, target){
-  const p = P(st, s); if (!p.relicPick || !RELICS[key]) return false;
+  const p = P(st, s); if (!p.relicPick || !(RELICS[key] || userRelic(key))) return false;
+  // a ネオーレリック made in the card maker: its 「手に入れたとき」 runs, then the opening hand
+  if (!RELICS[key]){
+    p.relicPick = null;
+    gainRelic(st, s, key, "ネオーの祝福で");
+    if (p.openHand){ const k = Math.max(0, p.openHand - p.hand.length); p.openHand = 0; if (k) drawN(st, s, k, "最初の手札"); }
+    return true;
+  }
   if (key === "sprout" && target == null){ p.relicPick = "sprout"; return true; }
   p.relicPick = null; p.relics = [...(p.relics || []), key];
   const nm = `レリック「${RELICS[key].name}」`;
@@ -3298,7 +3353,7 @@ function chooseRelic(st, s, key, target){
 // the CPU picks at random (若葉 turns its first 攻撃 into something else)
 function autoRelic(st, s){
   const p = P(st, s); if (!p.relicPick) return;
-  const key = ["scroll", "sprout", "conch"][Math.floor(Math.random() * 3)];
+  const L = Array.isArray(p.relicPick) && p.relicPick.length ? p.relicPick : ["scroll", "sprout", "conch"], key = L[Math.floor(Math.random() * L.length)];
   if (key === "sprout"){ let i = p.deck.indexOf("spire-strike"); chooseRelic(st, s, "sprout", i >= 0 ? "deck:" + i : p.deck.length ? "deck:0" : "hand:0"); }
   else chooseRelic(st, s, key);
 }
@@ -3312,7 +3367,7 @@ const POTIONS = {
   fear:   { name: "恐怖ポーション", text: "相手のモンスター1体（いなければ相手）を弱体3にする", fx: [{ kind: "vuln", n: 3 }] },
   heal:   { name: "回復ポーション", text: "LPを200回復する", fx: [{ kind: "heal", n: 200 }] }
 };
-const POTION_MAX = 3, POTION_DROP = .4;
+const POTION_MAX = 3, POTION_DROP = .4, RELIC_DROP = .1;
 // ポーション made in the card maker (cards collection, type "potion")
 const userPotion = k => (S.userPotions || []).find(c => c && c.id === k) || null;
 // the built-in ones can be changed by the admin (builtin/potion-<key>), like built-in cards
@@ -3334,7 +3389,7 @@ function potionHTML(c, cls = "", attrs = ""){
   if (!c) return "";
   const tx = [fxText0({ ...c, type: "magic", frame: "spire", costX: false }), plainRuby(c.effect || "")].filter(Boolean).join("。");
   const img = c.img || (c.potKey ? potionArt(c.potKey) : "");
-  return `<div class="potion-ic ${cls}" ${attrs} title="${esc(tx)}"><div class="pi-img">${img ? `<img alt="" src="${img}">` : `<span>🧪</span>`}</div><div class="pi-name" style="${c.font && FONTS[c.font] ? `font-family:${FONTS[c.font].css}` : ""}">${rubyHTML(c.nameRuby || c.name || "")}</div>${tx ? `<div class="pi-text">${esc(tx)}</div>` : ""}${c.flavor ? `<div class="pi-flv">${rubyHTML(c.flavor)}</div>` : ""}</div>`;
+  return `<div class="potion-ic ${cls}" ${attrs} title="${esc(tx)}"><div class="pi-img">${img ? `<img alt="" src="${img}">` : `<span>${c.relicView ? "🏺" : "🧪"}</span>`}</div><div class="pi-name" style="${c.font && FONTS[c.font] ? `font-family:${FONTS[c.font].css}` : ""}">${rubyHTML(c.nameRuby || c.name || "")}</div>${tx ? `<div class="pi-text">${esc(tx)}</div>` : ""}${c.flavor ? `<div class="pi-flv">${rubyHTML(c.flavor)}</div>` : ""}</div>`;
 }
 // which built-in potion a home-made one behaves like (for the CPU's timing)
 function potionLike(k){
@@ -3603,7 +3658,7 @@ function monDmg(st, s, i, n, src){
 const potionChips = (p, mine) => (p.potions || []).map((k, i) => [k, i, potionDef(k)]).filter(x => x[2]).map(([k, i, d]) => mine ? `<button class="bst pot" data-potion="${i}" title="${esc(d.text)}" ${G && G.st && canAct(G.st, G.slot) ? "" : "disabled"}>${d.img ? `<img alt="" src="${d.img}">` : "🧪"}${esc(d.name)}</button>` : `<span class="bst pot" title="${esc(d.text)}">${d.img ? `<img alt="" src="${d.img}">` : "🧪"}${esc(d.name)}</span>`).join("");
 // the row under each player: relics, 筋力 / 脱力 / ブロック…, and ポーション (full width, so the name and LP keep their room)
 const potRow = (p, mine) => { const h = statChips(p) + potionChips(p, mine); return h ? `<div class="pots">${h}</div>` : ""; };
-const statChips = p => Object.entries(p.free || {}).filter(([, v]) => v > 0).map(([k, v]) => `<span class="bst free" title="次に使うこの種類のカードはコスト0">次の${SPIRE_LABEL[k]}0コスト${v > 1 ? "×" + v : ""}</span>`).join("") + (p.relics || []).filter(k => RELICS[k]).map(k => `<span class="bst rel" title="${esc(RELICS[k].text)}">${esc(RELICS[k].name)}</span>`).join("") + (p.block ? `<span class="bst blk" title="次の自分のターンのはじめまで、受けるダメージを先に引き受ける">ブロック ${p.block}</span>` : "") + (p.vuln > 0 ? `<span class="bst vul" title="受けるダメージが1.5倍">弱体 ${p.vuln}</span>` : "") + (p.str ? `<span class="bst str" title="カードで与えるダメージ（1回ごと）と、自分のモンスターがプレイヤーに与える戦闘ダメージが${p.str > 0 ? "+" : "−"}${Math.abs(p.str)}">筋力 ${p.str}</span>` : "") + (p.weak > 0 ? `<span class="bst wk" title="カードで与えるダメージが0.75倍">脱力 ${p.weak}</span>` : "")
+const statChips = p => Object.entries(p.free || {}).filter(([, v]) => v > 0).map(([k, v]) => `<span class="bst free" title="次に使うこの種類のカードはコスト0">次の${SPIRE_LABEL[k]}0コスト${v > 1 ? "×" + v : ""}</span>`).join("") + (p.relics || []).map(k => relicDef(k)).filter(Boolean).map(d => `<span class="bst rel" title="${esc(d.text)}">${d.img ? `<img alt="" src="${d.img}">` : ""}${esc(d.name)}</span>`).join("") + (p.block ? `<span class="bst blk" title="次の自分のターンのはじめまで、受けるダメージを先に引き受ける">ブロック ${p.block}</span>` : "") + (p.vuln > 0 ? `<span class="bst vul" title="受けるダメージが1.5倍">弱体 ${p.vuln}</span>` : "") + (p.str ? `<span class="bst str" title="カードで与えるダメージ（1回ごと）と、自分のモンスターがプレイヤーに与える戦闘ダメージが${p.str > 0 ? "+" : "−"}${Math.abs(p.str)}">筋力 ${p.str}</span>` : "") + (p.weak > 0 ? `<span class="bst wk" title="カードで与えるダメージが0.75倍">脱力 ${p.weak}</span>` : "")
   + [[p.barricade, "バリケード", "ブロックがターンのはじめに消えない"], [p.plate > 0, `プレート ${p.plate}`, "自分のターンのおわりにこの分ブロックを得る。LPを失うたび20減る"], [p.corrupt, "堕落", "スキルのコストが0。使うと廃棄"], [p.vulnBonus > 0, `無慈悲 +${p.vulnBonus}%`, "弱体の相手へのダメージがさらにふえる"], [p.firstBlock2, "盤石", "毎ターン最初のブロックが2倍"], [p.rage > 0, `激怒 ${p.rage}`, "このターン、アタックを使うたびブロックを得る"], [p.thorns > 0, `反撃 ${p.thorns}`, "攻撃してきたモンスターにダメージ"], [p.dblAtk > 0, `次のアタック×2`, "次に使うアタックをもう1回プレイ"], [(p.autoPlay || []).length, `自動：${(p.autoPlay || []).join("・")}`, "名前にこの文字が入ったカードを引くと自動で使う"]].filter(x => x[0]).map(x => `<span class="bst pw" title="${x[2]}">${x[1]}</span>`).join("");
 function dealDmg(st, s, n){
   const p = P(st, s); if (n === Infinity){ p.lp = Math.min(0, p.lp); return; }
@@ -3740,18 +3795,19 @@ function fireTurn(st, who, trig, then){
   altarTurn(st, who, trig);
   const L = [];
   for (const o of ["a", "b"]) P(st, o).mz.forEach((m, i) => { if (m) monTrigList(st, o, i, trig).forEach(x => { if (x.s === who && hasTrig(x.c, trig)) L.push(x); }); });
-  const PL = persistList(st, who, trig, {}); PL.forEach(x => log(st, who, `永続「${x.c.name}」の効果！`));
+  const PL = persistList(st, who, trig, {}); PL.forEach(x => log(st, who, `${x.c.relicView ? "レリック" : "永続"}「${x.c.name}」の効果！`));
   runList(st, L.concat(PL), then);
 }
 // face-up 永続 cards of player s whose effect fires on `trig`
 function persistList(st, s, trig, ctx){
   const L = [];
   P(st, s).sz.forEach((z, i) => { if (!z || !z.face) return; const c = card(z.c); if (isPersist(c) && hasTrig(c, trig)) L.push({ s, c, trig, ctx: { ...ctx, pz: i } }); });
+  (P(st, s).relics || []).forEach(k => { const rc = relicCard(k); if (rc && trig !== "gain" && hasTrig(rc, trig)) L.push({ s, c: rc, trig, ctx: { ...ctx } }); });
   return L;
 }
 function persistFire(st, s, trig, ctx, then){
   const L = persistList(st, s, trig, ctx);
-  if (L.length) L.forEach(x => log(st, s, `永続「${x.c.name}」の効果！`));
+  if (L.length) L.forEach(x => log(st, s, `${x.c.relicView ? "レリック" : "永続"}「${x.c.name}」の効果！`));
   runList(st, L, then);
 }
 // stick equip hand[hi] of player s onto monster (ts,ti) at position pos (default: rightmost)
@@ -3798,7 +3854,8 @@ function destroyMonster(st, s, i, why, opt = {}){
   es.forEach(e => P(st, e.o).grave.push(e.c));
   if (es.length) log(st, s, `付いていた装備${es.map(e => `「${card(e.c).name}」`).join("")}も墓地へ`);
   // スパイアデッキ: beating an opponent's monster → カード報酬 + maybe a ポーション
-  if (!opt.force && P(st, O(s)).spire){ offerReward(st, O(s)); if (Math.random() < POTION_DROP) givePotion(st, O(s), "モンスターを倒して"); }
+  // 選択の祭壇: beating an opponent's monster → カード報酬, 40% ポーション, 10% レリック
+  if (!opt.force && hasAltar(P(st, O(s)))){ offerReward(st, O(s)); if (Math.random() < POTION_DROP) givePotion(st, O(s), "モンスターを倒して"); if (Math.random() < RELIC_DROP) dropRelic(st, O(s)); }
   runList(st, monTrigList(st, s, i, "destroyed", m, { eqs: es.map(e => ({ c: e.c, o: e.o, u: e.u })), eqCount: es.length }), st2 => persistFire(st2, s, "monDestroyed", {}, st3 => persistFire(st3, O(s), "monDestroyed", {}, opt.then)));
   return true;
 }
@@ -4746,7 +4803,7 @@ function renderOverlay(){
     const list = L.map(([k, id]) => cardHTML(card(id), "sm pick", `data-sprout="${k}" tabindex="0" role="button"`, mOpt(me))).join("");
     html = `<div class="box"><h2 style="margin:0">若葉：変えるカードをえらぶ</h2><p class="muted" style="margin:0">デッキの${L.length}枚からえらんだ1枚が、ランダムなスパイア風カードに変わります（手札はこのあと引きます）</p><div class="gallery">${list || '<p class="muted">カードがありません</p>'}</div></div>`;
   } else if (Array.isArray(rp)){
-    html = `<div class="box"><h2 style="margin:0">ネオーの祝福：レリックを1つえらぶ</h2><p class="muted" style="margin:0">スパイアデッキのはじまりに、どれか1つだけ手に入る</p><div class="relic-pick">${rp.filter(k => RELICS[k]).map(k => `<button data-relic="${k}"><b>${esc(RELICS[k].name)}</b>${esc(RELICS[k].text)}</button>`).join("")}</div></div>`;
+    html = `<div class="box"><h2 style="margin:0">ネオーの祝福：レリックを1つえらぶ</h2><p class="muted" style="margin:0">スパイアデッキのはじまりに、どれか1つだけ手に入る</p><div class="relic-pick">${rp.map(k => [k, relicDef(k)]).filter(x => x[1]).map(([k, d]) => `<button data-relic="${esc(k)}">${d.img ? `<img class="rl-img" alt="" src="${d.img}">` : ""}<b>${esc(d.name)}</b>${esc(d.text)}</button>`).join("")}</div></div>`;
   } else if (G.chooseQ.length && G.chooseQ[0].ask){
     const q = G.chooseQ[0];
     const yesTxt = q.block ? effsText(q.c, q.block.b.then) + (q.block.b.else.length ? `／「いいえ」なら：${effsText(q.c, q.block.b.else)}` : "") : KINDS[q.fx.kind].text(q.fx.n);
