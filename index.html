@@ -786,6 +786,7 @@ nav.tabs button{position:relative}
   /* battle: LP next to the play area, hand scrolls sideways */
   .mstat{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:13px;color:var(--muted);background:rgba(255,255,255,.04);border:1px solid var(--line);border-radius:12px;padding:6px 10px}
   .mstat .who{font-weight:700;color:var(--ink);max-width:40%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .mstat .chip{font-size:12px;padding:1px 8px;min-height:0}
   .mstat .lpv{margin-left:auto;font-family:var(--en,var(--ui));font-weight:700;font-size:20px;color:var(--accent)}
   .mstat .lpv.low{color:var(--hit)}
   .mstat .lpv small{font-size:11px;color:var(--muted);margin-right:4px}
@@ -5096,7 +5097,7 @@ function renderBoard(){
   <div class="board">
     <div class="table">
       ${manaBox(po, esc(po.name))}${blockBox(po, esc(po.name))}
-      <div class="mstat"><span class="who">${esc(po.name)}</span><span>山札 ${po.deck.length}</span><span>墓地 ${po.grave.length}</span>${(po.exile || []).length ? `<span>廃棄 ${po.exile.length}</span>` : ""}<span class="lpv ${po.lp <= 300 ? "low" : ""}"><small>LP</small>${po.lp}</span></div>
+      <div class="mstat"><span class="who">${esc(po.name)}</span><span>山札 ${po.deck.length}</span>${(po.ex || []).length ? `<span>EX ${po.ex.length}</span>` : ""}<button class="chip" data-grave="op:grave">墓地 ${po.grave.length}</button>${(po.exile || []).length ? `<button class="chip" data-grave="op:exile">廃棄 ${po.exile.length}</button>` : ""}<span class="lpv ${po.lp <= 300 ? "low" : ""}"><small>LP</small>${po.lp}</span></div>
       <div class="ohand">${backHTML("xs", "", po.sleeve)}<span class="cnt-x">×${po.hand.length}</span><span class="lbl">手札（${esc(po.name)}）</span></div>
       <span class="zlabel">相手の魔法・罠ゾーン</span>
       <div class="zones">${zoneHTML(op, "sz")}</div>
@@ -5114,7 +5115,7 @@ function renderBoard(){
       <div class="zones">${zoneHTML(me, "mz")}</div>
       <span class="zlabel">自分の魔法・罠ゾーン</span>
       <div class="zones">${zoneHTML(me, "sz")}</div>
-      <div class="mstat"><span class="who">${esc(pm.name)}${G.spectate ? "" : "（あなた）"}</span><span>山札 ${pm.deck.length}</span><span>墓地 ${pm.grave.length}</span>${(pm.exile || []).length ? `<span>廃棄 ${pm.exile.length}</span>` : ""}<span class="lpv ${pm.lp <= 300 ? "low" : ""}"><small>LP</small>${pm.lp}</span></div>
+      <div class="mstat"><span class="who">${esc(pm.name)}${G.spectate ? "" : "（あなた）"}</span><button class="chip" data-grave="me:deck">山札 ${pm.deck.length}</button>${(pm.ex || []).length ? `<button class="chip exchip" data-exopen>EX ${pm.ex.length}</button>` : ""}<button class="chip" data-grave="me:grave">墓地 ${pm.grave.length}</button>${(pm.exile || []).length ? `<button class="chip" data-grave="me:exile">廃棄 ${pm.exile.length}</button>` : ""}<span class="lpv ${pm.lp <= 300 ? "low" : ""}"><small>LP</small>${pm.lp}</span></div>
       <span class="zlabel">手札</span>
       <div class="hand">${handHTML}</div>
       ${handActs ? `<div class="actions hand-acts">${handActs}</div>` : ""}
@@ -5567,7 +5568,7 @@ function renderTrade(){
   $("#tradeOut").innerHTML = pout.length ? pout.map(t => `<div class="tr-item"><div><b>${esc(t.toName || "？")}</b> さんへ（返事待ち）</div>
       <div class="tr-pair"><div><div class="lbl">渡す（コピー）</div>${tradeCard(t.give)}</div><span class="tr-arrow">⇄</span><div><div class="lbl">もらう</div>${tradeCard(t.want)}</div></div>
       <div class="row"><button class="small ghost" data-can="${esc(t.id)}">とりけす</button></div></div>`).join("") : `<p class="muted" style="margin:0">送った申し込みはありません。下のカードから選んでね。</p>`;
-  const pool0 = S.db ? S.userCards.filter(c => c.ownerId && c.ownerId !== S.uid && !owns(c.id)) : [];
+  const pool0 = S.db ? S.userCards.filter(c => c.ownerId && c.ownerId !== S.uid && !owns(c.id) && !c.token) : [];
   const pool = sortCards(pool0.filter(c => matchCard(c, S.filt.trade)), S.filt.trade.sort);
   setCount("trade", pool.length, pool0.length);
   $("#tradePool").innerHTML = pool.map(c => `<div class="g-item">${cardHTML(c, "sm")}<div class="meta">by ${esc(c.author || "？")}</div>${tradeBtnHTML(c)}</div>`).join("")
