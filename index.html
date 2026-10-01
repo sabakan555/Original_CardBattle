@@ -2510,10 +2510,11 @@ $("#btnSave").addEventListener("click", async () => {
   const out = document.createElement("canvas"); out.width = cv.width; out.height = cv.height; out.getContext("2d").drawImage(cv, 0, 0);
   MK.mode = wasMode; composite();
   const id = S.editId || uid("c");
-  const prev = S.cards.get(id) || userPotion(id);
+  const prev = S.cards.get(id) || userPotion(id) || builtinPotionCard(id);
   let eqN = Math.round(+$("#mkEq").value || 0); $("#mkEq").value = eqN;
   const doc = { type: MK.type, name, atk: MK.type === "monster" ? atk : 0, atkInf, eqN: MK.type === "equip" ? eqN : 0, eqAb: "none", eqCost: MK.type === "equip" ? Math.max(0, Math.round(+$("#mkEqCost").value || 0)) : null, eqCap: MK.type === "monster" && $("#mkFrame").value === "socra" && $("#mkEqCap").value.trim() !== "" ? Math.max(0, Math.round(+$("#mkEqCap").value || 0)) : null, abs: MK.type === "monster" || MK.type === "equip" ? readAbs() : [], frame: $("#mkFrame").value || null, ss: readSS(), effect: $("#mkEff").value.trim(), flavor: $("#mkFlv").value.trim(), nameSize: $("#mkNameSize").value, textSize: $("#mkTextSize").value, fx: null, combo: null, blocks: readBlocks(), font: $("#mkFont").value, quick: MK.type === "magic" && $("#mkFrame").value !== "spire" && $("#mkQuick").checked, persist: (MK.type === "magic" || MK.type === "trap") && $("#mkPersist").checked, sk: mkSk(), rarity: $("#mkFrame").value === "spire" ? $("#mkRarity").value : null, exhaust: (MK.type === "magic" || MK.type === "trap") && $("#mkExhaust").checked, ...mkPays(true), cost: MK.deck === "normal" ? null : $("#mkCost").value === "X" ? 0 : +$("#mkCost").value, costX: MK.deck !== "normal" && $("#mkCost").value === "X", deckMode: MK.deck, limit: +$("#mkLimit").value,
     img: prev && prev.img && !MK.artDirty ? prev.img : encodeArt(out), frameless: MK.frameless, author: S.name, ownerId: prev?.ownerId || S.uid || null, updatedAt: Date.now() };
+  if (prev && prev.builtinPotion && !MK.artDirty && doc.img === potionArt(prev.potKey)) delete doc.img;
   if (MK.kind === "potion") Object.assign(doc, { type: "potion", atk: 0, atkInf: false, eqN: 0, eqCost: null, eqCap: null, abs: [], frame: null, ss: null, quick: false, persist: false, sk: null, rarity: null, exhaust: false, payLp: null, payDisc: null, payMax: null, cost: null, costX: false, deckMode: "normal", limit: 0 });
   $("#btnSave").disabled = true;
   try{
@@ -2530,15 +2531,15 @@ let delArm = null;
 const POTION_COL = { fire: "#e0533a", blast: "#f29b38", block: "#3d8bd9", energy: "#f2c94c", speed: "#4caf6e", fear: "#8e5bc9", heal: "#f28fb5" };
 // a simple flask picture for the built-in ones (they have no drawing)
 const potionArt = k => "data:image/svg+xml," + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 280 200"><rect width="280" height="200" fill="#fff8ef"/><path d="M122 30h36v44l40 70a18 18 0 0 1-16 27H98a18 18 0 0 1-16-27l40-70z" fill="#fff" stroke="#1e2328" stroke-width="7" stroke-linejoin="round"/><path d="M104 118h72l22 34a12 12 0 0 1-10 18H92a12 12 0 0 1-10-18z" fill="${POTION_COL[k] || "#e0533a"}"/><rect x="114" y="20" width="52" height="16" rx="5" fill="#8b5a3c" stroke="#1e2328" stroke-width="5"/><circle cx="120" cy="145" r="7" fill="#fff" opacity=".7"/><circle cx="150" cy="132" r="4" fill="#fff" opacity=".7"/></svg>`);
-const builtinPotionCards = () => Object.keys(POTIONS).map(k => ({ id: "potion-" + k, name: POTIONS[k].name, effect: POTIONS[k].text, fx: null, blocks: null, img: potionArt(k), author: "はじめから", builtinPotion: true }));
+const builtinPotionCards = () => Object.keys(POTIONS).map(k => builtinPotionCard(k));
 function potionList(){
   const f = S.filt.gal || {};
   let L = [...(S.userPotions || [])].sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
   if (S.galF === "mine") L = L.filter(c => isMine(c)); else L = L.concat(builtinPotionCards());
-  if (f.q){ const ws = normQ(f.q).split(/\s+/).filter(Boolean); L = L.filter(c => { const hay = normQ([c.name, plainRuby(c.effect || ""), c.builtinPotion ? "" : fxText0(potionCard(c.id)), c.author, "ポーション"].join(" ")); return ws.every(w => hay.includes(w)); }); }
+  if (f.q){ const ws = normQ(f.q).split(/\s+/).filter(Boolean); L = L.filter(c => { const hay = normQ([c.name, plainRuby(c.effect || ""), fxText0(potionCard(c.potKey || c.id)), c.author, "ポーション"].join(" ")); return ws.every(w => hay.includes(w)); }); }
   return L;
 }
-const potItemHTML = c => `<div class="g-item">${potionHTML(c, "sm")}<div class="meta">${c.builtinPotion ? "はじめから" : "by " + esc(c.author || "？")}</div>${!c.builtinPotion && isMine(c) ? `<div class="row" style="gap:6px"><button class="small" data-pedit="${esc(c.id)}">編集</button><button class="small danger" data-pdel="${esc(c.id)}">${delArm === c.id ? "本当に消す" : "消す"}</button></div>` : ""}</div>`;
+const potItemHTML = c => `<div class="g-item">${potionHTML(c, "sm")}<div class="meta">${c.builtinPotion ? "はじめから" + (c.edited ? "（編集ずみ）" : "") : "by " + esc(c.author || "？")}</div>${c.builtinPotion && isAdmin() ? `<div class="row g-btns" style="gap:6px"><button class="small" data-pedit="${esc(c.id)}" title="はじめからあるポーションを編集（管理者）">編集</button>${c.edited ? `<button class="small" data-preset="${esc(c.id)}">${delArm === "pr:" + c.id ? "本当に戻す" : "元に戻す"}</button>` : ""}</div>` : ""}${!c.builtinPotion && isMine(c) ? `<div class="row" style="gap:6px"><button class="small" data-pedit="${esc(c.id)}">編集</button><button class="small danger" data-pdel="${esc(c.id)}">${delArm === c.id ? "本当に消す" : "消す"}</button></div>` : ""}</div>`;
 function renderPotGallery(){
   const f = S.filt.gal || {}, L = potionList();
   // 「すべて」 shows them under the cards; 「ポーション」 shows only them (in the main list)
@@ -2546,9 +2547,16 @@ function renderPotGallery(){
   $("#potGallery").innerHTML = L.map(potItemHTML).join("");
 }
 async function potGalClick(e){
-  const ed = e.target.closest("[data-pedit]"), del = e.target.closest("[data-pdel]");
+  const ed = e.target.closest("[data-pedit]"), del = e.target.closest("[data-pdel]"), rs = e.target.closest("[data-preset]");
+  if (rs && isAdmin()){
+    const id = rs.dataset.preset;
+    if (delArm !== "pr:" + id){ delArm = "pr:" + id; renderGallery(); return true; }
+    delArm = null;
+    try{ await deleteBuiltinDoc(id); toast("ポーションをはじめの状態に戻しました"); } catch(err){ writeErr(err); }
+    return true;
+  }
   if (ed){
-    const c = userPotion(ed.dataset.pedit); if (!c || !isMine(c)) return true;
+    const c = userPotion(ed.dataset.pedit) || (isAdmin() ? builtinPotionCard(ed.dataset.pedit) : null); if (!c || !(isMine(c) || (c.builtinPotion && isAdmin()))) return true;
     resetMaker(); setMkKind("potion");
     S.editId = c.id; MK.artDirty = false; $("#mkName").value = c.nameRuby || c.name; $("#mkEff").value = c.effect || ""; $("#mkFlv").value = c.flavor || "";
     $("#mkNameSize").value = SIZES_T[c.nameSize] ? c.nameSize : "m"; $("#mkTextSize").value = SIZES_T[c.textSize] ? c.textSize : "m"; syncSizes();
@@ -2591,7 +2599,7 @@ function renderGallery(){
   $("#gallery").innerHTML = items2.join("") || (total ? `<p class="muted">条件に合うカードがありません。</p>` : `<p class="muted">まだ自分のカードはありません。上で描いてみよう！</p>`);
 }
 $("#gallery").addEventListener("click", async e => {
-  if (e.target.closest("[data-pedit],[data-pdel]")){ potGalClick(e); return; }
+  if (e.target.closest("[data-pedit],[data-pdel],[data-preset]")){ potGalClick(e); return; }
   const tb = e.target.closest("[data-trade]"); if (tb){ openTradeDlg(tb.dataset.trade); return; }
   const ed = e.target.closest("[data-edit]"), del = e.target.closest("[data-del]");
   if (ed){
@@ -3202,7 +3210,15 @@ const POTIONS = {
 const POTION_MAX = 3, POTION_DROP = .4;
 // ポーション made in the card maker (cards collection, type "potion")
 const userPotion = k => (S.userPotions || []).find(c => c && c.id === k) || null;
+// the built-in ones can be changed by the admin (builtin/potion-<key>), like built-in cards
+const potionEdit = k => (S.builtinEdits || {})["potion-" + k] || null;
+function builtinPotionCard(id){
+  const k = String(id || "").replace(/^potion-/, ""); if (!POTIONS[k]) return null;
+  const e = potionEdit(k) || {};
+  return { id: "potion-" + k, name: POTIONS[k].name, effect: "", flavor: "", fx: null, blocks: [{ trig: "use", conds: [], join: "and", then: POTIONS[k].fx, else: [] }], img: potionArt(k), ...e, type: "potion", author: "はじめから", ownerId: null, builtinPotion: true, starter: true, edited: !!potionEdit(k), potKey: k };
+}
 function potionDef(k){
+  if (POTIONS[k] && potionEdit(k)){ const b = builtinPotionCard(k); return { name: b.name, text: [fxText0(potionCard(k)), plainRuby(b.effect || "")].filter(Boolean).join("。") || "（効果なし）", img: b.img, key: k }; }
   if (POTIONS[k]) return { ...POTIONS[k], key: k };
   const c = userPotion(k); if (!c) return null;
   return { name: c.name, text: [fxText0(potionCard(k)), plainRuby(c.effect || "")].filter(Boolean).join("。") || "（効果なし）", img: c.img || "", key: k, user: true };
@@ -3211,7 +3227,7 @@ function potionDef(k){
 function potionHTML(c, cls = "", attrs = ""){ return cardHTML({ ...c, type: "magic", frame: null, cost: null, costX: false, deckMode: "normal", persist: false, quick: false, exhaust: false, potionView: true }, "potion " + cls, attrs, { mana: false }); }
 // which built-in potion a home-made one behaves like (for the CPU's timing)
 function potionLike(k){
-  if (POTIONS[k]) return k;
+  if (POTIONS[k] && !potionEdit(k)) return k;
   const e = blocksOf(potionCard(k)).flatMap(b => b.then)[0]; if (!e) return "speed";
   if (e.kind === "dmgAll" || (e.kind === "dmg" && e.to === "all")) return "blast";
   return { dmg: "fire", bash: "fire", dmgRand: "fire", block: "block", heal: "heal", manaNow: "energy", manaMax: "energy", draw: "speed", vuln: "fear", vulnAll: "fear" }[e.kind] || "speed";
@@ -3224,7 +3240,7 @@ function givePotion(st, s, why){
   if (p.potions.length >= POTION_MAX){ log(st, s, `${why}ポーションを見つけたが、もう持てない（${POTION_MAX}つまで）`); return; }
   p.potions.push(k); log(st, s, `${why}「${potionDef(k).name}」を手に入れた`);
 }
-const potionCard = k => { const u = !POTIONS[k] && userPotion(k); if (u) return { ...u, type: "magic", frame: "spire", sk: "skill", persist: false, costX: false, payLp: null, payDisc: null, payMax: null }; return POTIONS[k] ? { id: "potion-" + k, name: POTIONS[k].name, type: "magic", frame: "spire", sk: "skill", fx: null, blocks: [{ trig: "use", conds: [], join: "and", then: POTIONS[k].fx, else: [] }] } : null; };
+const potionCard = k => { const u = !POTIONS[k] && userPotion(k); if (u) return { ...u, type: "magic", frame: "spire", sk: "skill", persist: false, costX: false, payLp: null, payDisc: null, payMax: null }; const b = builtinPotionCard(k); return b ? { ...b, type: "magic", frame: "spire", sk: "skill", persist: false, costX: false, payLp: null, payDisc: null, payMax: null } : null; };
 function usePotion(st, s, i, then){
   const p = P(st, s), k = (p.potions || [])[i];
   if (!k || !potionCard(k) || st.turn !== s || st.pending || st.winner) return false;
@@ -4512,7 +4528,7 @@ function renderOverlay(){
     html = `<div class="box"><h2 style="margin:0">${esc(head)}</h2>${chainHTML}<p style="margin:0">${esc(msg)}</p><div class="gallery">${list}</div><div class="row"><button data-close="notrap">${win === "chain" || win === "chainAttack" ? "チェーンしない" : "使わない"}</button></div></div>`;
   } else if (G.potPick != null && myP && potionDef((myP.potions || [])[G.potPick]) && canAct(st, me)){
     const k = myP.potions[G.potPick], d = potionDef(k);
-    html = `<div class="box"><h2 style="margin:0">🧪${esc(d.name)}</h2>${potionHTML(d.user ? userPotion(k) : builtinPotionCards().find(c => c.id === "potion-" + k), "")}<p style="margin:0;font-size:17px">${esc(d.text)}</p><p class="muted" style="margin:0">マナはいらない。使うとなくなる</p><div class="row"><button class="primary" data-potuse="${G.potPick}">使う</button><button class="ghost" data-close="potion">やめる</button></div></div>`;
+    html = `<div class="box"><h2 style="margin:0">🧪${esc(d.name)}</h2>${potionHTML(d.user ? userPotion(k) : builtinPotionCard(k), "")}<p style="margin:0;font-size:17px">${esc(d.text)}</p><p class="muted" style="margin:0">マナはいらない。使うとなくなる</p><div class="row"><button class="primary" data-potuse="${G.potPick}">使う</button><button class="ghost" data-close="potion">やめる</button></div></div>`;
   } else if (myP && !st.winner && (myP.rewards || []).length){
     const r = myP.rewards[0];
     html = `<div class="box"><h2 style="margin:0">カード報酬：1枚えらぶ</h2><p class="muted" style="margin:0">モンスターを倒した！えらんだカードは墓地に入り、山札がなくなったときデッキにまざります${myP.rewards.length > 1 ? `（のこり${myP.rewards.length}回）` : ""}</p><div class="gallery reward-pick">${r.ids.filter(id => S.cards.has(id)).map(id => cardHTML(card(id), "sm pick", `data-reward="${esc(id)}" tabindex="0" role="button"`, mOpt(me))).join("")}</div><div class="row"><button class="ghost" data-reward="">スキップ</button></div></div>`;
