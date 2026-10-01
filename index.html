@@ -401,8 +401,27 @@ ruby rt{font-size:.5em;line-height:1;font-style:normal}
 button.bst.pot{cursor:pointer;min-height:0;box-shadow:0 0 0 2px #fdba74}
 button.bst.pot:disabled{opacity:.55;box-shadow:none;cursor:default}
 .pots{display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-end;margin:4px 0 2px}.pots .bst{margin-left:0}
-.card.potion{--cbg:#ffe3c4}.card.potion .c-tab{color:#c2410c}.card.potion .c-lim{display:none}
-#editCard.potion{--cbg:#ffe3c4}#editCard.potion .c-tab{color:#c2410c}
+.potion-ic{--pw:150px;width:var(--pw);display:flex;flex-direction:column;align-items:center;gap:4px;text-align:center;color:#e7eaff}
+.potion-ic.sm{--pw:118px}
+.potion-ic .pi-img{width:100%;aspect-ratio:7/5;display:grid;place-items:center}
+.potion-ic .pi-img img{width:100%;height:100%;object-fit:contain;filter:drop-shadow(0 0 1.5px rgba(255,255,255,.9)) drop-shadow(0 0 1px rgba(255,255,255,.9)) drop-shadow(0 4px 8px rgba(0,0,0,.45))}
+.potion-ic .pi-img span{font-size:calc(var(--pw)*.4)}
+.potion-ic .pi-name{font-weight:700;font-size:calc(var(--pw)*.11);line-height:1.2}
+.potion-ic .pi-text{font-size:calc(var(--pw)*.078);line-height:1.35;color:#ffd7b0}
+.potion-ic .pi-flv{font-size:calc(var(--pw)*.072);line-height:1.3;color:#a3abd6;font-style:italic}
+.pi-big{width:200px;aspect-ratio:7/5;display:grid;place-items:center;font-size:80px}
+.pi-big img{width:100%;height:100%;object-fit:contain;filter:drop-shadow(0 0 2px rgba(255,255,255,.9)) drop-shadow(0 0 1px rgba(255,255,255,.9)) drop-shadow(0 6px 12px rgba(0,0,0,.5))}
+.bst.pot img{filter:drop-shadow(0 0 1px #fff)}
+.bst.pot img{height:20px;width:auto;vertical-align:middle;margin:-4px 3px -4px -2px}
+.card.editor.potion{background:transparent;box-shadow:none;padding:0}
+.card.editor.potion .c-in{background:transparent;overflow:visible}
+.card.editor.potion .c-name{border-bottom:none}
+.card.editor.potion .c-art{background:repeating-conic-gradient(#ffffff 0 25%,#e3e6ee 0 50%) 0 0/22px 22px;border:2px dashed #6a73ad;border-radius:12px}
+.card.editor.potion #cv{background:transparent}
+.card.editor.potion .c-tab{display:none}
+.card.editor.potion .c-text{color:#e7eaff}
+.card.editor.potion .c-text .fx,.card.editor.potion .fxline{color:#ffd7b0}
+.card.editor.potion input,.card.editor.potion textarea{color:#e7eaff;border-bottom-color:#6a73ad}
 .reward-pick{display:flex;flex-wrap:wrap;gap:10px;justify-content:center}
 .lp b{font-size:28px;font-weight:600;font-variant-numeric:tabular-nums}
 .lp.low b{color:var(--hit)}
@@ -1703,10 +1722,12 @@ const local = { cards(){ return ls.get("cb_cards", []); }, decks(){ return ls.ge
 // Line drawings usually fit as PNG (no quality loss at all); photos and busy drawings
 // use whichever of WebP / JPEG is smaller at high quality, stepping down only if needed.
 const ART_BUDGET = 150000; // characters of the data URL (about 110KB; the database allows 256KB per card)
-function encodeArt(c){
+function encodeArt(c, alpha){
   const png = c.toDataURL("image/png");
   if (png.length <= ART_BUDGET) return png;
   const webp = c.toDataURL("image/webp", .5).startsWith("data:image/webp");
+  // see-through pictures (ポーション): never JPEG, it would turn the background black
+  if (alpha && webp){ let u = png; for (const q of [.92, .86, .8, .72, .64, .56, .48, .4]){ u = c.toDataURL("image/webp", q); if (u.length <= ART_BUDGET) break; } return u; }
   let url = "";
   for (const q of [.92, .86, .8, .72, .64, .56, .48]){
     const j = c.toDataURL("image/jpeg", q), w = webp ? c.toDataURL("image/webp", q) : j;
@@ -1918,7 +1939,8 @@ let photo = null; // { img, x, y, s, base, r }
 MK.mode = "draw";
 function composite(){
   cx.setTransform(1, 0, 0, 1, 0, 0);
-  cx.fillStyle = "#fff"; cx.fillRect(0, 0, cv.width, cv.height);
+  if (MK.kind === "potion") cx.clearRect(0, 0, cv.width, cv.height);
+  else { cx.fillStyle = "#fff"; cx.fillRect(0, 0, cv.width, cv.height); }
   if (photo){
     cx.save(); cx.translate(photo.x, photo.y); cx.rotate(photo.r); cx.scale(photo.s, photo.s);
     cx.drawImage(photo.img, -photo.img.width / 2, -photo.img.height / 2); cx.restore();
@@ -2150,6 +2172,9 @@ function potionModeUI(){
   ["#quickRow", "#persistRow", "#exhaustRow", "#payRow"].forEach(q => { if (pot) $(q).hidden = true; });
   if (!pot) $("#payRow").hidden = false;
   const fr = $("#mkFrame").closest("label"); if (fr) fr.hidden = pot;
+  const fl = $("#mkFrameless").closest("label"); if (fl) fl.hidden = pot;
+  if (pot && MK.frameless) setFrameless(false);
+  if (typeof composite === "function") composite();
   if (pot) $("#rarityRow").hidden = true;
   const db = document.querySelector('#mkTabs button[data-pane="deck"]'); if (db) db.hidden = pot;
   if (pot && db && db.getAttribute("aria-pressed") === "true") setMkPane("draw");
@@ -2513,7 +2538,7 @@ $("#btnSave").addEventListener("click", async () => {
   const prev = S.cards.get(id) || userPotion(id) || builtinPotionCard(id);
   let eqN = Math.round(+$("#mkEq").value || 0); $("#mkEq").value = eqN;
   const doc = { type: MK.type, name, atk: MK.type === "monster" ? atk : 0, atkInf, eqN: MK.type === "equip" ? eqN : 0, eqAb: "none", eqCost: MK.type === "equip" ? Math.max(0, Math.round(+$("#mkEqCost").value || 0)) : null, eqCap: MK.type === "monster" && $("#mkFrame").value === "socra" && $("#mkEqCap").value.trim() !== "" ? Math.max(0, Math.round(+$("#mkEqCap").value || 0)) : null, abs: MK.type === "monster" || MK.type === "equip" ? readAbs() : [], frame: $("#mkFrame").value || null, ss: readSS(), effect: $("#mkEff").value.trim(), flavor: $("#mkFlv").value.trim(), nameSize: $("#mkNameSize").value, textSize: $("#mkTextSize").value, fx: null, combo: null, blocks: readBlocks(), font: $("#mkFont").value, quick: MK.type === "magic" && $("#mkFrame").value !== "spire" && $("#mkQuick").checked, persist: (MK.type === "magic" || MK.type === "trap") && $("#mkPersist").checked, sk: mkSk(), rarity: $("#mkFrame").value === "spire" ? $("#mkRarity").value : null, exhaust: (MK.type === "magic" || MK.type === "trap") && $("#mkExhaust").checked, ...mkPays(true), cost: MK.deck === "normal" ? null : $("#mkCost").value === "X" ? 0 : +$("#mkCost").value, costX: MK.deck !== "normal" && $("#mkCost").value === "X", deckMode: MK.deck, limit: +$("#mkLimit").value,
-    img: prev && prev.img && !MK.artDirty ? prev.img : encodeArt(out), frameless: MK.frameless, author: S.name, ownerId: prev?.ownerId || S.uid || null, updatedAt: Date.now() };
+    img: prev && prev.img && !MK.artDirty ? prev.img : encodeArt(out, MK.kind === "potion"), frameless: MK.frameless, author: S.name, ownerId: prev?.ownerId || S.uid || null, updatedAt: Date.now() };
   if (prev && prev.builtinPotion && !MK.artDirty && doc.img === potionArt(prev.potKey)) delete doc.img;
   if (MK.kind === "potion") Object.assign(doc, { type: "potion", atk: 0, atkInf: false, eqN: 0, eqCost: null, eqCap: null, abs: [], frame: null, ss: null, quick: false, persist: false, sk: null, rarity: null, exhaust: false, payLp: null, payDisc: null, payMax: null, cost: null, costX: false, deckMode: "normal", limit: 0 });
   $("#btnSave").disabled = true;
@@ -2530,7 +2555,7 @@ let delArm = null;
 // the 7 built-in ポーション, shown like home-made ones
 const POTION_COL = { fire: "#e0533a", blast: "#f29b38", block: "#3d8bd9", energy: "#f2c94c", speed: "#4caf6e", fear: "#8e5bc9", heal: "#f28fb5" };
 // a simple flask picture for the built-in ones (they have no drawing)
-const potionArt = k => "data:image/svg+xml," + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 280 200"><rect width="280" height="200" fill="#fff8ef"/><path d="M122 30h36v44l40 70a18 18 0 0 1-16 27H98a18 18 0 0 1-16-27l40-70z" fill="#fff" stroke="#1e2328" stroke-width="7" stroke-linejoin="round"/><path d="M104 118h72l22 34a12 12 0 0 1-10 18H92a12 12 0 0 1-10-18z" fill="${POTION_COL[k] || "#e0533a"}"/><rect x="114" y="20" width="52" height="16" rx="5" fill="#8b5a3c" stroke="#1e2328" stroke-width="5"/><circle cx="120" cy="145" r="7" fill="#fff" opacity=".7"/><circle cx="150" cy="132" r="4" fill="#fff" opacity=".7"/></svg>`);
+const potionArt = k => "data:image/svg+xml," + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 280 200"><path d="M122 30h36v44l40 70a18 18 0 0 1-16 27H98a18 18 0 0 1-16-27l40-70z" fill="#fff" stroke="#1e2328" stroke-width="7" stroke-linejoin="round"/><path d="M104 118h72l22 34a12 12 0 0 1-10 18H92a12 12 0 0 1-10-18z" fill="${POTION_COL[k] || "#e0533a"}"/><rect x="114" y="20" width="52" height="16" rx="5" fill="#8b5a3c" stroke="#1e2328" stroke-width="5"/><circle cx="120" cy="145" r="7" fill="#fff" opacity=".7"/><circle cx="150" cy="132" r="4" fill="#fff" opacity=".7"/></svg>`);
 const builtinPotionCards = () => Object.keys(POTIONS).map(k => builtinPotionCard(k));
 function potionList(){
   const f = S.filt.gal || {};
@@ -3219,12 +3244,18 @@ function builtinPotionCard(id){
 }
 function potionDef(k){
   if (POTIONS[k] && potionEdit(k)){ const b = builtinPotionCard(k); return { name: b.name, text: [fxText0(potionCard(k)), plainRuby(b.effect || "")].filter(Boolean).join("。") || "（効果なし）", img: b.img, key: k }; }
-  if (POTIONS[k]) return { ...POTIONS[k], key: k };
+  if (POTIONS[k]) return { ...POTIONS[k], img: potionArt(k), key: k };
   const c = userPotion(k); if (!c) return null;
   return { name: c.name, text: [fxText0(potionCard(k)), plainRuby(c.effect || "")].filter(Boolean).join("。") || "（効果なし）", img: c.img || "", key: k, user: true };
 }
 // how a potion is shown (gallery, maker preview, the confirm box)
-function potionHTML(c, cls = "", attrs = ""){ return cardHTML({ ...c, type: "magic", frame: null, cost: null, costX: false, deckMode: "normal", persist: false, quick: false, exhaust: false, potionView: true }, "potion " + cls, attrs, { mana: false }); }
+// no card frame: just the (see-through) picture, the name and what it does
+function potionHTML(c, cls = "", attrs = ""){
+  if (!c) return "";
+  const tx = [fxText0({ ...c, type: "magic", frame: "spire", costX: false }), plainRuby(c.effect || "")].filter(Boolean).join("。");
+  const img = c.img || (c.potKey ? potionArt(c.potKey) : "");
+  return `<div class="potion-ic ${cls}" ${attrs} title="${esc(tx)}"><div class="pi-img">${img ? `<img alt="" src="${img}">` : `<span>🧪</span>`}</div><div class="pi-name" style="${c.font && FONTS[c.font] ? `font-family:${FONTS[c.font].css}` : ""}">${rubyHTML(c.nameRuby || c.name || "")}</div>${tx ? `<div class="pi-text">${esc(tx)}</div>` : ""}${c.flavor ? `<div class="pi-flv">${rubyHTML(c.flavor)}</div>` : ""}</div>`;
+}
 // which built-in potion a home-made one behaves like (for the CPU's timing)
 function potionLike(k){
   if (POTIONS[k] && !potionEdit(k)) return k;
@@ -3416,7 +3447,7 @@ function monDmg(st, s, i, n, src){
   if (m.dmg >= a){ log(st, O(s), `「${nm}」のダメージカウンター${m.dmg}がATK${fmtN(a)}に届いた！`); destroyMonster(st, s, i, src); }
   else log(st, O(s), `「${nm}」にダメージカウンターが${n}乗った（合計 ${m.dmg} / ATK ${fmtN(a)}）`);
 }
-const potionChips = (p, mine) => (p.potions || []).map((k, i) => [k, i, potionDef(k)]).filter(x => x[2]).map(([k, i, d]) => mine ? `<button class="bst pot" data-potion="${i}" title="${esc(d.text)}" ${G && G.st && canAct(G.st, G.slot) ? "" : "disabled"}>🧪${esc(d.name)}</button>` : `<span class="bst pot" title="${esc(d.text)}">🧪${esc(d.name)}</span>`).join("");
+const potionChips = (p, mine) => (p.potions || []).map((k, i) => [k, i, potionDef(k)]).filter(x => x[2]).map(([k, i, d]) => mine ? `<button class="bst pot" data-potion="${i}" title="${esc(d.text)}" ${G && G.st && canAct(G.st, G.slot) ? "" : "disabled"}>${d.img ? `<img alt="" src="${d.img}">` : "🧪"}${esc(d.name)}</button>` : `<span class="bst pot" title="${esc(d.text)}">${d.img ? `<img alt="" src="${d.img}">` : "🧪"}${esc(d.name)}</span>`).join("");
 const potRow = (p, mine) => (p.potions || []).length ? `<div class="pots">${potionChips(p, mine)}</div>` : "";
 const statChips = p => Object.entries(p.free || {}).filter(([, v]) => v > 0).map(([k, v]) => `<span class="bst free" title="次に使うこの種類のカードはコスト0">次の${SPIRE_LABEL[k]}0コスト${v > 1 ? "×" + v : ""}</span>`).join("") + (p.relics || []).filter(k => RELICS[k]).map(k => `<span class="bst rel" title="${esc(RELICS[k].text)}">${esc(RELICS[k].name)}</span>`).join("") + (p.block ? `<span class="bst blk" title="次の自分のターンのはじめまで、受けるダメージを先に引き受ける">ブロック ${p.block}</span>` : "") + (p.vuln > 0 ? `<span class="bst vul" title="受けるダメージが1.5倍">弱体 ${p.vuln}</span>` : "");
 function dealDmg(st, s, n){
@@ -4528,7 +4559,7 @@ function renderOverlay(){
     html = `<div class="box"><h2 style="margin:0">${esc(head)}</h2>${chainHTML}<p style="margin:0">${esc(msg)}</p><div class="gallery">${list}</div><div class="row"><button data-close="notrap">${win === "chain" || win === "chainAttack" ? "チェーンしない" : "使わない"}</button></div></div>`;
   } else if (G.potPick != null && myP && potionDef((myP.potions || [])[G.potPick]) && canAct(st, me)){
     const k = myP.potions[G.potPick], d = potionDef(k);
-    html = `<div class="box"><h2 style="margin:0">🧪${esc(d.name)}</h2>${potionHTML(d.user ? userPotion(k) : builtinPotionCard(k), "")}<p style="margin:0;font-size:17px">${esc(d.text)}</p><p class="muted" style="margin:0">マナはいらない。使うとなくなる</p><div class="row"><button class="primary" data-potuse="${G.potPick}">使う</button><button class="ghost" data-close="potion">やめる</button></div></div>`;
+    html = `<div class="box"><h2 style="margin:0">${esc(d.name)}</h2><div class="pi-big">${d.img ? `<img alt="" src="${d.img}">` : "🧪"}</div><p style="margin:0;font-size:17px">${esc(d.text)}</p><p class="muted" style="margin:0">マナはいらない。使うとなくなる</p><div class="row"><button class="primary" data-potuse="${G.potPick}">使う</button><button class="ghost" data-close="potion">やめる</button></div></div>`;
   } else if (myP && !st.winner && (myP.rewards || []).length){
     const r = myP.rewards[0];
     html = `<div class="box"><h2 style="margin:0">カード報酬：1枚えらぶ</h2><p class="muted" style="margin:0">モンスターを倒した！えらんだカードは墓地に入り、山札がなくなったときデッキにまざります${myP.rewards.length > 1 ? `（のこり${myP.rewards.length}回）` : ""}</p><div class="gallery reward-pick">${r.ids.filter(id => S.cards.has(id)).map(id => cardHTML(card(id), "sm pick", `data-reward="${esc(id)}" tabindex="0" role="button"`, mOpt(me))).join("")}</div><div class="row"><button class="ghost" data-reward="">スキップ</button></div></div>`;
