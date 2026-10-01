@@ -1542,11 +1542,11 @@ function buildStarters(){
 }
 // スパイアデッキ: this card is face-up in the magic/trap zone from the start; every turn it offers 3 random スパイア風 cards
 const SPIRE_ALTAR = { id: "spire-altar", type: "magic", frame: "spire", sk: "power", rarity: "rare", persist: true, name: "選択の祭壇", atk: 0, eqN: 0, eqAb: "none", abs: [], fx: { trig: "turnStart", kind: "draft", n: 3 }, combo: null, effect: "自分のマナは毎ターン3（増えない）。自分のターンのはじめ、手札が5枚になるまでカードを引く。自分のターンのおわり、手札をすべて墓地に捨てる。", flavor: "スパイアデッキの始まりの一枚", cost: 0, deckMode: "both", limit: 1, author: "スターター", starter: true, img: "" };
-// 攻撃 / 防御 / 強打: the basic スパイア cards (numbers ×10)
+// 攻撃 / 防御 / 強打: the basic スパイア cards (damage and block = the original ×25)
 const SPIRE_BASIC = [
-  { id: "spire-strike", sk: "attack", name: "攻撃", cost: 1, fx: { kind: "dmg", n: 60 } },
-  { id: "spire-defend", sk: "skill", name: "防御", cost: 1, fx: { kind: "block", n: 50 } },
-  { id: "spire-bash", sk: "attack", name: "強打", cost: 2, fx: { kind: "dmg", n: 80, more: [{ kind: "vuln", n: 2 }] } }
+  { id: "spire-strike", sk: "attack", name: "攻撃", cost: 1, fx: { kind: "dmg", n: 150 } },
+  { id: "spire-defend", sk: "skill", name: "防御", cost: 1, fx: { kind: "block", n: 125 } },
+  { id: "spire-bash", sk: "attack", name: "強打", cost: 2, fx: { kind: "dmg", n: 200, more: [{ kind: "vuln", n: 2 }] } }
 ].map(x => ({ type: "magic", frame: "spire", rarity: "common", persist: false, atk: 0, eqN: 0, eqAb: "none", abs: [], combo: null, effect: "", flavor: "", deckMode: "both", limit: 5, author: "スターター", starter: true, img: "", ...x, fx: { trig: "use", ...x.fx } }));
 function spireDeck(){ return { id: "spire-start", name: "スパイアデッキ（はじまり）", cards: [...Array(5).fill("spire-strike"), ...Array(4).fill("spire-defend"), "spire-bash"], builtin: true, mana: true, spire: true, key: "spire-strike" }; }
 const draftPool = () => [...S.cards.values()].filter(c => c && c.frame === "spire" && c.id !== SPIRE_ALTAR.id && !SPIRE_BASIC.some(b => b.id === c.id));
