@@ -214,7 +214,9 @@ label.f{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:13p
 /* half-frameless: the picture runs down behind a see-through text box (canvas 560×680, top 400 = the normal art area) */
 .c-bgart{position:absolute;left:0;right:0;bottom:0;top:calc(var(--w)*.151 + var(--lw));background:#fff}
 .c-bgart img{width:100%;height:100%;object-fit:cover;object-position:top;display:block}
-.card.frameless .c-art{background:transparent;border-bottom-color:rgba(43,43,43,.55)}
+.card.frameless .c-art{background:transparent;border-bottom-color:color-mix(in srgb,var(--cframe) var(--fla,68%),transparent)}
+.card.frameless:not(.editor) .c-art{overflow:visible}
+.card.frameless:not(.editor) .c-tab{box-shadow:0 var(--lw) 0 0 var(--cframe);z-index:2}
 .card.frameless .c-text{background:color-mix(in srgb,var(--cbg) var(--fla,68%),transparent)}
 .card.frameless.tedge .c-text{--te:max(1px,calc(var(--w)*.007));text-shadow:var(--te) 0 0 #fff,calc(var(--te)*-1) 0 0 #fff,0 var(--te) 0 #fff,0 calc(var(--te)*-1) 0 #fff,var(--te) var(--te) 0 #fff,calc(var(--te)*-1) var(--te) 0 #fff,var(--te) calc(var(--te)*-1) 0 #fff,calc(var(--te)*-1) calc(var(--te)*-1) 0 #fff}
 .card.frameless .c-text .flv{color:#2f363d}
