@@ -1190,6 +1190,15 @@ const KINDS = {
   oppStr:     { label: "相手が筋力を得る", n: true, text: n => `相手は筋力${n}を得る` },
   oppStrDown: { label: "相手の筋力を下げる（相手の次のターンの終わりまで）", n: true, text: n => `相手の次のターンの終わりまで、相手は筋力${n}を失う` },
   loseLp:     { label: "自分のLPを失う", n: true, text: n => `自分のLPを${n}失う` },
+  exhaustHand:   { label: "手札をえらんで廃棄", n: true, target: "hand", each: true, text: n => `手札を${n}枚えらんで廃棄する` },
+  exhaustRand:   { label: "手札をランダムに廃棄", n: true, text: n => `手札をランダムに${n}枚廃棄する` },
+  exhaustAll:    { label: "手札をすべて廃棄", text: () => `手札をすべて廃棄する` },
+  exhaustNonAtk: { label: "手札のアタック以外をすべて廃棄", text: () => `手札のアタック以外をすべて廃棄する` },
+  graveToTop:    { label: "墓地のカードを山札の一番上に置く", n: true, target: "graveAny", each: true, text: n => `墓地のカードを${n}枚えらんで山札の一番上に置く` },
+  playTop:       { label: "山札の一番上のカードをプレイ", n: true, text: n => `山札の一番上のカードを${n > 1 ? n + "枚" : ""}プレイする` },
+  playTopEx:     { label: "山札の一番上のカードをプレイして廃棄", n: true, text: n => `山札の一番上のカードを${n > 1 ? n + "枚" : ""}プレイし、それを廃棄する` },
+  noDraw:        { label: "このターン、もうカードを引けない", text: () => `このターン、これ以上カードを引けない` },
+  drawUntil:     { label: "アタック以外を引くまで引く", text: () => `アタック以外のカードを引くまで、カードを引く` },
   copyHand:   { label: "このカードのコピーを手札に加える", text: () => `このカードのコピーを1枚手札に加える` },
   copyDeck:   { label: "このカードのコピーを山札に混ぜる", text: () => `このカードのコピーを1枚山札に混ぜる` },
   genAttack:  { label: "ランダムなアタックを手札に加える", n: true, text: n => `ランダムなアタックを${n}枚手札に加える` },
@@ -2260,6 +2269,8 @@ const KIND_GROUPS = [
   { g: "draw",    label: "カードを引く",              v: [["draw", "自分"]] },
   { g: "discard", label: "手札を捨てさせる",          v: [["discard", "相手（ランダム）"]] },
   { g: "grave",   label: "墓地のモンスターを使う",    v: [["revive", "手札に戻す"], ["reborn", "場に出す"]] },
+  { g: "exhaust", label: "カードを廃棄する",          v: [["exhaustHand", "手札から○枚えらんで"], ["exhaustRand", "手札からランダムに○枚"], ["exhaustAll", "手札をすべて"], ["exhaustNonAtk", "手札のアタック以外をすべて"]] },
+  { g: "deck",    label: "山札・墓地をあやつる",      v: [["graveToTop", "墓地のカードを山札の一番上に"], ["playTop", "山札の一番上をプレイ（○枚）"], ["playTopEx", "山札の一番上をプレイして廃棄（○枚）"], ["drawUntil", "アタック以外を引くまで引く"], ["noDraw", "このターンもう引けない"]] },
   { g: "addCard", label: "カードを生み出す・加える",  v: [["copyGrave", "このカードのコピーを墓地に"], ["copyHand", "このカードのコピーを手札に"], ["copyDeck", "このカードのコピーを山札に"], ["genAttack", "ランダムなアタックを手札に"], ["genAttack0", "ランダムなアタックを手札に（このターンコスト0）"], ["genSkill", "ランダムなスキルを手札に"], ["genPower", "ランダムなパワーを手札に"], ["draft", "スパイア風カードを○枚から1枚えらんで墓地に"]] },
   { g: "equip",   label: "装備を動かす",              v: [["moveEquips", "別のモンスターに付けかえる"], ["equipsToHand", "ほかの装備を手札に戻す"]] },
   { g: "blast",   label: "自爆する",                  v: [["blast", "装備の枚数×○以下のATKを全部破壊"]] },
@@ -3475,6 +3486,27 @@ function addWeak(st, s, target, n, src){
   op.weak = (op.weak || 0) + n; log(st, s, `${src}で${op.name}が脱力${op.weak}になった`);
 }
 // ランダムなアタック / スキル / パワー (スパイア風, not the basic ones)
+// 廃棄: the card leaves the game (廃棄札); counts for 「このターン廃棄した」 and fires 「カードが廃棄されたとき」
+function exileCard(st, s, id, src){
+  const p = P(st, s); (p.exile = p.exile || []).push(id); p.exhaustedNow = (p.exhaustedNow || 0) + 1;
+  log(st, s, `${src}で「${card(id).name}」を廃棄した`);
+  persistFire(st, s, "exhaust", {});
+}
+const isAttackCard = c => c && (c.frame === "spire" ? spireKind(c) === "attack" : cardType(c) === "monster");
+// play the top card of the deck for free (山札の一番上をプレイ)
+function playTopCard(st, s, src, ex, then){
+  const p = P(st, s); if (!p.deck.length) refill(st, s);
+  const id = p.deck.shift();
+  if (!id){ log(st, s, `${src}：山札にカードがない`); then && then(st); return; }
+  const c = card(id), t = cardType(c);
+  if (t !== "magic" && t !== "trap"){ p.grave.push(id); log(st, s, `${src}で山札の一番上の「${c.name}」をめくった（プレイできないので墓地へ）`); then && then(st); return; }
+  log(st, s, `${src}で山札の一番上の「${c.name}」をプレイ！`); ev(st, { type: "spell", s, c: id });
+  const pz = isPersist(c) && !ex ? freeZone(p.sz) : -1;
+  if (pz >= 0){ st.un = (st.un || 0) + 1; p.sz[pz] = { c: id, turn: st.turnNo, face: true, u: st.un }; }
+  else if (ex || exhausts(c)) exileCard(st, s, id, src);
+  else p.grave.push(id);
+  runCard(st, s, c, "use", { x: 0, fromTop: true }, then);
+}
 function genCards(st, s, sk, n, src, free){
   const p = P(st, s), pool = draftPool().filter(c => spireKind(c) === sk), got = [];
   for (let k = 0; k < n && pool.length; k++){ const c = pool[Math.floor(Math.random() * pool.length)]; p.hand.push(c.id); got.push(c); if (free) (p.freeIds = p.freeIds || []).push(c.id); }
@@ -3515,6 +3547,7 @@ function checkEnd(st){
 }
 function drawN(st, s, n, why){
   const p = P(st, s); let got = 0;
+  if (p.noDraw && n > 0){ log(st, s, `${why || ""}：このターンはもうカードを引けない`); return; }
   for (let i = 0; i < n; i++){ if (!p.deck.length) refill(st, s); if (p.deck.length){ p.hand.push(p.deck.shift()); got++; } }
   if (why) log(st, s, `${why}でカードを${got}枚引いた`);
   if (got < n) log(st, s, "山札がなくて引けなかった");
@@ -3536,6 +3569,8 @@ function targetOptions(st, s, kind, ctx = {}){
   }
   if (t === "mine") return P(st, s).mz.map((m, i) => m ? i : -1).filter(i => i >= 0);
   if (t === "draft") return (ctx.draft || []).filter(id => S.cards.has(id));
+  if (t === "hand") return P(st, s).hand.map((_, i) => i);
+  if (t === "graveAny") return [...new Set(P(st, s).grave)].filter(id => S.cards.has(id));
   if (t === "grave"){
     if (kind === "reborn" && freeZone(P(st, s).mz) < 0) return [];
     return [...new Set(P(st, s).grave.filter(id => cardType(card(id)) === "monster"))];
@@ -3555,6 +3590,9 @@ function autoTarget(st, s, kind, opts, fx){
   if (t === "opp") return opts.slice().sort((a, b) => atkOf(P(st, O(s)).mz[b]) - atkOf(P(st, O(s)).mz[a]))[0];
   if (t === "mine") return opts.slice().sort((a, b) => atkOf(P(st, s).mz[b]) - atkOf(P(st, s).mz[a]))[0];
   if (t === "grave") return opts.slice().sort((a, b) => cmpNum(baseAtk(card(b)), baseAtk(card(a))))[0];
+  // CPU: throws away the cheapest (basic ones first), brings back the most expensive
+  if (t === "hand"){ const h = P(st, s).hand, v = i => (SPIRE_BASIC.some(b => b.id === h[i]) ? 0 : 10) + costOf(card(h[i])); return opts.slice().sort((a, b) => v(a) - v(b))[0]; }
+  if (t === "graveAny") return opts.slice().sort((a, b) => costOf(card(b)) - costOf(card(a)))[0];
   if (t === "any") return opts.find(o => o.startsWith(s + ":")) || opts[0];
   if (t === "draft") return opts[0];
 }
@@ -3750,6 +3788,13 @@ function applyEffect(st, s, c, target, ctx = {}, fx = normFx(c)){
     case "loseLp": me.lp -= n; me.lostLp = (me.lostLp || 0) + 1; ev(st, { type: "hit", s, d: n, blk: 0 }); log(st, s, `${src}でLPを${n}失った`); break;
     case "copyHand": if (c && S.cards.has(c.id)){ me.hand.push(c.id); log(st, s, `${src}のコピーを手札に加えた`); } break;
     case "copyDeck": if (c && S.cards.has(c.id)){ me.deck.splice(Math.floor(Math.random() * (me.deck.length + 1)), 0, c.id); log(st, s, `${src}のコピーを山札に混ぜた`); } break;
+    case "exhaustHand": if (me.hand[target] != null) exileCard(st, s, me.hand.splice(target, 1)[0], src); break;
+    case "exhaustRand": { let k = 0; for (let r = 0; r < (n || 1) && me.hand.length; r++){ exileCard(st, s, me.hand.splice(Math.floor(Math.random() * me.hand.length), 1)[0], src); k++; } if (!k) log(st, s, `${src}：廃棄する手札がない`); ctx.exN = k; break; }
+    case "exhaustAll": { const L = me.hand.splice(0); L.forEach(id => exileCard(st, s, id, src)); ctx.exN = L.length; if (!L.length) log(st, s, `${src}：廃棄する手札がない`); break; }
+    case "exhaustNonAtk": { const L = me.hand.filter(id => !isAttackCard(card(id))); me.hand = me.hand.filter(id => isAttackCard(card(id))); L.forEach(id => exileCard(st, s, id, src)); ctx.exN = L.length; if (!L.length) log(st, s, `${src}：アタック以外の手札がない`); break; }
+    case "graveToTop": { const k = me.grave.indexOf(target); if (k >= 0){ me.grave.splice(k, 1); me.deck.unshift(target); log(st, s, `${src}で墓地の「${card(target).name}」を山札の一番上に置いた`); } break; }
+    case "noDraw": me.noDraw = true; log(st, s, `${src}：このターンはもうカードを引けない`); break;
+    case "drawUntil": { let k = 0, last = null; while (k < 12 && !me.noDraw){ if (!me.deck.length) refill(st, s); if (!me.deck.length) break; last = me.deck.shift(); me.hand.push(last); k++; if (!isAttackCard(card(last))) break; } log(st, s, `${src}でカードを${k}枚引いた${last && !isAttackCard(card(last)) ? `（「${card(last).name}」で止まった）` : ""}`); break; }
     case "genAttack": genCards(st, s, "attack", n || 1, src); break;
     case "genAttack0": genCards(st, s, "attack", n || 1, src, true); break;
     case "genSkill": genCards(st, s, "skill", n || 1, src); break;
@@ -3785,6 +3830,7 @@ function runEffect(st, s, c, ctx = {}, then, fx = normFx(c)){
     fx = { ...fx, ask: "" };
   }
   if (fx.kind === "draft" && !ctx.draft) ctx = { ...ctx, draft: draftPick(fx.n) };
+  if (fx.kind === "playTop" || fx.kind === "playTopEx"){ const ex = fx.kind === "playTopEx", go = (st2, r) => { if (r <= 0 || st2.winner){ then && then(st2); return; } playTopCard(st2, s, `「${c.name}」`, ex, st3 => go(st3, r - 1)); }; go(st, Math.max(1, fx.n || 1)); return; }
   if ((c && c.frame === "spire" || fx.rand || fx.distinct) && (fx.kind === "dmg" || fx.kind === "bash" || fx.kind === "vuln" || fx.kind === "weak")) ctx = { ...ctx, spireAtk: true };
   let opts = targetOptions(st, s, fx.kind, ctx);
   if (opts && fx.distinct && ctx.hit && ctx.hit.picked) opts = opts.filter(o => !ctx.hit.picked.includes(String(o)));
@@ -3833,7 +3879,7 @@ function runBlock(st, s, c, b, ctx, then){
 }
 function runEffects(st, s, c, effs, ctx, then){
   const list = [];
-  (effs || []).forEach(e => list.push(...expandFx({ kind: e.kind, n: e.n, to: e.to })));
+  (effs || []).forEach(e => { if (KINDS[e.kind] && KINDS[e.kind].each && e.n > 1){ for (let r = 0; r < e.n; r++) list.push({ kind: e.kind, n: 1 }); } else list.push(...expandFx({ kind: e.kind, n: e.n, to: e.to })); });
   if (c && c.costX && ctx.x != null && list.length){ const one = list.splice(0); for (let r = 0; r < ctx.x; r++) list.push(...one); if (!ctx.x) log(st, s, `「${c.name}」：X が0なので効果なし`); }
   const step = (st2, k) => { if (k >= list.length){ then && then(st2); return; } runEffect(st2, s, c, ctx, st3 => step(st3, k + 1), list[k]); };
   step(st, 0);
@@ -3999,7 +4045,7 @@ function activate(st, s, from, i, ctx = {}){
   else p.grave.push(id);
   ev(st, { type: "spell", s, c: id });
   pushChain(st, s, id, { ...ctx, fromHand: from === "hand" }, `${keep ? "永続" : ""}${t === "trap" ? "罠" : isQuick(c) ? "速攻魔法" : "魔法"}「${c.name}」`, keep ? { pz, pu: p.sz[pz].u } : null);
-  if (!keep && exhausts(c)){ log(st, s, `「${c.name}」は廃棄された（このゲームではもう使えない）`); persistFire(st, s, "exhaust", {}); }
+  if (!keep && exhausts(c)){ p.exhaustedNow = (p.exhaustedNow || 0) + 1; log(st, s, `「${c.name}」は廃棄された（このゲームではもう使えない）`); persistFire(st, s, "exhaust", {}); }
   return true;
 }
 /* ---- chain: activations stack up; the other side may respond; resolve newest first ---- */
@@ -4154,7 +4200,7 @@ function passTurn(st, s){
   fireTurn(st, s, "turnEnd", st => {
     checkEnd(st); if (st.winner) return;
     P(st, s).mz.forEach(m => { if (m){ m.attacked = false; m.atkCount = 0; } });
-    { const ep = P(st, s); if (ep.strTemp){ ep.str = (ep.str || 0) - ep.strTemp; log(st, s, `一時的な筋力がもどった（筋力 ${ep.str}）`); ep.strTemp = 0; } ep.freeIds = []; ep.lostLp = 0;
+    { const ep = P(st, s); if (ep.strTemp){ ep.str = (ep.str || 0) - ep.strTemp; log(st, s, `一時的な筋力がもどった（筋力 ${ep.str}）`); ep.strTemp = 0; } ep.freeIds = []; ep.lostLp = 0; ep.exhaustedNow = 0; ep.noDraw = false;
       // 脱力 wears off at the end of its owner's own turn (it weakens what they deal on that turn)
       if (ep.weak > 0){ ep.weak--; if (!ep.weak) log(st, s, `${ep.name}の脱力がとけた`); }
       ep.mz.forEach(m => { if (m && m.weak > 0){ m.weak--; if (!m.weak) log(st, s, `「${card(m.c).name}」の脱力がとけた`); } }); }
@@ -4592,7 +4638,8 @@ function renderOverlay(){
     const q = G.chooseQ[0], opts = (targetOptions(st, q.s, q.fx.kind, q.ctx) || []).filter(o => !(q.fx.distinct && q.ctx.hit && (q.ctx.hit.picked || []).includes(String(o))));
     const t = KINDS[q.fx.kind].target;
     const list = opts.map(o => {
-      if (t === "grave" || t === "draft") return cardHTML(card(o), "sm pick", `data-opt="${esc(o)}" tabindex="0" role="button"`, mOpt(q.s));
+      if (t === "grave" || t === "draft" || t === "graveAny") return cardHTML(card(o), "sm pick", `data-opt="${esc(o)}" tabindex="0" role="button"`, mOpt(q.s));
+      if (t === "hand") return cardHTML(card(P(st, q.s).hand[o]), "sm pick", `data-opt="${o}" tabindex="0" role="button"`, mOpt(q.s));
       if (t === "any"){ const [os, oi] = o.split(":"), m = P(st, os).mz[+oi]; return `<div class="g-item">${cardHTML(card(m.c), "sm pick", `data-opt="${o}" tabindex="0" role="button"`, { mod: modOf(m), ...mOpt(os) })}<div class="meta">${os === me ? "自分" : "相手"}</div></div>`; }
       if (o === "p"){ const X = P(st, O(q.s)); return `<button class="pick-player" data-opt="p">${esc(X.name)}<br><small>LP ${X.lp}${X.block ? `・ブロック ${X.block}` : ""}</small></button>`; }
       if (typeof o === "string" && o.startsWith("m:")){ const i = +o.slice(2), m = P(st, O(q.s)).mz[i]; return cardHTML(card(m.c), "sm pick", `data-opt="${o}" tabindex="0" role="button"`, { mod: modOf(m), ...mOpt(O(q.s)) }); }
@@ -4676,7 +4723,7 @@ $("#overlay").addEventListener("click", e => {
   const opt = e.target.closest("[data-opt]");
   if (opt && G.chooseQ.length){
     const q = G.chooseQ.shift(); const t = KINDS[q.fx.kind].target;
-    const target = t === "grave" || t === "any" || t === "draft" || q.ctx.spireAtk ? opt.dataset.opt : +opt.dataset.opt;
+    const target = t === "grave" || t === "any" || t === "draft" || t === "graveAny" || q.ctx.spireAtk ? opt.dataset.opt : +opt.dataset.opt;
     act(st => { applyEffect(st, q.s, q.c, target, q.ctx, q.fx); q.then && q.then(st); });
     return;
   }
