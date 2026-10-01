@@ -350,6 +350,7 @@ ruby rt{font-size:.5em;line-height:1;font-style:normal}
 .turnline .me{color:#1b5e8a}.turnline .op{color:var(--hit)}
 .lastlog{font-size:14px;min-height:1.4em;text-wrap:balance}
 .actions{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
+.hand-acts{margin:4px 0 6px}
 .hand{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;padding-top:6px;min-height:140px}
 .hand .card{--w:clamp(76px,15vw,112px)}
 .side{display:flex;flex-direction:column;gap:14px}
@@ -4054,7 +4055,7 @@ function renderBoard(){
   }).join("");
 
   // action bar
-  let acts = "", hint = "";
+  let acts = "", hint = "", handActs = "";
   if (st.winner){
     hint = `<span class="big">${st.winner === "draw" ? "引き分け" : G.spectate ? `${esc(nm(st, st.winner))} の勝ち！` : st.winner === me ? "あなたの勝ち！" : "あなたの負け…"}</span><br>${esc(st.why)}`;
     const rm = st.rematch || {};
@@ -4075,6 +4076,7 @@ function renderBoard(){
   } else {
     hint = st.turnNo === 1 ? "先攻の1ターン目は攻撃できません" : "カードをえらんで行動しよう";
     if (sel && sel.z === "hand"){
+      const a0 = acts.length;
       const c = card(pm.hand[sel.i]), t = cardType(c);
       const afford = canPay(st, me, c), short = !afford ? `（マナが${effCost(st, me, c) - pm.mana.cur}足りない）` : "";
       if (t === "monster"){
@@ -4088,6 +4090,8 @@ function renderBoard(){
       if (t === "magic"){ const full = isPersist(c) && freeZone(pm.sz) < 0; acts += `<button class="mg" data-act="activateHand" ${afford && !full ? "" : "disabled"}>発動する${full ? "（魔法・罠ゾーンがいっぱい）" : short}</button>`; }
       if (t === "equip" && afford){ const any = ["a", "b"].some(o => P(st, o).mz.some((m, j) => m && canEquipOn(st, pm.hand[sel.i], o, j))); hint = any ? `光っているモンスターをクリックして装備（相手のでもOK）。装備コスト ${eqCostOf(c)}` : "装備できるモンスターがいません（キャパが足りない）"; }
       if (t !== "monster" && t !== "equip" && c.frame !== "spire") acts += `<button class="${t === "trap" ? "tr" : ""}" data-act="set" ${freeZone(pm.sz) < 0 ? "disabled" : ""}>セットする</button>`;
+      // the same buttons right under the hand, so you don't have to look back up to the battle zone
+      handActs = acts.slice(a0);
     }
     if (sel && sel.z === "mz" && sel.s === "me"){
       const m = pm.mz[sel.i];
@@ -4143,6 +4147,7 @@ function renderBoard(){
       <div class="mstat"><span class="who">${esc(pm.name)}${G.spectate ? "" : "（あなた）"}</span><span>山札 ${pm.deck.length}</span><span>墓地 ${pm.grave.length}</span>${(pm.exile || []).length ? `<span>廃棄 ${pm.exile.length}</span>` : ""}<span class="lpv ${pm.lp <= 300 ? "low" : ""}"><small>LP</small>${pm.lp}</span></div>
       <span class="zlabel">手札</span>
       <div class="hand">${handHTML}</div>
+      ${handActs ? `<div class="actions hand-acts">${handActs}</div>` : ""}
       ${manaBox(pm, "あなた")}
     </div>
     <aside class="side">
