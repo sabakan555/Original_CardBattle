@@ -708,6 +708,31 @@ nav.tabs button{position:relative}
 .dk-types{display:grid;grid-template-columns:auto auto;gap:5px 12px;font-size:14px;margin:0}
 .dk-types dt{color:var(--muted)}
 .dk-types dd{margin:0;text-align:right;font-weight:700}
+.dkv-box{margin-bottom:16px;padding:12px 14px}
+.dkv-box>summary{cursor:pointer;list-style:none}
+.dkv-box>summary::-webkit-details-marker{display:none}
+.dkv-box>summary::before{content:"▸ ";color:var(--muted)}
+.dkv-box[open]>summary::before{content:"▾ "}
+.dkv-head{display:flex;flex-wrap:wrap;gap:6px 16px;align-items:flex-end;margin:10px 0}
+.dkv-curve{display:flex;gap:4px;align-items:flex-end;height:58px}
+.dkv-curve div{width:24px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;font-size:11px;color:var(--muted)}
+.dkv-curve b{font-size:11px;color:var(--ink)}
+.dkv-curve i{display:block;width:100%;background:linear-gradient(#f2c14e,#e0853a);border-radius:3px 3px 0 0;min-height:2px}
+.dkv-types{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:13px}
+.dkv-types b{font-size:15px;margin-left:3px}
+.dkv-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(168px,1fr));gap:4px 6px}
+.dk-strip{--sc:#e0853a;position:relative;display:block;height:36px;padding:0!important;border:2px solid #14162b!important;border-radius:6px!important;overflow:hidden;background:#2a2f55!important;box-shadow:none!important;text-align:left;cursor:pointer;min-width:0}
+.dk-strip.t-magic{--sc:#2fa37a}.dk-strip.t-trap{--sc:#b0478a}.dk-strip.t-equip{--sc:#2f8fb0}.dk-strip.token{--sc:#8a8f97}
+.dk-strip .ds-art{position:absolute;inset:0 0 0 22px;background:#fff center 30%/cover no-repeat}
+.dk-strip .ds-art::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,rgba(10,12,30,.15),rgba(10,12,30,0) 40%),linear-gradient(transparent 35%,rgba(10,12,30,.85))}
+.dk-strip .ds-cost{position:absolute;left:0;top:0;bottom:0;width:22px;background:var(--sc);color:#fff;font-weight:800;font-size:13px;display:flex;align-items:center;justify-content:center;font-family:var(--en,var(--ui))}
+.dk-strip .ds-cost.sm{font-size:10px}
+.dk-strip .ds-name{position:absolute;left:28px;right:4px;bottom:2px;color:#fff;font-size:12px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:0 1px 2px #000,0 0 3px #000}
+.dk-strip .ds-atk{position:absolute;right:3px;top:2px;color:#fff;font-size:10px;font-weight:700;background:rgba(10,12,30,.7);border-radius:4px;padding:0 4px}
+.dk-strip:hover{border-color:#f2c14e!important}
+.dk-strips-wrap{margin-top:16px}
+.dk-strips-wrap .dkv-grid{margin-top:10px}
+@media (max-width:640px){.dkv-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.dk-strip .ds-name{font-size:11px}}
 .dk-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
 .dk-play{font-size:20px!important;padding:14px 26px!important;flex:1 1 220px}
 .dk-picker{display:flex;flex-wrap:wrap;gap:8px}
@@ -1037,6 +1062,7 @@ nav.tabs button{position:relative}
         <button class="danger small" id="btnDeckDel" hidden>このデッキを消す</button>
       </div>
     </div>
+    <details class="box dkv-box" id="deckViewBox" open><summary><b>デッキの中身</b> <span class="note" id="deckViewNote"></span></summary><div id="deckView"></div></details>
     <div class="filters" id="deckFilters"></div>
     <div class="deck-pool" id="deckPool"></div>
     <div class="deck-float" id="deckFloat"><span id="deckFloatMeter"></span><button class="primary small" id="btnDeckSave2">デッキを保存</button></div>
@@ -2481,7 +2507,7 @@ const KIND_GROUPS = [
   { g: "none",    label: "なし", v: [["none", "なし"]] },
   { g: "dmg",     label: "ダメージを与える", v: [["dmg", "ダメージ"]] },
   { g: "destroy", label: "モンスターを倒す", v: [["destroy", "相手のモンスターを破壊"], ["killAtk", "攻撃してきたモンスターを破壊（罠）"], ["blast", "自爆して、装備の枚数×○以下のATKを全部破壊"]] },
-  { g: "debuff",  label: "相手を弱らせる（デバフ）", v: [["vuln", "弱体（受けるダメージ1.5倍）"], ["weak", "脱力（与えるダメージが減る）"], ["atkDown", "ATKを下げる"], ["charm", "魅了（攻撃できなくする）"], ["oppStrDown", "筋力を失わせる（相手の次のターンの終わりまで）"], ["discard", "手札を捨てさせる（ランダム）"], ["manaDrain", "マナを減らす"]] },
+  { g: "debuff",  label: "相手を弱らせる（デバフ）", v: [["vuln", "弱体（受けるダメージ1.5倍）"], ["weak", "脱力（与えるダメージが減る）"], ["atkDown", "ATKを下げる"], ["charm", "魅了（攻撃できなくする）"], ["oppStrDown", "筋力を失わせる（相手の次のターンの終わりまで）"], ["discard", "手札を捨てさせる（ランダム）"], ["manaDrain", "マナを減らす"], ["oppNoAtk", "攻撃できなくする（相手の次のターンまで）"], ["oppNoUse", "魔法・罠を発動できなくする（相手の次のターンまで）"]] },
   { g: "buff",    label: "自分を強くする（バフ）", v: [["str", "筋力を得る（与えるダメージ+○）"], ["strTemp", "筋力を得る（このターンだけ）"], ["selfAtk", "このモンスターのATKを上げる"], ["atkUp", "自分のモンスター1体のATKを上げる"], ["atkAll", "自分のモンスター全部のATKを上げる"], ["vulnBonus", "弱体の相手へのダメージ+○%（ずっと）"]] },
   { g: "guard",   label: "守る・回復する", v: [["block", "ブロックを得る"], ["heal", "LPを回復する"], ["plate", "プレート（ターンのおわりにブロック）"], ["barricade", "ブロックが消えなくなる（ずっと）"], ["firstBlock2", "毎ターン最初のブロックが2倍（ずっと）"], ["rageNow", "このターン、アタックを使うたびブロック"], ["thornsNow", "攻撃されたら反撃（次の自分のターンまで）"]] },
   { g: "draw",    label: "カードを引く", v: [["draw", "○枚引く"], ["drawUntil", "アタック以外を引くまで引く"], ["oppDraw", "相手に○枚引かせる"]] },
@@ -2494,7 +2520,6 @@ const KIND_GROUPS = [
   { g: "exhaust", label: "カードを廃棄する", v: [["exhaustHand", "手札から○枚えらんで"], ["exhaustRand", "手札からランダムに○枚"], ["exhaustAll", "手札をすべて"], ["exhaustNonAtk", "手札のアタック以外をすべて"]] },
   { g: "transform", label: "カードを変化させる", v: [["transformHand", "手札から○枚えらんで"], ["transformRand", "手札からランダムに○枚"], ["transformAtk", "手札のアタックすべて"], ["transformAll", "手札すべて"]] },
   { g: "give",    label: "相手にカードを送りこむ", v: [["oppDraw", "相手に○枚引かせる"], ["oppGenHand", "名前を指定したカードを相手の手札に"], ["oppGenDeck", "名前を指定したカードを相手の山札に混ぜる"], ["oppSummon", "名前を指定したモンスターを相手の場に出す"], ["oppSetNamed", "名前を指定した魔法・罠を相手の場にセット"]] },
-  { g: "lock",    label: "相手の動きを封じる", v: [["oppNoAtk", "攻撃できなくする（相手の次のターンまで）"], ["oppNoUse", "魔法・罠を発動できなくする（相手の次のターンまで）"], ["charm", "モンスター1体を魅了（攻撃できなくする）"]] },
   { g: "negate",  label: "打ち消す・無効にする", v: [["cancel", "魔法・罠の発動かモンスターの召喚を打ち消す"], ["negate", "相手の攻撃を無効にする（罠）"]] },
   { g: "equip",   label: "装備を動かす", v: [["moveEquips", "別のモンスターに付けかえる"], ["equipsToHand", "ほかの装備を手札に戻す"]] },
   { g: "minus",   label: "自分にデメリット", v: [["loseLp", "LPを失う（ブロックでは防げない）"], ["oppStr", "相手が筋力を得る"], ["noDraw", "このターンもう引けない"]] },
@@ -3068,6 +3093,7 @@ function renderDeck(){
   const n = deckCount(), sp = $("#deckSpire").checked, ok = sp || (n >= MIN_DECK && deckMonsters() > 0);
   const m = $("#deckMeter"); m.textContent = sp ? `${n}枚（スパイアデッキは枚数自由）` : `${n}枚（モンスター ${deckMonsters()}）`; m.className = "meter " + (ok ? "ok" : "ng");
   $("#btnDeckDel").hidden = !S.deckEdit.id;
+  { const ids = []; for (const [id, k] of Object.entries(S.deckEdit.cards)) for (let i = 0; i < k; i++) ids.push(id); $("#deckView").innerHTML = deckViewHTML(ids, $("#deckMana").checked); $("#deckViewNote").textContent = `${ids.length}枚・押すとくわしく見られる`; }
   const pool0 = [...S.userCards].filter(c => owns(c.id) || S.deckEdit.cards[c.id]).sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0)).concat(S.starters).filter(c => !c.token || S.deckEdit.cards[c.id]);
   const pool = sortCards(pool0.filter(c => matchCard(c, S.filt.deck) && (fitsDeck(c, $("#deckMana").checked) || S.deckEdit.cards[c.id])), S.filt.deck.sort);
   S.deckPoolIds = pool.map(c => c.id);
@@ -3078,6 +3104,9 @@ function renderDeck(){
   }).join("");
 }
 $("#deckMana").addEventListener("change", renderDeck);
+$("#deckView").addEventListener("click", e => stripClick(e, "deck"));
+$("#deckViewBox").open = ls.get("cb_dkv", true) !== false;
+$("#deckViewBox").addEventListener("toggle", () => ls.set("cb_dkv", $("#deckViewBox").open));
 $("#deckSpire").addEventListener("change", renderDeck);
 $("#deckEditSel").addEventListener("change", e => {
   const d = S.decks.find(x => x.id === e.target.value);
@@ -3401,12 +3430,35 @@ function renderDeckList(){
       <div class="dk-actions">${own ? `<button data-dedit>デッキ編集</button><button data-dthumb>${S.thumbPick ? "サムネ選びをやめる" : "サムネを変える"}</button><button class="danger small" data-ddel>${S.dkDelArm === d.id ? "本当に消す" : "デッキ削除"}</button>` : `<button data-dcopy>これをもとに作る</button>`}</div>
     </div>
   </div>`;
+  $("#deckList").insertAdjacentHTML("beforeend", `<div class="box dk-strips-wrap"><h3 style="margin:0">デッキの中身 <span class="note">押すとくわしく見られる</span></h3>${deckViewHTML(d.cards, !!d.mana, true)}</div>`);
+}
+// デッキの中身: one strip per card copy (like the deck screen of card apps), sorted by cost / type
+function deckSortIds(ids, mana){
+  const TYPE_ORD = { monster: 0, magic: 1, equip: 2, trap: 3 };
+  return ids.filter(id => S.cards.get(id)).sort((a, b) => { const x = card(a), y = card(b); return (mana ? costOf(x) - costOf(y) : 0) || TYPE_ORD[cardType(x)] - TYPE_ORD[cardType(y)] || (cardType(x) === "monster" && cardType(y) === "monster" ? baseAtk(x) - baseAtk(y) : 0) || String(x.name).localeCompare(String(y.name), "ja") || (a < b ? -1 : a > b ? 1 : 0); });
+}
+function deckViewHTML(ids, mana, noHead){
+  const TYPE_SHORT = { monster: "モ", magic: "魔", equip: "装", trap: "罠" };
+  const L = deckSortIds(ids, mana), cs = L.map(id => card(id)), uniq = [...new Set(L)];
+  if (!L.length) return `<p class="muted" style="margin:8px 0 0">まだカードが入っていません。下のカードの「＋」で入れよう</p>`;
+  const cnt = { monster: 0, magic: 0, equip: 0, trap: 0 }; cs.forEach(c => cnt[cardType(c)]++);
+  let curve = "";
+  if (mana){ const b = Array.from({ length: 8 }, (_, i) => [i === 7 ? "7+" : String(i), cs.filter(c => i === 7 ? costOf(c) >= 7 : costOf(c) === i).length]), mx = Math.max(1, ...b.map(x => x[1])); curve = `<div class="dkv-curve" title="コストの分布">${b.map(([l, n]) => `<div><b>${n || ""}</b><i style="height:${Math.round(n / mx * 70)}%"></i>${l}</div>`).join("")}</div>`; }
+  const types = `<div class="dkv-types">${["monster", "magic", "equip", "trap"].map(t => `<span>${TYPE_LABEL[t]}<b>${cnt[t]}</b></span>`).join("")}<span>合計<b>${L.length}</b>枚</span></div>`;
+  const strip = id => { const c = card(id), t = cardType(c), cost = mana && hasCost(c) ? costLabel(c) : TYPE_SHORT[t]; return `<button type="button" class="dk-strip t-${t}${c.token ? " token" : ""}" data-cvid="${esc(id)}" data-cvi="${uniq.indexOf(id)}" title="${esc(c.name)}"><span class="ds-art" style="${bgUrl(c)}"></span><span class="ds-cost${mana && hasCost(c) ? "" : " sm"}">${esc(String(cost))}</span>${t === "monster" ? `<span class="ds-atk">${fmtN(baseAtk(c))}</span>` : ""}<span class="ds-name">${esc(c.name)}</span></button>`; };
+  return `${noHead ? "" : `<div class="dkv-head">${curve}${types}</div>`}<div class="dkv-grid" data-uniq="${esc(JSON.stringify(uniq))}">${L.map(strip).join("")}</div>`;
+}
+function stripClick(e, ctx){
+  const b = e.target.closest("[data-cvid]"); if (!b) return false;
+  const g = b.closest(".dkv-grid"); let uniq = []; try{ uniq = JSON.parse(g.dataset.uniq || "[]"); }catch(err){}
+  openCardView(ctx, uniq, +b.dataset.cvi || 0); return true;
 }
 function openDeckEditor(id){
   S.deckView = "edit"; S.tab = "deck"; ls.set("cb_tab", "deck"); S.thumbPick = false; renderAll();
   const sel = $("#deckEditSel"); sel.value = id || ""; sel.dispatchEvent(new Event("change")); window.scrollTo(0, 0);
 }
 $("#deckList").addEventListener("click", async e => {
+  if (stripClick(e, "gal")) return;
   const g = s => e.target.closest(s), d = [...myDecks(), ...builtinDecks()].find(x => x.id === S.deckPick);
   if (g("[data-dpick]")){ S.deckPick = g("[data-dpick]").dataset.dpick; S.thumbPick = false; S.dkDelArm = null; renderDeckList(); if (matchMedia("(max-width:860px)").matches) $(".dk-right").scrollIntoView({ behavior: "smooth", block: "start" }); return; }
   if (g("[data-dnew]")){ openDeckEditor(""); return; }
