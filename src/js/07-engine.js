@@ -189,6 +189,23 @@ function transformSelf(st, s, c, ctx, fx, src){
   for (const [pile, where] of [[p.grave, "墓地"], [p.exile = p.exile || [], "廃棄"], [p.hand, "手札"]]){ const k = pile.lastIndexOf(c.id); if (k >= 0){ pile[k] = id; done(c.id, where); return; } }
   log(st, s, `${src}：このカードが見つからない`);
 }
+function isFusion(c){ return !!(c && cardType(c) === "monster" && Array.isArray(c.fusion) && c.fusion.length); }
+function fusionMatOk(id, x){
+  const c = card(id); if (cardType(c) !== "monster") return false;
+  if (x.m === "any") return true;
+  const w = String(x.v || "").trim(); if (!w) return false;
+  if (x.m === "tag") return hasTag(id, w);
+  return normQ(c.name).trim() === normQ(w).trim() || plainRuby(c.nameRuby || "") === w;
+}
+// which hand cards / field monsters become the materials (hand first, then the weakest monsters); null = can't fuse
+function fusionPlan(st, s, fc){
+  const p = P(st, s), pool = [...p.hand.map((id, i) => ({ from: "hand", i, id })), ...p.mz.map((m, i) => m ? { from: "mz", i, id: m.c, a: atkOf(m) } : null).filter(Boolean).sort((x, y) => x.a - y.a)];
+  const rank = { name: 0, tag: 1, any: 2 }, mats = [...fc.fusion].sort((a, b) => (rank[a.m] ?? 0) - (rank[b.m] ?? 0)), used = new Set(), out = [];
+  const rec = k => { if (k >= mats.length) return true; for (let j = 0; j < pool.length; j++){ if (used.has(j) || !fusionMatOk(pool[j].id, mats[k])) continue; used.add(j); out.push(pool[j]); if (rec(k + 1)) return true; used.delete(j); out.pop(); } return false; };
+  if (!rec(0)) return null;
+  if (freeZone(p.mz) < 0 && !out.some(x => x.from === "mz")) return null;
+  return out;
+}
 function transformAt(st, s, k, into, src, srcCard, fxo){
   const p = P(st, s), old = p.hand[k]; if (old == null) return;
   const id = into ? fxCardId({ kind: "transformHand", into, intoId: fxo && fxo.intoId }, srcCard) : randSpire(false);
@@ -283,11 +300,12 @@ function targetOptions(st, s, kind, ctx = {}){
   if (t === "draft") return (ctx.draft || []).filter(id => S.cards.has(id));
   if (KINDS[kind] && KINDS[kind].mod && !ctx.modPick) return null;
   if (t === "hand") return P(st, s).hand.map((_, i) => i);
+  if (t === "tagPick" && kind === "fusion"){ const p = P(st, s); return [...new Set(p.ex || [])].filter(id => isFusion(card(id)) && fusionPlan(st, s, card(id))); }
   if (t === "tagPick"){
     const p = P(st, s), tag = ctx.tagName || "", fromEx = kind === "exSummon" || kind === "tagSummonEx", src = fromEx ? (p.ex || []) : /Hand$/.test(kind) && kind !== "tagGraveHand" ? p.hand : /Deck$|tagSearch/.test(kind) ? p.deck : p.grave;
     const summ = /^tagSummon/.test(kind) || kind === "exSummon";
     if (summ && freeZone(p.mz) < 0) return [];
-    return [...new Set(src.filter(id => (kind === "exSummon" || hasTag(id, tag)) && (!summ || cardType(card(id)) === "monster")))];
+    return [...new Set(src.filter(id => (kind === "exSummon" || hasTag(id, tag)) && (!summ || cardType(card(id)) === "monster") && !(fromEx && isFusion(card(id)))))];
   }
   if (t === "graveAny") return [...new Set(P(st, s).grave)].filter(id => S.cards.has(id));
   if (t === "grave"){
@@ -598,6 +616,17 @@ function applyEffect(st, s, c, target, ctx = {}, fx = normFx(c)){
     case "noDraw": me.noDraw = true; log(st, s, `${src}：このターンはもうカードを引けない`); break;
     case "drawUntil": { let k = 0, last = null; while (k < 12 && !me.noDraw){ if (!me.deck.length) refill(st, s); if (!me.deck.length) break; last = me.deck.shift(); me.hand.push(last); k++; if (!isAttackCard(card(last))) break; } log(st, s, `${src}でカードを${k}枚引いた${last && !isAttackCard(card(last)) ? `（「${card(last).name}」で止まった）` : ""}`); break; }
     case "tagSearch": case "tagGraveHand": { const src = fx.kind === "tagSearch" ? me.deck : me.grave, k = src.indexOf(target); if (k >= 0){ src.splice(k, 1); me.hand.push(target); log(st, s, `${src === me.deck ? "山札" : "墓地"}から「${card(target).name}」を手札に加えた`); if (fx.kind === "tagSearch") me.deck = shuffle(me.deck); } break; }
+    case "fusion": {
+      const fc = card(target), ex = (me.ex = me.ex || []), k = ex.indexOf(target), plan = k >= 0 && isFusion(fc) ? fusionPlan(st, s, fc) : null;
+      if (!plan){ log(st, s, `${src}：融合できない（素材が足りない）`); break; }
+      const names = plan.map(x => `「${card(x.id).name}」`).join("");
+      plan.filter(x => x.from === "hand").map(x => x.i).sort((a, b) => b - a).forEach(i => me.grave.push(me.hand.splice(i, 1)[0]));
+      plan.filter(x => x.from === "mz").forEach(x => sendToGrave(st, s, x.i));
+      ex.splice(k, 1); const z = freeZone(me.mz); me.mz[z] = mkMon(st, target); ev(st, { type: "summon", s, z });
+      log(st, s, `${src}：${names}を融合！「${fc.name}」を融合召喚した`);
+      trigger(st, s, fc, "ssummon", { zone: z, mon: { s, i: z, u: me.mz[z].u } }); persistFire(st, s, "mySummon", {});
+      break;
+    }
     case "tagSummonHand": case "tagSummonDeck": case "tagSummonGrave": case "tagSummonEx": case "exSummon": {
       const src = fx.kind === "tagSummonHand" ? me.hand : fx.kind === "tagSummonDeck" ? me.deck : fx.kind === "tagSummonGrave" ? me.grave : (me.ex = me.ex || []), k = src.indexOf(target), z = freeZone(me.mz);
       if (k < 0 || z < 0){ log(st, s, `「${c.name}」：出せるモンスターがいない`); break; }
@@ -813,7 +842,7 @@ function summon(st, s, hi, zi, disc, trib){
   const p = P(st, s), id = p.hand[hi], need = tribOf(card(id), st, s);
   let z = (zi != null && !p.mz[zi]) ? zi : freeZone(p.mz);
   if (need){ const tt = card(id).tribTag; trib = [...new Set((trib || []).map(Number))].filter(i => p.mz[i] && (!tt || hasTag(p.mz[i].c, tt))); if (trib.length !== need) return false; }
-  if (!canSummonNow(st, s) || (z < 0 && !need) || cardType(card(id)) !== "monster" || !canPay(st, s, card(id)) || (ssOf(card(id)) || {}).only) return false;
+  if (!canSummonNow(st, s) || (z < 0 && !need) || cardType(card(id)) !== "monster" || !canPay(st, s, card(id)) || (ssOf(card(id)) || {}).only || isFusion(card(id))) return false;
   if (!pay(st, s, card(id))) return false;
   p.hand.splice(hi, 1); if (!p.mana) st.summoned = true;
   discardCost(st, s, card(id), shiftPicks(disc, hi));
@@ -836,6 +865,7 @@ function summon(st, s, hi, zi, disc, trib){
 // why special summon of hand[hi] isn't possible right now ("" = it is)
 function ssBlock(st, s, hi){
   const p = P(st, s), op = P(st, O(s)), c = card(p.hand[hi]), ss = ssOf(c);
+  if (isFusion(c)) return "融合召喚でしか出せないカード";
   if (!ss) return "特殊召喚できないカード";
   if (!canPay(st, s, c)) return "マナが足りない";
   const mine = p.mz.filter(Boolean).length;

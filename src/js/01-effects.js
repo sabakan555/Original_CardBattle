@@ -97,6 +97,7 @@ const KINDS = {
   tagGraveHand:  { label: "墓地からタグのカードを手札に加える", n: true, name: true, need: true, tag: true, target: "tagPick", each: true, text: (n, t) => `墓地からタグ「${t || "？"}」のカードを${n}枚えらんで手札に加える` },
   tagSummonHand: { label: "手札からタグのモンスターを場に出す", name: true, need: true, tag: true, target: "tagPick", text: (n, t) => `手札からタグ「${t || "？"}」のモンスター1体を自分の場に出す` },
   tagSummonDeck: { label: "山札からタグのモンスターを場に出す", name: true, need: true, tag: true, target: "tagPick", text: (n, t) => `山札からタグ「${t || "？"}」のモンスター1体を自分の場に出す` },
+  fusion:        { label: "融合召喚する", target: "tagPick", text: () => `手札・場から素材のモンスターを墓地へ送り、EXデッキの融合モンスター1体を融合召喚する` },
   exSummon:      { label: "EXデッキのモンスターを場に出す", target: "tagPick", text: () => `EXデッキのモンスター1体を自分の場に出す` },
   tagSummonEx:   { label: "EXデッキからタグのモンスターを場に出す", name: true, need: true, tag: true, target: "tagPick", text: (n, t) => `EXデッキからタグ「${t || "？"}」のモンスター1体を自分の場に出す` },
   tagSummonGrave:{ label: "墓地からタグのモンスターを場に出す", name: true, need: true, tag: true, target: "tagPick", text: (n, t) => `墓地からタグ「${t || "？"}」のモンスター1体を自分の場に出す` },
@@ -338,7 +339,10 @@ const WHEN_LABEL = { attacked: "相手が攻撃してきたとき", oppUse: "相
 const WHEN_ORDER = ["attacked", "oppSummon", "oppUse", "oppEnd"];
 function whenOf(c){ const t = c && cardType(c); return c && (t === "trap" || t === "magic") && !c.field && WHEN_LABEL[c.when] ? c.when : ""; }
 function whenText(c){ const w = whenOf(c); return w ? `【${WHEN_LABEL[w]}に発動できる】` : ""; }
-function fxText(c){ return (c && c.token ? "【トークン】" : "") + (c && c.ex ? "【EX】" : "") + (c && !c.noUse ? whenText(c) : "") + [c && c.noUse && (cardType(c) === "magic" || cardType(c) === "trap") ? "このカードは発動できない" : "", isPersist(c) ? "【永続】使ったあとも場に残る" : "", isField(c) ? "【フィールド】お互いに1枚だけ場に置ける（新しいフィールドが出ると、前のフィールドは墓地へ）。効果はお互いに効く" : "", extraCostText(c), tribText(c), atkCondText(c), ssText(c), fxText0(c)].filter(Boolean).join("。"); }
+// 融合モンスター: materials {m: "name"|"tag"|"any", v}
+function fusionMatText(x){ return x.m === "any" ? "モンスター" : x.m === "tag" ? `タグ「${x.v || "？"}」のモンスター` : `「${x.v || "？"}」`; }
+function fusionText(c){ return c && cardType(c) === "monster" && Array.isArray(c.fusion) && c.fusion.length ? `【融合】${c.fusion.map(fusionMatText).join("＋")}` : ""; }
+function fxText(c){ return (c && c.token ? "【トークン】" : "") + (c && c.ex ? "【EX】" : "") + (c && !c.noUse ? whenText(c) : "") + [fusionText(c) ? fusionText(c) + "（「融合召喚」の効果でだけ出せる）" : "", c && c.noUse && (cardType(c) === "magic" || cardType(c) === "trap") ? "このカードは発動できない" : "", isPersist(c) ? "【永続】使ったあとも場に残る" : "", isField(c) ? "【フィールド】お互いに1枚だけ場に置ける（新しいフィールドが出ると、前のフィールドは墓地へ）。効果はお互いに効く" : "", extraCostText(c), tribText(c), atkCondText(c), ssText(c), fxText0(c)].filter(Boolean).join("。"); }
 /* ================= effect blocks: いつ / もし / なにを / ちがったら =================
    c.blocks = [{ trig, conds: [{k, op, n | name, where, match | text}], join: "and"|"or", then: [{kind, n, to}], else: [...] }]
    Older cards (c.fx + c.combo) are read as blocks too, so everything below runs on blocks. */
