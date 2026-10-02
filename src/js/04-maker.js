@@ -60,7 +60,7 @@ $("#mkTEdge").addEventListener("change", e => setTEdge(e.target.checked));
 $("#mkFrameless").addEventListener("change", e => setFrameless(e.target.checked));
 function syncRarity(){ const sp = $("#mkFrame").value === "spire", r = $("#mkRarity").value; $("#rarityRow").hidden = !sp; ["common", "uncommon", "rare"].forEach(k => $("#editCard").classList.toggle("rar-" + k, sp && r === k)); }
 $("#mkRarity").addEventListener("change", syncRarity);
-function syncFrame(){ if (typeof updateSecs === "function") setTimeout(updateSecs); $("#editCard").classList.toggle("mtg", $("#mkFrame").value === "mtg"); $("#editCard").classList.toggle("fut", $("#mkFrame").value === "future"); $("#editCard").classList.toggle("socra", $("#mkFrame").value === "socra"); $("#editCard").classList.toggle("spire", $("#mkFrame").value === "spire"); syncRarity(); $("#flAlphaRow").hidden = !MK.frameless || $("#mkFrame").value === "future"; if ($("#mkFrame").value === "spire" && MK.frameless) setFrameless(false); $("#mkFrameless").closest("label").hidden = $("#mkFrame").value === "spire"; if (typeof syncTypeNames === "function") syncTypeNames(); $("#capRow").hidden = MK.type !== "monster" || $("#mkFrame").value !== "socra"; }
+function syncFrame(){ if (typeof updateSecs === "function") setTimeout(updateSecs); $("#editCard").classList.toggle("mtg", $("#mkFrame").value === "mtg"); $("#editCard").classList.toggle("fut", $("#mkFrame").value === "future"); $("#editCard").classList.toggle("socra", $("#mkFrame").value === "socra"); $("#editCard").classList.toggle("spire", $("#mkFrame").value === "spire"); syncRarity(); $("#flAlphaRow").hidden = !MK.frameless || $("#mkFrame").value === "future"; if ($("#mkFrame").value === "spire" && MK.frameless) setFrameless(false); $("#mkFrameless").closest("label").hidden = $("#mkFrame").value === "spire"; if (typeof syncTypeNames === "function") syncTypeNames(); if (MK.deck) syncCost(); $("#capRow").hidden = MK.type !== "monster" || $("#mkFrame").value !== "socra"; }
 $("#mkFrame").addEventListener("change", () => { if ($("#mkFrame").value === "future" && !MK.frameless) setFrameless(true); syncFrame(); syncFont(); });
 function clearCanvas(){ ik.clearRect(0, 0, ink.width, ink.height); photo = null; setMode("draw"); composite(); }
 $("#swatches").innerHTML = COLORS.map(c => `<button class="sw" style="background:${c}" data-c="${c}" aria-label="色 ${c}" aria-pressed="${c === pen.color}"></button>`).join("");
@@ -215,7 +215,8 @@ $("#fxAsk").addEventListener("input", () => syncFxForm());
 MK.deck = "normal";
 function syncCost(){
   const v = MK.deck === "normal" ? "" : $("#mkCost").value;
-  $("#mkCostBadge").textContent = v; $("#mkCostBadge").hidden = v === ""; $("#editCard").classList.toggle("costed", v !== "");
+  const fu = $("#mkFrame").value === "future" && MK.kind !== "potion" && MK.kind !== "relic";
+  $("#mkCostBadge").textContent = v === "" && fu ? "‐" : v; $("#mkCostBadge").hidden = v === "" && !fu; $("#editCard").classList.toggle("costed", v !== "");
 }
 $("#mkCost").innerHTML = Array.from({ length: MAX_MANA + 1 }, (_, k) => `<option value="${k}">${k}</option>`).join("") + `<option value="X">X（あるマナを全部使って、効果をX回くり返す）</option>`;
 $("#mkCost").value = "1";

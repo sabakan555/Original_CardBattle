@@ -193,6 +193,7 @@ function cardHTML(c, cls = "", attrs = "", opts = {}){
   // MTG風の枠（サバ缶デザイン）: ふつうの枠と同じ中身に、枠の見た目と下の宝石をかぶせる
   // MTG風: カードのフォントが標準（手書き）のままなら、Figmaのデザインのフォントを使う
   if (mt && (!c.font || c.font === "klee")) h = h.replace(/--cf:[^;']*;?/, "");
+  if (fr === "future" && !/<span class="c-cost"/.test(h)) h = h.replace('<div class="c-in">', '<div class="c-in"><span class="c-cost nocost" title="コストなし">‐</span>');
   if (mt) h = h.replace(/^<div class="card /, `<div class="card ${fr === "mtg" ? "mtg" : "fut"} `).replace(/<\/div>$/, `<span class="m-gem" aria-hidden="true"></span></div>`).replace(/<div class="c-atk">ATK /, `<div class="c-atk">`).replace(/<div class="c-name">([\s\S]*?)<\/div><div class="c-art">/, `<div class="c-name"><span class="m-nm">$1</span></div><div class="c-art">`);
   const ho = c && HOLO[c.holo] ? c.holo : "", fo = c && FOIL[c.foil] ? c.foil : "";
   if (!ho && !fo) return h;
