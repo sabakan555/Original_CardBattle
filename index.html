@@ -453,7 +453,10 @@ body.dm-lock{overflow:hidden}
 .lp b{font-size:28px;font-weight:600;font-variant-numeric:tabular-nums}
 .lp.low b{color:var(--hit)}
 .pile-tabs button{font-size:13px}
-.bk-row.bk-sub{flex-basis:100%;margin:4px 0 0 18px;padding:6px 8px;border-left:3px solid #8f6bd8;background:rgba(143,107,216,.08);border-radius:8px}
+.bk-row.bk-sub{flex:1 1 100%;width:100%;max-width:100%;min-width:0;box-sizing:border-box;margin:4px 0 0;padding:6px 8px 6px 10px;border-left:3px solid #8f6bd8;background:rgba(143,107,216,.08);border-radius:8px}
+.bk-row.bk-sub>*{max-width:100%;min-width:0}
+.bk-row .note{overflow-wrap:anywhere}
+.bk-subl{flex-basis:100%}
 .bk-subl{font-weight:700;color:#c9a6ff}
 .fieldz{display:flex;align-items:center;justify-content:center;gap:10px;margin:0 auto 6px;padding:6px 12px;border:2px dashed #5fe0d2;border-radius:14px;width:max-content;max-width:100%;background:rgba(95,224,210,.08);cursor:pointer}
 .fieldz .flbl{font-weight:800;color:#5fe0d2;font-size:13px}
