@@ -70,6 +70,10 @@ const KINDS = {
   transformRand: { label: "手札をランダムに変化させる", n: true, name: true, text: (n, into) => `手札をランダムに${n}枚、${intoText(into)}に変化させる` },
   transformAtk:  { label: "手札のアタックをすべて変化させる", name: true, text: (n, into) => `手札のアタックをすべて${intoText(into)}に変化させる` },
   transformAll:  { label: "手札をすべて変化させる", name: true, text: (n, into) => `手札をすべて${intoText(into)}に変化させる` },
+  modAdd:        { label: "カードに効果を追加する", mod: true, target: "hand", text: (n, into, e) => `${modTargetText(e)}に「${grantText(e)}」の効果を追加する` },
+  modRep:        { label: "カードの効果を上書きする", mod: true, target: "hand", text: (n, into, e) => `${modTargetText(e)}の効果を「${grantText(e)}」に上書きする` },
+  modClear:      { label: "カードの効果をなくす", mod: true, target: "hand", text: (n, into, e) => `${modTargetText(e)}の効果をなくす` },
+  modName:       { label: "カードの名前を変える", mod: true, target: "hand", text: (n, into, e) => `${modTargetText(e)}の名前を「${(e && e.nm) || "？"}」に変える` },
   oppNoAtk:      { label: "相手は攻撃できない（相手の次のターンの終わりまで）", text: () => `相手の次のターンの終わりまで、相手のモンスターは攻撃できない` },
   oppNoUse:      { label: "相手は魔法・罠を発動できない（相手の次のターンの終わりまで）", text: () => `相手の次のターンの終わりまで、相手は魔法・罠を発動できない` },
   oppSetNamed:   { label: "名前を指定した魔法・罠を相手の場にセットする", n: true, name: true, need: true, text: (n, into) => `「${into || "？"}」を${n > 1 ? n + "枚" : ""}相手の魔法・罠ゾーンにセットする` },
@@ -365,7 +369,15 @@ function normTrig(c, trig){
   if (isPersist(c)) return PERSIST_TRIGS.includes(trig) ? trig : "use";
   return "use";
 }
-const cleanEff = e => e && KINDS[e.kind] && e.kind !== "none" ? { kind: e.kind, ...(e.n != null ? { n: e.n } : {}), ...(e.to && e.to !== "one" ? { to: e.to } : {}), ...(KINDS[e.kind].name && e.into ? { into: String(e.into).slice(0, 40) } : {}), ...(KINDS[e.kind].name && e.into && e.intoId && pickCardKind(e.kind) ? { intoId: String(e.intoId).slice(0, 80) } : {}), ...(e.times > 1 ? { times: Math.min(20, Math.round(e.times)) } : {}), ...(e.per && PER_DEFS[e.per] && PER_OK[e.kind] ? { per: e.per, pm: e.pm ?? 1, ...(e.hits && e.kind === "dmg" ? { hits: true } : {}) } : {}) } : null;
+// カードを書きかえる: だれの・どこの・どのカードを（mt）、なにを足す／上書きする（gk・gn）、新しい名前（nm）
+const MOD_TARGETS = { myHandPick: "自分の手札から1枚えらんで", myHandAll: "自分の手札すべて", myDeckAll: "自分の山札すべて", myDeckRand: "自分の山札からランダムに○枚", myNamed: "自分の手札と山札の「名前」のカードすべて", opHandAll: "相手の手札すべて", opHandRand: "相手の手札からランダムに○枚", opDeckAll: "相手の山札すべて", opDeckRand: "相手の山札からランダムに○枚", opNamed: "相手の手札と山札の「名前」のカードすべて" };
+const GRANT_KINDS = ["draw", "dmg", "heal", "block", "vuln", "weak", "discard", "manaNow", "str", "atkUp", "atkAll", "destroy", "oppDraw", "loseLp", "noDraw", "exhaustRand"];
+function modTargetText(e){
+  const mt = (e && e.mt) || "myHandPick", n = (e && e.mn) || 1, nm = (e && e.into) || "？";
+  return { myHandPick: "自分の手札のカード1枚", myHandAll: "自分の手札のカードすべて", myDeckAll: "自分の山札のカードすべて", myDeckRand: `自分の山札のランダムなカード${n}枚`, myNamed: `自分の手札と山札の「${nm}」すべて`, opHandAll: "相手の手札のカードすべて", opHandRand: `相手の手札のランダムなカード${n}枚`, opDeckAll: "相手の山札のカードすべて", opDeckRand: `相手の山札のランダムなカード${n}枚`, opNamed: `相手の手札と山札の「${nm}」すべて` }[mt] || "カード";
+}
+function grantText(e){ const k = e && e.gk && KINDS[e.gk] && !KINDS[e.gk].mod ? e.gk : "draw"; return KINDS[k].text(e && e.gn || (smallN(k) ? 1 : 100)); }
+const cleanEff = e => e && KINDS[e.kind] && e.kind !== "none" ? { kind: e.kind, ...(e.n != null ? { n: e.n } : {}), ...(e.to && e.to !== "one" ? { to: e.to } : {}), ...(KINDS[e.kind].name && e.into ? { into: String(e.into).slice(0, 40) } : {}), ...(KINDS[e.kind].name && e.into && e.intoId && pickCardKind(e.kind) ? { intoId: String(e.intoId).slice(0, 80) } : {}), ...(e.times > 1 ? { times: Math.min(20, Math.round(e.times)) } : {}), ...(KINDS[e.kind].mod ? { mt: MOD_TARGETS[e.mt] ? e.mt : "myHandPick", ...(e.mn > 1 ? { mn: Math.min(40, Math.round(+e.mn)) } : {}), ...(e.gk && KINDS[e.gk] && !KINDS[e.gk].mod ? { gk: e.gk, gn: Math.max(1, Math.round(+e.gn || 1)) } : {}), ...(e.nm ? { nm: String(e.nm).slice(0, 20) } : {}), ...(/Named$/.test(e.mt || "") && e.into ? { into: String(e.into).slice(0, 40) } : {}) } : {}), ...(e.per && PER_DEFS[e.per] && PER_OK[e.kind] ? { per: e.per, pm: e.pm ?? 1, ...(e.hits && e.kind === "dmg" ? { hits: true } : {}) } : {}) } : null;
 const LEGACY_COND = { lp: { k: "lp", op: "le" }, grave: { k: "grave", op: "ge" }, hand: { k: "sameHand", op: "ge" } };
 function blocksOf(c){
   if (!c) return [];
@@ -396,7 +408,7 @@ function effsText(c, effs){
     const m = g.m;
     // base 0 + 「○1つにつき」 reads as 「○1つにつき100ダメージ」
     const pz = m.per && !m.hits && !m.n && PER_DEFS[m.per], nn = pz ? `${PER_DEFS[m.per].label}${PER_DEFS[m.per].u}につき${m.pm ?? 1}` : m.n;
-    let tx = (m.to && TARGETABLE[m.kind] ? toText(m.kind, nn, m.to, spire) : KINDS[m.kind].text(nn, m.into)) + (pz ? "" : perText(m));
+    let tx = (m.to && TARGETABLE[m.kind] ? toText(m.kind, nn, m.to, spire) : KINDS[m.kind].text(nn, m.into, m)) + (pz ? "" : perText(m));
     if (spire && k > 0 && aim(m) && G2.slice(0, k).some(x => aim(x.m))) tx = tx.replace(/^相手(に|を)/, "同じ相手$1");
     if (g.cnt > 1) tx += /ダメージ$/.test(tx) ? `を${g.cnt}回` : `（${g.cnt}回）`;
     return tx;

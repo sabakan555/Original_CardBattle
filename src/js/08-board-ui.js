@@ -411,6 +411,7 @@ function renderDetail(info, anim){
   if (c.flavor) rows.push(["フレーバー", plainRuby(c.flavor)]);
   if (t === "monster" && monAbsText(c)) rows.push(["能力（もとから）", monAbsText(c)]);
   if (!ft && !c.effect && t !== "equip" && !absOf(c).length) rows.push(["効果", "なし"]);
+  if (c.modded && c.modOf) rows.push(["書きかえ", `もとのカードは「${card(c.modOf).name}」`]);
   rows.push(["場所", info.where || "—"]);
   if (info.attacked) rows.push(["状態", "このターンは攻撃ずみ"]);
   if (t === "trap" && info.setTurn != null) rows.push(["発動", info.setTurn < G.st.turnNo ? "いま発動できる" : "次のターンから発動できる"]);

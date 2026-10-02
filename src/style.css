@@ -442,6 +442,7 @@ body.dm-lock{overflow:hidden}
 .lp b{font-size:28px;font-weight:600;font-variant-numeric:tabular-nums}
 .lp.low b{color:var(--hit)}
 .pile-tabs button{font-size:13px}
+.card.modded::after{content:"書きかえ";position:absolute;top:calc(var(--w)*.012);right:calc(var(--w)*.012);z-index:6;background:#8f6bd8;color:#fff;font:700 max(9px,calc(var(--w)*.06))/1.4 var(--ui,sans-serif);padding:0 .4em;border-radius:6px;pointer-events:none}
 .clk{display:inline-block;width:1.3em;height:1.45em;vertical-align:-.38em;color:#26292e}
 .clkm{display:inline-block;margin-right:.15em}
 .card.spire .clk{color:#f2e6c4}

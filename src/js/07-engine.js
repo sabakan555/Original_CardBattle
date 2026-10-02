@@ -1,7 +1,48 @@
 /* ================= game engine (pure-ish over st) ================= */
 const O = s => s === "a" ? "b" : "a";
 const P = (st, s) => st.players[s];
-const card = id => S.cards.get(id) || { id, name: "？", type: "monster", atk: 0 };
+const card = id => S.cards.get(id) || modCardOf(id) || { id, name: "？", type: "monster", atk: 0 };
+const hasCard = id => S.cards.has(id) || !!modCardOf(id);
+// 書きかえたカード: 対戦データ st.mods["mod:N"] = { b: もとのカード, add, rep, clear, name } から、その場で作る
+function modCardOf(id){
+  if (typeof id !== "string" || !id.startsWith("mod:")) return null;
+  const m = typeof G !== "undefined" && G && G.st && G.st.mods && G.st.mods[id]; if (!m) return null;
+  const cache = modCardOf.cache || (modCardOf.cache = new Map()), key = JSON.stringify(m), hit = cache.get(id);
+  if (hit && hit.k === key) return hit.c;
+  const base = S.cards.get(m.b); if (!base) return null;
+  const t = cardType(base), trig = t === "monster" ? "summon" : t === "equip" ? "attach" : "use";
+  const bs = m.clear || m.rep ? [] : blocksOf(base).map(b => ({ ...b }));
+  if (m.rep && m.rep.length) bs.push({ trig, join: "and", conds: [], then: m.rep, else: [] });
+  if (m.add && m.add.length) bs.push({ trig, join: "and", conds: [], then: m.add, else: [] });
+  const c = { ...base, id, name: m.name || base.name, nameRuby: m.name ? null : base.nameRuby, fx: null, combo: null, blocks: bs, effect: m.clear || m.rep || (m.add && m.add.length) ? "" : base.effect, modded: true, modOf: base.id };
+  cache.set(id, { k: key, c }); return c;
+}
+// カードを書きかえる（new id を返す。書きかえ済みのカードはもとのカードから作りなおす）
+function modId(st, id, ch){
+  st.mods = st.mods || {};
+  const old = typeof id === "string" && id.startsWith("mod:") && st.mods[id];
+  const m = old ? JSON.parse(JSON.stringify(old)) : { b: id };
+  if (ch.clear){ m.clear = true; m.add = []; m.rep = null; }
+  if (ch.rep){ m.rep = ch.rep; m.clear = false; m.add = []; }
+  if (ch.add) m.add = (m.add || []).concat(ch.add);
+  if (ch.name) m.name = ch.name;
+  st.modn = (st.modn || 0) + 1; const nid = "mod:" + st.modn; st.mods[nid] = m; return nid;
+}
+function modApply(st, s, c, fx, target, src){
+  const me = P(st, s), op = P(st, O(s)), mt = fx.mt || "myHandPick", k = Math.max(1, fx.mn || 1), out = [];
+  const all = arr => arr.forEach((_, i) => out.push([arr, i])), rand = arr => shuffle(arr.map((_, i) => i)).slice(0, k).forEach(i => out.push([arr, i]));
+  const named = (pl) => [pl.hand, pl.deck].forEach(arr => arr.forEach((id, i) => { const x = card(id); if (x.name === fx.into || plainRuby(x.nameRuby || "") === fx.into) out.push([arr, i]); }));
+  if (mt === "myHandPick"){ if (me.hand[target] != null) out.push([me.hand, target]); }
+  else if (mt === "myHandAll") all(me.hand); else if (mt === "myDeckAll") all(me.deck); else if (mt === "myDeckRand") rand(me.deck);
+  else if (mt === "opHandAll") all(op.hand); else if (mt === "opHandRand") rand(op.hand); else if (mt === "opDeckAll") all(op.deck); else if (mt === "opDeckRand") rand(op.deck);
+  else if (mt === "myNamed") named(me); else if (mt === "opNamed") named(op);
+  if (!out.length){ log(st, s, `${src}：書きかえるカードがない`); return; }
+  const gk = fx.gk && KINDS[fx.gk] && !KINDS[fx.gk].mod ? fx.gk : "draw", g = [cleanEff({ kind: gk, n: fx.gn || (smallN(gk) ? 1 : 100) })].filter(Boolean);
+  const ch = fx.kind === "modAdd" ? { add: g } : fx.kind === "modRep" ? { rep: g } : fx.kind === "modClear" ? { clear: true } : { name: String(fx.nm || "").slice(0, 20) || null };
+  if (fx.kind === "modName" && !ch.name){ log(st, s, `${src}：新しい名前がない`); return; }
+  out.forEach(([arr, i]) => { arr[i] = modId(st, arr[i], ch); });
+  log(st, s, `${src}で${modTargetText(fx)}を書きかえた（${out.length}枚）`);
+}
 function atkOf(m){
   if (!m) return 0;
   const c = card(m.c), es = eqsOf(m); let v = baseAtk(c) + (m.mod || 0) + (m.tmp || 0);
@@ -127,7 +168,7 @@ const potionChips = (p, mine) => (p.potions || []).map((k, i) => [k, i, potionDe
 // the row under each player: relics, 筋力 / 脱力 / ブロック…, and ポーション (full width, so the name and LP keep their room)
 const potRow = (p, mine, noPots) => { const h = statChips(p) + (noPots ? "" : potionChips(p, mine)); return h ? `<div class="pots">${h}</div>` : ""; };
 const lockChips = p => { const tn = typeof G !== "undefined" && G && G.st ? G.st.turnNo : null; if (tn == null) return ""; return ((p.noAtkUntil || 0) >= tn ? `<span class="bst wk" title="相手の効果で、このターンの終わりまで（相手のターンなら次の自分のターンの終わりまで）モンスターが攻撃できない">攻撃できない</span>` : "") + ((p.noUseUntil || 0) >= tn ? `<span class="bst wk" title="相手の効果で、魔法・罠を発動できない">発動できない</span>` : ""); };
-const timerChips = p => (p.timers || []).map(t => { const c = t.c && S.cards.has(t.c) ? card(t.c) : null, tx = c ? blockText(c, { ...t.b, delay: 0 }) : ""; return `<span class="bst tmrc" title="${esc(`「${t.name}」：あと${t.left}回の自分のターンのはじめで効果が出る${tx ? "（" + tx + "）" : ""}`)}">${clockSVG(t.left)}${esc(t.name)}</span>`; }).join("");
+const timerChips = p => (p.timers || []).map(t => { const c = t.c && hasCard(t.c) ? card(t.c) : null, tx = c ? blockText(c, { ...t.b, delay: 0 }) : ""; return `<span class="bst tmrc" title="${esc(`「${t.name}」：あと${t.left}回の自分のターンのはじめで効果が出る${tx ? "（" + tx + "）" : ""}`)}">${clockSVG(t.left)}${esc(t.name)}</span>`; }).join("");
 const statChips = p => lockChips(p) + timerChips(p) + Object.entries(p.free || {}).filter(([, v]) => v > 0).map(([k, v]) => `<span class="bst free" title="次に使うこの種類のカードはコスト0">次の${SPIRE_LABEL[k]}0コスト${v > 1 ? "×" + v : ""}</span>`).join("") + (p.relics || []).map(k => relicDef(k)).filter(Boolean).map(d => `<span class="bst rel" title="${esc(d.text)}">${d.img ? `<img alt="" src="${d.img}">` : ""}${esc(d.name)}</span>`).join("") + (p.block ? `<span class="bst blk" title="次の自分のターンのはじめまで、受けるダメージを先に引き受ける">ブロック ${p.block}</span>` : "") + (p.vuln > 0 ? `<span class="bst vul" title="受けるダメージが1.5倍">弱体 ${p.vuln}</span>` : "") + (p.str ? `<span class="bst str" title="カードで与えるダメージ（1回ごと）と、自分のモンスターがプレイヤーに与える戦闘ダメージが${p.str > 0 ? "+" : "−"}${Math.abs(p.str)}">筋力 ${p.str}</span>` : "") + (p.weak > 0 ? `<span class="bst wk" title="カードで与えるダメージが0.75倍">脱力 ${p.weak}</span>` : "")
   + [[p.barricade, "バリケード", "ブロックがターンのはじめに消えない"], [p.plate > 0, `プレート ${p.plate}`, "自分のターンのおわりにこの分ブロックを得る。LPを失うたび20減る"], [p.corrupt, "堕落", "スキルのコストが0。使うと廃棄"], [p.vulnBonus > 0, `無慈悲 +${p.vulnBonus}%`, "弱体の相手へのダメージがさらにふえる"], [p.firstBlock2, "盤石", "毎ターン最初のブロックが2倍"], [p.rage > 0, `激怒 ${p.rage}`, "このターン、アタックを使うたびブロックを得る"], [p.thorns > 0, `反撃 ${p.thorns}`, "攻撃してきたモンスターにダメージ"], [p.dblAtk > 0, `次のアタック×2`, "次に使うアタックをもう1回プレイ"], [(p.autoPlay || []).length, `自動：${(p.autoPlay || []).join("・")}`, "名前にこの文字が入ったカードを引くと自動で使う"]].filter(x => x[0]).map(x => `<span class="bst pw" title="${x[2]}">${x[1]}</span>`).join("");
 function dealDmg(st, s, n){
@@ -182,6 +223,7 @@ function targetOptions(st, s, kind, ctx = {}){
   }
   if (t === "mine") return P(st, s).mz.map((m, i) => m ? i : -1).filter(i => i >= 0);
   if (t === "draft") return (ctx.draft || []).filter(id => S.cards.has(id));
+  if (KINDS[kind] && KINDS[kind].mod && !ctx.modPick) return null;
   if (t === "hand") return P(st, s).hand.map((_, i) => i);
   if (t === "tagPick"){
     const p = P(st, s), tag = ctx.tagName || "", fromEx = kind === "exSummon" || kind === "tagSummonEx", src = fromEx ? (p.ex || []) : /Hand$/.test(kind) && kind !== "tagGraveHand" ? p.hand : /Deck$|tagSearch/.test(kind) ? p.deck : p.grave;
@@ -300,7 +342,7 @@ function runTimers(st, who, then){
   p.timers = p.timers.filter(t => { t.left--; if (t.left <= 0){ due.push(t); return false; } return true; });
   const step = (st2, k) => {
     if (k >= due.length || st2.winner){ then && then(st2); return; }
-    const t = due[k], c = (t.c && S.cards.has(t.c) ? card(t.c) : null) || { id: t.c, name: t.name, type: "magic" };
+    const t = due[k], c = (t.c && hasCard(t.c) ? card(t.c) : null) || { id: t.c, name: t.name, type: "magic" };
     log(st2, who, `時計が0に！「${t.name}」の効果`); ev(st2, { type: "spell", s: who, c: t.c });
     runBlock(st2, who, c, t.b, { ...(t.ctx || {}), hit: {}, delayed: true }, st3 => step(st3, k + 1));
   };
@@ -389,9 +431,9 @@ function applyEffect(st, s, c, target, ctx = {}, fx = normFx(c)){
     case "heal": me.lp += n; log(st, s, `${src}でLPを${n}回復`); break;
     case "dmgRand": { const L = ["p", ...op.mz.map((m, i) => m ? "m:" + i : null).filter(Boolean)], t = L[Math.floor(Math.random() * L.length)]; if (t === "p"){ log(st, s, `${src}で${op.name}に${n}ダメージ（ランダム）`); dealDmg(st, O(s), n); } else monDmg(st, O(s), +t.slice(2), n, src + "（ランダム）"); break; }
     case "dmgAll": { op.mz.map((m, i) => m ? i : -1).filter(i => i >= 0).forEach(i => monDmg(st, O(s), i, n, src)); log(st, s, `${src}で${op.name}に${n}ダメージ`); dealDmg(st, O(s), n); break; }
-    case "copyGrave": if (c && S.cards.has(c.id)){ me.grave.push(c.id); log(st, s, `${src}のコピーを墓地に加えた`); } break;
+    case "copyGrave": if (c && hasCard(c.id)){ me.grave.push(c.id); log(st, s, `${src}のコピーを墓地に加えた`); } break;
     case "freeAttack": case "freeSkill": case "freePower": { const k = fx.kind.slice(4).toLowerCase(); me.free = { ...(me.free || {}), [k]: ((me.free || {})[k] || 0) + 1 }; log(st, s, `${src}：次に使う${SPIRE_LABEL[k]}のコストが0になる`); break; }
-    case "draft": if (target && S.cards.has(target)){ me.grave.push(target); log(st, s, `${src}で「${card(target).name}」を墓地に加えた`); } break;
+    case "draft": if (target && hasCard(target)){ me.grave.push(target); log(st, s, `${src}で「${card(target).name}」を墓地に加えた`); } break;
     case "atkAll": { let k = 0; me.mz.forEach(m => { if (m){ m.mod = (m.mod || 0) + n; k++; } }); log(st, s, `${src}で自分のモンスター${k}体のATK+${n}`); break; }
     case "dmg": if (typeof target === "string" && target.startsWith("m:")){ monDmg(st, O(s), +target.slice(2), n, src); break; } log(st, s, `${src}で${op.name}に${n}ダメージ`); dealDmg(st, O(s), n); break;
     case "block": { if (me.firstBlock2 && !me.blockedNow && !ctx.potion){ n *= 2; log(st, s, `最初のブロックなので2倍！`); } me.blockedNow = true; me.block = (me.block || 0) + n; log(st, s, `${src}でブロックを${n}得た（ブロック ${me.block}）`); if (n > 0) persistFire(st, s, "blockGain", {}); break; }
@@ -403,7 +445,7 @@ function applyEffect(st, s, c, target, ctx = {}, fx = normFx(c)){
     case "rageNow": me.rage = (me.rage || 0) + n; log(st, s, `${src}：このターン、アタックを使うたびブロック${me.rage}`); break;
     case "thornsNow": me.thorns = (me.thorns || 0) + n; log(st, s, `${src}：次の自分のターンまで、攻撃してきたモンスターに${me.thorns}ダメージ`); break;
     case "dblAtk": me.dblAtk = (me.dblAtk || 0) + (n || 1); log(st, s, `${src}：次に使うアタックをもう1回プレイする`); break;
-    case "copyLastAtk": if (me.lastAtk && S.cards.has(me.lastAtk)){ me.hand.push(me.lastAtk); log(st, s, `${src}で「${card(me.lastAtk).name}」のコピーを手札に加えた`); } else log(st, s, `${src}：コピーするアタックがない`); break;
+    case "copyLastAtk": if (me.lastAtk && hasCard(me.lastAtk)){ me.hand.push(me.lastAtk); log(st, s, `${src}で「${card(me.lastAtk).name}」のコピーを手札に加えた`); } else log(st, s, `${src}：コピーするアタックがない`); break;
     case "graveAtkToHand": { let k = 0; for (let r = 0; r < (n || 1); r++){ const L = me.grave.map((id, j) => j).filter(j => isAttackCard(card(me.grave[j]))); if (!L.length) break; const j = L[Math.floor(Math.random() * L.length)], id = me.grave.splice(j, 1)[0]; me.hand.push(id); k++; log(st, s, `${src}で墓地の「${card(id).name}」を手札に加えた`); } if (!k) log(st, s, `${src}：墓地にアタックがない`); break; }
     case "vuln": addVuln(st, s, target, n, src); break;
     case "bash": if (typeof target === "string" && target.startsWith("m:")){ const i = +target.slice(2), u = op.mz[i] && op.mz[i].u; monDmg(st, O(s), i, n, src); if (op.mz[i] && op.mz[i].u === u) addVuln(st, s, target, 2, src); } else { log(st, s, `${src}で${op.name}に${n}ダメージ`); dealDmg(st, O(s), n); addVuln(st, s, "p", 2, src); } break;
@@ -414,6 +456,7 @@ function applyEffect(st, s, c, target, ctx = {}, fx = normFx(c)){
     }
     case "destroy": if (op.mz[target]) destroyMonster(st, O(s), target, src); break;
     case "destroyOwn": if (me.mz[target]) destroyMonster(st, s, target, src); break;
+    case "modAdd": case "modRep": case "modClear": case "modName": modApply(st, s, c, fx, target, src); break;
     case "destroyThis": { const m = ctx.mon && monAt(st, ctx.mon); if (m) destroyMonster(st, ctx.mon.s, ctx.mon.i, src); else log(st, s, `${src}：破壊するモンスターがもう場にいない`); break; }
     case "destroyOwnAll": { const L = me.mz.map((m, i) => m ? i : -1).filter(i => i >= 0); if (!L.length) log(st, s, `${src}：自分のモンスターがいない`); L.forEach(i => { if (me.mz[i]) destroyMonster(st, s, i, src); }); break; }
     case "destroyAll": { const idx = op.mz.map((m, i) => m ? i : -1).filter(i => i >= 0); log(st, s, `${src}で相手のモンスターをすべて破壊！`); idx.forEach(i => destroyMonster(st, O(s), i, src)); break; }
@@ -462,8 +505,8 @@ function applyEffect(st, s, c, target, ctx = {}, fx = normFx(c)){
     case "oppStr": op.str = (op.str || 0) + n; log(st, s, `${src}で${op.name}が筋力${n}を得た（筋力 ${op.str}）`); break;
     case "oppStrDown": op.str = (op.str || 0) - n; op.strTemp = (op.strTemp || 0) - n; log(st, s, `${src}で${op.name}の筋力が${n}下がった（筋力 ${op.str}・${op.name}のターンの終わりまで）`); break;
     case "loseLp": me.lp -= n; ev(st, { type: "hit", s, d: n, blk: 0 }); log(st, s, `${src}でLPを${n}失った`); lostLp(st, s); break;
-    case "copyHand": if (c && S.cards.has(c.id)){ me.hand.push(c.id); log(st, s, `${src}のコピーを手札に加えた`); } break;
-    case "copyDeck": if (c && S.cards.has(c.id)){ me.deck.splice(Math.floor(Math.random() * (me.deck.length + 1)), 0, c.id); log(st, s, `${src}のコピーを山札に混ぜた`); } break;
+    case "copyHand": if (c && hasCard(c.id)){ me.hand.push(c.id); log(st, s, `${src}のコピーを手札に加えた`); } break;
+    case "copyDeck": if (c && hasCard(c.id)){ me.deck.splice(Math.floor(Math.random() * (me.deck.length + 1)), 0, c.id); log(st, s, `${src}のコピーを山札に混ぜた`); } break;
     case "exhaustHand": if (me.hand[target] != null) exileCard(st, s, me.hand.splice(target, 1)[0], src); break;
     case "exhaustRand": { let k = 0; for (let r = 0; r < (n || 1) && me.hand.length; r++){ exileCard(st, s, me.hand.splice(Math.floor(Math.random() * me.hand.length), 1)[0], src); k++; } if (!k) log(st, s, `${src}：廃棄する手札がない`); ctx.exN = k; break; }
     case "exhaustAll": { const L = me.hand.splice(0); L.forEach(id => exileCard(st, s, id, src)); ctx.exN = L.length; if (!L.length) log(st, s, `${src}：廃棄する手札がない`); break; }
@@ -540,6 +583,7 @@ function runEffect(st, s, c, ctx = {}, then, fx = normFx(c)){
   }
   if (fx.kind === "draft" && !ctx.draft) ctx = { ...ctx, draft: draftPick(fx.n) };
   if (KINDS[fx.kind] && KINDS[fx.kind].tag) ctx = { ...ctx, tagName: fx.into || "" };
+  if (KINDS[fx.kind] && KINDS[fx.kind].mod) ctx = { ...ctx, modPick: (fx.mt || "myHandPick") === "myHandPick" };
   // 「○1つにつき、もう1回」: the hit is repeated (each one is a normal hit)
   if (fx.hits && fx.per){ const k = 1 + Math.max(0, perVal(st, s, c, fx, null, ctx)), one = { ...fx, per: null, hits: false }, go = (st2, r) => { if (r <= 0 || st2.winner){ then && then(st2); return; } runEffect(st2, s, c, ctx, st3 => go(st3, r - 1), one); }; go(st, Math.min(k, 30)); return; }
   if (fx.kind === "playHandAtk"){ const go = (st2, r) => { if (r <= 0 || st2.winner){ then && then(st2); return; } const p = P(st2, s), L = p.hand.map((id, j) => j).filter(j => isAttackCard(card(p.hand[j])) && cardType(card(p.hand[j])) === "magic"); if (!L.length){ log(st2, s, `「${c.name}」：手札にアタックがない`); then && then(st2); return; } const id = p.hand.splice(L[Math.floor(Math.random() * L.length)], 1)[0]; p.deck.unshift(id); playTopCard(st2, s, `「${c.name}」`, false, st3 => go(st3, r - 1)); }; go(st, Math.max(1, fx.n || 1)); return; }
@@ -605,7 +649,7 @@ function runEffects(st, s, c, effs, ctx, then){
   (effs || []).forEach(e => {
     const one = [];
     if (KINDS[e.kind] && KINDS[e.kind].each && e.n > 1){ for (let r = 0; r < e.n; r++) one.push({ kind: e.kind, n: 1, ...(e.into ? { into: e.into } : {}) }); }
-    else one.push(...expandFx({ kind: e.kind, n: e.n, to: e.to, ...(e.into ? { into: e.into } : {}), ...(e.per ? { per: e.per, pm: e.pm, hits: e.hits } : {}) }));
+    else one.push(...expandFx({ kind: e.kind, n: e.n, to: e.to, ...(e.into ? { into: e.into } : {}), ...(e.intoId ? { intoId: e.intoId } : {}), ...(e.per ? { per: e.per, pm: e.pm, hits: e.hits } : {}), ...(KINDS[e.kind] && KINDS[e.kind].mod ? { mt: e.mt, mn: e.mn, gk: e.gk, gn: e.gn, nm: e.nm } : {}) }));
     // 「×○回」: the same effect again and again
     for (let r = 0; r < Math.max(1, Math.min(20, e.times || 1)); r++) list.push(...one);
   });
