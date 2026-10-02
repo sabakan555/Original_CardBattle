@@ -262,15 +262,17 @@ const moreFx = fx => (fx && Array.isArray(fx.more) ? fx.more : []).filter(m => m
 const costLabel = c => c && c.costX ? "X" : costOf(c);
 
 /* ---- 「だれに」: one base effect (ダメージ / 弱体 / 魅了 / ATKダウン / 破壊) + who it goes to ---- */
-const TARGETABLE = { dmg: ["one", "two", "random", "all"], vuln: ["one", "two", "random", "all"], weak: ["one", "two", "random", "all"], atkDown: ["one", "two", "random", "all"], charm: ["one", "two", "random", "all"], destroy: ["one", "two", "random", "all"] };
+const TARGETABLE = { atkUp: ["one", "two", "random", "all"], dmg: ["one", "two", "random", "all"], vuln: ["one", "two", "random", "all"], weak: ["one", "two", "random", "all"], atkDown: ["one", "two", "random", "all"], charm: ["one", "two", "random", "all"], destroy: ["one", "two", "random", "all"] };
 const TO_LABEL = { one: "1体をえらぶ", two: "ちがう2体をえらぶ", random: "ランダムに1体", all: "全体" };
-const TO_ALL = { dmg: "dmgAll", vuln: "vulnAll", weak: "weakAll", atkDown: "atkDownAll", charm: "charmAll", destroy: "destroyAll" };
-const TO_LEGACY = { dmgRand: ["dmg", "random"], dmgAll: ["dmg", "all"], vulnAll: ["vuln", "all"], weakAll: ["weak", "all"], atkDownAll: ["atkDown", "all"], charmAll: ["charm", "all"], destroyAll: ["destroy", "all"] };
+const TO_ALL = { atkUp: "atkAll", dmg: "dmgAll", vuln: "vulnAll", weak: "weakAll", atkDown: "atkDownAll", charm: "charmAll", destroy: "destroyAll" };
+const TO_LEGACY = { atkAll: ["atkUp", "all"], dmgRand: ["dmg", "random"], dmgAll: ["dmg", "all"], vulnAll: ["vuln", "all"], weakAll: ["weak", "all"], atkDownAll: ["atkDown", "all"], charmAll: ["charm", "all"], destroyAll: ["destroy", "all"] };
 const hitsPlayer = k => k === "dmg" || k === "vuln" || k === "weak";
 // the words for who gets it: 相手 / 相手のモンスター …
 const SIDED_KINDS = new Set(["dmg", "dmgAll", "dmgRand", "bash", "vuln", "vulnAll", "weak", "weakAll", "atkDown", "atkDownAll", "charm", "charmAll", "destroy", "destroyAll"]);
 // 「自分／相手」の「○体・全体・ランダムに○回」
+const SELF_ONLY = new Set(["atkUp"]);
 function toPhrase(kind, to, spire, tn, side){
+  if (SELF_ONLY.has(kind)) side = "me";
   const w = toPhrase0(kind, to, spire, tn);
   return side === "me" ? w.replace(/ランダムな敵（相手か相手のモンスター）/g, "ランダムに自分か自分のモンスター").replace(/相手/g, "自分") : w;
 }
@@ -292,6 +294,7 @@ function toText0(kind, n, to, spire, tn, side){
   if (kind === "vuln") return `${w}を弱体${n}にする`;
   if (kind === "weak") return `${w}を脱力${n}にする`;
   if (kind === "atkDown") return `${w}のATK−${n}`;
+  if (kind === "atkUp") return `${w}のATK+${n}`;
   if (kind === "charm") return `${w}を魅了する（このカードが場にある間、攻撃できない）`;
   if (kind === "destroy") return `${w}を破壊`;
   return KINDS[kind].text(n);

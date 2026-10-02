@@ -357,7 +357,7 @@ const KIND_GROUPS = [
   { g: "dmg",     label: "ダメージを与える", v: [["dmg", "ダメージ"]] },
   { g: "destroy", label: "モンスターを倒す", v: [["destroy", "相手のモンスターを破壊"], ["killAtk", "攻撃してきたモンスターを破壊（罠）"], ["blast", "自爆して、装備の枚数×○以下のATKを全部破壊"]] },
   { g: "debuff",  label: "相手を弱らせる（デバフ）", v: [["vuln", "弱体（受けるダメージ1.5倍）"], ["weak", "脱力（与えるダメージが減る）"], ["atkDown", "ATKを下げる"], ["charm", "魅了（攻撃できなくする）"], ["oppStrDown", "筋力を失わせる（相手の次のターンの終わりまで）"], ["discard", "手札を捨てさせる（ランダム）"], ["manaDrain", "マナを減らす"], ["oppNoAtk", "攻撃できなくする（相手の次のターンまで）"], ["oppNoUse", "魔法・罠を発動できなくする（相手の次のターンまで）"]] },
-  { g: "buff",    label: "自分を強くする（バフ）", v: [["str", "筋力を得る（与えるダメージ+○）"], ["strTemp", "筋力を得る（このターンだけ）"], ["selfAtk", "このモンスターのATKを上げる"], ["atkUp", "自分のモンスター1体のATKを上げる"], ["atkAll", "自分のモンスター全部のATKを上げる"], ["vulnBonus", "弱体の相手へのダメージ+○%（ずっと）"]] },
+  { g: "buff",    label: "自分を強くする（バフ）", v: [["str", "筋力を得る（与えるダメージ+○）"], ["strTemp", "筋力を得る（このターンだけ）"], ["selfAtk", "このモンスターのATKを上げる"], ["atkUp", "自分のモンスターのATKを上げる（えらぶ・全体・ランダム）"], ["vulnBonus", "弱体の相手へのダメージ+○%（ずっと）"]] },
   { g: "guard",   label: "守る・回復する", v: [["block", "ブロックを得る"], ["heal", "LPを回復する"], ["plate", "プレート（ターンのおわりにブロック）"], ["barricade", "ブロックが消えなくなる（ずっと）"], ["firstBlock2", "毎ターン最初のブロックが2倍（ずっと）"], ["rageNow", "このターン、アタックを使うたびブロック"], ["thornsNow", "攻撃されたら反撃（次の自分のターンまで）"]] },
   { g: "draw",    label: "カードを引く", v: [["draw", "○枚引く"], ["drawUntil", "アタック以外を引くまで引く"], ["oppDraw", "相手に○枚引かせる"]] },
   { g: "fetch",   label: "カードを手札に持ってくる", v: [["tagSearch", "タグのカードを山札から（えらぶ）"], ["tagGraveHand", "タグのカードを墓地から（えらぶ）"], ["revive", "墓地のモンスターを手札に"], ["graveAtkToHand", "墓地のランダムなアタックを手札に"]] },
@@ -377,7 +377,7 @@ const KIND_GROUPS = [
 ];
 // kinds shown only when an older card already uses them (they're now 基本の効果 + 「だれに」)
 const intoText = into => into ? `「${into}」` : "ランダムなスパイア風カード";
-const PICK_HIDDEN = ["bash", "dmgRand", "dmgAll", "vulnAll", "weakAll", "atkDownAll", "charmAll", "destroyAll"];
+const PICK_HIDDEN = ["atkAll", "bash", "dmgRand", "dmgAll", "vulnAll", "weakAll", "atkDownAll", "charmAll", "destroyAll"];
 function attachKindPicker(sel){
   if (!sel) return;
   if (!sel._kp){
@@ -620,7 +620,7 @@ function toUI(e, opt){
   const scope = e.to === "all" ? "all" : e.to === "random" ? "random" : "n", tn = e.tn || (e.to === "two" ? 2 : 1);
   const pl = hitsPlayer(e.kind), sp = $("#mkFrame").value === "spire";
   const nLabel = pl && !sp ? "えらぶ（1なら相手そのもの）" : "えらぶ";
-  return `<select data-f="side" aria-label="自分か相手か">${opt("op", "相手", e.side === "me" ? "me" : "op")}${opt("me", "自分", e.side === "me" ? "me" : "op")}</select>`
+  return (SELF_ONLY.has(e.kind) ? `<span class="note">自分のモンスター</span>` : `<select data-f="side" aria-label="自分か相手か">${opt("op", "相手", e.side === "me" ? "me" : "op")}${opt("me", "自分", e.side === "me" ? "me" : "op")}</select>`)
     + `<select data-f="scope" aria-label="どのくらい">${opt("n", nLabel, scope)}${opt("all", "全体", scope)}${opt("random", "ランダムに", scope)}</select>`
     + (scope === "all" ? "" : `<input type="number" data-f="tn" min="1" max="10" value="${esc(tn)}" aria-label="数" style="width:60px"><span class="note">${scope === "random" ? "回" : "体"}</span>`);
 }
