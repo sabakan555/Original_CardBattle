@@ -411,7 +411,7 @@ function animateEvent(e){
     g.animate([{ transform: "none" }, { transform: `translate(${dx * .15}px,${dy * .15 - 14}px) scale(1.12) rotate(-6deg)`, offset: .25 }, { transform: `translate(${dx}px,${dy}px) scale(1.08)`, offset: .55 }, { transform: "none" }], { duration: 640, easing: "cubic-bezier(.3,.7,.4,1)" }).onfinish = () => g.remove();
     setTimeout(() => { spark(ct.x, ct.y); t.animate([{ transform: "none" }, { transform: "translateX(-6px) rotate(-2deg)" }, { transform: "translateX(6px) rotate(2deg)" }, { transform: "none" }], { duration: 260 }); }, 340);
   }
-  if (e.type === "destroy") burst(zoneEl(e.s, "mz", e.z), "撃破！");
+  if (e.type === "destroy") burst(zoneEl(e.s, e.k || "mz", e.z), e.k === "sz" ? "破壊！" : "撃破！");
   if (e.type === "hit"){
     const el = e.z != null ? zoneEl(e.s, "mz", e.z) : document.querySelector(sideOf(e.s) === "me" ? "#board .hand" : "#board .ohand");
     if (!el) return;
@@ -567,6 +567,7 @@ function renderOverlay(){
     const list = opts.map(o => {
       if (t === "grave" || t === "draft" || t === "graveAny" || t === "tagPick") return cardHTML(card(o), "sm pick", `data-opt="${esc(o)}" tabindex="0" role="button"`, mOpt(q.s));
       if (t === "hand") return cardHTML(card(P(st, q.s).hand[o]), "sm pick", `data-opt="${o}" tabindex="0" role="button"`, mOpt(q.s));
+      if (t === "szOpp"){ const X = P(st, O(q.s)), z = X.sz[o]; return `<div class="g-item">${z.face ? cardHTML(card(z.c), "sm pick", `data-opt="${o}" tabindex="0" role="button"`, mOpt(O(q.s))) : backHTML("sm pick", `data-opt="${o}" tabindex="0" role="button"`, X.sleeve)}<div class="meta">${z.face ? "表向き" : "セット中"}</div></div>`; }
       if (t === "any"){ const [os, oi] = o.split(":"), m = P(st, os).mz[+oi]; return `<div class="g-item">${cardHTML(card(m.c), "sm pick", `data-opt="${o}" tabindex="0" role="button"`, { mod: modOf(m), ...mOpt(os) })}<div class="meta">${os === me ? "自分" : "相手"}</div></div>`; }
       if (o === "p"){ const X = P(st, TS); return `<button class="pick-player" data-opt="p">${esc(X.name)}<br><small>LP ${X.lp}${X.block ? `・ブロック ${X.block}` : ""}</small></button>`; }
       if (typeof o === "string" && o.startsWith("m:")){ const i = +o.slice(2), m = P(st, TS).mz[i]; return cardHTML(card(m.c), "sm pick", `data-opt="${o}" tabindex="0" role="button"`, { mod: modOf(m), ...mOpt(TS) }); }

@@ -297,6 +297,7 @@ function targetOptions(st, s, kind, ctx = {}){
   const TS = ctx.side === "me" ? s : O(s);
   if (ctx.spireAtk && (kind === "dmg" || kind === "bash" || kind === "vuln" || kind === "weak")){ const tt = TS === s ? [] : tauntIdx(st, TS), ms = (tt.length ? tt : P(st, TS).mz.map((m, i) => m ? i : -1).filter(i => i >= 0)).map(i => "m:" + i); if (ctx.anyEnemy) return ms.length ? ["p", ...ms] : null; const left = ms.filter(o => !(ctx.hit && (ctx.hit.picked || []).includes(o))); return left.length ? ms : ["p"]; }
   const t = KINDS[kind] && KINDS[kind].target;
+  if (t === "szOpp") return P(st, O(s)).sz.map((z, i) => z ? i : -1).filter(i => i >= 0);
   if (t === "opp"){ const tt = TS === s ? [] : tauntIdx(st, TS); return tt.length ? tt : P(st, TS).mz.map((m, i) => m ? i : -1).filter(i => i >= 0); }
   if (t === "any"){
     const src = ctx.mon && monAt(st, ctx.mon);
@@ -343,6 +344,7 @@ function autoTarget(st, s, kind, opts, fx){
   if (t === "tagPick") return opts.slice().sort((a, b) => cmpNum(cardType(card(b)) === "monster" ? baseAtk(card(b)) : costOf(card(b)) * 100, cardType(card(a)) === "monster" ? baseAtk(card(a)) : costOf(card(a)) * 100))[0];
   if (t === "any") return opts.find(o => o.startsWith(s + ":")) || opts[0];
   if (t === "draft") return opts[0];
+  if (t === "szOpp") return opts[Math.floor(Math.random() * opts.length)];
 }
 /* ---- equips stick to a monster: m.eqs = [{ c, o (owner), u }] from left to right ---- */
 // born: the turn it came out — 召喚酔い: it can attack from its owner's next turn (unless it has 速攻)
@@ -633,6 +635,19 @@ function applyEffect(st, s, c, target, ctx = {}, fx = normFx(c)){
     case "noDraw": me.noDraw = true; log(st, s, `${src}：このターンはもうカードを引けない`); break;
     case "drawUntil": { let k = 0, last = null; while (k < 12 && !me.noDraw){ if (!me.deck.length) refill(st, s); if (!me.deck.length) break; last = me.deck.shift(); me.hand.push(last); k++; if (!isAttackCard(card(last))) break; } log(st, s, `${src}でカードを${k}枚引いた${last && !isAttackCard(card(last)) ? `（「${card(last).name}」で止まった）` : ""}`); break; }
     case "tagSearch": case "tagGraveHand": { const src = fx.kind === "tagSearch" ? me.deck : me.grave, k = src.indexOf(target); if (k >= 0){ src.splice(k, 1); me.hand.push(target); log(st, s, `${src === me.deck ? "山札" : "墓地"}から「${card(target).name}」を手札に加えた`); if (fx.kind === "tagSearch") me.deck = shuffle(me.deck); } break; }
+    case "destroySt": case "destroyStRand": case "destroyStAll": {
+      // 魔法・罠ゾーンのカードを持ち主の墓地へ（永続ならその効果も終わる）
+      const D = O(s), dp = P(st, D), all = dp.sz.map((z, i) => z ? i : -1).filter(i => i >= 0);
+      const L = fx.kind === "destroySt" ? (dp.sz[target] ? [target] : []) : fx.kind === "destroyStAll" ? all : shuffle(all).slice(0, n || 1);
+      if (!L.length){ log(st, s, `${src}：破壊する魔法・罠がない`); break; }
+      L.forEach(i => { const z = dp.sz[i]; dp.sz[i] = null; dp.grave.push(z.c); ev(st, { type: "destroy", s: D, z: i, k: "sz" }); log(st, s, `${src}で${z.face ? `「${card(z.c).name}」` : "セットされていたカード" + `（「${card(z.c).name}」）`}を破壊した`); });
+      break;
+    }
+    case "destroyField": {
+      if (!st.field){ log(st, s, `${src}：フィールド魔法がない`); break; }
+      const f = st.field; st.field = null; P(st, f.o).grave.push(f.c); log(st, s, `${src}でフィールド魔法「${card(f.c).name}」を破壊した`);
+      break;
+    }
     case "fusion": {
       const fc = card(target), ex = (me.ex = me.ex || []), k = ex.indexOf(target), plan = k >= 0 && isFusion(fc) ? (ctx.fusMats && fusionPlanFrom(st, s, fc, ctx.fusMats)) || fusionPlan(st, s, fc) : null;
       if (!plan){ log(st, s, `${src}：融合できない（素材が足りない）`); break; }
