@@ -357,12 +357,12 @@ const KIND_GROUPS = [
   { g: "dmg",     label: "ダメージを与える", v: [["dmg", "ダメージ"]] },
   { g: "destroy", label: "モンスターを倒す", v: [["destroy", "相手のモンスターを破壊"], ["killAtk", "攻撃してきたモンスターを破壊（罠）"], ["blast", "自爆して、装備の枚数×○以下のATKを全部破壊"]] },
   { g: "debuff",  label: "相手を弱らせる（デバフ）", v: [["vuln", "弱体（受けるダメージ1.5倍）"], ["weak", "脱力（与えるダメージが減る）"], ["atkDown", "ATKを下げる"], ["charm", "魅了（攻撃できなくする）"], ["oppStrDown", "筋力を失わせる（相手の次のターンの終わりまで）"], ["discard", "手札を捨てさせる（ランダム）"], ["manaDrain", "マナを減らす"], ["oppNoAtk", "攻撃できなくする（相手の次のターンまで）"], ["oppNoUse", "魔法・罠を発動できなくする（相手の次のターンまで）"]] },
-  { g: "buff",    label: "自分を強くする（バフ）", v: [["str", "筋力を得る（与えるダメージ+○）"], ["strTemp", "筋力を得る（このターンだけ）"], ["selfAtk", "このモンスターのATKを上げる"], ["atkUp", "自分のモンスターのATKを上げる（えらぶ・全体・ランダム）"], ["vulnBonus", "弱体の相手へのダメージ+○%（ずっと）"]] },
+  { g: "buff",    label: "自分を強くする（バフ）", v: [["str", "筋力を得る（与えるダメージ+○）"], ["strTemp", "筋力を得る（このターンだけ）"], ["selfAtk", "このモンスターのATKを上げる"], ["atkMul", "このモンスターのATKを○倍"], ["atkUp", "自分のモンスターのATKを上げる（えらぶ・全体・ランダム）"], ["vulnBonus", "弱体の相手へのダメージ+○%（ずっと）"]] },
   { g: "guard",   label: "守る・回復する", v: [["block", "ブロックを得る"], ["heal", "LPを回復する"], ["plate", "プレート（ターンのおわりにブロック）"], ["barricade", "ブロックが消えなくなる（ずっと）"], ["firstBlock2", "毎ターン最初のブロックが2倍（ずっと）"], ["rageNow", "このターン、アタックを使うたびブロック"], ["thornsNow", "攻撃されたら反撃（次の自分のターンまで）"]] },
   { g: "draw",    label: "カードを引く", v: [["draw", "○枚引く"], ["drawUntil", "アタック以外を引くまで引く"], ["oppDraw", "相手に○枚引かせる"]] },
   { g: "fetch",   label: "カードを手札に持ってくる", v: [["tagSearch", "タグのカードを山札から（えらぶ）"], ["tagGraveHand", "タグのカードを墓地から（えらぶ）"], ["revive", "墓地のモンスターを手札に"], ["graveAtkToHand", "墓地のランダムなアタックを手札に"]] },
   { g: "make",    label: "カードを生み出す・コピーする", v: [["copyHand", "このカードのコピーを手札に"], ["copyDeck", "このカードのコピーを山札に"], ["copyGrave", "このカードのコピーを墓地に"], ["copyLastAtk", "直前に使ったアタックのコピーを手札に"], ["genAttack", "ランダムなアタックを手札に"], ["genAttack0", "ランダムなアタックを手札に（このターンコスト0）"], ["genSkill", "ランダムなスキルを手札に"], ["genPower", "ランダムなパワーを手札に"], ["genNamed", "名前を指定したカード（トークンなど）を手札に"], ["tagGen", "タグのカードをランダムに生み出して手札に"], ["draft", "スパイア風カードを○枚から1枚えらんで墓地に"]] },
-  { g: "summon",  label: "モンスターを場に出す", v: [["reborn", "墓地のモンスターを場に"], ["tagSummonHand", "タグのモンスターを手札から"], ["tagSummonDeck", "タグのモンスターを山札から"], ["tagSummonGrave", "タグのモンスターを墓地から"], ["exSummon", "EXデッキのモンスターを（えらんで）"], ["tagSummonEx", "タグのモンスターをEXデッキから"]] },
+  { g: "summon",  label: "モンスターを場に出す", v: [["reborn", "墓地のモンスターを場に"], ["tagSummonHand", "タグのモンスターを手札から"], ["tagSummonDeck", "タグのモンスターを山札から"], ["tagSummonGrave", "タグのモンスターを墓地から"], ["summonSelf", "このカードを手札から特殊召喚（手札で反応する効果用）"], ["exSummon", "EXデッキのモンスターを（えらんで）"], ["tagSummonEx", "タグのモンスターをEXデッキから"]] },
   { g: "free",    label: "踏み倒す（コストを払わずに使う）", v: [["playTop", "山札の一番上をプレイ（○枚）"], ["playTopEx", "山札の一番上をプレイして廃棄（○枚）"], ["playHandAtk", "手札のランダムなアタックをプレイ"], ["autoPlay", "名前に○が入ったカードを引いたら自動で使う"], ["dblAtk", "次のアタックをもう1回使う"], ["freeAttack", "次に使うアタックのコストを0に"], ["freeSkill", "次に使うスキルのコストを0に"], ["freePower", "次に使うパワーのコストを0に"], ["corrupt", "スキルがずっと0コスト（使うと廃棄）"]] },
   { g: "mana",    label: "マナ", v: [["manaNow", "マナを回復（このターン）"], ["manaMax", "最大マナを増やす"], ["manaDrain", "相手のマナを減らす"]] },
   { g: "deck",    label: "山札・墓地をあやつる", v: [["graveToTop", "墓地のカードを山札の一番上に"], ["playTop", "山札の一番上をプレイ（○枚）"], ["playTopEx", "山札の一番上をプレイして廃棄（○枚）"], ["drawUntil", "アタック以外を引くまで引く"], ["draft", "スパイア風カードを○枚から1枚えらんで墓地に"]] },
@@ -536,7 +536,7 @@ function kindGroups(avail, cur){
   avail.filter(k => !known.has(k)).forEach(k => gs.push({ g: "k_" + k, label: (KINDS[k] || {}).label || k, v: [[k, ""]] }));
   return gs;
 }
-const defN = k => smallN(k) ? 1 : 100;
+const defN = k => k === "atkMul" ? 2 : smallN(k) ? 1 : 100;
 function mkPreviewCard(){ return { ex: $("#mkEx").checked, noUse: (MK.type === "magic" || MK.type === "trap") && $("#mkNoUse").checked, tags: MK.kind === "card" || !MK.kind ? parseTags($("#mkTags").value) : [], tribTag: MK.type === "monster" ? $("#mkTribTag").value.trim() || null : null, ...(MK.type === "monster" ? mkVarFields() : {}), ...(MK.kind === "relic" ? { relicView: true } : {}), type: MK.type, frame: MK.kind === "potion" || MK.kind === "relic" ? "spire" : $("#mkFrame").value, persist: (MK.type === "magic" || MK.type === "trap") && $("#mkPersist").checked, costX: $("#mkCost").value === "X", ...mkPays(), blocks: readBlocks(), ss: readSS(), eqN: Math.round(+$("#mkEq").value || 0), abs: readAbs() }; }
 function readBlocks(){
   const bs = (MK.blocks || []).map(b => ({ trig: b.trig, ...(b.delay > 0 ? { delay: b.delay } : {}), ...(b.roll === "die" || b.roll === "coin" ? { roll: b.roll, ...(b.roll === "die" && b.faces && b.faces !== 6 ? { faces: b.faces } : {}) } : {}), join: b.join === "or" ? "or" : "and", conds: (b.conds || []).map(x => ({ ...x })), then: (b.then || []).map(cleanEff).filter(Boolean), else: (b.conds || []).length ? (b.else || []).map(cleanEff).filter(Boolean) : [] })).filter(b => b.then.length || b.else.length);
@@ -564,10 +564,10 @@ function renderBlocksUI(){
   const box = $("#bkUI"); if (!box) return;
   bkNormalize();
   const trigs = mkTrigs(), kinds = mkKinds(), groups = kindGroups(kinds), easy = !!MK.easy, ek = easyKinds();
-  const gFor = e => kindGroups(easy ? kinds.filter(k => ek.includes(k) || k === e.kind) : kinds, e.kind);
+  const gFor = (e, bi) => { const bk = (MK.blocks[bi] || {}).trig === "while" ? kinds.filter(k => STATIC_KINDS.includes(k) || k === e.kind) : kinds; return kindGroups(easy ? bk.filter(k => ek.includes(k) || k === e.kind || (MK.blocks[bi] || {}).trig === "while") : bk, e.kind); };
   const opt = (v, l, cur) => `<option value="${esc(v)}"${String(v) === String(cur) ? " selected" : ""}>${esc(l)}</option>`;
   const effRow = (bi, part, e, j) => {
-    const gs = gFor(e), has = x => x.v.some(([k]) => k === e.kind), g = (e._g && gs.find(x => x.g === e._g && has(x))) || gs.find(has) || gs[0];
+    const gs = gFor(e, bi), has = x => x.v.some(([k]) => k === e.kind), g = (e._g && gs.find(x => x.g === e._g && has(x))) || gs.find(has) || gs[0];
     const tg = TARGETABLE[e.kind];
     return `<div class="bk-row" data-part="${part}" data-i="${j}"><span class="bk-no">${j + 1}</span>`
       + `<select data-f="g" aria-label="なにをする">${gs.map(x => opt(x.g, x.label, g && g.g)).join("")}</select>`
@@ -586,6 +586,7 @@ function renderBlocksUI(){
     h += `<select data-f="k" aria-label="なにが">${Object.entries(COND_DEFS).map(([k, d]) => opt(k, d.label, x.k)).join("")}</select>`;
     if (isNumCond(x.k)) h += `<select data-f="op" aria-label="くらべかた">${opt("ge", "以上", x.op)}${opt("le", "以下", x.op)}${opt("eq", "ちょうど", x.op)}</select><input type="number" data-f="n" min="0" max="99999" value="${esc(x.n ?? 1)}" aria-label="数">`;
     if (x.k === "card") h += `<input type="text" data-f="name" maxlength="40" placeholder="カード名" value="${esc(x.name || "")}" aria-label="カード名"><select data-f="where" aria-label="どこに">${Object.entries(WHERE).map(([k, v]) => opt(k, "自分の" + v, x.where || "field")).join("")}</select><select data-f="match" aria-label="名前の合わせ方">${opt("exact", "名前がぴったり", x.match)}${opt("part", "名前に含む", x.match)}${opt("tag", "タグ", x.match)}</select><input type="number" data-f="cnt" min="0" max="99" value="${esc(x.cnt ?? 1)}" aria-label="枚数" style="width:64px">枚<select data-f="op" aria-label="くらべかた">${opt("ge", "以上", x.op || "ge")}${opt("le", "以下", x.op)}</select>`;
+    if (x.k === "used") h += `<select data-f="who" aria-label="だれが">${opt("any", "だれでも", x.who || "any")}${opt("me", "自分が", x.who || "any")}${opt("op", "相手が", x.who || "any")}</select><select data-f="match" aria-label="どのカード">${opt("trap", "罠", x.match)}${opt("magic", "魔法", x.match)}${opt("name", "名前がぴったり", x.match)}${opt("part", "名前に含む", x.match)}${opt("tag", "タグ", x.match)}${opt("any", "なんでも", x.match)}</select>${["name", "part", "tag"].includes(x.match) ? `<input type="text" data-f="name" maxlength="40" list="${x.match === "tag" ? "tagNames" : "cardNames"}" placeholder="${x.match === "tag" ? "タグ" : "カード名"}" value="${esc(x.name || "")}" aria-label="カード名">` : ""}`;
     if (x.k === "ask") h += `<input type="text" data-f="text" maxlength="40" placeholder="例: 物理学実験を履修していますか？" value="${esc(x.text || "")}" aria-label="質問">`;
     return h + `<button type="button" class="small ghost" data-bk="delRow" aria-label="この条件を消す">×</button></div>`;
   };
@@ -598,7 +599,7 @@ function renderBlocksUI(){
       + (trigs.length > 1 ? `<span class="bk-tag t-when">いつ</span><div><select data-f="trig" aria-label="いつ">${trigs.map(k => opt(k, mkTrigLabel(k), b.trig)).join("")}</select></div>` : "")
       + `<span class="bk-tag t-when">まず</span><div class="row" style="gap:6px"><select data-f="roll" aria-label="まず">${opt("", "なし", b.roll || "")}${opt("die", "サイコロを振る", b.roll || "")}${opt("coin", "コインを投げる", b.roll || "")}</select>${b.roll === "die" ? `<input type="number" data-f="faces" min="2" max="20" value="${esc(b.faces || 6)}" aria-label="面の数" style="width:60px"><span class="note">面</span>` : ""}${b.roll ? `<span class="note">${b.roll === "die" ? "「もし」でサイコロの目を、数の「ふえる」や「×出た目の回数」で出た目を使えます" : "「もし」でコインが表／裏を使えます"}</span>` : ""}</div>`
       + (!easy || b.delay > 0 ? `<span class="bk-tag t-when">出るまで</span><div><select data-f="delay" aria-label="効果が出るまで">${[0, 1, 2, 3, 4, 5].map(d => opt(d, d === 0 ? "すぐ" : d === 1 ? "次の自分のターンのはじめ（時計1）" : `${d}ターン後の自分のターンのはじめ（時計${d}）`, b.delay || 0)).join("")}</select></div>` : "")
-      + (easy && !b.conds.length ? "" : `<span class="bk-tag t-if">もし</span><div class="bk-col">${b.conds.map((x, j) => condRow(b, x, j)).join("")}<button type="button" class="small bk-add" data-bk="addCond">＋ 条件を足す</button>${b.conds.length ? "" : `<span class="note">なし（いつも出る）</span>`}</div>`)
+      + (easy && !b.conds.length && b.trig !== "anyUse" ? "" : `<span class="bk-tag t-if">もし</span><div class="bk-col">${b.conds.map((x, j) => condRow(b, x, j)).join("")}<button type="button" class="small bk-add" data-bk="addCond">＋ 条件を足す</button>${b.conds.length ? "" : `<span class="note">なし（いつも出る）</span>`}</div>`)
       + `<span class="bk-tag t-do">なにを</span><div class="bk-col">${b.then.map((e, j) => effRow(bi, "then", e, j)).join("")}<button type="button" class="small bk-add" data-bk="addEff" data-part="then">＋ ${b.then.length ? "そのあと…" : "効果を選ぶ"}</button></div>`
       + (b.conds.length ? `<span class="bk-tag t-else">ちがったら</span><div class="bk-col">${b.else.map((e, j) => effRow(bi, "else", e, j)).join("")}<button type="button" class="small bk-add" data-bk="addEff" data-part="else">＋ ${b.else.length ? "そのあと…" : "効果を選ぶ（なくてもいい）"}</button></div>` : "")
       + `</div></div>`).join("")
@@ -656,7 +657,7 @@ function bkEvent(e, rerenderOnInput){
   const el = e.target.closest("[data-f]"); if (!el) return;
   const bi = +el.closest(".bk").dataset.b, b = MK.blocks[bi]; if (!b) return;
   const f = el.dataset.f, v = el.value;
-  if (f === "trig"){ b.trig = v; return updateBkText(); }
+  if (f === "trig"){ b.trig = v; if (v === "while"){ const fix = L => L.map(x => STATIC_KINDS.includes(x.kind) ? x : { kind: "selfAtk", n: 100 }); b.then = fix(b.then); b.else = fix(b.else); } if (v === "anyUse" && !b.conds.some(x => x.k === "used")) b.conds.push({ k: "used", who: "any", match: "trap", name: "" }); return renderBlocksUI(); }
   if (f === "delay"){ b.delay = Math.max(0, Math.min(9, +v || 0)); return updateBkText(); }
   if (f === "roll"){ b.roll = v === "die" || v === "coin" ? v : ""; if (b.roll === "die" && !b.faces) b.faces = 6; if (b.roll === "coin" && !b.conds.length){ b.conds.push({ k: "coinH" }); } return renderBlocksUI(); }
   if (f === "faces"){ b.faces = Math.max(2, Math.min(20, Math.round(+v || 6))); return updateBkText(); }
@@ -664,7 +665,7 @@ function bkEvent(e, rerenderOnInput){
   if (part === "cond"){
     const x = b.conds[j]; if (!x) return;
     if (f === "join"){ b.join = v; return renderBlocksUI(); }
-    if (f === "k"){ b.conds[j] = v === "card" ? { k: v, name: "", where: "field", match: "exact" } : v === "ask" ? { k: v, text: "" } : { k: v, op: v === "lp" ? "le" : "ge", n: v === "lp" || v === "oppLp" ? 300 : 1 }; return renderBlocksUI(); }
+    if (f === "k"){ b.conds[j] = v === "card" ? { k: v, name: "", where: "field", match: "exact" } : v === "ask" ? { k: v, text: "" } : v === "used" ? { k: v, who: "any", match: "trap", name: "" } : { k: v, op: v === "lp" ? "le" : "ge", n: v === "lp" || v === "oppLp" ? 300 : 1 }; return renderBlocksUI(); }
     x[f] = f === "n" || f === "cnt" ? Math.max(0, Math.round(+v || 0)) : v;
     return f === "op" || f === "where" || f === "match" ? renderBlocksUI() : updateBkText();
   }

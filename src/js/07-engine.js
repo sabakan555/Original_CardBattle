@@ -42,11 +42,38 @@ function modApply(st, s, c, fx, target, src){
   out.forEach(([arr, i]) => { arr[i] = modId(st, arr[i], ch); });
   log(st, s, `${src}で${modTargetText(fx)}を書きかえた（${out.length}枚）`);
 }
+// 場にいる間: 場のモンスターと表の永続カードの「場にいる間」の効果（ATKの増減・○倍）を、そのつど計算する
+const STATIC_KINDS = ["selfAtk", "atkUp", "atkAll", "atkDown", "atkDownAll", "atkMul"];
+function staticAtk(m){
+  const out = { add: 0, mul: 1 }; if (typeof G === "undefined" || !G || !G.st || !G.st.players || staticAtk.busy) return out;
+  const st = G.st; let ms = null;
+  for (const o of ["a", "b"]){ const i = P(st, o).mz.indexOf(m); if (i >= 0) ms = o; }
+  if (!ms) return out;
+  staticAtk.busy = true;
+  try{
+    const srcs = [];
+    for (const o of ["a", "b"]){ const p = P(st, o); p.mz.forEach((x, i) => { if (x) srcs.push({ o, c: card(x.c), mon: x, ctx: { zone: i, mon: { s: o, i, u: x.u } } }); }); p.sz.forEach((z, i) => { if (z && z.face && isPersist(card(z.c))) srcs.push({ o, c: card(z.c), mon: null, ctx: { pz: i } }); }); }
+    srcs.forEach(src => blocksOf(src.c).forEach(b => {
+      if (b.trig !== "while") return;
+      const plain = b.conds.filter(x => x.k !== "ask"), ok = !plain.length || (b.join === "or" ? plain.some(x => condMet(st, src.o, src.c, x, src.ctx)) : plain.every(x => condMet(st, src.o, src.c, x, src.ctx)));
+      (ok ? b.then : b.else).forEach(e => {
+        const n = +e.n || 0, mine = ms === src.o, self = src.mon === m, all = e.to === "all";
+        if (e.kind === "selfAtk" && self) out.add += n;
+        else if (e.kind === "atkMul" && self) out.mul *= Math.max(0, n || 1);
+        else if ((e.kind === "atkAll" || (e.kind === "atkUp" && all)) && mine) out.add += n;
+        else if (e.kind === "atkUp" && !all && self) out.add += n;
+        else if ((e.kind === "atkDownAll" || (e.kind === "atkDown" && all)) && ((e.side === "me") === mine)) out.add -= n;
+      });
+    }));
+  } finally { staticAtk.busy = false; }
+  return out;
+}
 function atkOf(m){
   if (!m) return 0;
-  const c = card(m.c), es = eqsOf(m); let v = baseAtk(c) + (m.mod || 0) + (m.tmp || 0);
+  const c = card(m.c), es = eqsOf(m), sa = staticAtk(m); let v = baseAtk(c) + (m.mod || 0) + (m.tmp || 0) + sa.add;
   es.forEach((e, k) => { v += (card(e.c).eqN || 0) * eqMult(es, k); });
   absOf(c).forEach(a => { if (a.k === "eqBonus" && a.name){ const w = normQ(a.name); if (es.some(e => normQ(card(e.c).name).includes(w))) v += a.n || 0; } });
+  const mul = (m.mul || 1) * sa.mul; if (mul !== 1 && isFinite(v)) v = Math.floor(v * mul);
   return Math.max(0, v);
 }
 // ATK change to show on the card face
@@ -458,6 +485,14 @@ function applyEffect(st, s, c, target, ctx = {}, fx = normFx(c)){
     case "destroy": if (opT.mz[target]) destroyMonster(st, OS, target, src); break;
     case "destroyOwn": if (me.mz[target]) destroyMonster(st, s, target, src); break;
     // 「このターン」: 自分のターンならこのターン、相手のターンに出たら次の自分のターン
+    case "atkMul": { const m = ctx.mon && monAt(st, ctx.mon); if (!m){ log(st, s, `${src}：そのモンスターはもう場にいない`); break; } m.mul = (m.mul || 1) * Math.max(0, n || 1); log(st, s, `${src}：「${card(m.c).name}」のATKが${n}倍に（ATK ${fmtN(atkOf(m))}）`); break; }
+    case "summonSelf": {
+      const id = ctx.inHand || c.id, k = me.hand.indexOf(id), z = freeZone(me.mz);
+      if (k < 0){ log(st, s, `${src}：手札にこのカードがない`); break; } if (z < 0){ log(st, s, `${src}：場がいっぱいで出せない`); break; }
+      me.hand.splice(k, 1); me.mz[z] = mkMon(st, id); ev(st, { type: "summon", s, z }); log(st, s, `「${card(id).name}」が手札から特殊召喚された`);
+      trigger(st, s, card(id), "ssummon", { zone: z, mon: { s, i: z, u: me.mz[z].u } }); persistFire(st, s, "mySummon", {});
+      break;
+    }
     case "thisNoAtk": { const m = ctx.mon && monAt(st, ctx.mon); if (!m){ log(st, s, `${src}：そのモンスターはもう場にいない`); break; } m.noAtkTurn = Math.max(m.noAtkTurn || 0, st.turn === ctx.mon.s ? st.turnNo : st.turnNo + 1); log(st, s, `${src}：「${card(m.c).name}」はこのターン攻撃できない`); break; }
     case "selfNoAtk": me.noAtkUntil = Math.max(me.noAtkUntil || 0, st.turn === s ? st.turnNo : st.turnNo + 1); log(st, s, `${src}：このターン、${me.name}のモンスターは攻撃できない`); break;
     case "modAdd": case "modRep": case "modClear": case "modName": modApply(st, s, c, fx, target, src); break;
@@ -624,7 +659,7 @@ function comboCount(st, s, cb, ctx = {}){
 // run a card's main effect and (if its condition holds) its extra effect, in order
 function runCard(st, s, c, trig, ctx = {}, then){
   ctx = { ...ctx, hit: {} };
-  const bs = blocksOf(c).filter(b => b.trig === trig);
+  const bs = blocksOf(c).filter(b => b.trig === trig || ((trig === "summon" || trig === "ssummon") && b.trig === "enter" && cardType(c) === "monster"));
   const step = (st2, k) => { if (k >= bs.length){ then && then(st2); return; } runBlock(st2, s, c, bs[k], ctx, st3 => step(st3, k + 1)); };
   step(st, 0);
 }
@@ -863,6 +898,20 @@ function pushChain(st, s, id, ctx, label, extra){
   if (responseOptions(st, other, win).length) st.pending = { type: "chain", by: s, wait: true, resume: resume ? { ...resume, wait: false } : null };
   else resolveChain(st, resume);
 }
+// 魔法・罠が発動したとき: 両方の場のモンスター・表の永続カード・レリック、そして手札のモンスターが反応する（もし「発動したカードが…」で絞れる）
+function onCardUsed(st, user, c, then){
+  const t = cardType(c); if ((t !== "magic" && t !== "trap") || (st._usedDepth || 0) > 2 || st.winner){ then && then(st); return; }
+  const used = { c: c.id, s: user }, L = [];
+  for (const o of ["a", "b"]){
+    const p = P(st, o);
+    p.mz.forEach((m, i) => { if (m && hasTrig(card(m.c), "anyUse")) L.push({ s: o, c: card(m.c), trig: "anyUse", ctx: { used, zone: i, mon: { s: o, i, u: m.u } } }); });
+    persistList(st, o, "anyUse", { used }).forEach(x => L.push(x));
+    [...new Set(p.hand)].forEach(id => { const hc = card(id); if (cardType(hc) === "monster" && hasTrig(hc, "anyUse")) L.push({ s: o, c: hc, trig: "anyUse", ctx: { used, inHand: id } }); });
+  }
+  if (!L.length){ then && then(st); return; }
+  st._usedDepth = (st._usedDepth || 0) + 1;
+  runList(st, L, st2 => { st2._usedDepth = Math.max(0, (st2._usedDepth || 1) - 1); then && then(st2); });
+}
 function resolveChain(st, resume){
   st.pending = resume ? { ...resume, wait: false } : null;
   const step = st2 => {
@@ -890,8 +939,9 @@ function resolveChain(st, resume){
       else log(st2, link.s, `「${c.name}」：無効にするカードがない`);
       step(st2); return;
     }
-    if (link.ctx && link.ctx.dbl){ runCard(st2, link.s, c, "use", link.ctx, st3 => runCard(st3, link.s, c, "use", link.ctx, step)); return; }
-    runCard(st2, link.s, c, "use", link.ctx, step);
+    const done = st3 => onCardUsed(st3, link.s, c, step);
+    if (link.ctx && link.ctx.dbl){ runCard(st2, link.s, c, "use", link.ctx, st3 => runCard(st3, link.s, c, "use", link.ctx, done)); return; }
+    runCard(st2, link.s, c, "use", link.ctx, done);
   };
   step(st);
 }

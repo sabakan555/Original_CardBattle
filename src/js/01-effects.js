@@ -7,14 +7,14 @@ const RARITY = { common: "コモン", uncommon: "アンコモン", rare: "レア
 const rarityOf = c => c && RARITY[c.rarity] ? c.rarity : "common";
 const spireKind = c => { const t = cardType(c); if (c && c.sk && t === "magic") return c.persist ? "power" : c.sk === "attack" ? "attack" : "skill"; return t === "monster" ? "attack" : t === "trap" || (t === "magic" && c.persist) ? "power" : "skill"; };
 const typeLabel = c => { if (c && c.potionView) return "ポーション"; const t = cardType(c); return isQuick(c) ? "速攻魔法" : isPersist(c) ? "永続" + TYPE_LABEL[t] : TYPE_LABEL[t]; };
-const TRIGS = { summon: "召喚したとき", ssummon: "特殊召喚したとき", kill: "戦闘で相手を破壊したとき", destroyed: "破壊されたとき", battleLose: "バトルに負けたとき", turnStart: "自分のターンのはじめ", turnEnd: "自分のターンの終わり", attach: "装備したとき", use: "発動したとき" };
-const MON_TRIGS = ["summon", "ssummon", "kill", "destroyed", "battleLose", "turnStart", "turnEnd"];
+const TRIGS = { summon: "召喚したとき", ssummon: "特殊召喚したとき", kill: "戦闘で相手を破壊したとき", destroyed: "破壊されたとき", battleLose: "バトルに負けたとき", turnStart: "自分のターンのはじめ", turnEnd: "自分のターンの終わり", enter: "場に出たとき", while: "場にいる間", anyUse: "魔法・罠が発動したとき", attach: "装備したとき", use: "発動したとき" };
+const MON_TRIGS = ["summon", "ssummon", "enter", "while", "anyUse", "kill", "destroyed", "battleLose", "turnStart", "turnEnd"];
 const EQ_TRIGS = ["attach", "turnStart", "turnEnd", "destroyed", "battleLose"];
 // 永続魔法・永続罠 (スパイア風 のパワー): stay face-up in the magic/trap zone; their effect fires on one of these
-const PERSIST_TRIG_LABEL = { use: "発動したとき", turnStart: "自分のターンのはじめ", turnEnd: "自分のターンのおわり", mySummon: "自分がモンスターを召喚するたび", exhaust: "自分のカードが廃棄されるたび", monDestroyed: "モンスターが破壊されるたび", myLoseLp: "自分のターンにLPを失うたび", blockGain: "自分がブロックを得るたび", vulnApply: "相手に弱体を付与するたび", atkPlay: "自分がアタックを使うたび" };
+const PERSIST_TRIG_LABEL = { use: "発動したとき", while: "場にある間", anyUse: "魔法・罠が発動したとき", turnStart: "自分のターンのはじめ", turnEnd: "自分のターンのおわり", mySummon: "自分がモンスターを召喚するたび", exhaust: "自分のカードが廃棄されるたび", monDestroyed: "モンスターが破壊されるたび", myLoseLp: "自分のターンにLPを失うたび", blockGain: "自分がブロックを得るたび", vulnApply: "相手に弱体を付与するたび", atkPlay: "自分がアタックを使うたび" };
 const PERSIST_TRIGS = Object.keys(PERSIST_TRIG_LABEL);
 // レリック (カード以外): always on; 「手に入れたとき」 + the same timings as 永続 cards
-const RELIC_TRIG_LABEL = { gain: "手に入れたとき", ...Object.fromEntries(Object.entries(PERSIST_TRIG_LABEL).filter(([k]) => k !== "use")) };
+const RELIC_TRIG_LABEL = { gain: "手に入れたとき", ...Object.fromEntries(Object.entries(PERSIST_TRIG_LABEL).filter(([k]) => k !== "use" && k !== "while")) };
 const RELIC_TRIGS = Object.keys(RELIC_TRIG_LABEL);
 const isPersist = c => !!(c && c.persist && (cardType(c) === "magic" || cardType(c) === "trap"));
 const EQ_TRIG_LABEL = { destroyed: "装備したモンスターが破壊されたとき", battleLose: "装備したモンスターがバトルに負けたとき" };
@@ -74,6 +74,8 @@ const KINDS = {
   modRep:        { label: "カードの効果を上書きする", mod: true, target: "hand", text: (n, into, e) => `${modTargetText(e)}の効果を「${grantText(e)}」に上書きする` },
   modClear:      { label: "カードの効果をなくす", mod: true, target: "hand", text: (n, into, e) => `${modTargetText(e)}の効果をなくす` },
   modName:       { label: "カードの名前を変える", mod: true, target: "hand", text: (n, into, e) => `${modTargetText(e)}の名前を「${(e && e.nm) || "？"}」に変える` },
+  atkMul:        { label: "このモンスターのATKを○倍", n: true, mon: true, text: n => `このモンスターのATKを${n}倍にする` },
+  summonSelf:    { label: "このカードを手札から特殊召喚", mon: true, text: () => `このカードを手札から特殊召喚する` },
   thisNoAtk:     { label: "このモンスターは攻撃できない（このターン）", mon: true, text: () => `このモンスターはこのターン攻撃できない` },
   selfNoAtk:     { label: "自分のモンスターは攻撃できない（このターン）", text: () => `このターン、自分のモンスターは攻撃できない` },
   oppNoAtk:      { label: "相手は攻撃できない（相手の次のターンの終わりまで）", text: () => `相手の次のターンの終わりまで、相手のモンスターは攻撃できない` },
@@ -347,6 +349,7 @@ const COND_DEFS = {
   card:     { label: "特定のカードがある" },
   costDeck: { label: "自分がコストデッキを使っている" },
   ask:      { label: "質問して「はい」と答えた" },
+  used:     { label: "発動したカード（「魔法・罠が発動したとき」用）" },
   die:      { label: "サイコロの目（「まず」でサイコロを振ったとき）", who: "サイコロの目が", unit: "", roll: true, val: (st, s, c, ctx) => ctx && ctx.roll && ctx.roll.kind === "die" ? ctx.roll.v : 0 },
   coinH:    { label: "コインが表（「まず」でコインを投げたとき）", roll: true },
   coinT:    { label: "コインが裏（「まず」でコインを投げたとき）", roll: true }
@@ -369,17 +372,28 @@ const PER_OK = { dmg: true, block: true, manaNow: true, heal: true, draw: true, 
 const perVal = (st, s, c, fx, t, ctx) => PER_DEFS[fx.per] ? PER_DEFS[fx.per].val(st, s, c, t, ctx) : 0;
 const perText = m => !m.per || !PER_DEFS[m.per] ? "" : m.hits ? `（${PER_DEFS[m.per].label}${PER_DEFS[m.per].u}につき、もう1回）` : `（${PER_DEFS[m.per].label}${PER_DEFS[m.per].u}につき+${m.pm ?? 1}）`;
 const isNumCond = k => !!(COND_DEFS[k] && COND_DEFS[k].val);
+const usedWhat = x => x.match === "magic" ? "魔法" : x.match === "trap" ? "罠" : x.match === "tag" ? `タグ「${x.name || "？"}」のカード` : x.match === "part" ? `名前に「${x.name || "？"}」が入ったカード` : x.match === "name" ? `「${x.name || "？"}」` : "なんでも";
 function condPhrase(x){
   if (x.k === "card"){ const cnt = +(x.cnt ?? 1), op = x.op === "le" ? "le" : "ge"; return `${x.match === "tag" ? `タグ「${x.name || "？"}」のカード` : x.match === "part" ? `名前に「${x.name || "？"}」が入ったカード` : `「${x.name || "？"}」`}が自分の${WHERE[x.where] || WHERE.field}に${cnt === 1 && op === "ge" ? "ある" : `${cnt}枚${OPS[op]}ある`}`; }
   if (x.k === "ask") return `「${x.text || "？"}」に「はい」`;
   if (x.k === "costDeck") return "自分がコストデッキを使っている";
   if (x.k === "coinH") return "コインが表";
+  if (x.k === "used") return `${{ me: "自分が", op: "相手が" }[x.who] || ""}発動したカードが${usedWhat(x)}`;
   if (x.k === "coinT") return "コインが裏";
   const d = COND_DEFS[x.k]; return `${d.who}${x.n ?? 0}${d.unit}${x.op in OPS ? OPS[x.op] : OPS.ge}`;
 }
 const condsText = b => b.conds && b.conds.length ? b.conds.map(condPhrase).join(b.join === "or" ? "か、" : "、かつ") + "なら、" : "";
 function condMet(st, s, c, x, ctx){
   if (x.k === "costDeck") return !!P(st, s).mana;
+  if (x.k === "used"){
+    const u = ctx && ctx.used; if (!u) return false;
+    if (x.who === "me" && u.s !== s) return false; if (x.who === "op" && u.s === s) return false;
+    const uc = card(u.c), t = cardType(uc), w = String(x.name || "").trim();
+    if (x.match === "magic") return t === "magic"; if (x.match === "trap") return t === "trap"; if (x.match === "any" || !x.match) return true;
+    if (!w) return false;
+    if (x.match === "tag") return tagsOf(uc).includes(w); if (x.match === "part") return normQ(uc.name).includes(normQ(w));
+    return normQ(uc.name).trim() === normQ(w).trim() || plainRuby(uc.nameRuby || "") === w;
+  }
   if (x.k === "coinH" || x.k === "coinT") return !!(ctx && ctx.roll && ctx.roll.kind === "coin" && ctx.roll.v === (x.k === "coinH" ? 1 : 0));
   if (x.k === "card"){ if (!x.name) return false; const v = comboCount(st, s, { name: x.name, where: WHERE[x.where] ? x.where : "field", match: x.match === "part" || x.match === "tag" ? x.match : "exact" }, ctx || {}), n = Math.max(0, +(x.cnt ?? 1)); return x.op === "le" ? v <= n : v >= n; }
   const d = COND_DEFS[x.k]; if (!d || !d.val) return true;
