@@ -362,9 +362,35 @@ function playEvents(prevLp, nowLp){
   }
   if (reduceMotion) return;
   // one after another: a spell banner gets time to show before its hits, each hit gets its own beat (ツインストライク → 2 hits)
-  const GAP = { spell: 900, attack: 560, hit: 420 };
+  const GAP = { spell: 900, attack: 560, hit: 420, fusion: 2800 };
   let t = 0;
   list.forEach(e => { setTimeout(() => { try{ animateEvent(e); }catch(err){} }, t); t += GAP[e.type] || 320; });
+}
+// 融合召喚の演出: 素材がうずを巻いて中心に吸いこまれ、光って、融合モンスターが現れる
+function fusionFx(e){
+  document.querySelectorAll(".fxa.fxspell").forEach(x => x.remove());
+  const mats = (e.mats || []).slice(0, 6), small = innerWidth < 640, w = small ? 78 : 112, R = small ? 120 : 220;
+  const box = document.createElement("div"); box.className = "fxfusion"; box.setAttribute("aria-hidden", "true");
+  box.innerHTML = `<div class="ff-bg"></div><div class="ff-swirl"></div>${mats.map(id => `<div class="ff-mat">${cardHTML(card(id), "", "", mOpt(e.s))}</div>`).join("")}<div class="ff-flash"></div><div class="ff-res"><div class="ff-lbl">融合召喚！</div>${cardHTML(card(e.c), "", "", mOpt(e.s))}</div>`;
+  document.body.appendChild(box);
+  box.querySelectorAll(".ff-mat .card").forEach(c => c.style.setProperty("--w", w + "px"));
+  const T = 2700, bg = box.querySelector(".ff-bg"), sw = box.querySelector(".ff-swirl"), fl = box.querySelector(".ff-flash"), res = box.querySelector(".ff-res");
+  bg.animate([{ opacity: 0 }, { opacity: 1, offset: .1 }, { opacity: 1, offset: .85 }, { opacity: 0 }], { duration: T, fill: "forwards" });
+  sw.animate([{ opacity: 0, transform: "translate(-50%,-50%) rotate(0) scale(.6)" }, { opacity: .9, offset: .2 }, { opacity: .9, transform: "translate(-50%,-50%) rotate(540deg) scale(1)", offset: .42 }, { opacity: 0, transform: "translate(-50%,-50%) rotate(720deg) scale(.2)", offset: .5 }, { opacity: 0 }], { duration: T, fill: "forwards" });
+  box.querySelectorAll(".ff-mat").forEach((m, k) => {
+    const a0 = (Math.PI * 2 * k) / mats.length - Math.PI / 2, x0 = Math.cos(a0) * R, y0 = Math.sin(a0) * R * .7, a1 = a0 + Math.PI * 1.2, x1 = Math.cos(a1) * R * .45, y1 = Math.sin(a1) * R * .3;
+    m.animate([
+      { opacity: 0, transform: `translate(-50%,-50%) translate(${x0 * 1.3}px,${y0 * 1.3}px) scale(.8)` },
+      { opacity: 1, transform: `translate(-50%,-50%) translate(${x0}px,${y0}px) scale(1)`, offset: .12 },
+      { opacity: 1, transform: `translate(-50%,-50%) translate(${x0}px,${y0}px) scale(1)`, offset: .2 },
+      { opacity: 1, transform: `translate(-50%,-50%) translate(${x1}px,${y1}px) rotate(200deg) scale(.7)`, offset: .34 },
+      { opacity: 0, transform: `translate(-50%,-50%) rotate(420deg) scale(.1)`, offset: .44 },
+      { opacity: 0 }
+    ], { duration: T, easing: "ease-in", fill: "forwards" });
+  });
+  fl.animate([{ opacity: 0, transform: "translate(-50%,-50%) scale(.1)" }, { opacity: 0, offset: .4 }, { opacity: 1, transform: "translate(-50%,-50%) scale(1)", offset: .47 }, { opacity: 0, transform: "translate(-50%,-50%) scale(2.6)", offset: .62 }, { opacity: 0 }], { duration: T, fill: "forwards" });
+  res.animate([{ opacity: 0, transform: "translate(-50%,-50%) scale(.3)" }, { opacity: 0, offset: .46 }, { opacity: 1, transform: "translate(-50%,-50%) scale(1.12)", offset: .56 }, { opacity: 1, transform: "translate(-50%,-50%) scale(1)", offset: .64 }, { opacity: 1, transform: "translate(-50%,-50%) scale(1)", offset: .88 }, { opacity: 0, transform: "translate(-50%,-50%) scale(1.05)" }], { duration: T, easing: "ease-out", fill: "forwards" });
+  setTimeout(() => box.remove(), T + 80);
 }
 function animateEvent(e){
   if (!G) return;
@@ -398,6 +424,7 @@ function animateEvent(e){
     const label = t === "trap" ? "罠発動！" : isQuick(c) ? "速攻魔法！" : t === "equip" ? "装備！" : "魔法発動！";
     fxEl("fxspell " + (sideOf(e.s) === "me" ? "mine" : "theirs"), `<div class="lbl">${label}</div>${cardHTML(c, "lg", "", mOpt(e.s))}`);
   }
+  if (e.type === "fusion") fusionFx(e);
   if (e.type === "counter") fxEl("fxstamp", "打ち消し！");
   if (e.type === "roll") fxEl("fxstamp roll", e.kind === "die" ? `<span class="die-face">${e.v}</span><small>サイコロ${e.faces && e.faces !== 6 ? `（${e.faces}面）` : ""}</small>` : `<span class="coin-face ${e.v ? "h" : "t"}">${e.v ? "表" : "裏"}</span><small>コイントス</small>`);
   if (e.type === "gain"){

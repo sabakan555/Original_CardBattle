@@ -952,3 +952,15 @@ div.f{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:13px}
 .detailcard .card,.cv-card .card{transition:transform .25s ease-out;transform-style:preserve-3d;will-change:transform}
 .detailcard .card.tilting,.cv-card .card.tilting{transition:transform .06s linear;box-shadow:0 18px 40px rgba(0,0,0,.45)}
 @media (prefers-reduced-motion:reduce){.card.holo .holo-fx,.card.foil-rainbow .c-name,.card.foil-rainbow .s-main,.card.foil-rainbow .p-name{animation:none!important}}
+
+/* ---- 融合召喚の演出 ---- */
+.fxfusion{position:fixed;inset:0;z-index:9;pointer-events:none;overflow:hidden}
+.fxfusion .ff-bg{position:absolute;inset:0;background:radial-gradient(circle at 50% 45%,rgba(150,70,230,.55),rgba(30,10,60,.82) 45%,rgba(6,8,22,.9) 75%)}
+.fxfusion .ff-swirl{position:absolute;left:50%;top:45%;width:min(70vmin,520px);aspect-ratio:1;border-radius:50%;background:conic-gradient(from 0deg,transparent 0 10%,rgba(190,120,255,.85) 18%,transparent 30% 45%,rgba(90,200,255,.8) 55%,transparent 68% 80%,rgba(255,140,220,.8) 88%,transparent 100%);-webkit-mask:radial-gradient(circle,transparent 30%,#000 32%,#000 62%,transparent 66%);mask:radial-gradient(circle,transparent 30%,#000 32%,#000 62%,transparent 66%);filter:blur(1px) drop-shadow(0 0 18px rgba(190,120,255,.9))}
+.fxfusion .ff-mat{position:absolute;left:50%;top:45%;filter:drop-shadow(0 0 14px rgba(190,120,255,.9))}
+.fxfusion .ff-flash{position:absolute;left:50%;top:45%;width:min(60vmin,420px);aspect-ratio:1;border-radius:50%;background:radial-gradient(circle,#fff 0,#fff 25%,rgba(220,190,255,.8) 45%,transparent 70%)}
+.fxfusion .ff-res{position:absolute;left:50%;top:45%;display:flex;flex-direction:column;align-items:center;gap:10px;opacity:0;filter:drop-shadow(0 0 26px rgba(200,140,255,.95))}
+.fxfusion .ff-res .card{--w:180px}
+.fxfusion .ff-lbl{font-family:var(--display);font-size:clamp(28px,6vw,46px);font-weight:900;letter-spacing:.06em;white-space:nowrap;background:linear-gradient(100deg,#ffd6f5,#c9a2ff 35%,#8fe3ff 65%,#fff3b8);-webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 2px 0 rgba(40,10,80,.9)) drop-shadow(0 0 12px rgba(190,120,255,.9))}
+@media (max-width:640px){.fxfusion .ff-res .card{--w:140px}}
+@media (prefers-reduced-motion:reduce){.fxfusion{display:none}}

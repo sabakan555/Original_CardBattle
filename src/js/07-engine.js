@@ -630,6 +630,7 @@ function applyEffect(st, s, c, target, ctx = {}, fx = normFx(c)){
       const names = plan.map(x => `「${card(x.id).name}」`).join("");
       plan.filter(x => x.from === "hand").map(x => x.i).sort((a, b) => b - a).forEach(i => me.grave.push(me.hand.splice(i, 1)[0]));
       plan.filter(x => x.from === "mz").forEach(x => sendToGrave(st, s, x.i));
+      ev(st, { type: "fusion", s, mats: plan.map(x => x.id), c: target });
       ex.splice(k, 1); const z = freeZone(me.mz); me.mz[z] = mkMon(st, target); ev(st, { type: "summon", s, z });
       log(st, s, `${src}：${names}を融合！「${fc.name}」を融合召喚した`);
       trigger(st, s, fc, "ssummon", { zone: z, mon: { s, i: z, u: me.mz[z].u } }); persistFire(st, s, "mySummon", {});
