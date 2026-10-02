@@ -210,6 +210,8 @@ const FONTS = {
   pop:    { label: "まるポップ", g: "cute", css: `"Hachi Maru Pop",var(--ui)` },
   magic:  { label: "マジック書き", g: "cute", css: `"Yusei Magic",var(--hand)` },
   pencil: { label: "えんぴつ", g: "cute", css: `"Yomogi",var(--hand)` },
+  logo:   { label: "ロゴたいぷゴシック", g: "cool", css: `"LogoTypeGothic",var(--ui)` },
+  genjyu: { label: "源柔ゴシック", g: "std", css: `"GenJyuuGothic",var(--ui)` },
   dot:    { label: "ドット", g: "game", css: `"DotGothic16",var(--ui)` },
   stick:  { label: "棒きれ", g: "game", css: `"Stick",var(--ui)` }
 };

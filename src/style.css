@@ -1002,3 +1002,12 @@ div.f{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:13px}
 .card.editor.mtg .c-text{min-height:0;display:flex;flex-direction:column;gap:4px;padding-top:calc(var(--mu)*14)}
 .card.editor.mtg textarea{height:auto;flex:1;background:transparent;font-size:calc(var(--mu)*22);letter-spacing:-.1em;font-family:inherit;color:#000}
 .card.editor.mtg .c-atk{font-size:0}.card.editor.mtg .c-atk input{font-size:calc(var(--mu)*44);width:100%;text-align:center;background:transparent;font-family:"Shippori Mincho",serif;font-weight:700;color:#000}
+/* ---- 同梱フォント（fonts/ ・JIS第1・第2水準に減らしたWOFF2）: ロゴたいぷゴシック（M+ライセンス）・源柔ゴシック（SIL OFL 1.1） ---- */
+@font-face{font-family:"LogoTypeGothic";src:url("fonts/LogoTypeGothic.woff2") format("woff2");font-weight:400 900;font-display:swap}
+@font-face{font-family:"GenJyuuGothic";src:url("fonts/GenJyuuGothic-Regular.woff2") format("woff2");font-weight:400 900;font-display:swap}
+@font-face{font-family:"GenJyuuGothic";src:url("fonts/GenJyuuGothic-Light.woff2") format("woff2");font-weight:100 300;font-display:swap}
+.card.mtg .c-name,.card.mtg .c-tab,.card.mtg .c-cost,.card.mtg .c-atk,.card.mtg .c-art .noart{font-family:var(--cf,"LogoTypeGothic","Shippori Mincho",sans-serif);font-weight:400;font-synthesis:none}
+.card.mtg .c-text{font-family:var(--cf,"GenJyuuGothic","Zen Maru Gothic",var(--ui));font-weight:400}
+.card.mtg .c-text .flv{font-family:"GenJyuuGothic","Shippori Mincho",serif;font-weight:300}
+.card.editor.mtg .c-name input,.card.editor.mtg .c-atk input{font-family:var(--cf,"LogoTypeGothic",sans-serif);font-weight:400}
+.card.editor.mtg textarea{font-family:var(--cf,"GenJyuuGothic",var(--ui))}
