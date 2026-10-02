@@ -187,7 +187,11 @@ function rebuildCards(){
 const HOLO = { rainbow: "虹ホロ", sparkle: "星くず", galaxy: "ギャラクシー" };
 const FOIL = { gold: "金", silver: "銀", bronze: "銅", rainbow: "虹" };
 function cardHTML(c, cls = "", attrs = "", opts = {}){
-  const h = cardHTML0(c, cls, attrs, opts), ho = c && HOLO[c.holo] ? c.holo : "", fo = c && FOIL[c.foil] ? c.foil : "";
+  const mt = !!(c && c.frame === "mtg" && !c.potionView && !c.relicView);
+  let h = cardHTML0(mt ? { ...c, frameless: false } : c, cls, attrs, opts);
+  // MTG風の枠（サバ缶デザイン）: ふつうの枠と同じ中身に、枠の見た目と下の宝石をかぶせる
+  if (mt) h = h.replace(/^<div class="card /, `<div class="card mtg `).replace(/<\/div>$/, `<span class="m-gem" aria-hidden="true"></span></div>`).replace(/<div class="c-atk">ATK /, `<div class="c-atk">`).replace(/<div class="c-name">([\s\S]*?)<\/div><div class="c-art">/, `<div class="c-name"><span class="m-nm">$1</span></div><div class="c-art">`);
+  const ho = c && HOLO[c.holo] ? c.holo : "", fo = c && FOIL[c.foil] ? c.foil : "";
   if (!ho && !fo) return h;
   return h.replace(/^<div class="card /, `<div class="card${ho ? ` holo holo-${ho}` : ""}${fo ? ` foil-${fo}` : ""} `).replace(/<\/div>$/, ho ? `<span class="holo-fx" aria-hidden="true"></span></div>` : "</div>");
 }

@@ -80,7 +80,7 @@
   <!-- MAKE -->
   <section id="tab-make" hidden>
     <div class="maker">
-      <div class="mk-left"><div class="card editor" id="editCard"><span class="holo-fx" aria-hidden="true"></span><div class="c-in">
+      <div class="mk-left"><div class="card editor" id="editCard"><span class="holo-fx" aria-hidden="true"></span><span class="m-gem" aria-hidden="true"></span><div class="c-in">
         <span class="c-cost" id="mkCostBadge" hidden></span><div class="c-name"><input type="text" id="mkName" maxlength="40" placeholder="カード名"></div>
         <div class="c-art"><canvas id="cv" width="560" height="400" aria-label="イラストを描くところ"></canvas><div class="fl-guide" id="flGuide" hidden>ここから下は半透明の文字の欄</div><div class="c-tab" id="mkTab">モンスター</div></div>
         <div class="c-text">
@@ -132,7 +132,7 @@
         </div>
 
         <div class="mk-pane" data-pane="look" hidden>
-          <label class="f">カードの枠<select id="mkFrame"><option value="">ふつう</option><option value="socra">ソクラテスラ（紙っぽい・矢印の名前）</option><option value="spire">スパイア風（宝石のコスト・リボンの名前）</option></select></label>
+          <label class="f">カードの枠<select id="mkFrame"><option value="">ふつう</option><option value="socra">ソクラテスラ（紙っぽい・矢印の名前）</option><option value="spire">スパイア風（宝石のコスト・リボンの名前）</option><option value="mtg">MTG風（石の枠・名前とタイプの帯）</option></select></label>
           <label class="f" id="rarityRow" hidden>レアリティ（リボンの色）<select id="mkRarity"><option value="common">コモン（鉄色）</option><option value="uncommon">アンコモン（青緑）</option><option value="rare">レア（金）</option></select></label>
           <label class="row" style="gap:6px;font-weight:700;cursor:pointer"><input type="checkbox" id="mkFrameless"> 半フレームレス（絵を下の文字の欄まで広げる）</label>
           <label class="row" id="flAlphaRow" hidden style="gap:8px;font-weight:700;font-size:13px">文字の欄の濃さ<input type="range" id="mkFlAlpha" min="0" max="100" step="5" value="68" style="flex:1;min-width:120px"><span id="flAlphaVal" style="min-width:3.5em">68%</span><button type="button" class="small ghost" id="btnFlAlpha">もとに戻す</button></label>
