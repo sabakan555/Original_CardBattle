@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Oxanium:wght@600;700;800&family=Dela+Gothic+One&family=Klee+One:wght@600&family=Zen+Maru+Gothic:wght@500;700&family=Yusei+Magic&family=Hachi+Maru+Pop&family=DotGothic16&family=Kaisei+Decol:wght@700&family=Reggae+One&family=Yomogi&family=M+PLUS+Rounded+1c:wght@800&family=WDXL+Lubrifont+JP+N&display=swap">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@400;700&display=swap"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Antique+B1&display=swap"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Antique&display=swap"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Yuji+Boku&display=swap"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Yuji+Syuku&display=swap"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=RocknRoll+One&display=swap"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Rampart+One&display=swap"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Train+One&display=swap"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Stick&display=swap"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Mochiy+Pop+One&display=swap"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Potta+One&display=swap"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho+B1:wght@800&display=swap"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Darumadrop+One&display=swap"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Murecho:wght@900&display=swap"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@900&display=swap"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@900&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@400;700&display=swap"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@500;700;800&display=swap"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Antique+B1&display=swap"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Antique&display=swap"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Yuji+Boku&display=swap"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Yuji+Syuku&display=swap"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=RocknRoll+One&display=swap"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Rampart+One&display=swap"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Train+One&display=swap"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Stick&display=swap"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Mochiy+Pop+One&display=swap"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Potta+One&display=swap"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho+B1:wght@800&display=swap"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Darumadrop+One&display=swap"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Murecho:wght@900&display=swap"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@900&display=swap"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@900&display=swap">
 <style>
 :root{
   color-scheme: light;
@@ -1023,6 +1023,43 @@ div.f{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:13px}
 .card.mtg .c-text .flv{font-family:"GenJyuuGothic","Shippori Mincho",serif;font-weight:300}
 .card.editor.mtg .c-name input,.card.editor.mtg .c-atk input{font-family:var(--cf,"LogoTypeGothic",sans-serif);font-weight:400}
 .card.editor.mtg textarea{font-family:var(--cf,"GenJyuuGothic",var(--ui))}
+
+/* ---- 近未来の枠（サバ缶のデザイン・504×704基準）: 絵の欄は画像が透明なので、絵→枠画像→文字の順に重ねる ---- */
+.card.fut{--fu:calc(var(--w)/504);aspect-ratio:504/704;padding:0;background:#fff;border:none;border-radius:0;box-shadow:0 calc(var(--fu)*4) calc(var(--fu)*12) rgba(0,0,0,.35);color:#000;isolation:isolate;font-family:var(--cf,"M PLUS Rounded 1c",var(--ui))}
+.card.fut::before{content:"";position:absolute;inset:0;background:url("assets/future_frame.webp") center/100% 100% no-repeat;z-index:1;pointer-events:none}
+.card.fut .c-in{position:static;display:block;height:auto;background:none;border-radius:0;overflow:visible}
+.card.fut .c-art{position:absolute;left:calc(var(--fu)*16);top:calc(var(--fu)*16);width:calc(var(--fu)*472);height:calc(var(--fu)*419);aspect-ratio:auto;border:none;background:#fff;overflow:hidden;z-index:auto}
+.card.fut .c-art>*:not(.c-tab){position:relative;z-index:0}
+.card.fut .c-art>img,.card.fut .c-art>canvas{width:100%;height:100%;object-fit:cover;display:block}
+.card.fut .c-art .noart{display:grid;place-items:center;width:100%;height:100%;font-size:calc(var(--fu)*22);color:#888}
+.card.fut .c-name{position:absolute;left:calc(var(--fu)*132);top:calc(var(--fu)*14);width:calc(var(--fu)*240);height:calc(var(--fu)*42);padding:0!important;border:none!important;background:none;display:flex;align-items:center;justify-content:center;font-size:calc(var(--fu)*30*var(--nk,1));line-height:1!important;font-weight:800;letter-spacing:.02em;z-index:2;white-space:nowrap;overflow:hidden}
+.card.fut .m-nm{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.card.fut .c-cost{left:calc(var(--fu)*34);top:calc(var(--fu)*36);width:calc(var(--fu)*60);height:calc(var(--fu)*60);padding:0;border:none;border-radius:50%;background:none;box-shadow:none;display:grid;place-items:center;font-size:calc(var(--fu)*44);line-height:1;font-weight:800;color:#000;z-index:3}
+.card.fut .c-art .c-tab{position:absolute;left:calc(var(--fu)*13);right:auto;top:calc(var(--fu)*373);bottom:auto;width:calc(var(--fu)*156);height:calc(var(--fu)*33);padding:0;border:none!important;border-radius:0;background:none;display:flex;align-items:center;justify-content:center;font-size:calc(var(--fu)*15);font-weight:800;color:#000!important;z-index:3}
+.card.fut .c-text{position:absolute;left:calc(var(--fu)*33);top:calc(var(--fu)*440);width:calc(var(--fu)*440);height:calc(var(--fu)*250);border:none;background:none;box-shadow:none;padding:calc(var(--fu)*8) 0 0;font-family:var(--cf,"M PLUS Rounded 1c",var(--ui));font-weight:700;font-size:calc(var(--fu)*15*var(--tk,1));line-height:1.55;color:#111;overflow:visible;min-height:0;z-index:2}
+.card.fut .c-text .body{max-height:calc(var(--fu)*150);-webkit-line-clamp:6}
+.card.fut .c-text .fx{color:#111}
+.card.fut .c-text .flv{position:absolute;left:calc(var(--fu)*10);top:calc(var(--fu)*178);width:calc(var(--fu)*420);margin:0;padding:0;border:none;font-style:normal;font-weight:500;font-size:calc(var(--fu)*15*var(--tk,1));line-height:1.4;color:#222;-webkit-line-clamp:1}
+.card.fut .c-atk{left:calc(var(--fu)*300);top:calc(var(--fu)*205);right:auto;bottom:auto;width:calc(var(--fu)*120);height:calc(var(--fu)*28);padding:0;border:none;border-radius:0;background:none;box-shadow:none;display:grid;place-items:center;font-weight:800;font-size:calc(var(--fu)*20);line-height:1;color:#000;z-index:3;white-space:nowrap}
+.card.fut .c-lim{position:absolute;left:calc(var(--fu)*39);top:calc(var(--fu)*220);right:auto;bottom:auto;color:#111;font-size:calc(var(--fu)*14);font-weight:700;z-index:3}
+.card.fut .c-eqc{z-index:3}
+.card.fut[class*="foil-"] .c-name{background:none!important;color:#000!important;-webkit-text-fill-color:currentColor;filter:none}
+.card.fut[class*="foil-"] .m-nm{-webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent;filter:drop-shadow(0 0 .6px rgba(0,0,0,.9))}
+.card.fut.foil-gold .m-nm{background-image:linear-gradient(100deg,#7a5410 0%,#e9c55a 22%,#fff3b8 34%,#c9952a 48%,#f6dc7a 62%,#8a6114 80%,#e9c55a 100%)}
+.card.fut.foil-silver .m-nm{background-image:linear-gradient(100deg,#5d6670 0%,#cfd6dd 22%,#ffffff 34%,#9aa4ae 48%,#e4e9ee 62%,#636c76 80%,#cfd6dd 100%)}
+.card.fut.foil-bronze .m-nm{background-image:linear-gradient(100deg,#5a2e12 0%,#c27a45 22%,#f2c39a 34%,#9a5528 48%,#d99a66 62%,#5f3416 80%,#c27a45 100%)}
+.card.fut.foil-rainbow .m-nm{background-image:linear-gradient(100deg,#e5367a,#f0a020,#3cc78a,#2f8de4,#9b4de0,#e5367a);background-size:200% 100%;animation:foilRun 5s linear infinite}
+.card.fut .holo-fx{z-index:4}
+/* editor */
+.card.editor.fut{--w:min(330px,86vw)}
+.card.editor.fut .c-in{height:auto}
+.card.editor.fut .c-name input{text-align:center;font-size:calc(var(--fu)*28*var(--nk,1));background:transparent;border:none;width:100%;font-family:inherit;font-weight:800;color:#000;padding:0}
+.card.editor.fut .c-text{min-height:0;display:flex;flex-direction:column;gap:4px}
+.card.editor.fut .c-name input{box-shadow:none;outline:none}
+.card.editor.fut #mkEff{flex:0 0 auto;height:calc(var(--fu)*150)}
+.card.editor.fut textarea{height:auto;flex:1;border:none!important;box-shadow:none;resize:none;background:transparent;font-size:calc(var(--fu)*15);font-family:inherit;color:#111}
+.card.editor.fut #mkFlv{position:absolute;left:0;top:calc(var(--fu)*172);width:62%;height:calc(var(--fu)*30)}
+.card.editor.fut .c-atk{font-size:0}.card.editor.fut .c-atk input{font-size:calc(var(--fu)*20);width:100%;text-align:center;background:transparent;font-family:inherit;font-weight:800;color:#000}
 </style>
 <style>html,body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
 </head>
@@ -1145,7 +1182,7 @@ div.f{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:13px}
         </div>
 
         <div class="mk-pane" data-pane="look" hidden>
-          <label class="f">カードの枠<select id="mkFrame"><option value="">ふつう</option><option value="socra">ソクラテスラ（紙っぽい・矢印の名前）</option><option value="spire">スパイア風（宝石のコスト・リボンの名前）</option><option value="mtg">MTG風（石の枠・名前とタイプの帯）</option></select></label>
+          <label class="f">カードの枠<select id="mkFrame"><option value="">ふつう</option><option value="socra">ソクラテスラ（紙っぽい・矢印の名前）</option><option value="spire">スパイア風（宝石のコスト・リボンの名前）</option><option value="mtg">MTG風（石の枠・名前とタイプの帯）</option><option value="future">近未来（白黒のメカっぽい枠）</option></select></label>
           <label class="f" id="rarityRow" hidden>レアリティ（リボンの色）<select id="mkRarity"><option value="common">コモン（鉄色）</option><option value="uncommon">アンコモン（青緑）</option><option value="rare">レア（金）</option></select></label>
           <label class="row" style="gap:6px;font-weight:700;cursor:pointer"><input type="checkbox" id="mkFrameless"> 半フレームレス（絵を下の文字の欄まで広げる）</label>
           <label class="row" id="flAlphaRow" hidden style="gap:8px;font-weight:700;font-size:13px">文字の欄の濃さ<input type="range" id="mkFlAlpha" min="0" max="100" step="5" value="68" style="flex:1;min-width:120px"><span id="flAlphaVal" style="min-width:3.5em">68%</span><button type="button" class="small ghost" id="btnFlAlpha">もとに戻す</button></label>
@@ -2208,12 +2245,13 @@ function rebuildCards(){
 const HOLO = { rainbow: "虹ホロ", sparkle: "星くず", galaxy: "ギャラクシー" };
 const FOIL = { gold: "金", silver: "銀", bronze: "銅", rainbow: "虹" };
 function cardHTML(c, cls = "", attrs = "", opts = {}){
-  const mt = !!(c && c.frame === "mtg" && !c.potionView && !c.relicView);
+  // 画像の枠（MTG風・近未来）: ふつうの枠と同じ中身に、枠の画像と文字の位置をかぶせる
+  const fr = c && !c.potionView && !c.relicView && (c.frame === "mtg" || c.frame === "future") ? c.frame : "", mt = !!fr;
   let h = cardHTML0(mt ? { ...c, frameless: false } : c, cls, attrs, opts);
   // MTG風の枠（サバ缶デザイン）: ふつうの枠と同じ中身に、枠の見た目と下の宝石をかぶせる
   // MTG風: カードのフォントが標準（手書き）のままなら、Figmaのデザインのフォントを使う
   if (mt && (!c.font || c.font === "klee")) h = h.replace(/--cf:[^;']*;?/, "");
-  if (mt) h = h.replace(/^<div class="card /, `<div class="card mtg `).replace(/<\/div>$/, `<span class="m-gem" aria-hidden="true"></span></div>`).replace(/<div class="c-atk">ATK /, `<div class="c-atk">`).replace(/<div class="c-name">([\s\S]*?)<\/div><div class="c-art">/, `<div class="c-name"><span class="m-nm">$1</span></div><div class="c-art">`);
+  if (mt) h = h.replace(/^<div class="card /, `<div class="card ${fr === "mtg" ? "mtg" : "fut"} `).replace(/<\/div>$/, `<span class="m-gem" aria-hidden="true"></span></div>`).replace(/<div class="c-atk">ATK /, `<div class="c-atk">`).replace(/<div class="c-name">([\s\S]*?)<\/div><div class="c-art">/, `<div class="c-name"><span class="m-nm">$1</span></div><div class="c-art">`);
   const ho = c && HOLO[c.holo] ? c.holo : "", fo = c && FOIL[c.foil] ? c.foil : "";
   if (!ho && !fo) return h;
   return h.replace(/^<div class="card /, `<div class="card${ho ? ` holo holo-${ho}` : ""}${fo ? ` foil-${fo}` : ""} `).replace(/<\/div>$/, ho ? `<span class="holo-fx" aria-hidden="true"></span></div>` : "</div>");
@@ -2608,7 +2646,7 @@ $("#mkTEdge").addEventListener("change", e => setTEdge(e.target.checked));
 $("#mkFrameless").addEventListener("change", e => setFrameless(e.target.checked));
 function syncRarity(){ const sp = $("#mkFrame").value === "spire", r = $("#mkRarity").value; $("#rarityRow").hidden = !sp; ["common", "uncommon", "rare"].forEach(k => $("#editCard").classList.toggle("rar-" + k, sp && r === k)); }
 $("#mkRarity").addEventListener("change", syncRarity);
-function syncFrame(){ if (typeof updateSecs === "function") setTimeout(updateSecs); $("#editCard").classList.toggle("mtg", $("#mkFrame").value === "mtg"); $("#editCard").classList.toggle("socra", $("#mkFrame").value === "socra"); $("#editCard").classList.toggle("spire", $("#mkFrame").value === "spire"); syncRarity(); if ($("#mkFrame").value === "spire" && MK.frameless) setFrameless(false); $("#mkFrameless").closest("label").hidden = $("#mkFrame").value === "spire"; if (typeof syncTypeNames === "function") syncTypeNames(); $("#capRow").hidden = MK.type !== "monster" || $("#mkFrame").value !== "socra"; }
+function syncFrame(){ if (typeof updateSecs === "function") setTimeout(updateSecs); $("#editCard").classList.toggle("mtg", $("#mkFrame").value === "mtg"); $("#editCard").classList.toggle("fut", $("#mkFrame").value === "future"); $("#editCard").classList.toggle("socra", $("#mkFrame").value === "socra"); $("#editCard").classList.toggle("spire", $("#mkFrame").value === "spire"); syncRarity(); if ($("#mkFrame").value === "spire" && MK.frameless) setFrameless(false); $("#mkFrameless").closest("label").hidden = $("#mkFrame").value === "spire"; if (typeof syncTypeNames === "function") syncTypeNames(); $("#capRow").hidden = MK.type !== "monster" || $("#mkFrame").value !== "socra"; }
 $("#mkFrame").addEventListener("change", () => { syncFrame(); syncFont(); });
 function clearCanvas(){ ik.clearRect(0, 0, ink.width, ink.height); photo = null; setMode("draw"); composite(); }
 $("#swatches").innerHTML = COLORS.map(c => `<button class="sw" style="background:${c}" data-c="${c}" aria-label="色 ${c}" aria-pressed="${c === pen.color}"></button>`).join("");
@@ -2774,7 +2812,7 @@ setMkDeck("normal");
 $("#mkCost").addEventListener("change", syncCost); $("#mkAtk").addEventListener("input", syncCost);
 syncCost();
 $("#mkFont").innerHTML = Object.entries(FONTS).map(([k, v]) => `<option value="${k}" style='font-family:${v.css}'>${v.label}</option>`).join("");
-function syncFont(){ const k = $("#mkFont").value; if ($("#mkFrame").value === "mtg" && k === "klee") $("#editCard").style.removeProperty("--cf"); else $("#editCard").style.setProperty("--cf", FONTS[k] ? FONTS[k].css : ""); $("#mkFont").style.fontFamily = FONTS[k] ? FONTS[k].css : ""; renderFontGrid(); }
+function syncFont(){ const k = $("#mkFont").value; if (($("#mkFrame").value === "mtg" || $("#mkFrame").value === "future") && k === "klee") $("#editCard").style.removeProperty("--cf"); else $("#editCard").style.setProperty("--cf", FONTS[k] ? FONTS[k].css : ""); $("#mkFont").style.fontFamily = FONTS[k] ? FONTS[k].css : ""; renderFontGrid(); }
 // フォント選び: 見本の文字（カード名）をそれぞれのフォントで並べる
 function renderFontGrid(){
   const box = $("#fontGrid"); if (!box) return;
@@ -3556,7 +3594,7 @@ $("#gallery").addEventListener("click", async e => {
   if (ed){
     const c = S.cards.get(ed.dataset.edit); if (!c || !(isMine(c) || (c.starter && isAdmin()))) return;
     setMkKind("card"); S.editId = c.id; setFrameless(!!c.frameless); setFlAlpha(c.flAlpha ?? FL_ALPHA_DEF); setTEdge(!!c.textEdge); setShine(c.holo, c.foil); MK.artDirty = false; $("#mkName").value = c.nameRuby || c.name; $("#mkEff").value = c.effect || ""; $("#mkFlv").value = c.flavor || ""; $("#mkNameSize").value = SIZES_T[c.nameSize] ? c.nameSize : "m"; $("#mkTextSize").value = SIZES_T[c.textSize] ? c.textSize : "m"; syncSizes(); $("#mkAtk").value = c.atkInf ? "∞" : (c.atk || 0); $("#mkLimit").value = String(cardLimit(c));
-    mkLoadVars(c); $("#mkFusion").checked = !!(Array.isArray(c.fusion) && c.fusion.length); MK.fusion = Array.isArray(c.fusion) && c.fusion.length ? JSON.parse(JSON.stringify(c.fusion)) : null; renderFusion(); $("#mkQuick").checked = !!c.quick; $("#mkWhen").value = WHEN_LABEL[c.when] ? c.when : ""; $("#mkExhaust").checked = !!c.exhaust; $("#mkNoUse").checked = !!c.noUse; $("#mkToken").checked = !!c.token; $("#mkEx").checked = !!c.ex; $("#mkPayLp").value = String(payLpOf(c)); $("#mkPayDisc").value = String(payDiscOf(c)); $("#mkPayDiscTag").value = c.payDiscTag || ""; $("#mkTags").value = tagsOf(c).join(" "); $("#mkTribTag").value = c.tribTag || ""; $("#mkPayDiscAll").checked = payDiscAll(c); $("#mkPayDisc").disabled = payDiscAll(c); $("#mkPayMax").value = String(payMaxOf(c)); $("#mkPersist").checked = !!c.persist; $("#mkField").checked = !!c.field; MK.sk = c.sk || null; $("#mkRarity").value = rarityOf(c); setMkType(cardType(c)); loadFxForm(c); $("#mkFont").value = FONTS[c.font] ? c.font : "klee"; syncFont(); $("#mkCost").value = c.costX ? "X" : hasCost(c) ? String(costOf(c)) : "1"; setMkDeck(deckModeOf(c)); $("#mkEq").value = c.eqN || 0; $("#mkEqAb").value = "none"; $("#mkEqCost").value = String(eqCostOf(c)); $("#mkEqCap").value = hasEqCap(c) ? String(+c.eqCap) : ""; loadAbs(absOf(c)); syncEqLine(); $("#mkFrame").value = c.frame === "socra" || c.frame === "spire" || c.frame === "mtg" ? c.frame : ""; syncFrame(); loadSS(c);
+    mkLoadVars(c); $("#mkFusion").checked = !!(Array.isArray(c.fusion) && c.fusion.length); MK.fusion = Array.isArray(c.fusion) && c.fusion.length ? JSON.parse(JSON.stringify(c.fusion)) : null; renderFusion(); $("#mkQuick").checked = !!c.quick; $("#mkWhen").value = WHEN_LABEL[c.when] ? c.when : ""; $("#mkExhaust").checked = !!c.exhaust; $("#mkNoUse").checked = !!c.noUse; $("#mkToken").checked = !!c.token; $("#mkEx").checked = !!c.ex; $("#mkPayLp").value = String(payLpOf(c)); $("#mkPayDisc").value = String(payDiscOf(c)); $("#mkPayDiscTag").value = c.payDiscTag || ""; $("#mkTags").value = tagsOf(c).join(" "); $("#mkTribTag").value = c.tribTag || ""; $("#mkPayDiscAll").checked = payDiscAll(c); $("#mkPayDisc").disabled = payDiscAll(c); $("#mkPayMax").value = String(payMaxOf(c)); $("#mkPersist").checked = !!c.persist; $("#mkField").checked = !!c.field; MK.sk = c.sk || null; $("#mkRarity").value = rarityOf(c); setMkType(cardType(c)); loadFxForm(c); $("#mkFont").value = FONTS[c.font] ? c.font : "klee"; syncFont(); $("#mkCost").value = c.costX ? "X" : hasCost(c) ? String(costOf(c)) : "1"; setMkDeck(deckModeOf(c)); $("#mkEq").value = c.eqN || 0; $("#mkEqAb").value = "none"; $("#mkEqCost").value = String(eqCostOf(c)); $("#mkEqCap").value = hasEqCap(c) ? String(+c.eqCap) : ""; loadAbs(absOf(c)); syncEqLine(); $("#mkFrame").value = c.frame === "socra" || c.frame === "spire" || c.frame === "mtg" || c.frame === "future" ? c.frame : ""; syncFrame(); loadSS(c);
     if (!c.img){ clearCanvas(); undoStack = []; MK.artDirty = false; }
     else { const im = new Image(); im.onload = () => { clearCanvas(); setPhoto(im); setMode("draw"); composite(); undoStack = []; MK.artDirty = false; }; im.src = c.img; }
     $("#mkTitle").textContent = "カードを編集中"; $("#btnNew").hidden = false; $("#btnSave").textContent = "変更を保存";
