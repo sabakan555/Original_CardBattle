@@ -1394,6 +1394,7 @@ const KINDS = {
   modName:       { label: "カードの名前を変える", mod: true, target: "hand", text: (n, into, e) => `${modTargetText(e)}の名前を「${(e && e.nm) || "？"}」に変える` },
   atkMul:        { label: "このモンスターのATKを○倍", n: true, mon: true, text: n => `このモンスターのATKを${n}倍にする` },
   summonSelf:    { label: "このカードを手札から特殊召喚", mon: true, text: () => `このカードを手札から特殊召喚する` },
+  thisTopOnly:   { label: "このモンスターは相手の一番ATKが高いモンスターにしか攻撃できない", mon: true, text: () => `このモンスターは相手の場の一番ATKが高いモンスターにしか攻撃できない` },
   thisNoAtk:     { label: "このモンスターは攻撃できない（このターン）", mon: true, text: () => `このモンスターはこのターン攻撃できない` },
   selfNoAtk:     { label: "自分のモンスターは攻撃できない（このターン）", text: () => `このターン、自分のモンスターは攻撃できない` },
   oppNoAtk:      { label: "相手は攻撃できない（相手の次のターンの終わりまで）", text: () => `相手の次のターンの終わりまで、相手のモンスターは攻撃できない` },
@@ -1459,6 +1460,7 @@ const ABS = {
   guard:      { label: "戦闘では破壊されない" },
   noEffect:   { label: "効果では破壊されない" },
   noAttack:   { label: "攻撃できない" },
+  topOnly:    { label: "相手の一番ATKが高いモンスターにしか攻撃できない（デメリット）", text: () => `相手の場の一番ATKが高いモンスターにしか攻撃できない` },
   taunt:      { label: "相手に狙われる（ほかのモンスターは攻撃・効果の対象にされない）" },
   dmgCut:     { label: "戦闘で受けるダメージを減らす", n: 300, text: n => `戦闘で受けるダメージが${n}減る` },
   substitute: { label: "破壊されるとき、かわりにほかの装備を1枚墓地へ", only: "eq", self: true, text: () => `装備したモンスターが破壊されるとき、かわりにほかの装備1枚を墓地へ送る` },
@@ -1699,7 +1701,7 @@ const isNumCond = k => !!(COND_DEFS[k] && COND_DEFS[k].val);
 const usedWhat = x => x.match === "magic" ? "魔法" : x.match === "trap" ? "罠" : x.match === "tag" ? `タグ「${x.name || "？"}」のカード` : x.match === "part" ? `名前に「${x.name || "？"}」が入ったカード` : x.match === "name" ? `「${x.name || "？"}」` : "なんでも";
 function condPhrase(x){
   if (x.k === "card"){ const cnt = +(x.cnt ?? 1), op = x.op === "le" ? "le" : "ge"; return `${x.match === "tag" ? `タグ「${x.name || "？"}」のカード` : x.match === "part" ? `名前に「${x.name || "？"}」が入ったカード` : `「${x.name || "？"}」`}が自分の${WHERE[x.where] || WHERE.field}に${cnt === 1 && op === "ge" ? "ある" : `${cnt}枚${OPS[op]}ある`}`; }
-  if (x.k === "ask") return `「${x.text || "？"}」に「はい」`;
+  if (x.k === "ask") return `${x.who === "op" ? "相手が" : ""}「${x.text || "？"}」に「はい」`;
   if (x.k === "costDeck") return "自分がコストデッキを使っている";
   if (x.k === "coinH") return "コインが表";
   if (x.k === "used") return `${{ me: "自分が", op: "相手が" }[x.who] || ""}発動したカードが${usedWhat(x)}`;
@@ -2693,7 +2695,7 @@ const KIND_GROUPS = [
   { g: "give",    label: "相手にカードを送りこむ", v: [["oppDraw", "相手に○枚引かせる"], ["oppGenHand", "名前を指定したカードを相手の手札に"], ["oppGenDeck", "名前を指定したカードを相手の山札に混ぜる"], ["oppSummon", "名前を指定したモンスターを相手の場に出す"], ["oppSetNamed", "名前を指定した魔法・罠を相手の場にセット"]] },
   { g: "negate",  label: "打ち消す・無効にする", v: [["cancel", "魔法・罠の発動かモンスターの召喚を打ち消す"], ["negate", "相手の攻撃を無効にする（罠・速攻魔法）"]] },
   { g: "equip",   label: "装備を動かす", v: [["moveEquips", "別のモンスターに付けかえる"], ["equipsToHand", "ほかの装備を手札に戻す"]] },
-  { g: "minus",   label: "自分にデメリット", v: [["loseLp", "LPを失う（ブロックでは防げない）"], ["thisNoAtk", "このモンスターは攻撃できない（このターン）"], ["selfNoAtk", "自分のモンスターは攻撃できない（このターン）"], ["destroyOwn", "自分のモンスター1体を破壊"], ["destroyThis", "このモンスターを破壊"], ["destroyOwnAll", "自分のモンスターをすべて破壊"], ["oppStr", "相手が筋力を得る"], ["noDraw", "このターンもう引けない"]] },
+  { g: "minus",   label: "自分にデメリット", v: [["loseLp", "LPを失う（ブロックでは防げない）"], ["thisNoAtk", "このモンスターは攻撃できない（このターン）"], ["thisTopOnly", "一番ATKが高い相手にしか攻撃できない"], ["selfNoAtk", "自分のモンスターは攻撃できない（このターン）"], ["destroyOwn", "自分のモンスター1体を破壊"], ["destroyThis", "このモンスターを破壊"], ["destroyOwnAll", "自分のモンスターをすべて破壊"], ["oppStr", "相手が筋力を得る"], ["noDraw", "このターンもう引けない"]] },
   { g: "win",     label: "ゲームに勝つ", v: [["win", "勝利する"]] }
 ];
 // kinds shown only when an older card already uses them (they're now 基本の効果 + 「だれに」)
@@ -2916,6 +2918,7 @@ function renderBlocksUI(){
     if (isNumCond(x.k)) h += `<select data-f="op" aria-label="くらべかた">${opt("ge", "以上", x.op)}${opt("le", "以下", x.op)}${opt("eq", "ちょうど", x.op)}</select><input type="number" data-f="n" min="0" max="99999" value="${esc(x.n ?? 1)}" aria-label="数">`;
     if (x.k === "card") h += `<input type="text" data-f="name" maxlength="40" placeholder="カード名" value="${esc(x.name || "")}" aria-label="カード名"><select data-f="where" aria-label="どこに">${Object.entries(WHERE).map(([k, v]) => opt(k, "自分の" + v, x.where || "field")).join("")}</select><select data-f="match" aria-label="名前の合わせ方">${opt("exact", "名前がぴったり", x.match)}${opt("part", "名前に含む", x.match)}${opt("tag", "タグ", x.match)}</select><input type="number" data-f="cnt" min="0" max="99" value="${esc(x.cnt ?? 1)}" aria-label="枚数" style="width:64px">枚<select data-f="op" aria-label="くらべかた">${opt("ge", "以上", x.op || "ge")}${opt("le", "以下", x.op)}</select>`;
     if (x.k === "used") h += `<select data-f="who" aria-label="だれが">${opt("any", "だれでも", x.who || "any")}${opt("me", "自分が", x.who || "any")}${opt("op", "相手が", x.who || "any")}</select><select data-f="match" aria-label="どのカード">${opt("trap", "罠", x.match)}${opt("magic", "魔法", x.match)}${opt("name", "名前がぴったり", x.match)}${opt("part", "名前に含む", x.match)}${opt("tag", "タグ", x.match)}${opt("any", "なんでも", x.match)}</select>${["name", "part", "tag"].includes(x.match) ? `<input type="text" data-f="name" maxlength="40" list="${x.match === "tag" ? "tagNames" : "cardNames"}" placeholder="${x.match === "tag" ? "タグ" : "カード名"}" value="${esc(x.name || "")}" aria-label="カード名">` : ""}`;
+    if (x.k === "ask") h += `<select data-f="who" aria-label="だれに聞く">${opt("me", "自分に聞く", x.who === "op" ? "op" : "me")}${opt("op", "相手に聞く", x.who === "op" ? "op" : "me")}</select>`;
     if (x.k === "ask") h += `<input type="text" data-f="text" maxlength="40" placeholder="例: 物理学実験を履修していますか？" value="${esc(x.text || "")}" aria-label="質問">`;
     return h + `<button type="button" class="small ghost" data-bk="delRow" aria-label="この条件を消す">×</button></div>`;
   };
@@ -4673,6 +4676,7 @@ function applyEffect(st, s, c, target, ctx = {}, fx = normFx(c)){
       trigger(st, s, card(id), "ssummon", { zone: z, mon: { s, i: z, u: me.mz[z].u } }); persistFire(st, s, "mySummon", {});
       break;
     }
+    case "thisTopOnly": { const m = ctx.mon && monAt(st, ctx.mon); if (!m){ log(st, s, `${src}：そのモンスターはもう場にいない`); break; } m.topOnly = true; log(st, s, `${src}：「${card(m.c).name}」は相手の一番ATKが高いモンスターにしか攻撃できなくなった`); break; }
     case "thisNoAtk": { const m = ctx.mon && monAt(st, ctx.mon); if (!m){ log(st, s, `${src}：そのモンスターはもう場にいない`); break; } m.noAtkTurn = Math.max(m.noAtkTurn || 0, st.turn === ctx.mon.s ? st.turnNo : st.turnNo + 1); log(st, s, `${src}：「${card(m.c).name}」はこのターン攻撃できない`); break; }
     case "selfNoAtk": me.noAtkUntil = Math.max(me.noAtkUntil || 0, st.turn === s ? st.turnNo : st.turnNo + 1); log(st, s, `${src}：このターン、${me.name}のモンスターは攻撃できない`); break;
     case "modAdd": case "modRep": case "modClear": case "modName": modApply(st, s, c, fx, target, src); break;
@@ -4869,9 +4873,16 @@ function runBlock(st, s, c, b, ctx, then){
   };
   if (!ask || (!or && !base) || (or && base)) return go(st, b.conds.length ? base : true);
   const fin = yes => or ? (base || yes) : (base && yes);
-  if (isHumanHere(s)){ G.chooseQ.push({ ask: true, s, c, fx: { kind: "__block", ask: ask.text }, ctx, then, block: { b, fin, go } }); return; }
+  // 「相手に聞く」: the opponent answers (online: through st.askQ, the effect waits on the asker's device)
+  const who = ask.who === "op" ? O(s) : s, toOp = who !== s;
+  if (isHumanHere(who)){ G.chooseQ.push({ ask: true, s, to: toOp ? who : null, c, fx: { kind: "__block", ask: ask.text }, ctx, then, block: { b, fin, go } }); return; }
+  if (toOp && G && G.mode === "online" && !G.spectate){
+    st.un = (st.un || 0) + 1; st.askQ = { n: st.un, by: s, to: who, text: ask.text, name: c.name, ans: null };
+    G.askWait = { n: st.un, s, name: c.name, text: ask.text, resume: (st2, y) => go(st2, fin(y)) };
+    log(st, s, `「${c.name}」：相手に質問「${ask.text}」`); return;
+  }
   const yes = Math.random() < .5;
-  log(st, s, `「${c.name}」：「${ask.text}」→ ${yes ? "はい" : "いいえ"}`);
+  log(st, s, `「${c.name}」：${toOp ? "相手に" : ""}「${ask.text}」→ ${yes ? "はい" : "いいえ"}`);
   go(st, fin(yes));
 }
 function runEffects(st, s, c, effs, ctx, then){
@@ -4937,7 +4948,7 @@ function withDiscard(c, hi, go){
   G.costPick = { name: c.name, hi, need: n, picked: [], go, tag: c.payDiscTag || "" }; renderAll();
 }
 function canSummonNow(st, s){ return P(st, s).mana ? true : !st.summoned; }
-function canAct(st, s){ return !(G && G.spectate) && st.turn === s && !st.pending && !st.winner && !(G && G.chooseQ.length); }
+function canAct(st, s){ return !(G && G.spectate) && st.turn === s && !st.pending && !st.askQ && !st.winner && !(G && G.chooseQ.length); }
 function summon(st, s, hi, zi, disc, trib){
   const p = P(st, s), id = p.hand[hi], need = tribOf(card(id), st, s);
   let z = (zi != null && !p.mz[zi]) ? zi : freeZone(p.mz);
@@ -5178,12 +5189,18 @@ function responseOptions(st, s, win){
   return out.concat(eqCancelOptions(st, s, win));
 }
 function usableTraps(st, s){ return responseOptions(st, s, "attack").filter(o => o.from === "sz").map(o => o.i); }
+// where monster `from` may attack: L = opponent zones, direct = may attack directly
+const topOnlyMon = (st, s, i) => !!(P(st, s).mz[i] && (P(st, s).mz[i].topOnly || hasAb(st, s, i, "topOnly")));
+function atkTargets(st, s, from){
+  const op = P(st, O(s)), tt = tauntIdx(st, O(s)), all = op.mz.map((x, j) => x ? j : -1).filter(j => j >= 0), top = topOnlyMon(st, s, from);
+  let L = tt.length ? tt : all;
+  if (top && L.length){ const mx = Math.max(...L.map(j => atkOf(op.mz[j]))); L = L.filter(j => atkOf(op.mz[j]) === mx); }
+  return { L, direct: !tt.length && (!all.length || (!top && hasAb(st, s, from, "direct"))), top, taunt: tt.length > 0 };
+}
 function declareAttack(st, s, from, to){
   const m = P(st, s).mz[from]; if (!m || !canAttack(st, s, from)) return false;
-  const tt = tauntIdx(st, O(s));
-  if (tt.length && (to === "direct" || !tt.includes(to))) return false;
-  if (to === "direct" && P(st, O(s)).mz.some(Boolean) && !hasAb(st, s, from, "direct")) return false;
-  if (to !== "direct" && !P(st, O(s)).mz[to]) return false;
+  const T = atkTargets(st, s, from);
+  if (to === "direct" ? !T.direct : !T.L.includes(to)) return false;
   m.atkCount = (m.atkCount || 0) + 1;
   m.attacked = m.atkCount >= maxAttacks(st, s, from);
   ev(st, { type: "attack", s, from, to, c: m.c });
@@ -5292,7 +5309,7 @@ function persist(){
 const TURN_IDLE = 180;
 function idleInfo(){
   if (!G || G.mode !== "online" || !G.st || !G.st.started || G.st.winner || !G.st.updatedAt) return null;
-  const st = G.st, w = st.pending ? (st.pending.wait ? O(st.pending.by) : null) : st.turn; if (!w) return null;
+  const st = G.st, w = st.askQ && st.askQ.ans == null ? st.askQ.to : st.pending ? (st.pending.wait ? O(st.pending.by) : null) : st.turn; if (!w) return null;
   return { w, left: TURN_IDLE - Math.max(0, Math.floor((Date.now() - st.updatedAt) / 1000)) };
 }
 function timerHTML(){
@@ -5312,6 +5329,13 @@ function act(fn){
 }
 function after(){
   if (!G) return;
+  // 相手に聞いた質問: 答えが届いたら止まっていた効果の続きを出す（ページを開きなおして続きがわからないときは取り消し）
+  const aq = G.st && G.st.askQ;
+  if (aq && G.mode === "online" && !G.spectate && aq.by === G.slot){
+    const w = G.askWait;
+    if (w && w.n === aq.n && aq.ans != null){ G.askWait = null; act(st => { const y = !!st.askQ.ans; st.askQ = null; log(st, w.s, `「${w.name}」：相手に「${w.text}」→ ${y ? "はい" : "いいえ"}`); w.resume(st, y); }); return; }
+    if (!w || w.n !== aq.n){ G.askWait = null; act(st => { st.askQ = null; log(st, G.slot, `「${aq.name}」の質問は取り消された`); }); return; }
+  }
   renderAll();
   if (G.mode === "cpu") scheduleCpu();
 }
@@ -5375,9 +5399,8 @@ function cpuStep(st, s){
   if (st.turnNo > 1){
     for (let i = 0; i < ZONES; i++){
       const m = p.mz[i]; if (!m || !canAttack(st, s, i)) continue;
-      const tt = tauntIdx(st, O(s));
-      const opMons = tt.length ? tt : op.mz.map((x, j) => x ? j : -1).filter(j => j >= 0);
-      if (!tt.length && (!opMons.length || hasAb(st, s, i, "direct"))){ declareAttack(st, s, i, "direct"); return; }
+      const T = atkTargets(st, s, i), opMons = T.L;
+      if (T.direct){ declareAttack(st, s, i, "direct"); return; }
       const beat = opMons.filter(j => atkOf(op.mz[j]) < atkOf(m)).sort((a, b) => atkOf(op.mz[b]) - atkOf(op.mz[a]));
       if (beat.length){ declareAttack(st, s, i, beat[0]); return; }
     }
@@ -5429,8 +5452,8 @@ function renderBoard(){
   const zoneHTML = (s, kind) => P(st, s)[kind].map((z, i) => {
     const mine = s === me;
     const attrs = `data-z="${kind}" data-s="${s === me ? "me" : "op"}" data-i="${i}"`;
-    const tt = atkFrom != null ? tauntIdx(st, op) : [];
-    const isTarget = (atkFrom != null && !mine && kind === "mz" && z && (!tt.length || tt.includes(i))) || (eqMode && kind === "mz" && z && canEquipOn(st, eqMode.id, s, i));
+    const tl = atkFrom != null ? atkTargets(st, me, atkFrom).L : [];
+    const isTarget = (atkFrom != null && !mine && kind === "mz" && z && tl.includes(i)) || (eqMode && kind === "mz" && z && canEquipOn(st, eqMode.id, s, i));
     const pendSummon = !z && kind === "mz" && st.chain && st.chain.find(l => l.summon && l.s === s && l.z === i);
     if (pendSummon) return cardHTML(card(pendSummon.c), "dim", attrs.replace('data-z="mz"', 'data-z="pending"'), { done: "召喚中…", ...mOpt(s) });
     if (!z) return `<div class="slot ${mine && dropKind === kind ? "drop" : ""}" ${attrs}></div>`;
@@ -5460,13 +5483,15 @@ function renderBoard(){
       acts = `<button class="primary" data-act="rematch" ${rm[me] ? "disabled" : ""}>${rm[me] ? "相手の返事を待っています…" : rm[op] ? "再戦を受ける！" : "再戦をもうしこむ"}</button><button data-act="leave">ロビーにもどる</button>`;
       if (rm[op] && !rm[me]) hint += `<br><b>${esc(po.name)} が再戦をもうしこんでいます！</b>`;
     }
+  } else if (st.askQ){
+    hint = st.askQ.to === me ? "相手のカードから質問がきています" : "相手の答えを待っています…";
   } else if (st.pending){
     hint = st.pending.type === "chain" ? (st.pending.by === me ? "相手がチェーンするか考えています…" : "チェーンするか選んでね") : st.pending.by === me ? (st.pending.type === "end" ? "ターン終了前に、相手が速攻魔法・罠を使うか考えています…" : "相手が罠・速攻魔法を使うか考えています…") : (st.pending.type === "end" ? "相手のターン終了前です" : st.pending.type === "summoned" ? "相手がモンスターを出しました" : "攻撃されています！");
   } else if (!myTurn){
     hint = `${esc(po.name)} のターンです`;
   } else if (atkFrom != null){
-    const noMons = !po.mz.some(Boolean), tt = tauntIdx(st, op), canDirect = !tt.length && (noMons || hasAb(st, me, atkFrom, "direct"));
-    hint = noMons ? "相手の場にモンスターがいない！" : tt.length ? "このモンスターにしか攻撃できない！（光っているモンスター）" : canDirect ? "攻撃する相手モンスターをえらぶか、直接攻撃！" : "攻撃する相手モンスターをえらんでね";
+    const noMons = !po.mz.some(Boolean), AT = atkTargets(st, me, atkFrom), tt = AT.taunt ? [1] : [], canDirect = AT.direct;
+    hint = noMons ? "相手の場にモンスターがいない！" : AT.top ? "一番ATKが高いモンスターにしか攻撃できない！（光っているモンスター）" : tt.length ? "このモンスターにしか攻撃できない！（光っているモンスター）" : canDirect ? "攻撃する相手モンスターをえらぶか、直接攻撃！" : "攻撃する相手モンスターをえらんでね";
     acts = (canDirect ? `<button class="primary" data-act="direct">直接攻撃！</button>` : "") + `<button class="ghost" data-act="cancelAtk">やめる</button>`;
   } else {
     hint = st.turnNo === 1 ? "先攻の1ターン目は攻撃できません" : "カードをえらんで行動しよう";
@@ -5737,10 +5762,13 @@ function renderOverlay(){
     html = `<div class="box"><h2 style="margin:0">若葉：変えるカードをえらぶ</h2><p class="muted" style="margin:0">デッキの${L.length}枚からえらんだ1枚が、ランダムなスパイア風カードに変わります（手札はこのあと引きます）</p><div class="gallery">${list || '<p class="muted">カードがありません</p>'}</div></div>`;
   } else if (Array.isArray(rp)){
     html = `<div class="box"><h2 style="margin:0">ネオーの祝福：レリックを1つえらぶ</h2><p class="muted" style="margin:0">スパイアデッキのはじまりに、どれか1つだけ手に入る</p><div class="relic-pick">${rp.map(k => [k, relicDef(k)]).filter(x => x[1]).map(([k, d]) => `<button data-relic="${esc(k)}">${d.img ? `<img class="rl-img" alt="" src="${d.img}">` : ""}<b>${esc(d.name)}</b>${esc(d.text)}</button>`).join("")}</div></div>`;
+  } else if (st.askQ && st.askQ.ans == null && st.askQ.to === me && !G.spectate && !st.winner){
+    const aq = st.askQ;
+    html = `<div class="box"><h2 style="margin:0">${esc(P(st, aq.by).name)} の「${esc(aq.name)}」からの質問</h2><p style="margin:0;font-size:18px;font-weight:700">${esc(aq.text)}</p><p class="muted" style="margin:0">あなたの答えで相手のカードの効果が変わります</p><div class="row"><button class="primary" data-askq="yes">はい</button><button data-askq="no">いいえ</button></div></div>`;
   } else if (G.chooseQ.length && G.chooseQ[0].ask){
     const q = G.chooseQ[0];
     const yesTxt = q.block ? effsText(q.c, q.block.b.then) + (q.block.b.else.length ? `／「いいえ」なら：${effsText(q.c, q.block.b.else)}` : "") : KINDS[q.fx.kind].text(q.fx.n);
-    html = `<div class="box"><h2 style="margin:0">「${esc(q.c.name)}」</h2><p style="margin:0;font-size:18px;font-weight:700">${esc(q.fx.ask)}</p><p class="muted" style="margin:0">「はい」なら：${esc(yesTxt)}</p><div class="row"><button class="primary" data-ask="yes">はい</button><button data-ask="no">いいえ</button></div></div>`;
+    html = `<div class="box"><h2 style="margin:0">${q.to ? `${esc(P(st, q.s).name)} の「${esc(q.c.name)}」からの質問` : `「${esc(q.c.name)}」`}</h2><p style="margin:0;font-size:18px;font-weight:700">${esc(q.fx.ask)}</p><p class="muted" style="margin:0">${q.to ? "相手のカードの効果" : ""}「はい」なら：${esc(yesTxt)}</p><div class="row"><button class="primary" data-ask="yes">はい</button><button data-ask="no">いいえ</button></div></div>`;
   } else if (G.chooseQ.length){
     const q = G.chooseQ[0], TS = q.ctx && q.ctx.side === "me" ? q.s : O(q.s), opts = (targetOptions(st, q.s, q.fx.kind, q.ctx) || []).filter(o => !(q.fx.distinct && q.ctx.hit && (q.ctx.hit.picked || []).includes(String(o))));
     const t = KINDS[q.fx.kind].target;
@@ -5820,10 +5848,11 @@ $("#overlay").addEventListener("click", e => {
   { const gv = e.target.closest("[data-grave]"); if (gv && G){ G.view = gv.dataset.grave; renderAll(); return; } }
   { const xu = e.target.closest("[data-exuse]"); if (xu && G && !G.spectate){ const k = +xu.dataset.exuse, me = G.slot; let hi = -1, id = null; G.exView = false; act(st => { const p = P(st, me); if (!canAct(st, me) || p.ex[k] == null) return false; exReturnP(st, me); id = p.ex.splice(k, 1)[0]; p.hand.push(id); hi = p.hand.length - 1; p.exTemp = { id, i: hi }; G.sel = { z: "hand", s: "me", i: hi }; G.atkFrom = null; }); if (hi < 0) renderAll(); return; } }
   if (!G) return;
+  { const aq = e.target.closest("[data-askq]"); if (aq){ const yes = aq.dataset.askq === "yes"; act(st => { if (!st.askQ || st.askQ.to !== G.slot || st.askQ.ans != null) return false; st.askQ.ans = yes; log(st, G.slot, `「${st.askQ.name}」の質問「${st.askQ.text}」に「${yes ? "はい" : "いいえ"}」と答えた`); }); return; } }
   const ak = e.target.closest("[data-ask]");
   if (ak && G.chooseQ.length && G.chooseQ[0].ask){
     const q = G.chooseQ.shift(), yes = ak.dataset.ask === "yes";
-    if (q.block){ act(st => { log(st, q.s, `「${q.c.name}」：「${q.fx.ask}」→ ${yes ? "はい" : "いいえ"}`); q.block.go(st, q.block.fin(yes)); }); return; }
+    if (q.block){ act(st => { log(st, q.s, `「${q.c.name}」：${q.to ? "相手に" : ""}「${q.fx.ask}」→ ${yes ? "はい" : "いいえ"}`); q.block.go(st, q.block.fin(yes)); }); return; }
     act(st => { log(st, q.s, `「${q.c.name}」：「${q.fx.ask}」→ ${yes ? "はい" : "いいえ"}`); if (yes) runEffect(st, q.s, q.c, q.ctx, q.then, { ...q.fx, ask: "" }); else q.then && q.then(st); });
     return;
   }
@@ -5886,7 +5915,7 @@ $("#board").addEventListener("click", e => {
       if (eqsOf(P(st, ts).mz[i]).length){ G.eqPlace = { hi: em.i, s: ts, i }; renderAll(); return; }
       G.sel = null; withDiscard(card(em.id), em.i, d => act(st => equip(st, me, em.i, ts, i, null, d))); return;
     }
-    if (G.atkFrom != null && s === "op" && z === "mz" && P(st, O(me)).mz[i]){ const tt = tauntIdx(st, O(me)); if (tt.length && !tt.includes(i)){ toast("このモンスターには攻撃できない（ほかに狙わなきゃいけないモンスターがいる）"); return; } const from = G.atkFrom; G.atkFrom = null; G.sel = null; act(st => declareAttack(st, me, from, i)); return; }
+    if (G.atkFrom != null && s === "op" && z === "mz" && P(st, O(me)).mz[i]){ const AT = atkTargets(st, me, G.atkFrom); if (!AT.L.includes(i)){ toast(AT.top && !AT.taunt ? "このモンスターは、相手の一番ATKが高いモンスターにしか攻撃できない" : "このモンスターには攻撃できない（ほかに狙わなきゃいけないモンスターがいる）"); return; } const from = G.atkFrom; G.atkFrom = null; G.sel = null; act(st => declareAttack(st, me, from, i)); return; }
     const occupied = z === "hand" || P(st, s === "me" ? me : O(me))[z][i];
     if (!occupied){
       const dk = s === "me" ? dropTarget(st, me) : null;
@@ -5924,6 +5953,8 @@ $("#board").addEventListener("click", e => {
       const w = i.w, nmW = P(st, w).name; st.idleSkips = st.idleSkips || {}; st.idleSkips[w] = (st.idleSkips[w] || 0) + 1;
       log(st, G.slot, `${nmW} が${TURN_IDLE / 60}分動かなかったので進めた（${st.idleSkips[w]}回目）`);
       if (st.idleSkips[w] >= 3){ st.winner = O(w); st.why = `${nmW} が3回時間切れになった`; return; }
+      if (st.askQ && st.askQ.ans == null && st.askQ.to === w){ st.askQ.ans = false; log(st, G.slot, "質問は「いいえ」あつかいになった"); return; }
+      st.askQ = null;
       if (st.pending && st.pending.wait) respond(st, w, null); else { exReturnP(st, w); endTurn(st, w); }
     });
     return;

@@ -81,6 +81,7 @@ const KINDS = {
   modName:       { label: "カードの名前を変える", mod: true, target: "hand", text: (n, into, e) => `${modTargetText(e)}の名前を「${(e && e.nm) || "？"}」に変える` },
   atkMul:        { label: "このモンスターのATKを○倍", n: true, mon: true, text: n => `このモンスターのATKを${n}倍にする` },
   summonSelf:    { label: "このカードを手札から特殊召喚", mon: true, text: () => `このカードを手札から特殊召喚する` },
+  thisTopOnly:   { label: "このモンスターは相手の一番ATKが高いモンスターにしか攻撃できない", mon: true, text: () => `このモンスターは相手の場の一番ATKが高いモンスターにしか攻撃できない` },
   thisNoAtk:     { label: "このモンスターは攻撃できない（このターン）", mon: true, text: () => `このモンスターはこのターン攻撃できない` },
   selfNoAtk:     { label: "自分のモンスターは攻撃できない（このターン）", text: () => `このターン、自分のモンスターは攻撃できない` },
   oppNoAtk:      { label: "相手は攻撃できない（相手の次のターンの終わりまで）", text: () => `相手の次のターンの終わりまで、相手のモンスターは攻撃できない` },
@@ -146,6 +147,7 @@ const ABS = {
   guard:      { label: "戦闘では破壊されない" },
   noEffect:   { label: "効果では破壊されない" },
   noAttack:   { label: "攻撃できない" },
+  topOnly:    { label: "相手の一番ATKが高いモンスターにしか攻撃できない（デメリット）", text: () => `相手の場の一番ATKが高いモンスターにしか攻撃できない` },
   taunt:      { label: "相手に狙われる（ほかのモンスターは攻撃・効果の対象にされない）" },
   dmgCut:     { label: "戦闘で受けるダメージを減らす", n: 300, text: n => `戦闘で受けるダメージが${n}減る` },
   substitute: { label: "破壊されるとき、かわりにほかの装備を1枚墓地へ", only: "eq", self: true, text: () => `装備したモンスターが破壊されるとき、かわりにほかの装備1枚を墓地へ送る` },
@@ -386,7 +388,7 @@ const isNumCond = k => !!(COND_DEFS[k] && COND_DEFS[k].val);
 const usedWhat = x => x.match === "magic" ? "魔法" : x.match === "trap" ? "罠" : x.match === "tag" ? `タグ「${x.name || "？"}」のカード` : x.match === "part" ? `名前に「${x.name || "？"}」が入ったカード` : x.match === "name" ? `「${x.name || "？"}」` : "なんでも";
 function condPhrase(x){
   if (x.k === "card"){ const cnt = +(x.cnt ?? 1), op = x.op === "le" ? "le" : "ge"; return `${x.match === "tag" ? `タグ「${x.name || "？"}」のカード` : x.match === "part" ? `名前に「${x.name || "？"}」が入ったカード` : `「${x.name || "？"}」`}が自分の${WHERE[x.where] || WHERE.field}に${cnt === 1 && op === "ge" ? "ある" : `${cnt}枚${OPS[op]}ある`}`; }
-  if (x.k === "ask") return `「${x.text || "？"}」に「はい」`;
+  if (x.k === "ask") return `${x.who === "op" ? "相手が" : ""}「${x.text || "？"}」に「はい」`;
   if (x.k === "costDeck") return "自分がコストデッキを使っている";
   if (x.k === "coinH") return "コインが表";
   if (x.k === "used") return `${{ me: "自分が", op: "相手が" }[x.who] || ""}発動したカードが${usedWhat(x)}`;

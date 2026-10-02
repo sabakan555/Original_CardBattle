@@ -536,6 +536,7 @@ function applyEffect(st, s, c, target, ctx = {}, fx = normFx(c)){
       trigger(st, s, card(id), "ssummon", { zone: z, mon: { s, i: z, u: me.mz[z].u } }); persistFire(st, s, "mySummon", {});
       break;
     }
+    case "thisTopOnly": { const m = ctx.mon && monAt(st, ctx.mon); if (!m){ log(st, s, `${src}：そのモンスターはもう場にいない`); break; } m.topOnly = true; log(st, s, `${src}：「${card(m.c).name}」は相手の一番ATKが高いモンスターにしか攻撃できなくなった`); break; }
     case "thisNoAtk": { const m = ctx.mon && monAt(st, ctx.mon); if (!m){ log(st, s, `${src}：そのモンスターはもう場にいない`); break; } m.noAtkTurn = Math.max(m.noAtkTurn || 0, st.turn === ctx.mon.s ? st.turnNo : st.turnNo + 1); log(st, s, `${src}：「${card(m.c).name}」はこのターン攻撃できない`); break; }
     case "selfNoAtk": me.noAtkUntil = Math.max(me.noAtkUntil || 0, st.turn === s ? st.turnNo : st.turnNo + 1); log(st, s, `${src}：このターン、${me.name}のモンスターは攻撃できない`); break;
     case "modAdd": case "modRep": case "modClear": case "modName": modApply(st, s, c, fx, target, src); break;
@@ -732,9 +733,16 @@ function runBlock(st, s, c, b, ctx, then){
   };
   if (!ask || (!or && !base) || (or && base)) return go(st, b.conds.length ? base : true);
   const fin = yes => or ? (base || yes) : (base && yes);
-  if (isHumanHere(s)){ G.chooseQ.push({ ask: true, s, c, fx: { kind: "__block", ask: ask.text }, ctx, then, block: { b, fin, go } }); return; }
+  // 「相手に聞く」: the opponent answers (online: through st.askQ, the effect waits on the asker's device)
+  const who = ask.who === "op" ? O(s) : s, toOp = who !== s;
+  if (isHumanHere(who)){ G.chooseQ.push({ ask: true, s, to: toOp ? who : null, c, fx: { kind: "__block", ask: ask.text }, ctx, then, block: { b, fin, go } }); return; }
+  if (toOp && G && G.mode === "online" && !G.spectate){
+    st.un = (st.un || 0) + 1; st.askQ = { n: st.un, by: s, to: who, text: ask.text, name: c.name, ans: null };
+    G.askWait = { n: st.un, s, name: c.name, text: ask.text, resume: (st2, y) => go(st2, fin(y)) };
+    log(st, s, `「${c.name}」：相手に質問「${ask.text}」`); return;
+  }
   const yes = Math.random() < .5;
-  log(st, s, `「${c.name}」：「${ask.text}」→ ${yes ? "はい" : "いいえ"}`);
+  log(st, s, `「${c.name}」：${toOp ? "相手に" : ""}「${ask.text}」→ ${yes ? "はい" : "いいえ"}`);
   go(st, fin(yes));
 }
 function runEffects(st, s, c, effs, ctx, then){
@@ -800,7 +808,7 @@ function withDiscard(c, hi, go){
   G.costPick = { name: c.name, hi, need: n, picked: [], go, tag: c.payDiscTag || "" }; renderAll();
 }
 function canSummonNow(st, s){ return P(st, s).mana ? true : !st.summoned; }
-function canAct(st, s){ return !(G && G.spectate) && st.turn === s && !st.pending && !st.winner && !(G && G.chooseQ.length); }
+function canAct(st, s){ return !(G && G.spectate) && st.turn === s && !st.pending && !st.askQ && !st.winner && !(G && G.chooseQ.length); }
 function summon(st, s, hi, zi, disc, trib){
   const p = P(st, s), id = p.hand[hi], need = tribOf(card(id), st, s);
   let z = (zi != null && !p.mz[zi]) ? zi : freeZone(p.mz);
@@ -1041,12 +1049,18 @@ function responseOptions(st, s, win){
   return out.concat(eqCancelOptions(st, s, win));
 }
 function usableTraps(st, s){ return responseOptions(st, s, "attack").filter(o => o.from === "sz").map(o => o.i); }
+// where monster `from` may attack: L = opponent zones, direct = may attack directly
+const topOnlyMon = (st, s, i) => !!(P(st, s).mz[i] && (P(st, s).mz[i].topOnly || hasAb(st, s, i, "topOnly")));
+function atkTargets(st, s, from){
+  const op = P(st, O(s)), tt = tauntIdx(st, O(s)), all = op.mz.map((x, j) => x ? j : -1).filter(j => j >= 0), top = topOnlyMon(st, s, from);
+  let L = tt.length ? tt : all;
+  if (top && L.length){ const mx = Math.max(...L.map(j => atkOf(op.mz[j]))); L = L.filter(j => atkOf(op.mz[j]) === mx); }
+  return { L, direct: !tt.length && (!all.length || (!top && hasAb(st, s, from, "direct"))), top, taunt: tt.length > 0 };
+}
 function declareAttack(st, s, from, to){
   const m = P(st, s).mz[from]; if (!m || !canAttack(st, s, from)) return false;
-  const tt = tauntIdx(st, O(s));
-  if (tt.length && (to === "direct" || !tt.includes(to))) return false;
-  if (to === "direct" && P(st, O(s)).mz.some(Boolean) && !hasAb(st, s, from, "direct")) return false;
-  if (to !== "direct" && !P(st, O(s)).mz[to]) return false;
+  const T = atkTargets(st, s, from);
+  if (to === "direct" ? !T.direct : !T.L.includes(to)) return false;
   m.atkCount = (m.atkCount || 0) + 1;
   m.attacked = m.atkCount >= maxAttacks(st, s, from);
   ev(st, { type: "attack", s, from, to, c: m.c });

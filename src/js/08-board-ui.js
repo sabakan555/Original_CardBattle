@@ -8,7 +8,7 @@ function persist(){
 const TURN_IDLE = 180;
 function idleInfo(){
   if (!G || G.mode !== "online" || !G.st || !G.st.started || G.st.winner || !G.st.updatedAt) return null;
-  const st = G.st, w = st.pending ? (st.pending.wait ? O(st.pending.by) : null) : st.turn; if (!w) return null;
+  const st = G.st, w = st.askQ && st.askQ.ans == null ? st.askQ.to : st.pending ? (st.pending.wait ? O(st.pending.by) : null) : st.turn; if (!w) return null;
   return { w, left: TURN_IDLE - Math.max(0, Math.floor((Date.now() - st.updatedAt) / 1000)) };
 }
 function timerHTML(){
@@ -28,6 +28,13 @@ function act(fn){
 }
 function after(){
   if (!G) return;
+  // 相手に聞いた質問: 答えが届いたら止まっていた効果の続きを出す（ページを開きなおして続きがわからないときは取り消し）
+  const aq = G.st && G.st.askQ;
+  if (aq && G.mode === "online" && !G.spectate && aq.by === G.slot){
+    const w = G.askWait;
+    if (w && w.n === aq.n && aq.ans != null){ G.askWait = null; act(st => { const y = !!st.askQ.ans; st.askQ = null; log(st, w.s, `「${w.name}」：相手に「${w.text}」→ ${y ? "はい" : "いいえ"}`); w.resume(st, y); }); return; }
+    if (!w || w.n !== aq.n){ G.askWait = null; act(st => { st.askQ = null; log(st, G.slot, `「${aq.name}」の質問は取り消された`); }); return; }
+  }
   renderAll();
   if (G.mode === "cpu") scheduleCpu();
 }
@@ -91,9 +98,8 @@ function cpuStep(st, s){
   if (st.turnNo > 1){
     for (let i = 0; i < ZONES; i++){
       const m = p.mz[i]; if (!m || !canAttack(st, s, i)) continue;
-      const tt = tauntIdx(st, O(s));
-      const opMons = tt.length ? tt : op.mz.map((x, j) => x ? j : -1).filter(j => j >= 0);
-      if (!tt.length && (!opMons.length || hasAb(st, s, i, "direct"))){ declareAttack(st, s, i, "direct"); return; }
+      const T = atkTargets(st, s, i), opMons = T.L;
+      if (T.direct){ declareAttack(st, s, i, "direct"); return; }
       const beat = opMons.filter(j => atkOf(op.mz[j]) < atkOf(m)).sort((a, b) => atkOf(op.mz[b]) - atkOf(op.mz[a]));
       if (beat.length){ declareAttack(st, s, i, beat[0]); return; }
     }
@@ -145,8 +151,8 @@ function renderBoard(){
   const zoneHTML = (s, kind) => P(st, s)[kind].map((z, i) => {
     const mine = s === me;
     const attrs = `data-z="${kind}" data-s="${s === me ? "me" : "op"}" data-i="${i}"`;
-    const tt = atkFrom != null ? tauntIdx(st, op) : [];
-    const isTarget = (atkFrom != null && !mine && kind === "mz" && z && (!tt.length || tt.includes(i))) || (eqMode && kind === "mz" && z && canEquipOn(st, eqMode.id, s, i));
+    const tl = atkFrom != null ? atkTargets(st, me, atkFrom).L : [];
+    const isTarget = (atkFrom != null && !mine && kind === "mz" && z && tl.includes(i)) || (eqMode && kind === "mz" && z && canEquipOn(st, eqMode.id, s, i));
     const pendSummon = !z && kind === "mz" && st.chain && st.chain.find(l => l.summon && l.s === s && l.z === i);
     if (pendSummon) return cardHTML(card(pendSummon.c), "dim", attrs.replace('data-z="mz"', 'data-z="pending"'), { done: "召喚中…", ...mOpt(s) });
     if (!z) return `<div class="slot ${mine && dropKind === kind ? "drop" : ""}" ${attrs}></div>`;
@@ -176,13 +182,15 @@ function renderBoard(){
       acts = `<button class="primary" data-act="rematch" ${rm[me] ? "disabled" : ""}>${rm[me] ? "相手の返事を待っています…" : rm[op] ? "再戦を受ける！" : "再戦をもうしこむ"}</button><button data-act="leave">ロビーにもどる</button>`;
       if (rm[op] && !rm[me]) hint += `<br><b>${esc(po.name)} が再戦をもうしこんでいます！</b>`;
     }
+  } else if (st.askQ){
+    hint = st.askQ.to === me ? "相手のカードから質問がきています" : "相手の答えを待っています…";
   } else if (st.pending){
     hint = st.pending.type === "chain" ? (st.pending.by === me ? "相手がチェーンするか考えています…" : "チェーンするか選んでね") : st.pending.by === me ? (st.pending.type === "end" ? "ターン終了前に、相手が速攻魔法・罠を使うか考えています…" : "相手が罠・速攻魔法を使うか考えています…") : (st.pending.type === "end" ? "相手のターン終了前です" : st.pending.type === "summoned" ? "相手がモンスターを出しました" : "攻撃されています！");
   } else if (!myTurn){
     hint = `${esc(po.name)} のターンです`;
   } else if (atkFrom != null){
-    const noMons = !po.mz.some(Boolean), tt = tauntIdx(st, op), canDirect = !tt.length && (noMons || hasAb(st, me, atkFrom, "direct"));
-    hint = noMons ? "相手の場にモンスターがいない！" : tt.length ? "このモンスターにしか攻撃できない！（光っているモンスター）" : canDirect ? "攻撃する相手モンスターをえらぶか、直接攻撃！" : "攻撃する相手モンスターをえらんでね";
+    const noMons = !po.mz.some(Boolean), AT = atkTargets(st, me, atkFrom), tt = AT.taunt ? [1] : [], canDirect = AT.direct;
+    hint = noMons ? "相手の場にモンスターがいない！" : AT.top ? "一番ATKが高いモンスターにしか攻撃できない！（光っているモンスター）" : tt.length ? "このモンスターにしか攻撃できない！（光っているモンスター）" : canDirect ? "攻撃する相手モンスターをえらぶか、直接攻撃！" : "攻撃する相手モンスターをえらんでね";
     acts = (canDirect ? `<button class="primary" data-act="direct">直接攻撃！</button>` : "") + `<button class="ghost" data-act="cancelAtk">やめる</button>`;
   } else {
     hint = st.turnNo === 1 ? "先攻の1ターン目は攻撃できません" : "カードをえらんで行動しよう";
@@ -453,10 +461,13 @@ function renderOverlay(){
     html = `<div class="box"><h2 style="margin:0">若葉：変えるカードをえらぶ</h2><p class="muted" style="margin:0">デッキの${L.length}枚からえらんだ1枚が、ランダムなスパイア風カードに変わります（手札はこのあと引きます）</p><div class="gallery">${list || '<p class="muted">カードがありません</p>'}</div></div>`;
   } else if (Array.isArray(rp)){
     html = `<div class="box"><h2 style="margin:0">ネオーの祝福：レリックを1つえらぶ</h2><p class="muted" style="margin:0">スパイアデッキのはじまりに、どれか1つだけ手に入る</p><div class="relic-pick">${rp.map(k => [k, relicDef(k)]).filter(x => x[1]).map(([k, d]) => `<button data-relic="${esc(k)}">${d.img ? `<img class="rl-img" alt="" src="${d.img}">` : ""}<b>${esc(d.name)}</b>${esc(d.text)}</button>`).join("")}</div></div>`;
+  } else if (st.askQ && st.askQ.ans == null && st.askQ.to === me && !G.spectate && !st.winner){
+    const aq = st.askQ;
+    html = `<div class="box"><h2 style="margin:0">${esc(P(st, aq.by).name)} の「${esc(aq.name)}」からの質問</h2><p style="margin:0;font-size:18px;font-weight:700">${esc(aq.text)}</p><p class="muted" style="margin:0">あなたの答えで相手のカードの効果が変わります</p><div class="row"><button class="primary" data-askq="yes">はい</button><button data-askq="no">いいえ</button></div></div>`;
   } else if (G.chooseQ.length && G.chooseQ[0].ask){
     const q = G.chooseQ[0];
     const yesTxt = q.block ? effsText(q.c, q.block.b.then) + (q.block.b.else.length ? `／「いいえ」なら：${effsText(q.c, q.block.b.else)}` : "") : KINDS[q.fx.kind].text(q.fx.n);
-    html = `<div class="box"><h2 style="margin:0">「${esc(q.c.name)}」</h2><p style="margin:0;font-size:18px;font-weight:700">${esc(q.fx.ask)}</p><p class="muted" style="margin:0">「はい」なら：${esc(yesTxt)}</p><div class="row"><button class="primary" data-ask="yes">はい</button><button data-ask="no">いいえ</button></div></div>`;
+    html = `<div class="box"><h2 style="margin:0">${q.to ? `${esc(P(st, q.s).name)} の「${esc(q.c.name)}」からの質問` : `「${esc(q.c.name)}」`}</h2><p style="margin:0;font-size:18px;font-weight:700">${esc(q.fx.ask)}</p><p class="muted" style="margin:0">${q.to ? "相手のカードの効果" : ""}「はい」なら：${esc(yesTxt)}</p><div class="row"><button class="primary" data-ask="yes">はい</button><button data-ask="no">いいえ</button></div></div>`;
   } else if (G.chooseQ.length){
     const q = G.chooseQ[0], TS = q.ctx && q.ctx.side === "me" ? q.s : O(q.s), opts = (targetOptions(st, q.s, q.fx.kind, q.ctx) || []).filter(o => !(q.fx.distinct && q.ctx.hit && (q.ctx.hit.picked || []).includes(String(o))));
     const t = KINDS[q.fx.kind].target;
@@ -536,10 +547,11 @@ $("#overlay").addEventListener("click", e => {
   { const gv = e.target.closest("[data-grave]"); if (gv && G){ G.view = gv.dataset.grave; renderAll(); return; } }
   { const xu = e.target.closest("[data-exuse]"); if (xu && G && !G.spectate){ const k = +xu.dataset.exuse, me = G.slot; let hi = -1, id = null; G.exView = false; act(st => { const p = P(st, me); if (!canAct(st, me) || p.ex[k] == null) return false; exReturnP(st, me); id = p.ex.splice(k, 1)[0]; p.hand.push(id); hi = p.hand.length - 1; p.exTemp = { id, i: hi }; G.sel = { z: "hand", s: "me", i: hi }; G.atkFrom = null; }); if (hi < 0) renderAll(); return; } }
   if (!G) return;
+  { const aq = e.target.closest("[data-askq]"); if (aq){ const yes = aq.dataset.askq === "yes"; act(st => { if (!st.askQ || st.askQ.to !== G.slot || st.askQ.ans != null) return false; st.askQ.ans = yes; log(st, G.slot, `「${st.askQ.name}」の質問「${st.askQ.text}」に「${yes ? "はい" : "いいえ"}」と答えた`); }); return; } }
   const ak = e.target.closest("[data-ask]");
   if (ak && G.chooseQ.length && G.chooseQ[0].ask){
     const q = G.chooseQ.shift(), yes = ak.dataset.ask === "yes";
-    if (q.block){ act(st => { log(st, q.s, `「${q.c.name}」：「${q.fx.ask}」→ ${yes ? "はい" : "いいえ"}`); q.block.go(st, q.block.fin(yes)); }); return; }
+    if (q.block){ act(st => { log(st, q.s, `「${q.c.name}」：${q.to ? "相手に" : ""}「${q.fx.ask}」→ ${yes ? "はい" : "いいえ"}`); q.block.go(st, q.block.fin(yes)); }); return; }
     act(st => { log(st, q.s, `「${q.c.name}」：「${q.fx.ask}」→ ${yes ? "はい" : "いいえ"}`); if (yes) runEffect(st, q.s, q.c, q.ctx, q.then, { ...q.fx, ask: "" }); else q.then && q.then(st); });
     return;
   }
@@ -602,7 +614,7 @@ $("#board").addEventListener("click", e => {
       if (eqsOf(P(st, ts).mz[i]).length){ G.eqPlace = { hi: em.i, s: ts, i }; renderAll(); return; }
       G.sel = null; withDiscard(card(em.id), em.i, d => act(st => equip(st, me, em.i, ts, i, null, d))); return;
     }
-    if (G.atkFrom != null && s === "op" && z === "mz" && P(st, O(me)).mz[i]){ const tt = tauntIdx(st, O(me)); if (tt.length && !tt.includes(i)){ toast("このモンスターには攻撃できない（ほかに狙わなきゃいけないモンスターがいる）"); return; } const from = G.atkFrom; G.atkFrom = null; G.sel = null; act(st => declareAttack(st, me, from, i)); return; }
+    if (G.atkFrom != null && s === "op" && z === "mz" && P(st, O(me)).mz[i]){ const AT = atkTargets(st, me, G.atkFrom); if (!AT.L.includes(i)){ toast(AT.top && !AT.taunt ? "このモンスターは、相手の一番ATKが高いモンスターにしか攻撃できない" : "このモンスターには攻撃できない（ほかに狙わなきゃいけないモンスターがいる）"); return; } const from = G.atkFrom; G.atkFrom = null; G.sel = null; act(st => declareAttack(st, me, from, i)); return; }
     const occupied = z === "hand" || P(st, s === "me" ? me : O(me))[z][i];
     if (!occupied){
       const dk = s === "me" ? dropTarget(st, me) : null;
@@ -640,6 +652,8 @@ $("#board").addEventListener("click", e => {
       const w = i.w, nmW = P(st, w).name; st.idleSkips = st.idleSkips || {}; st.idleSkips[w] = (st.idleSkips[w] || 0) + 1;
       log(st, G.slot, `${nmW} が${TURN_IDLE / 60}分動かなかったので進めた（${st.idleSkips[w]}回目）`);
       if (st.idleSkips[w] >= 3){ st.winner = O(w); st.why = `${nmW} が3回時間切れになった`; return; }
+      if (st.askQ && st.askQ.ans == null && st.askQ.to === w){ st.askQ.ans = false; log(st, G.slot, "質問は「いいえ」あつかいになった"); return; }
+      st.askQ = null;
       if (st.pending && st.pending.wait) respond(st, w, null); else { exReturnP(st, w); endTurn(st, w); }
     });
     return;
