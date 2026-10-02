@@ -1948,13 +1948,15 @@ const GRANT_KINDS = ["draw", "dmg", "heal", "block", "vuln", "weak", "discard", 
 const MOD_LEGACY = { myHandPick: ["me", "hand", "pick"], myHandAll: ["me", "hand", "all"], myDeckAll: ["me", "deck", "all"], myDeckRand: ["me", "deck", "rand"], myNamed: ["me", "both", "named"], opHandAll: ["op", "hand", "all"], opHandRand: ["op", "hand", "rand"], opDeckAll: ["op", "deck", "all"], opDeckRand: ["op", "deck", "rand"], opNamed: ["op", "both", "named"] };
 function modT(e){
   const lg = e && !e.ms && MOD_LEGACY[e.mt];
-  const side = lg ? lg[0] : e && e.ms === "op" ? "op" : "me", place = lg ? lg[1] : e && ["hand", "deck", "both"].includes(e.mpl) ? e.mpl : "hand";
+  const side = lg ? lg[0] : e && e.ms === "op" ? "op" : "me", place = lg ? lg[1] : e && ["hand", "deck", "both", "last"].includes(e.mpl) ? e.mpl : "hand";
+  if (place === "last") return { side, place, scope: "last" };
   let scope = lg ? lg[2] : e && ["pick", "all", "rand", "named"].includes(e.mc) ? e.mc : "pick";
   if (scope === "pick" && !(side === "me" && place === "hand")) scope = "rand";
   return { side, place, scope };
 }
 function modTargetText(e){
   const T = modT(e), n = (e && e.mn) || 1, nm = (e && e.into) || "？", who = T.side === "me" ? "自分" : "相手", where = { hand: "手札", deck: "山札", both: "手札と山札" }[T.place];
+  if (T.scope === "last") return "直前に発動したカード";
   return T.scope === "pick" ? `${who}の手札のカード1枚` : T.scope === "all" ? `${who}の${where}のカードすべて` : T.scope === "rand" ? `${who}の${where}のランダムなカード${n}枚` : `${who}の${where}の「${nm}」すべて`;
 }
 function grantText(e){ if (e && e.ge && KINDS[e.ge.kind] && !KINDS[e.ge.kind].mod) return effsText({ type: "magic" }, [cleanEff(e.ge)].filter(Boolean)); const k = e && e.gk && KINDS[e.gk] && !KINDS[e.gk].mod ? e.gk : "draw"; return KINDS[k].text(e && e.gn || (smallN(k) ? 1 : 100)); }
@@ -3230,8 +3232,9 @@ function modRowHTML(e){
   const o = (v, l, cur) => `<option value="${esc(v)}"${String(v) === String(cur) ? " selected" : ""}>${esc(l)}</option>`;
   const canPick = T.side === "me" && T.place === "hand";
   let h = `<select data-f="ms" aria-label="だれの">${o("me", "自分", T.side)}${o("op", "相手", T.side)}</select>`
-    + `<select data-f="mpl" aria-label="どこの">${o("hand", "手札", T.place)}${o("deck", "山札", T.place)}${o("both", "手札と山札", T.place)}</select>`
-    + `<select data-f="mc" aria-label="どのカードを">${canPick ? o("pick", "1枚えらぶ", T.scope) : ""}${o("all", "すべて", T.scope)}${o("rand", "ランダムに", T.scope)}${o("named", "名前を指定", T.scope)}</select>`;
+    + `<select data-f="mpl" aria-label="どこの">${o("hand", "手札", T.place)}${o("deck", "山札", T.place)}${o("both", "手札と山札", T.place)}${o("last", "直前に発動したカード", T.place)}</select>`
+    + (T.place === "last" ? "" : `<select data-f="mc" aria-label="どのカードを">${canPick ? o("pick", "1枚えらぶ", T.scope) : ""}${o("all", "すべて", T.scope)}${o("rand", "ランダムに", T.scope)}${o("named", "名前を指定", T.scope)}</select>`);
+  if (T.place === "last") h = h.replace(/^<select data-f="ms"[\s\S]*?<\/select>/, "");
   if (T.scope === "rand") h += `<input type="number" data-f="mn" min="1" max="40" value="${esc(e.mn || 1)}" aria-label="枚数" style="width:60px"><span class="note">枚</span>`;
   if (T.scope === "named") h += `<input type="text" data-f="into" list="cardNames" maxlength="40" value="${esc(e.into || "")}" placeholder="カード名" aria-label="カード名">`;
   if (false){
@@ -4442,8 +4445,34 @@ function modId(st, id, ch){
   if (ch.name) m.name = ch.name;
   st.modn = (st.modn || 0) + 1; const nid = "mod:" + st.modn; st.mods[nid] = m; return nid;
 }
+// 「直前に発動したカード」: チェーン中なら、このカードがチェーンした1つ前のカード（まだ処理されていないので、書きかえた効果で処理される）。
+// チェーンがなければ、最後に使われたカード（場・墓地にあるそのカード）を書きかえる
+function modChange(fx){
+  const gk = fx.gk && KINDS[fx.gk] && !KINDS[fx.gk].mod ? fx.gk : "draw", g = [fx.ge && KINDS[fx.ge.kind] && !KINDS[fx.ge.kind].mod ? cleanEff(fx.ge) : cleanEff({ kind: gk, n: fx.gn || (smallN(gk) ? 1 : 100) })].filter(Boolean);
+  return fx.kind === "modAdd" ? { add: g } : fx.kind === "modRep" ? { rep: g } : fx.kind === "modClear" ? { clear: true } : { name: String(fx.nm || "").slice(0, 20) || null };
+}
+function modLast(st, s, c, fx, src){
+  const ch = modChange(fx); if (fx.kind === "modName" && !ch.name){ log(st, s, `${src}：新しい名前がない`); return; }
+  const what = fx.kind === "modClear" ? "の効果をなくした" : fx.kind === "modRep" ? "の効果を上書きした" : fx.kind === "modAdd" ? "に効果を追加した" : "の名前を変えた";
+  const link = st.chain && st.chain.length ? st.chain[st.chain.length - 1] : null;
+  if (link && !link.negated){
+    const old = link.c; link.c = modId(st, old, ch);
+    if (link.pz != null){ const z = P(st, link.s).sz[link.pz]; if (z && z.u === link.pu) z.c = link.c; }
+    if (st.field && st.field.c === old && link.fu && st.field.u === link.fu) st.field.c = link.c;
+    log(st, s, `${src}で、チェーン中の「${card(old).name}」${what}`); return;
+  }
+  const r = [...(st.recent || [])].reverse().find(x => x.c !== (c && c.id));
+  if (!r){ log(st, s, `${src}：直前に発動したカードがない`); return; }
+  const owner = P(st, r.s), swap = arr => { const i = arr.lastIndexOf(r.c); if (i < 0) return false; arr[i] = modId(st, r.c, ch); return true; };
+  let done = false;
+  const zi = owner.sz.findIndex(z => z && z.c === r.c); if (zi >= 0){ owner.sz[zi].c = modId(st, r.c, ch); done = true; }
+  else if (st.field && st.field.c === r.c){ st.field.c = modId(st, r.c, ch); done = true; }
+  else { const mi = owner.mz.findIndex(m => m && m.c === r.c); if (mi >= 0){ owner.mz[mi].c = modId(st, r.c, ch); done = true; } else done = swap(owner.grave) || swap(owner.exile || []); }
+  log(st, s, done ? `${src}で「${card(r.c).name}」${what}` : `${src}：直前に発動したカードが見つからない`);
+}
 function modApply(st, s, c, fx, target, src){
   const T = modT(fx), pl = P(st, T.side === "op" ? O(s) : s), k = Math.max(1, fx.mn || 1), out = [];
+  if (T.scope === "last") return modLast(st, s, c, fx, src);
   const arrs = T.place === "hand" ? [pl.hand] : T.place === "deck" ? [pl.deck] : [pl.hand, pl.deck];
   if (T.scope === "pick"){ if (pl.hand[target] != null) out.push([pl.hand, target]); }
   else if (T.scope === "all") arrs.forEach(arr => arr.forEach((_, i) => out.push([arr, i])));

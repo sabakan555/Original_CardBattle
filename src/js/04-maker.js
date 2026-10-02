@@ -684,8 +684,9 @@ function modRowHTML(e){
   const o = (v, l, cur) => `<option value="${esc(v)}"${String(v) === String(cur) ? " selected" : ""}>${esc(l)}</option>`;
   const canPick = T.side === "me" && T.place === "hand";
   let h = `<select data-f="ms" aria-label="だれの">${o("me", "自分", T.side)}${o("op", "相手", T.side)}</select>`
-    + `<select data-f="mpl" aria-label="どこの">${o("hand", "手札", T.place)}${o("deck", "山札", T.place)}${o("both", "手札と山札", T.place)}</select>`
-    + `<select data-f="mc" aria-label="どのカードを">${canPick ? o("pick", "1枚えらぶ", T.scope) : ""}${o("all", "すべて", T.scope)}${o("rand", "ランダムに", T.scope)}${o("named", "名前を指定", T.scope)}</select>`;
+    + `<select data-f="mpl" aria-label="どこの">${o("hand", "手札", T.place)}${o("deck", "山札", T.place)}${o("both", "手札と山札", T.place)}${o("last", "直前に発動したカード", T.place)}</select>`
+    + (T.place === "last" ? "" : `<select data-f="mc" aria-label="どのカードを">${canPick ? o("pick", "1枚えらぶ", T.scope) : ""}${o("all", "すべて", T.scope)}${o("rand", "ランダムに", T.scope)}${o("named", "名前を指定", T.scope)}</select>`);
+  if (T.place === "last") h = h.replace(/^<select data-f="ms"[\s\S]*?<\/select>/, "");
   if (T.scope === "rand") h += `<input type="number" data-f="mn" min="1" max="40" value="${esc(e.mn || 1)}" aria-label="枚数" style="width:60px"><span class="note">枚</span>`;
   if (T.scope === "named") h += `<input type="text" data-f="into" list="cardNames" maxlength="40" value="${esc(e.into || "")}" placeholder="カード名" aria-label="カード名">`;
   if (false){

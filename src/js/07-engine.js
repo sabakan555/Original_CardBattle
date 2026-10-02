@@ -28,8 +28,34 @@ function modId(st, id, ch){
   if (ch.name) m.name = ch.name;
   st.modn = (st.modn || 0) + 1; const nid = "mod:" + st.modn; st.mods[nid] = m; return nid;
 }
+// 「直前に発動したカード」: チェーン中なら、このカードがチェーンした1つ前のカード（まだ処理されていないので、書きかえた効果で処理される）。
+// チェーンがなければ、最後に使われたカード（場・墓地にあるそのカード）を書きかえる
+function modChange(fx){
+  const gk = fx.gk && KINDS[fx.gk] && !KINDS[fx.gk].mod ? fx.gk : "draw", g = [fx.ge && KINDS[fx.ge.kind] && !KINDS[fx.ge.kind].mod ? cleanEff(fx.ge) : cleanEff({ kind: gk, n: fx.gn || (smallN(gk) ? 1 : 100) })].filter(Boolean);
+  return fx.kind === "modAdd" ? { add: g } : fx.kind === "modRep" ? { rep: g } : fx.kind === "modClear" ? { clear: true } : { name: String(fx.nm || "").slice(0, 20) || null };
+}
+function modLast(st, s, c, fx, src){
+  const ch = modChange(fx); if (fx.kind === "modName" && !ch.name){ log(st, s, `${src}：新しい名前がない`); return; }
+  const what = fx.kind === "modClear" ? "の効果をなくした" : fx.kind === "modRep" ? "の効果を上書きした" : fx.kind === "modAdd" ? "に効果を追加した" : "の名前を変えた";
+  const link = st.chain && st.chain.length ? st.chain[st.chain.length - 1] : null;
+  if (link && !link.negated){
+    const old = link.c; link.c = modId(st, old, ch);
+    if (link.pz != null){ const z = P(st, link.s).sz[link.pz]; if (z && z.u === link.pu) z.c = link.c; }
+    if (st.field && st.field.c === old && link.fu && st.field.u === link.fu) st.field.c = link.c;
+    log(st, s, `${src}で、チェーン中の「${card(old).name}」${what}`); return;
+  }
+  const r = [...(st.recent || [])].reverse().find(x => x.c !== (c && c.id));
+  if (!r){ log(st, s, `${src}：直前に発動したカードがない`); return; }
+  const owner = P(st, r.s), swap = arr => { const i = arr.lastIndexOf(r.c); if (i < 0) return false; arr[i] = modId(st, r.c, ch); return true; };
+  let done = false;
+  const zi = owner.sz.findIndex(z => z && z.c === r.c); if (zi >= 0){ owner.sz[zi].c = modId(st, r.c, ch); done = true; }
+  else if (st.field && st.field.c === r.c){ st.field.c = modId(st, r.c, ch); done = true; }
+  else { const mi = owner.mz.findIndex(m => m && m.c === r.c); if (mi >= 0){ owner.mz[mi].c = modId(st, r.c, ch); done = true; } else done = swap(owner.grave) || swap(owner.exile || []); }
+  log(st, s, done ? `${src}で「${card(r.c).name}」${what}` : `${src}：直前に発動したカードが見つからない`);
+}
 function modApply(st, s, c, fx, target, src){
   const T = modT(fx), pl = P(st, T.side === "op" ? O(s) : s), k = Math.max(1, fx.mn || 1), out = [];
+  if (T.scope === "last") return modLast(st, s, c, fx, src);
   const arrs = T.place === "hand" ? [pl.hand] : T.place === "deck" ? [pl.deck] : [pl.hand, pl.deck];
   if (T.scope === "pick"){ if (pl.hand[target] != null) out.push([pl.hand, target]); }
   else if (T.scope === "all") arrs.forEach(arr => arr.forEach((_, i) => out.push([arr, i])));

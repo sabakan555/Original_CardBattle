@@ -469,13 +469,15 @@ const GRANT_KINDS = ["draw", "dmg", "heal", "block", "vuln", "weak", "discard", 
 const MOD_LEGACY = { myHandPick: ["me", "hand", "pick"], myHandAll: ["me", "hand", "all"], myDeckAll: ["me", "deck", "all"], myDeckRand: ["me", "deck", "rand"], myNamed: ["me", "both", "named"], opHandAll: ["op", "hand", "all"], opHandRand: ["op", "hand", "rand"], opDeckAll: ["op", "deck", "all"], opDeckRand: ["op", "deck", "rand"], opNamed: ["op", "both", "named"] };
 function modT(e){
   const lg = e && !e.ms && MOD_LEGACY[e.mt];
-  const side = lg ? lg[0] : e && e.ms === "op" ? "op" : "me", place = lg ? lg[1] : e && ["hand", "deck", "both"].includes(e.mpl) ? e.mpl : "hand";
+  const side = lg ? lg[0] : e && e.ms === "op" ? "op" : "me", place = lg ? lg[1] : e && ["hand", "deck", "both", "last"].includes(e.mpl) ? e.mpl : "hand";
+  if (place === "last") return { side, place, scope: "last" };
   let scope = lg ? lg[2] : e && ["pick", "all", "rand", "named"].includes(e.mc) ? e.mc : "pick";
   if (scope === "pick" && !(side === "me" && place === "hand")) scope = "rand";
   return { side, place, scope };
 }
 function modTargetText(e){
   const T = modT(e), n = (e && e.mn) || 1, nm = (e && e.into) || "？", who = T.side === "me" ? "自分" : "相手", where = { hand: "手札", deck: "山札", both: "手札と山札" }[T.place];
+  if (T.scope === "last") return "直前に発動したカード";
   return T.scope === "pick" ? `${who}の手札のカード1枚` : T.scope === "all" ? `${who}の${where}のカードすべて` : T.scope === "rand" ? `${who}の${where}のランダムなカード${n}枚` : `${who}の${where}の「${nm}」すべて`;
 }
 function grantText(e){ if (e && e.ge && KINDS[e.ge.kind] && !KINDS[e.ge.kind].mod) return effsText({ type: "magic" }, [cleanEff(e.ge)].filter(Boolean)); const k = e && e.gk && KINDS[e.gk] && !KINDS[e.gk].mod ? e.gk : "draw"; return KINDS[k].text(e && e.gn || (smallN(k) ? 1 : 100)); }
