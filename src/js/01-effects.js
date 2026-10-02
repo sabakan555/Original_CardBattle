@@ -27,6 +27,9 @@ const KINDS = {
   draw:       { label: "カードを引く", n: true, text: n => `カードを${n}枚引く` },
   discard:    { label: "相手の手札を捨てさせる", n: true, text: n => `相手の手札をランダムに${n}枚捨てさせる` },
   destroy:    { label: "相手モンスター1体を破壊", target: "opp", text: () => `相手のモンスター1体を破壊` },
+  destroyOwn: { label: "自分のモンスター1体を破壊（デメリット）", target: "mine", text: () => `自分のモンスター1体を破壊` },
+  destroyThis: { label: "このモンスターを破壊（デメリット）", mon: true, text: () => `このモンスターを破壊` },
+  destroyOwnAll: { label: "自分のモンスターをすべて破壊（デメリット）", text: () => `自分のモンスターをすべて破壊` },
   destroyAll: { label: "相手モンスターを全部破壊", text: () => `相手のモンスターをすべて破壊` },
   selfAtk:    { label: "このモンスターのATKアップ", n: true, mon: true, text: n => `このモンスターのATK+${n}` },
   moveEquips: { label: "装備を別のモンスターに付けかえる", mon: true, target: "any", text: () => `このモンスターの装備（このカード以外）をすべて、ほかのモンスター1体（相手のでもOK）に付けかえる` },
@@ -365,7 +368,7 @@ const LEGACY_COND = { lp: { k: "lp", op: "le" }, grave: { k: "grave", op: "ge" }
 function blocksOf(c){
   if (!c) return [];
   if (Array.isArray(c.blocks)) return c.blocks.filter(b => b && typeof b === "object").map(b => ({
-    trig: normTrig(c, b.trig), join: b.join === "or" ? "or" : "and",
+    trig: normTrig(c, b.trig), join: b.join === "or" ? "or" : "and", delay: Math.max(0, Math.min(9, Math.round(+b.delay || 0))),
     conds: (Array.isArray(b.conds) ? b.conds : []).filter(x => x && COND_DEFS[x.k]),
     then: (Array.isArray(b.then) ? b.then : []).map(cleanEff).filter(Boolean),
     else: (Array.isArray(b.else) ? b.else : []).map(cleanEff).filter(Boolean)
@@ -400,10 +403,14 @@ function effsText(c, effs){
   if (spire) out = out.replace(/(?<!同じ)相手に([^、。]+?)ダメージ/g, "相手のモンスター1体（いなければ相手）に$1ダメージ").replace(/(?<!同じ)相手を弱体/g, "相手のモンスター1体（いなければ相手）を弱体").replace(/(?<!同じ)相手を脱力/g, "相手のモンスター1体（いなければ相手）を脱力");
   return out;
 }
+// 「次の自分のターンのはじめ」「○ターン後の自分のターンのはじめ」: カードでは時計マーク＋数字で出す
+const delayText = d => d > 0 ? (d === 1 ? "【次の自分のターンのはじめ】" : `【${d}ターン後の自分のターンのはじめ】`) : "";
+function clockSVG(n, cls){ return `<svg class="clk${cls ? " " + cls : ""}" viewBox="0 0 40 46" aria-hidden="true"><rect x="13" y="0" width="14" height="9" rx="4" fill="currentColor"/><circle cx="20" cy="26" r="18" fill="currentColor"/><circle cx="20" cy="26" r="11.5" fill="#fff"/><text x="20" y="31.5" text-anchor="middle" font-size="15" font-weight="800" font-family="sans-serif" fill="#111">${n}</text></svg>`; }
+function clockMark(html){ return html ? html.replace(/【次の自分のターンのはじめ】/g, () => `<span class="clkm" title="次の自分のターンのはじめに出る">${clockSVG(1)}</span>`).replace(/【(\d)ターン後の自分のターンのはじめ】/g, (_, d) => `<span class="clkm" title="${d}ターン後の自分のターンのはじめに出る">${clockSVG(d)}</span>`) : html; }
 function blockText(c, b){
   const t = cardType(c), isMon = t === "monster" || t === "equip";
   const head = c && c.relicView ? `【${RELIC_TRIG_LABEL[b.trig] || ""}】` : isMon ? `【${trigLabel(t, b.trig)}】` : isPersist(c) && b.trig !== "use" ? `【${PERSIST_TRIG_LABEL[b.trig]}】` : "";
-  let s = head + condsText(b) + (b.then.length ? effsText(c, b.then) : "なにもしない");
+  let s = head + delayText(b.delay) + condsText(b) + (b.then.length ? effsText(c, b.then) : "なにもしない");
   if (b.conds.length && b.else.length) s += `。そうでなければ、${effsText(c, b.else)}`;
   return s;
 }

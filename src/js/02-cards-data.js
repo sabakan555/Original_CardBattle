@@ -243,6 +243,7 @@ function tokenMap(){
   return TK_CACHE.map;
 }
 function tkLink(html){
+  html = clockMark(html);
   const m = tokenMap(); if (!m.size || !html) return html;
   return html.replace(/「([^「」<>]{1,40})」/g, (all, nm) => { const raw = nm.replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;/g, "'"); const id = m.get(raw); return id ? `「<span class="tk-link" role="link" tabindex="0" data-tk="${esc(id)}">${nm}</span>」` : all; });
 }

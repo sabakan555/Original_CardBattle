@@ -127,7 +127,8 @@ const potionChips = (p, mine) => (p.potions || []).map((k, i) => [k, i, potionDe
 // the row under each player: relics, 筋力 / 脱力 / ブロック…, and ポーション (full width, so the name and LP keep their room)
 const potRow = (p, mine, noPots) => { const h = statChips(p) + (noPots ? "" : potionChips(p, mine)); return h ? `<div class="pots">${h}</div>` : ""; };
 const lockChips = p => { const tn = typeof G !== "undefined" && G && G.st ? G.st.turnNo : null; if (tn == null) return ""; return ((p.noAtkUntil || 0) >= tn ? `<span class="bst wk" title="相手の効果で、このターンの終わりまで（相手のターンなら次の自分のターンの終わりまで）モンスターが攻撃できない">攻撃できない</span>` : "") + ((p.noUseUntil || 0) >= tn ? `<span class="bst wk" title="相手の効果で、魔法・罠を発動できない">発動できない</span>` : ""); };
-const statChips = p => lockChips(p) + Object.entries(p.free || {}).filter(([, v]) => v > 0).map(([k, v]) => `<span class="bst free" title="次に使うこの種類のカードはコスト0">次の${SPIRE_LABEL[k]}0コスト${v > 1 ? "×" + v : ""}</span>`).join("") + (p.relics || []).map(k => relicDef(k)).filter(Boolean).map(d => `<span class="bst rel" title="${esc(d.text)}">${d.img ? `<img alt="" src="${d.img}">` : ""}${esc(d.name)}</span>`).join("") + (p.block ? `<span class="bst blk" title="次の自分のターンのはじめまで、受けるダメージを先に引き受ける">ブロック ${p.block}</span>` : "") + (p.vuln > 0 ? `<span class="bst vul" title="受けるダメージが1.5倍">弱体 ${p.vuln}</span>` : "") + (p.str ? `<span class="bst str" title="カードで与えるダメージ（1回ごと）と、自分のモンスターがプレイヤーに与える戦闘ダメージが${p.str > 0 ? "+" : "−"}${Math.abs(p.str)}">筋力 ${p.str}</span>` : "") + (p.weak > 0 ? `<span class="bst wk" title="カードで与えるダメージが0.75倍">脱力 ${p.weak}</span>` : "")
+const timerChips = p => (p.timers || []).map(t => { const c = t.c && S.cards.has(t.c) ? card(t.c) : null, tx = c ? blockText(c, { ...t.b, delay: 0 }) : ""; return `<span class="bst tmrc" title="${esc(`「${t.name}」：あと${t.left}回の自分のターンのはじめで効果が出る${tx ? "（" + tx + "）" : ""}`)}">${clockSVG(t.left)}${esc(t.name)}</span>`; }).join("");
+const statChips = p => lockChips(p) + timerChips(p) + Object.entries(p.free || {}).filter(([, v]) => v > 0).map(([k, v]) => `<span class="bst free" title="次に使うこの種類のカードはコスト0">次の${SPIRE_LABEL[k]}0コスト${v > 1 ? "×" + v : ""}</span>`).join("") + (p.relics || []).map(k => relicDef(k)).filter(Boolean).map(d => `<span class="bst rel" title="${esc(d.text)}">${d.img ? `<img alt="" src="${d.img}">` : ""}${esc(d.name)}</span>`).join("") + (p.block ? `<span class="bst blk" title="次の自分のターンのはじめまで、受けるダメージを先に引き受ける">ブロック ${p.block}</span>` : "") + (p.vuln > 0 ? `<span class="bst vul" title="受けるダメージが1.5倍">弱体 ${p.vuln}</span>` : "") + (p.str ? `<span class="bst str" title="カードで与えるダメージ（1回ごと）と、自分のモンスターがプレイヤーに与える戦闘ダメージが${p.str > 0 ? "+" : "−"}${Math.abs(p.str)}">筋力 ${p.str}</span>` : "") + (p.weak > 0 ? `<span class="bst wk" title="カードで与えるダメージが0.75倍">脱力 ${p.weak}</span>` : "")
   + [[p.barricade, "バリケード", "ブロックがターンのはじめに消えない"], [p.plate > 0, `プレート ${p.plate}`, "自分のターンのおわりにこの分ブロックを得る。LPを失うたび20減る"], [p.corrupt, "堕落", "スキルのコストが0。使うと廃棄"], [p.vulnBonus > 0, `無慈悲 +${p.vulnBonus}%`, "弱体の相手へのダメージがさらにふえる"], [p.firstBlock2, "盤石", "毎ターン最初のブロックが2倍"], [p.rage > 0, `激怒 ${p.rage}`, "このターン、アタックを使うたびブロックを得る"], [p.thorns > 0, `反撃 ${p.thorns}`, "攻撃してきたモンスターにダメージ"], [p.dblAtk > 0, `次のアタック×2`, "次に使うアタックをもう1回プレイ"], [(p.autoPlay || []).length, `自動：${(p.autoPlay || []).join("・")}`, "名前にこの文字が入ったカードを引くと自動で使う"]].filter(x => x[0]).map(x => `<span class="bst pw" title="${x[2]}">${x[1]}</span>`).join("");
 function dealDmg(st, s, n){
   const p = P(st, s); if (n === Infinity){ p.lp = Math.min(0, p.lp); return; }
@@ -205,7 +206,7 @@ function autoTarget(st, s, kind, opts, fx){
   if (opts[0] === "p"){ const ms = opts.slice(1).sort((x, y) => atkOf(P(st, O(s)).mz[+y.slice(2)]) - atkOf(P(st, O(s)).mz[+x.slice(2)])); return ms.length && P(st, O(s)).lp > 300 ? ms[0] : "p"; }
   const t = KINDS[kind].target;
   if (t === "opp") return opts.slice().sort((a, b) => atkOf(P(st, O(s)).mz[b]) - atkOf(P(st, O(s)).mz[a]))[0];
-  if (t === "mine") return opts.slice().sort((a, b) => atkOf(P(st, s).mz[b]) - atkOf(P(st, s).mz[a]))[0];
+  if (t === "mine") return opts.slice().sort((a, b) => (kind === "destroyOwn" ? -1 : 1) * (atkOf(P(st, s).mz[b]) - atkOf(P(st, s).mz[a])))[0];
   if (t === "grave") return opts.slice().sort((a, b) => cmpNum(baseAtk(card(b)), baseAtk(card(a))))[0];
   // CPU: throws away the cheapest (basic ones first), brings back the most expensive
   if (t === "hand"){ const h = P(st, s).hand, v = i => (SPIRE_BASIC.some(b => b.id === h[i]) ? 0 : 10) + costOf(card(h[i])); return opts.slice().sort((a, b) => v(a) - v(b))[0]; }
@@ -291,7 +292,21 @@ function runList(st, L, then){
   step(st, 0);
 }
 // turn start / end: every monster of `who`, and every equip `who` owns (wherever it's stuck)
-function fireTurn(st, who, trig, then){
+// 時計: 自分のターンのはじめに1へって、0になったら効果が出る
+function runTimers(st, who, then){
+  const p = P(st, who), due = [];
+  if (!(p.timers || []).length){ then && then(st); return; }
+  p.timers = p.timers.filter(t => { t.left--; if (t.left <= 0){ due.push(t); return false; } return true; });
+  const step = (st2, k) => {
+    if (k >= due.length || st2.winner){ then && then(st2); return; }
+    const t = due[k], c = (t.c && S.cards.has(t.c) ? card(t.c) : null) || { id: t.c, name: t.name, type: "magic" };
+    log(st2, who, `時計が0に！「${t.name}」の効果`); ev(st2, { type: "spell", s: who, c: t.c });
+    runBlock(st2, who, c, t.b, { ...(t.ctx || {}), hit: {}, delayed: true }, st3 => step(st3, k + 1));
+  };
+  step(st, 0);
+}
+function fireTurn(st, who, trig, then, timersDone){
+  if (trig === "turnStart" && !timersDone && (P(st, who).timers || []).length) return runTimers(st, who, st2 => fireTurn(st2, who, trig, then, true));
   altarTurn(st, who, trig);
   const L = [];
   for (const o of ["a", "b"]) P(st, o).mz.forEach((m, i) => { if (m) monTrigList(st, o, i, trig).forEach(x => { if (x.s === who && hasTrig(x.c, trig)) L.push(x); }); });
@@ -397,6 +412,9 @@ function applyEffect(st, s, c, target, ctx = {}, fx = normFx(c)){
       log(st, s, `${src}で${op.name}の手札を${k}枚捨てさせた`); break;
     }
     case "destroy": if (op.mz[target]) destroyMonster(st, O(s), target, src); break;
+    case "destroyOwn": if (me.mz[target]) destroyMonster(st, s, target, src); break;
+    case "destroyThis": { const m = ctx.mon && monAt(st, ctx.mon); if (m) destroyMonster(st, ctx.mon.s, ctx.mon.i, src); else log(st, s, `${src}：破壊するモンスターがもう場にいない`); break; }
+    case "destroyOwnAll": { const L = me.mz.map((m, i) => m ? i : -1).filter(i => i >= 0); if (!L.length) log(st, s, `${src}：自分のモンスターがいない`); L.forEach(i => { if (me.mz[i]) destroyMonster(st, s, i, src); }); break; }
     case "destroyAll": { const idx = op.mz.map((m, i) => m ? i : -1).filter(i => i >= 0); log(st, s, `${src}で相手のモンスターをすべて破壊！`); idx.forEach(i => destroyMonster(st, O(s), i, src)); break; }
     case "selfAtk": {
       const m = ctx.mon ? monAt(st, ctx.mon) : ctx.zone != null ? me.mz[ctx.zone] : null;
@@ -562,6 +580,12 @@ function runCard(st, s, c, trig, ctx = {}, then){
 }
 // one block: check もし (a 質問 is asked last, only when it can still change the result), then なにを or ちがったら
 function runBlock(st, s, c, b, ctx, then){
+  if (b.delay > 0 && !ctx.delayed){
+    st.un = (st.un || 0) + 1; const p = P(st, s);
+    (p.timers = p.timers || []).push({ u: st.un, c: c && c.id || null, name: c && c.name || "？", b: { trig: b.trig, join: b.join, conds: b.conds, then: b.then, else: b.else }, left: b.delay, ctx: { zone: ctx.zone ?? null, mon: ctx.mon || null } });
+    log(st, s, `「${c ? c.name : "？"}」：${b.delay === 1 ? "次の自分のターンのはじめ" : b.delay + "ターン後の自分のターンのはじめ"}に効果が出る（時計 ${b.delay}）`);
+    then && then(st); return;
+  }
   const plain = b.conds.filter(x => x.k !== "ask"), ask = b.conds.find(x => x.k === "ask"), or = b.join === "or";
   const base = plain.length ? (or ? plain.some(x => condMet(st, s, c, x, ctx)) : plain.every(x => condMet(st, s, c, x, ctx))) : !or;
   const go = (st2, ok) => {

@@ -371,7 +371,7 @@ const KIND_GROUPS = [
   { g: "give",    label: "相手にカードを送りこむ", v: [["oppDraw", "相手に○枚引かせる"], ["oppGenHand", "名前を指定したカードを相手の手札に"], ["oppGenDeck", "名前を指定したカードを相手の山札に混ぜる"], ["oppSummon", "名前を指定したモンスターを相手の場に出す"], ["oppSetNamed", "名前を指定した魔法・罠を相手の場にセット"]] },
   { g: "negate",  label: "打ち消す・無効にする", v: [["cancel", "魔法・罠の発動かモンスターの召喚を打ち消す"], ["negate", "相手の攻撃を無効にする（罠）"]] },
   { g: "equip",   label: "装備を動かす", v: [["moveEquips", "別のモンスターに付けかえる"], ["equipsToHand", "ほかの装備を手札に戻す"]] },
-  { g: "minus",   label: "自分にデメリット", v: [["loseLp", "LPを失う（ブロックでは防げない）"], ["oppStr", "相手が筋力を得る"], ["noDraw", "このターンもう引けない"]] },
+  { g: "minus",   label: "自分にデメリット", v: [["loseLp", "LPを失う（ブロックでは防げない）"], ["destroyOwn", "自分のモンスター1体を破壊"], ["destroyThis", "このモンスターを破壊"], ["destroyOwnAll", "自分のモンスターをすべて破壊"], ["oppStr", "相手が筋力を得る"], ["noDraw", "このターンもう引けない"]] },
   { g: "win",     label: "ゲームに勝つ", v: [["win", "勝利する"]] }
 ];
 // kinds shown only when an older card already uses them (they're now 基本の効果 + 「だれに」)
@@ -538,7 +538,7 @@ function kindGroups(avail, cur){
 const defN = k => smallN(k) ? 1 : 100;
 function mkPreviewCard(){ return { ex: $("#mkEx").checked, noUse: (MK.type === "magic" || MK.type === "trap") && $("#mkNoUse").checked, tags: MK.kind === "card" || !MK.kind ? parseTags($("#mkTags").value) : [], tribTag: MK.type === "monster" ? $("#mkTribTag").value.trim() || null : null, ...(MK.type === "monster" ? mkVarFields() : {}), ...(MK.kind === "relic" ? { relicView: true } : {}), type: MK.type, frame: MK.kind === "potion" || MK.kind === "relic" ? "spire" : $("#mkFrame").value, persist: (MK.type === "magic" || MK.type === "trap") && $("#mkPersist").checked, costX: $("#mkCost").value === "X", ...mkPays(), blocks: readBlocks(), ss: readSS(), eqN: Math.round(+$("#mkEq").value || 0), abs: readAbs() }; }
 function readBlocks(){
-  const bs = (MK.blocks || []).map(b => ({ trig: b.trig, join: b.join === "or" ? "or" : "and", conds: (b.conds || []).map(x => ({ ...x })), then: (b.then || []).map(cleanEff).filter(Boolean), else: (b.conds || []).length ? (b.else || []).map(cleanEff).filter(Boolean) : [] })).filter(b => b.then.length || b.else.length);
+  const bs = (MK.blocks || []).map(b => ({ trig: b.trig, ...(b.delay > 0 ? { delay: b.delay } : {}), join: b.join === "or" ? "or" : "and", conds: (b.conds || []).map(x => ({ ...x })), then: (b.then || []).map(cleanEff).filter(Boolean), else: (b.conds || []).length ? (b.else || []).map(cleanEff).filter(Boolean) : [] })).filter(b => b.then.length || b.else.length);
   return bs.length ? bs : null;
 }
 function loadBlocks(c){ MK.blocks = c ? JSON.parse(JSON.stringify(blocksOf(c))) : []; renderBlocksUI(); }
@@ -594,6 +594,7 @@ function renderBlocksUI(){
       + `<button type="button" class="small ghost" data-bk="up" aria-label="上へ" ${bi ? "" : "disabled"}>↑</button><button type="button" class="small ghost" data-bk="down" aria-label="下へ" ${bi < MK.blocks.length - 1 ? "" : "disabled"}>↓</button><button type="button" class="small ghost danger" data-bk="del" aria-label="この効果を消す">×</button></div>`
       + `<div class="bk-grid">`
       + (trigs.length > 1 ? `<span class="bk-tag t-when">いつ</span><div><select data-f="trig" aria-label="いつ">${trigs.map(k => opt(k, mkTrigLabel(k), b.trig)).join("")}</select></div>` : "")
+      + (!easy || b.delay > 0 ? `<span class="bk-tag t-when">出るまで</span><div><select data-f="delay" aria-label="効果が出るまで">${[0, 1, 2, 3, 4, 5].map(d => opt(d, d === 0 ? "すぐ" : d === 1 ? "次の自分のターンのはじめ（時計1）" : `${d}ターン後の自分のターンのはじめ（時計${d}）`, b.delay || 0)).join("")}</select></div>` : "")
       + (easy && !b.conds.length ? "" : `<span class="bk-tag t-if">もし</span><div class="bk-col">${b.conds.map((x, j) => condRow(b, x, j)).join("")}<button type="button" class="small bk-add" data-bk="addCond">＋ 条件を足す</button>${b.conds.length ? "" : `<span class="note">なし（いつも出る）</span>`}</div>`)
       + `<span class="bk-tag t-do">なにを</span><div class="bk-col">${b.then.map((e, j) => effRow(bi, "then", e, j)).join("")}<button type="button" class="small bk-add" data-bk="addEff" data-part="then">＋ ${b.then.length ? "そのあと…" : "効果を選ぶ"}</button></div>`
       + (b.conds.length ? `<span class="bk-tag t-else">ちがったら</span><div class="bk-col">${b.else.map((e, j) => effRow(bi, "else", e, j)).join("")}<button type="button" class="small bk-add" data-bk="addEff" data-part="else">＋ ${b.else.length ? "そのあと…" : "効果を選ぶ（なくてもいい）"}</button></div>` : "")
@@ -626,6 +627,7 @@ function bkEvent(e, rerenderOnInput){
   const bi = +el.closest(".bk").dataset.b, b = MK.blocks[bi]; if (!b) return;
   const f = el.dataset.f, v = el.value;
   if (f === "trig"){ b.trig = v; return updateBkText(); }
+  if (f === "delay"){ b.delay = Math.max(0, Math.min(9, +v || 0)); return updateBkText(); }
   const row = el.closest(".bk-row"), part = row.dataset.part, j = +row.dataset.i;
   if (part === "cond"){
     const x = b.conds[j]; if (!x) return;

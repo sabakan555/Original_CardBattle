@@ -442,6 +442,11 @@ body.dm-lock{overflow:hidden}
 .lp b{font-size:28px;font-weight:600;font-variant-numeric:tabular-nums}
 .lp.low b{color:var(--hit)}
 .pile-tabs button{font-size:13px}
+.clk{display:inline-block;width:1.3em;height:1.45em;vertical-align:-.38em;color:#26292e}
+.clkm{display:inline-block;margin-right:.15em}
+.card.spire .clk{color:#f2e6c4}
+.bst.tmrc{display:inline-flex;align-items:center;gap:4px}
+.bst.tmrc .clk{color:#f2c14e;width:1.15em;height:1.3em}
 .bk-pick{font-size:12px;max-width:16em}
 .turn-timer{font-size:13px;min-height:0}
 .turn-timer .tmr{color:var(--muted)}
