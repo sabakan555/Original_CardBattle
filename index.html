@@ -453,6 +453,9 @@ body.dm-lock{overflow:hidden}
 .lp b{font-size:28px;font-weight:600;font-variant-numeric:tabular-nums}
 .lp.low b{color:var(--hit)}
 .pile-tabs button{font-size:13px}
+.turn-timer{font-size:13px;min-height:0}
+.turn-timer .tmr{color:var(--muted)}
+.turn-timer .tmr.warn{color:#f2c14e;font-weight:700}
 .chip.exchip{background:#5b3fa6;color:#fff;border-color:#8f6bd8}
 .card.ex-temp{outline:3px solid #8f6bd8;outline-offset:2px}
 .pile{font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
@@ -1166,6 +1169,7 @@ nav.tabs button{position:relative}
         <h3 style="margin-top:14px">自分のターンでできること</h3>
         <ol>
           <li>モンスターの召喚は1ターンに1回だけ</li>
+          <li>オンライン対戦で、動く番の人が3分なにもしないと、相手が「進める」を押してその番を終わらせられる。3回時間切れになると負け。</li>
           <li>EXデッキ：カード工房で「EXデッキのカード」にしたカードは、山札には入らずEXデッキに置かれる（枚数の制限なし・デッキの20枚には数えない）。対戦中は「EX」ボタンから取り出して、手札のカードと同じように召喚・発動・セット・装備できる（召喚の条件や生贄などはそのカードの設定どおり）。使わなかったらEXデッキに戻る。</li>
           <li>スパイアデッキ（デッキ編集でチェック）は、試合のはじめ、最初の手札を引く前にレリックを3つ（秘術の巻物・若葉・轟音のほら貝）から1つえらべる。また、「選択の祭壇」が最初から魔法・罠ゾーンに表向きで置かれる。自分のターンのはじめに、ランダムなスパイア風カード3枚から1枚えらんで墓地に加えられる。山札がなくなったら墓地をシャッフルして山札に戻すので、山札切れで負けない。スパイア風のアタック（ダメージを与えるカード）は、相手の場にモンスターがいればそのモンスター1体をえらんで当てる（いなければ相手に当たる。ランダムと全体は別）。モンスターに当てたときは、ダメージがATK以上なら破壊、与えたダメージはそのモンスターにダメージカウンターとして乗り続けて（ATKは変わらない）、カウンターの合計がATK以上になったら破壊。祭壇があると自分のマナは毎ターン3で固定。祭壇の候補（カード報酬）に出るのはタグ「アイアンクラッド」のついたスパイア風カードだけ（攻撃・防御・強打は出ない）。スパイア風カードはセットできない。コストXのカードは、使うときにあるマナを全部使って、そのぶん（X回）効果をくり返す。「次に使う○○のコストを0にする」は、次にそのタイプのスパイア風カードを使うまで続く。候補はレアリティで出やすさが変わる（コモン6：アンコモン3：レア1）。ブロックは次の自分のターンのはじめまで、受けるダメージを先に引き受けてくれる（残った分だけLPが減る）。弱体になったプレイヤーやモンスターは受けるダメージが1.5倍（持ち主のターンのはじめに1へって、0でとける）。祭壇があるあいだは、自分のターンのはじめに手札が5枚になるまで引いて、ターンのおわりに手札をすべて墓地に捨てる。デッキの枚数は自由で、モンスターが入っていなくてもOK。</li>
           <li>筋力：カードで与えるダメージが1回ごとに+筋力（マイナスなら減る）。自分のモンスターがプレイヤーに与える戦闘ダメージにも足される。脱力：カードで与えるダメージと、そのモンスターの戦闘ダメージが0.75倍。自分のターンの終わりに1減る。</li>
@@ -4014,14 +4018,19 @@ function playTopCard(st, s, src, ex, then, extra){
   runCard(st, s, c, "use", { x: 0, fromTop: true, ...(extra || {}) }, then);
 }
 // 変化: a card in hand turns into another one (a card named `into`, or a random スパイア風 card)
-function intoId(into){
+// 名前でカードをさがす: 同じ名前のカードが何枚かあるときは
+// ① その効果のカードを作った人のカード → ② はじめからあるカード → ③ トークン → ④ ほかの人のカード の順にえらぶ
+function intoId(into, srcCard, okFn){
   if (!into) return null;
-  const L = [...S.cards.values()].filter(c => c && (c.name === into || plainRuby(c.nameRuby || "") === into));
-  return L.length ? L[0].id : null;
+  const L = [...S.cards.values()].filter(c => c && (c.name === into || plainRuby(c.nameRuby || "") === into) && (!okFn || okFn(c)));
+  if (!L.length) return null;
+  const owner = srcCard && srcCard.ownerId;
+  const pick = (owner && L.find(c => c.ownerId === owner)) || L.find(c => c.starter || !c.ownerId) || L.find(c => c.token) || L[0];
+  return pick.id;
 }
-function transformAt(st, s, k, into, src){
+function transformAt(st, s, k, into, src, srcCard){
   const p = P(st, s), old = p.hand[k]; if (old == null) return;
-  const id = into ? intoId(into) : randSpire(false);
+  const id = into ? intoId(into, srcCard) : randSpire(false);
   if (!id){ log(st, s, `${src}：${into ? `「${into}」というカードが見つからない` : "変化先のカードがない"}`); return; }
   p.hand[k] = id; log(st, s, `${src}で「${card(old).name}」が「${card(id).name}」に変化した`);
 }
@@ -4389,28 +4398,28 @@ function applyEffect(st, s, c, target, ctx = {}, fx = normFx(c)){
       break;
     }
     case "tagGen": { const pool = [...S.cards.values()].filter(x => x && hasTag(x.id, fx.into) && !x.token), got = []; for (let r = 0; r < (n || 1) && pool.length; r++){ const x = pool[Math.floor(Math.random() * pool.length)]; me.hand.push(x.id); got.push(x); } log(st, s, got.length ? `${src}で${got.map(x => `「${x.name}」`).join("")}を手札に加えた` : `${src}：タグ「${fx.into || "？"}」のカードがない`); break; }
-    case "transformHand": transformAt(st, s, target, fx.into, src); break;
-    case "transformRand": { const L = shuffle(me.hand.map((_, k) => k)).slice(0, n || 1); if (!L.length) log(st, s, `${src}：手札がない`); L.forEach(k => transformAt(st, s, k, fx.into, src)); break; }
-    case "transformAtk": { const L = me.hand.map((id, k) => isAttackCard(card(id)) ? k : -1).filter(k => k >= 0); if (!L.length) log(st, s, `${src}：手札にアタックがない`); L.forEach(k => transformAt(st, s, k, fx.into, src)); break; }
-    case "transformAll": { if (!me.hand.length) log(st, s, `${src}：手札がない`); me.hand.forEach((_, k) => transformAt(st, s, k, fx.into, src)); break; }
+    case "transformHand": transformAt(st, s, target, fx.into, src, c); break;
+    case "transformRand": { const L = shuffle(me.hand.map((_, k) => k)).slice(0, n || 1); if (!L.length) log(st, s, `${src}：手札がない`); L.forEach(k => transformAt(st, s, k, fx.into, src, c)); break; }
+    case "transformAtk": { const L = me.hand.map((id, k) => isAttackCard(card(id)) ? k : -1).filter(k => k >= 0); if (!L.length) log(st, s, `${src}：手札にアタックがない`); L.forEach(k => transformAt(st, s, k, fx.into, src, c)); break; }
+    case "transformAll": { if (!me.hand.length) log(st, s, `${src}：手札がない`); me.hand.forEach((_, k) => transformAt(st, s, k, fx.into, src, c)); break; }
     case "oppNoAtk": case "oppNoUse": { const until = st.turn === s ? st.turnNo + 1 : st.turnNo, k = fx.kind === "oppNoAtk" ? "noAtkUntil" : "noUseUntil"; op[k] = Math.max(op[k] || 0, until); log(st, s, `${src}：${op.name}は次のターンの終わりまで${fx.kind === "oppNoAtk" ? "攻撃" : "魔法・罠を発動"}できない`); break; }
     case "oppSetNamed": {
-      const L = [...S.cards.values()].filter(x => x && (cardType(x) === "magic" || cardType(x) === "trap") && (x.name === fx.into || plainRuby(x.nameRuby || "") === fx.into)), id = L.length ? L[0].id : null;
+      const id = intoId(fx.into, c, x => cardType(x) === "magic" || cardType(x) === "trap");
       if (!id){ log(st, s, `${src}：「${fx.into || "？"}」という魔法・罠が見つからない`); break; }
       let k = 0; for (let r = 0; r < (n || 1); r++){ const z = freeZone(op.sz); if (z < 0) break; op.sz[z] = { c: id, turn: st.turnNo }; k++; }
       log(st, s, k ? `${src}で${op.name}の魔法・罠ゾーンにカードを${k}枚セットした` : `${src}：${op.name}の魔法・罠ゾーンがいっぱいでセットできない`);
       break;
     }
     case "oppDraw": { let k = 0; for (let r = 0; r < (n || 1); r++){ if (!op.deck.length) refill(st, O(s)); if (!op.deck.length) break; op.hand.push(op.deck.shift()); k++; } log(st, s, `${src}で${op.name}はカードを${k}枚引いた${k < (n || 1) ? "（山札がなくてそれ以上引けなかった）" : ""}`); break; }
-    case "oppGenHand": case "oppGenDeck": { const id = intoId(fx.into); if (!id){ log(st, s, `${src}：「${fx.into || "？"}」というカードが見つからない`); break; } for (let r = 0; r < (n || 1); r++){ if (fx.kind === "oppGenHand") op.hand.push(id); else op.deck.splice(Math.floor(Math.random() * (op.deck.length + 1)), 0, id); } log(st, s, `${src}で「${card(id).name}」を${n || 1}枚${op.name}の${fx.kind === "oppGenHand" ? "手札に加えた" : "山札に混ぜた"}`); break; }
+    case "oppGenHand": case "oppGenDeck": { const id = intoId(fx.into, c); if (!id){ log(st, s, `${src}：「${fx.into || "？"}」というカードが見つからない`); break; } for (let r = 0; r < (n || 1); r++){ if (fx.kind === "oppGenHand") op.hand.push(id); else op.deck.splice(Math.floor(Math.random() * (op.deck.length + 1)), 0, id); } log(st, s, `${src}で「${card(id).name}」を${n || 1}枚${op.name}の${fx.kind === "oppGenHand" ? "手札に加えた" : "山札に混ぜた"}`); break; }
     case "oppSummon": {
-      const L = [...S.cards.values()].filter(x => x && cardType(x) === "monster" && (x.name === fx.into || plainRuby(x.nameRuby || "") === fx.into)), id = L.length ? L[0].id : null;
+      const id = intoId(fx.into, c, x => cardType(x) === "monster");
       if (!id){ log(st, s, `${src}：「${fx.into || "？"}」というモンスターが見つからない`); break; }
       let k = 0; for (let r = 0; r < (n || 1); r++){ const z = freeZone(op.mz); if (z < 0) break; op.mz[z] = mkMon(st, id); ev(st, { type: "summon", s: O(s), z }); k++; }
       log(st, s, k ? `${src}で「${card(id).name}」を${k}体${op.name}の場に出した` : `${src}：${op.name}の場がいっぱいで出せない`);
       break;
     }
-    case "genNamed": { const id = intoId(fx.into); if (!id){ log(st, s, `${src}：「${fx.into || "？"}」というカードが見つからない`); break; } for (let r = 0; r < (n || 1); r++) me.hand.push(id); log(st, s, `${src}で「${card(id).name}」を${n || 1}枚手札に加えた`); break; }
+    case "genNamed": { const id = intoId(fx.into, c); if (!id){ log(st, s, `${src}：「${fx.into || "？"}」というカードが見つからない`); break; } for (let r = 0; r < (n || 1); r++) me.hand.push(id); log(st, s, `${src}で「${card(id).name}」を${n || 1}枚手札に加えた`); break; }
     case "autoPlay": if (fx.into){ me.autoPlay = [...new Set([...(me.autoPlay || []), fx.into])]; log(st, s, `${src}：これから名前に「${fx.into}」が入ったカードは引いたら自動で使う`); } break;
     case "genAttack": genCards(st, s, "attack", n || 1, src); break;
     case "genAttack0": genCards(st, s, "attack", n || 1, src, true); break;
@@ -4836,6 +4845,7 @@ function resolveAttack(st){
 }
 // ending the turn first gives the other player a chance to use quick spells / traps
 function endTurn(st, s){
+  exReturnP(st, s);
   if (responseOptions(st, O(s), "end").length){ st.pending = { type: "end", by: s, wait: true }; log(st, s, "ターン終了…"); return; }
   passTurn(st, s);
 }
@@ -4877,9 +4887,23 @@ function maybeTurnStart(){
 /* ================= glue: act / persist / cpu ================= */
 function persist(){
   if (G.mode !== "online") return;
-  const body = clone(G.st), code = G.code; body.updatedAt = Date.now();
+  const body = clone(G.st), code = G.code; body.updatedAt = Date.now(); G.st.updatedAt = body.updatedAt;
   G.q = G.q.then(() => S.db.doc("rooms/" + code).set(body)).catch(writeErr);
 }
+// オンライン対戦の放置対策: 動く番の人が TURN_IDLE 秒なにもしないと、相手が「進める」を押せる（3回で負け）
+const TURN_IDLE = 180;
+function idleInfo(){
+  if (!G || G.mode !== "online" || !G.st || !G.st.started || G.st.winner || !G.st.updatedAt) return null;
+  const st = G.st, w = st.pending ? (st.pending.wait ? O(st.pending.by) : null) : st.turn; if (!w) return null;
+  return { w, left: TURN_IDLE - Math.max(0, Math.floor((Date.now() - st.updatedAt) / 1000)) };
+}
+function timerHTML(){
+  const i = idleInfo(); if (!i || i.left > 60) return "";
+  if (G.spectate) return `<span class="tmr">${esc(P(G.st, i.w).name)} の操作待ち（${Math.max(0, i.left)}秒）</span>`;
+  if (i.w === G.slot) return `<span class="tmr warn">あと${Math.max(0, i.left)}秒動かないと、相手が進められるようになります</span>`;
+  return i.left <= 0 ? `<button class="small" data-act="skipIdle">相手が${TURN_IDLE / 60}分動かないので進める</button>` : `<span class="tmr">相手の操作待ち…あと${i.left}秒で進められるようになります</span>`;
+}
+setInterval(() => { const el = document.getElementById("turnTimer"); if (el){ const h = timerHTML(); if (el.innerHTML !== h) el.innerHTML = h; } }, 2000);
 function act(fn){
   if (!G || G.spectate) return;
   const ok = fn(G.st);
@@ -4982,16 +5006,19 @@ function dropTarget(st, me){
 const blockBox = (p, who) => p.spire || p.block > 0 ? `<div class="blockbar ${p.block > 0 ? "on" : ""}" title="ダメージを先に引き受ける${p.barricade ? "（ターンのはじめに消えない）" : "（次の自分のターンのはじめに消える）"}"><span class="lbl">${who}のブロック</span><b>🛡 ${p.block || 0}</b>${p.plate > 0 ? `<small>プレート ${p.plate}</small>` : ""}${p.barricade ? "<small>消えない</small>" : ""}</div>` : "";
 const mOpt = s => ({ mana: !!(G && G.st && G.st.players[s] && G.st.players[s].mana) });
 // EXデッキ: a card taken out to use sits at the end of the hand; when it's no longer being used it goes back
-function exReturn(st){
-  const t = G && G.exTemp; if (!t) return; G.exTemp = null;
-  const p = P(st, G.slot); if (p.hand[t.i] === t.id){ p.hand.splice(t.i, 1); (p.ex = p.ex || []).push(t.id); if (G.sel && G.sel.z === "hand" && G.sel.i === t.i) G.sel = null; }
+// (kept in the game state as p.exTemp, so a reload or the end of the turn still puts it back)
+const exTempOk = p => !!(p && p.exTemp && p.hand[p.exTemp.i] === p.exTemp.id);
+function exReturnP(st, s){
+  const p = P(st, s), t = p.exTemp; if (!t) return; p.exTemp = null;
+  if (p.hand[t.i] === t.id){ p.hand.splice(t.i, 1); (p.ex = p.ex || []).push(t.id); if (typeof G !== "undefined" && G && G.slot === s && G.sel && G.sel.z === "hand" && G.sel.i === t.i) G.sel = null; }
 }
+function exReturn(st){ if (G) exReturnP(st, G.slot); }
 function exAutoReturn(){
-  const t = G && G.exTemp; if (!t || G.spectate) return;
-  const p = P(G.st, G.slot);
-  if (p.hand[t.i] !== t.id){ G.exTemp = null; return; }
+  if (!G || G.spectate || !G.st || !G.st.players) return;
+  const p = P(G.st, G.slot), t = p && p.exTemp; if (!t) return;
+  if (!exTempOk(p)){ setTimeout(() => { if (G && P(G.st, G.slot).exTemp === t) act(st => { P(st, G.slot).exTemp = null; }); }, 0); return; }
   const busy = G.ssPick || G.costPick || G.eqPlace || G.equipFrom != null || (G.sel && G.sel.z === "hand" && G.sel.i === t.i) || (G.chooseQ || []).length;
-  if (!busy) setTimeout(() => { if (G && G.exTemp === t) act(st => { exReturn(st); }); }, 0);
+  if (!busy) setTimeout(() => { if (G && P(G.st, G.slot).exTemp === t) act(st => { exReturnP(st, G.slot); }); }, 0);
 }
 function renderBoard(){
   recordResult();
@@ -5087,7 +5114,7 @@ function renderBoard(){
   }
   if (G.spectate && !st.winner){ hint = `観戦中：${esc(pm.name)} vs ${esc(po.name)}`; acts = `<button class="ghost" data-act="leave">観戦をやめる</button>`; manual = ""; }
   const last = st.log[st.log.length - 1];
-  const handHTML = G.spectate ? (pm.hand.map(() => backHTML("", "", pm.sleeve)).join("") || `<p class="muted">手札なし</p>`) : pm.hand.map((id, i) => cardHTML(card(id), `pick ${sel && sel.z === "hand" && sel.i === i ? "sel" : ""} ${G.exTemp && G.exTemp.i === i && G.exTemp.id === id ? "ex-temp" : ""} ${pm.mana && !canPay(st, me, card(id)) && cardType(card(id)) !== "trap" ? "dim" : ""}`, `data-z="hand" data-s="me" data-i="${i}" tabindex="0" role="button"`, mOpt(me))).join("") || `<p class="muted">手札なし</p>`;
+  const handHTML = G.spectate ? (pm.hand.map(() => backHTML("", "", pm.sleeve)).join("") || `<p class="muted">手札なし</p>`) : pm.hand.map((id, i) => cardHTML(card(id), `pick ${sel && sel.z === "hand" && sel.i === i ? "sel" : ""} ${pm.exTemp && pm.exTemp.i === i && pm.exTemp.id === id ? "ex-temp" : ""} ${pm.mana && !canPay(st, me, card(id)) && cardType(card(id)) !== "trap" ? "dim" : ""}`, `data-z="hand" data-s="me" data-i="${i}" tabindex="0" role="button"`, mOpt(me))).join("") || `<p class="muted">手札なし</p>`;
   const logHTML = st.log.slice(-60).reverse().map(l => `<li>${l.s ? `<b>${esc(nm(st, l.s))}</b>：` : ""}${esc(l.m)}</li>`).join("");
   const prev = G.prevLp || {}; G.prevLp = { me: pm.lp, op: po.lp };
   const manaBox = (p, who) => p.mana ? `<div class="manabar" title="${who}のマナ"><span class="lbl">${who}のマナ</span><b>${p.mana.cur}<small>/${p.mana.max}</small></b><span class="gems">${Array.from({ length: Math.max(p.mana.max, p.mana.cur) }, (_, k) => `<i class="${k < p.mana.cur ? "" : "off"}"></i>`).join("")}${Array.from({ length: Math.max(0, MAX_MANA - Math.max(p.mana.max, p.mana.cur)) }, () => `<i class="lock"></i>`).join("")}</span></div>` : "";
@@ -5098,7 +5125,7 @@ function renderBoard(){
     <div class="table">
       ${manaBox(po, esc(po.name))}${blockBox(po, esc(po.name))}
       <div class="mstat"><span class="who">${esc(po.name)}</span><span>山札 ${po.deck.length}</span>${(po.ex || []).length ? `<span>EX ${po.ex.length}</span>` : ""}<button class="chip" data-grave="op:grave">墓地 ${po.grave.length}</button>${(po.exile || []).length ? `<button class="chip" data-grave="op:exile">廃棄 ${po.exile.length}</button>` : ""}<span class="lpv ${po.lp <= 300 ? "low" : ""}"><small>LP</small>${po.lp}</span></div>
-      <div class="ohand">${backHTML("xs", "", po.sleeve)}<span class="cnt-x">×${po.hand.length}</span><span class="lbl">手札（${esc(po.name)}）</span></div>
+      <div class="ohand">${backHTML("xs", "", po.sleeve)}<span class="cnt-x">×${po.hand.length - (exTempOk(po) ? 1 : 0)}</span><span class="lbl">手札（${esc(po.name)}）</span></div>
       <span class="zlabel">相手の魔法・罠ゾーン</span>
       <div class="zones">${zoneHTML(op, "sz")}</div>
       <span class="zlabel">相手のモンスターゾーン</span>
@@ -5107,6 +5134,7 @@ function renderBoard(){
         <h2>バトルゾーン</h2>
         <div class="turnline">ターン${st.turnNo}・${G.spectate ? `<span class="me">${esc(P(st, st.turn).name)} のターン</span>` : myTurn ? `<span class="me">あなたのターン</span>` : `<span class="op">${esc(po.name)} のターン</span>`}${myTurn && !pm.mana && !st.summoned ? "（召喚できる）" : ""}</div>
         <div class="lastlog">${last ? esc((last.s ? nm(st, last.s) + "：" : "") + last.m) : ""}</div>
+        <div id="turnTimer" class="turn-timer">${timerHTML()}</div>
         <div class="msg">${hint}</div>
         <div class="actions">${acts}</div>
         ${manual}
@@ -5388,7 +5416,7 @@ function renderOverlay(){
 }
 $("#overlay").addEventListener("click", e => {
   { const gv = e.target.closest("[data-grave]"); if (gv && G){ G.view = gv.dataset.grave; renderAll(); return; } }
-  { const xu = e.target.closest("[data-exuse]"); if (xu && G && !G.spectate){ const k = +xu.dataset.exuse, me = G.slot; let hi = -1, id = null; G.exView = false; act(st => { const p = P(st, me); if (!canAct(st, me) || p.ex[k] == null) return false; id = p.ex.splice(k, 1)[0]; p.hand.push(id); hi = p.hand.length - 1; }); if (hi >= 0){ G.exTemp = { id, i: hi }; G.sel = { z: "hand", s: "me", i: hi }; G.atkFrom = null; renderAll(); } else renderAll(); return; } }
+  { const xu = e.target.closest("[data-exuse]"); if (xu && G && !G.spectate){ const k = +xu.dataset.exuse, me = G.slot; let hi = -1, id = null; G.exView = false; act(st => { const p = P(st, me); if (!canAct(st, me) || p.ex[k] == null) return false; exReturnP(st, me); id = p.ex.splice(k, 1)[0]; p.hand.push(id); hi = p.hand.length - 1; p.exTemp = { id, i: hi }; G.sel = { z: "hand", s: "me", i: hi }; G.atkFrom = null; }); if (hi < 0) renderAll(); return; } }
   if (!G) return;
   const ak = e.target.closest("[data-ask]");
   if (ak && G.chooseQ.length && G.chooseQ[0].ask){
@@ -5487,6 +5515,16 @@ $("#board").addEventListener("click", e => {
   const k = a.dataset.act, sel = G.sel;
   if (k === "leave"){ leaveGame(); renderAll(); return; }
   if (k === "rematch"){ rematch(); return; }
+  if (k === "skipIdle"){
+    const i = idleInfo(); if (!i || i.w === G.slot || i.left > 0) return;
+    act(st => {
+      const w = i.w, nmW = P(st, w).name; st.idleSkips = st.idleSkips || {}; st.idleSkips[w] = (st.idleSkips[w] || 0) + 1;
+      log(st, G.slot, `${nmW} が${TURN_IDLE / 60}分動かなかったので進めた（${st.idleSkips[w]}回目）`);
+      if (st.idleSkips[w] >= 3){ st.winner = O(w); st.why = `${nmW} が3回時間切れになった`; return; }
+      if (st.pending && st.pending.wait) respond(st, w, null); else { exReturnP(st, w); endTurn(st, w); }
+    });
+    return;
+  }
   if (k === "surrender"){ if (!G.surArm){ G.surArm = true; renderAll(); setTimeout(() => { if (G){ G.surArm = false; renderAll(); } }, 3000); return; } act(st => { st.winner = O(me); st.why = `${nm(st, me)} が投了`; log(st, me, "投了した"); }); return; }
   if (k === "draw"){ act(st => drawN(st, me, 1, "（手動）")); return; }
   if (k === "graveHand"){ G.graveHand = true; renderAll(); return; }
