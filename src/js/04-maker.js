@@ -578,7 +578,7 @@ function kindGroups(avail, cur){
 const defN = k => k === "atkMul" ? 2 : smallN(k) ? 1 : 100;
 function mkPreviewCard(){ return { fusion: mkFusionVal(), when: mkWhenVal(), field: MK.type === "magic" && $("#mkField").checked, ex: $("#mkEx").checked, noUse: (MK.type === "magic" || MK.type === "trap") && $("#mkNoUse").checked, tags: MK.kind === "card" || !MK.kind ? parseTags($("#mkTags").value) : [], tribTag: MK.type === "monster" ? $("#mkTribTag").value.trim() || null : null, ...(MK.type === "monster" ? mkVarFields() : {}), ...(MK.kind === "relic" ? { relicView: true } : {}), type: MK.type, frame: MK.kind === "potion" || MK.kind === "relic" ? "spire" : $("#mkFrame").value, persist: (MK.type === "magic" || MK.type === "trap") && $("#mkPersist").checked && !$("#mkField").checked, costX: $("#mkCost").value === "X", ...mkPays(), blocks: readBlocks(), ss: readSS(), eqN: Math.round(+$("#mkEq").value || 0), abs: readAbs() }; }
 function readBlocks(){
-  const bs = (MK.blocks || []).map(b => ({ trig: b.trig, ...(b.delay > 0 ? { delay: b.delay } : {}), ...(b.roll === "die" || b.roll === "coin" ? { roll: b.roll, ...(b.roll === "die" && b.faces && b.faces !== 6 ? { faces: b.faces } : {}) } : {}), join: b.join === "or" ? "or" : "and", conds: (b.conds || []).map(x => ({ ...x })), then: (b.then || []).map(cleanEff).filter(Boolean), else: (b.conds || []).length ? (b.else || []).map(cleanEff).filter(Boolean) : [] })).filter(b => b.then.length || b.else.length);
+  const bs = (MK.blocks || []).map(b => ({ trig: b.trig, ...(b.delay > 0 ? { delay: b.delay } : {}), ...(b.roll === "die" || b.roll === "coin" ? { roll: b.roll, ...(b.roll === "die" && b.faces && b.faces !== 6 ? { faces: b.faces } : {}) } : {}), join: b.join === "or" ? "or" : "and", conds: (b.conds || []).map(x => ({ ...x })), then: (b.then || []).map(cleanEff).filter(Boolean), else: (b.conds || []).length ? (b.else || []).map(cleanEff).filter(Boolean) : [], ...(b.roll === "die" && (b.dieBr || []).length ? { dieBr: b.dieBr.map(x => ({ lo: x.lo, hi: x.hi, then: (x.then || []).map(cleanEff).filter(Boolean) })).filter(x => x.then.length) } : {}) })).filter(b => b.then.length || (b.dieBr || []).length || b.else.length);
   return bs.length ? bs : null;
 }
 function loadBlocks(c){ MK.blocks = c ? JSON.parse(JSON.stringify(blocksOf(c))) : []; renderBlocksUI(); }
@@ -597,6 +597,7 @@ function bkNormalize(){
     b.conds = b.conds || []; b.else = b.else || []; b.join = b.join === "or" ? "or" : "and";
     const unLegacy = e => { const lg = TO_LEGACY[e.kind]; return lg && kinds.includes(lg[0]) ? { ...e, kind: lg[0], to: lg[1] } : e; };
     b.then = (b.then || []).map(unLegacy).filter(e => kinds.includes(e.kind)); b.else = b.else.map(unLegacy).filter(e => kinds.includes(e.kind));
+    if (b.roll !== "die" || (b.dieBr && !b.dieBr.length)) b.dieBr = null; else if (b.dieBr) b.dieBr.forEach(x => { x.then = (x.then || []).map(unLegacy).filter(e => kinds.includes(e.kind)); });
   });
 }
 function renderBlocksUI(){
@@ -640,7 +641,8 @@ function renderBlocksUI(){
       + `<div class="bk-grid">`
       + (trigs.length > 1 ? `<span class="bk-tag t-when">いつ</span><div><select data-f="trig" aria-label="いつ">${trigs.map(k => opt(k, mkTrigLabel(k), b.trig)).join("")}</select></div>` : "")
 
-      + `<span class="bk-tag t-when">まず</span><div class="row" style="gap:6px"><select data-f="roll" aria-label="まず">${opt("", "なし", b.roll || "")}${opt("die", "サイコロを振る", b.roll || "")}${opt("coin", "コインを投げる", b.roll || "")}</select>${b.roll === "die" ? `<input type="number" data-f="faces" min="2" max="20" value="${esc(b.faces || 6)}" aria-label="面の数" style="width:60px"><span class="note">面</span>` : ""}${b.roll ? `<span class="note">${b.roll === "die" ? "「もし」でサイコロの目を、数の「ふえる」や「×出た目の回数」で出た目を使えます" : "「もし」でコインが表／裏を使えます"}</span>` : ""}</div>`
+      + `<span class="bk-tag t-when">まず</span><div class="row" style="gap:6px"><select data-f="roll" aria-label="まず">${opt("", "なし", b.roll || "")}${opt("die", "サイコロを振る", b.roll || "")}${opt("coin", "コインを投げる", b.roll || "")}</select>${b.roll === "die" ? `<input type="number" data-f="faces" min="2" max="20" value="${esc(b.faces || 6)}" aria-label="面の数" style="width:60px"><span class="note">面</span>` : ""}${b.roll === "die" ? `<select data-f="split" aria-label="出た目で分ける">${opt("", "どの目でも同じ効果", b.dieBr ? "1" : "")}${opt("1", "出た目ごとに効果を変える", b.dieBr ? "1" : "")}</select>` : ""}${b.roll ? `<span class="note">${b.roll === "die" ? "「もし」でサイコロの目を、数の「ふえる」や「×出た目の回数」で出た目を使えます" : "「もし」でコインが表／裏を使えます"}</span>` : ""}</div>`
+      + (b.roll === "die" && b.dieBr ? `<span class="bk-tag t-do">出た目</span><div class="bk-col">${b.dieBr.map((x, k) => `<div class="bk-dbr"><div class="row bk-dbr-h" style="gap:4px;align-items:center"><input type="number" data-f="brlo" data-k="${k}" min="1" max="${b.faces || 6}" value="${x.lo}" aria-label="から" style="width:58px">${x.lo === x.hi ? "" : ""}<span>〜</span><input type="number" data-f="brhi" data-k="${k}" min="1" max="${b.faces || 6}" value="${x.hi}" aria-label="まで" style="width:58px"><b>が出たら</b><span style="flex:1"></span>${b.dieBr.length > 1 ? `<button type="button" class="small ghost" data-bk="delBr" data-k="${k}" aria-label="この目の行を消す">×</button>` : ""}</div>${x.then.map((e, j) => effRow(bi, "br" + k, e, j)).join("")}<button type="button" class="small bk-add" data-bk="addEff" data-part="br${k}">＋ ${x.then.length ? "そのあと…" : "効果を選ぶ"}</button></div>`).join("")}<button type="button" class="small bk-add" data-bk="addBr">＋ 出た目の範囲を足す</button><span class="note">「なにを」の効果はどの目でも出て、そのあとに出た目の効果が出ます</span></div>` : "")
       + (!easy || b.delay > 0 ? `<span class="bk-tag t-when">出るまで</span><div><select data-f="delay" aria-label="効果が出るまで">${[0, 1, 2, 3, 4, 5].map(d => opt(d, d === 0 ? "すぐ" : d === 1 ? "次の自分のターンのはじめ（時計1）" : `${d}ターン後の自分のターンのはじめ（時計${d}）`, b.delay || 0)).join("")}</select></div>` : "")
       + (easy && !b.conds.length && b.trig !== "anyUse" ? "" : `<span class="bk-tag t-if">もし</span><div class="bk-col">${b.conds.map((x, j) => condRow(b, x, j)).join("")}<button type="button" class="small bk-add" data-bk="addCond">＋ 条件を足す</button>${b.conds.length ? "" : `<span class="note">なし（いつも出る）</span>`}</div>`)
       + `<span class="bk-tag t-do">なにを</span><div class="bk-col">${b.then.map((e, j) => effRow(bi, "then", e, j)).join("")}<button type="button" class="small bk-add" data-bk="addEff" data-part="then">＋ ${b.then.length ? "そのあと…" : "効果を選ぶ"}</button></div>`
@@ -694,6 +696,10 @@ function pickHTML(e){
   return `<select data-f="intoId" aria-label="どのカード？" class="bk-pick">${L.map(c => `<option value="${esc(c.id)}"${c.id === cur ? " selected" : ""}>${esc(c.name)}（${esc(TYPE_LABEL[cardType(c)] || "")}・${esc(c.starter ? "はじめから" : c.author || "？")}${c.token ? "・トークン" : ""}）</option>`).join("")}</select>`;
 }
 function autoPickId(x){ if (!pickCardKind(x.kind) || !x.into) return null; const L = nameCands(x.into, x.kind); if (!L.length) return null; if (x.intoId && L.some(c => c.id === x.intoId)) return x.intoId; return intoId(x.into, { ownerId: S.uid }, PICK_OK[x.kind]); }
+// サイコロの出た目ごと: はじめは1つの目ずつ（7面以上なら半分ずつ）
+function dieBrDefault(f){ return f <= 6 ? Array.from({ length: f }, (_, k) => ({ lo: k + 1, hi: k + 1, then: [] })) : [{ lo: 1, hi: Math.floor(f / 2), then: [] }, { lo: Math.floor(f / 2) + 1, hi: f, then: [] }]; }
+// "then" / "else" / "br0", "br1"… → the effect list of block b
+function bkList(b, part){ if (/^br\d+$/.test(part)){ const x = (b.dieBr || [])[+part.slice(2)]; return x ? (x.then = x.then || []) : null; } return b[part]; }
 function bkEvent(e, rerenderOnInput){
   const el = e.target.closest("[data-f]"); if (!el) return;
   if (el.dataset.f === "when"){ if (e.type === "change"){ $("#mkWhen").value = el.value; renderBlocksUI(); } return; }
@@ -702,7 +708,9 @@ function bkEvent(e, rerenderOnInput){
   if (f === "trig"){ b.trig = v; if (v === "while"){ const fix = L => L.map(x => STATIC_KINDS.includes(x.kind) ? x : { kind: "selfAtk", n: 100 }); b.then = fix(b.then); b.else = fix(b.else); } if (v === "anyUse" && !b.conds.some(x => x.k === "used")) b.conds.push({ k: "used", who: "any", match: "trap", name: "" }); return renderBlocksUI(); }
   if (f === "delay"){ b.delay = Math.max(0, Math.min(9, +v || 0)); return updateBkText(); }
   if (f === "roll"){ b.roll = v === "die" || v === "coin" ? v : ""; if (b.roll === "die" && !b.faces) b.faces = 6; if (b.roll === "coin" && !b.conds.length){ b.conds.push({ k: "coinH" }); } return renderBlocksUI(); }
-  if (f === "faces"){ b.faces = Math.max(2, Math.min(20, Math.round(+v || 6))); return updateBkText(); }
+  if (f === "faces"){ b.faces = Math.max(2, Math.min(20, Math.round(+v || 6))); return b.dieBr ? renderBlocksUI() : updateBkText(); }
+  if (f === "split"){ b.dieBr = v ? dieBrDefault(b.faces || 6) : null; return renderBlocksUI(); }
+  if (f === "brlo" || f === "brhi"){ const x = b.dieBr && b.dieBr[+el.dataset.k]; if (!x) return; const n = Math.max(1, Math.min(b.faces || 6, Math.round(+v || 1))); if (f === "brlo"){ x.lo = n; if (x.hi < n) x.hi = n; } else { x.hi = n; if (x.lo > n) x.lo = n; } return e.type === "change" ? renderBlocksUI() : updateBkText(); }
   const row = el.closest(".bk-row"), part = row.dataset.part, j = +row.dataset.i;
   if (part === "cond"){
     const x = b.conds[j]; if (!x) return;
@@ -711,7 +719,7 @@ function bkEvent(e, rerenderOnInput){
     x[f] = f === "n" || f === "cnt" ? Math.max(0, Math.round(+v || 0)) : v;
     return f === "op" || f === "where" || f === "match" ? renderBlocksUI() : updateBkText();
   }
-  const list = b[part], x0 = list && list[j]; if (!x0) return;
+  const list = bkList(b, part), x0 = list && list[j]; if (!x0) return;
   const sub = row.dataset.sub === "ge", x = sub ? (x0.ge = x0.ge || { kind: "draw", n: 1 }) : x0, put = o => { if (sub) x0.ge = o; else list[j] = o; };
   if (f === "g"){ const g = (MK.easy && kindGroups(easyKinds()).find(q => q.g === v)) || kindGroups(mkKinds()).find(q => q.g === v); if (g){ put(setG({ kind: g.v[0][0], n: defN(g.v[0][0]) }, g.g)); } return renderBlocksUI(); }
   if (f === "kind"){ put(setG({ kind: v, n: x.n != null && smallN(v) === smallN(x.kind) ? x.n : defN(v), to: x.to, ...(x.side ? { side: x.side } : {}), ...(x.tn ? { tn: x.tn } : {}), ...(x.times > 1 ? { times: x.times } : {}), ...(KINDS[v] && KINDS[v].name && x.into ? { into: x.into } : {}), ...(PER_OK[v] && x.per ? { per: x.per, pm: x.pm, hits: v === "dmg" && x.hits } : {}), ...(KINDS[v] && KINDS[v].mod && (x.ms || x.mt) ? { mt: x.mt, ms: x.ms, mpl: x.mpl, mc: x.mc, mn: x.mn, gk: x.gk, gn: x.gn, nm: x.nm, into: x.into, ge: x.ge } : {}) }, x._g)); return renderBlocksUI(); }
@@ -748,8 +756,10 @@ function initBlocksUI(){
     if (a === "up" && bi > 0){ [MK.blocks[bi - 1], MK.blocks[bi]] = [MK.blocks[bi], MK.blocks[bi - 1]]; return renderBlocksUI(); }
     if (a === "down" && bi < MK.blocks.length - 1){ [MK.blocks[bi + 1], MK.blocks[bi]] = [MK.blocks[bi], MK.blocks[bi + 1]]; return renderBlocksUI(); }
     if (a === "addCond"){ b.conds.push({ k: "lp", op: "le", n: 300 }); return renderBlocksUI(); }
-    if (a === "addEff"){ const part = btn.dataset.part, k0 = (b[part][b[part].length - 1] || {}).kind ? "draw" : "dmg", k = mkKinds().includes(k0) ? k0 : easyKinds()[0]; b[part].push({ kind: k, n: defN(k) }); return renderBlocksUI(); }
-    if (a === "delRow"){ const row = btn.closest(".bk-row"), part = row.dataset.part, j = +row.dataset.i; (part === "cond" ? b.conds : b[part]).splice(j, 1); return renderBlocksUI(); }
+    if (a === "addEff"){ const part = btn.dataset.part, L = bkList(b, part); if (!L) return; const k0 = (L[L.length - 1] || {}).kind ? "draw" : "dmg", k = mkKinds().includes(k0) ? k0 : easyKinds()[0]; L.push({ kind: k, n: defN(k) }); return renderBlocksUI(); }
+    if (a === "delRow"){ const row = btn.closest(".bk-row"), part = row.dataset.part, j = +row.dataset.i; (part === "cond" ? b.conds : bkList(b, part) || []).splice(j, 1); return renderBlocksUI(); }
+    if (a === "addBr"){ const f = b.faces || 6, last = (b.dieBr || []).reduce((m, x) => Math.max(m, x.hi), 0); (b.dieBr = b.dieBr || []).push({ lo: Math.min(f, last + 1), hi: Math.min(f, last + 1), then: [] }); return renderBlocksUI(); }
+    if (a === "delBr"){ if (b.dieBr) b.dieBr.splice(+btn.dataset.k, 1); return renderBlocksUI(); }
   });
 }
 initBlocksUI();

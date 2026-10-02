@@ -917,3 +917,5 @@ div.f{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:13px}
 .font-pick[open]>summary::before{content:"▾"}
 .font-pick .font-cur{font-size:17px;color:var(--ink)}
 .font-pick[open] .font-grid{margin-top:6px}
+.bk-dbr{display:flex;flex-direction:column;gap:6px;padding:8px 10px;border-left:3px solid #e0a43a;background:rgba(224,164,58,.08);border-radius:8px}
+.bk-dbr-h b{font-size:14px}

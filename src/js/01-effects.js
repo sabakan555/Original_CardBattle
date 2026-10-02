@@ -481,8 +481,10 @@ function blocksOf(c){
     trig: normTrig(c, b.trig), join: b.join === "or" ? "or" : "and", roll: b.roll === "die" || b.roll === "coin" ? b.roll : "", faces: Math.max(2, Math.min(20, Math.round(+b.faces || 6))), delay: Math.max(0, Math.min(9, Math.round(+b.delay || 0))),
     conds: (Array.isArray(b.conds) ? b.conds : []).filter(x => x && COND_DEFS[x.k]),
     then: (Array.isArray(b.then) ? b.then : []).map(cleanEff).filter(Boolean),
-    else: (Array.isArray(b.else) ? b.else : []).map(cleanEff).filter(Boolean)
-  })).filter(b => b.then.length || b.else.length);
+    else: (Array.isArray(b.else) ? b.else : []).map(cleanEff).filter(Boolean),
+    // サイコロの出た目ごとの効果: [{lo, hi, then}]
+    dieBr: b.roll === "die" && Array.isArray(b.dieBr) ? b.dieBr.filter(x => x && Array.isArray(x.then)).map(x => ({ lo: Math.max(1, Math.round(+x.lo || 1)), hi: Math.max(1, Math.round(+x.hi || +x.lo || 1)), then: x.then.map(cleanEff).filter(Boolean) })).filter(x => x.then.length) : []
+  })).filter(b => b.then.length || b.else.length || b.dieBr.length);
   const out = [], fx = normFx0(c), cb = normCombo(c);
   if (fx){
     const conds = [];
@@ -521,7 +523,9 @@ function clockMark(html){ return html ? html.replace(/【次の自分のター�
 function blockText(c, b){
   const t = cardType(c), isMon = t === "monster" || t === "equip";
   const head = c && c.relicView ? `【${RELIC_TRIG_LABEL[b.trig] || ""}】` : isMon ? `【${trigLabel(t, b.trig)}】` : isField(c) && b.trig !== "use" ? `【${FIELD_TRIG_LABEL[b.trig]}】` : isPersist(c) && b.trig !== "use" ? `【${PERSIST_TRIG_LABEL[b.trig]}】` : "";
-  let s = head + delayText(b.delay) + (b.roll === "die" ? `サイコロ${b.faces && b.faces !== 6 ? `（${b.faces}面）` : ""}を振る。` : b.roll === "coin" ? "コインを投げる。" : "") + condsText(b) + (b.then.length ? effsText(c, b.then) : "なにもしない");
+  const br = b.roll === "die" && b.dieBr && b.dieBr.length ? b.dieBr : null;
+  const brText = br ? br.map(x => `${x.lo === x.hi ? x.lo : `${x.lo}〜${x.hi}`}が出たら、${effsText(c, x.then)}`).join("。") : "";
+  let s = head + delayText(b.delay) + (b.roll === "die" ? `サイコロ${b.faces && b.faces !== 6 ? `（${b.faces}面）` : ""}を振る。` : b.roll === "coin" ? "コインを投げる。" : "") + condsText(b) + (b.then.length ? effsText(c, b.then) + (br ? "。" : "") : br ? "" : "なにもしない") + brText;
   if (b.conds.length && b.else.length) s += `。そうでなければ、${effsText(c, b.else)}`;
   if (isField(c)) s = s.replace(/(自分|相手)のモンスターすべて/g, "お互いのモンスターすべて");
   return s;
