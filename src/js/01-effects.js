@@ -180,18 +180,35 @@ const eqsOf = m => (m && m.eqs) || [];
 // a 化身-type equip doubles the equip on its left
 const eqMult = (list, k) => 1 + (list[k + 1] && absOf(card(list[k + 1].c)).some(a => a.k === "double") ? 1 : 0);
 const eqUsed = m => eqsOf(m).reduce((t, e) => t + eqCostOf(card(e.c)), 0);
+// g: どんな感じのフォントか（カード工房のフォント選びで分けて見せる）
+const FONT_GROUPS = { std: "ふつう", cool: "かっこいい", wa: "和風・重厚", cute: "かわいい", game: "ゲーム・遊び" };
 const FONTS = {
-  klee:   { label: "手書き（標準）", css: `"Klee One",var(--hand)` },
-  maru:   { label: "まるゴシック", css: `"Zen Maru Gothic",var(--ui)` },
-  bold:   { label: "極太ゴシック", css: `"Dela Gothic One",var(--ui)` },
-  round:  { label: "まるっと太字", css: `"M PLUS Rounded 1c",var(--ui)` },
-  magic:  { label: "マジック書き", css: `"Yusei Magic",var(--hand)` },
-  pencil: { label: "えんぴつ", css: `"Yomogi",var(--hand)` },
-  pop:    { label: "まるポップ", css: `"Hachi Maru Pop",var(--ui)` },
-  reggae: { label: "ギザギザ", css: `"Reggae One",var(--ui)` },
-  dot:    { label: "ドット", css: `"DotGothic16",var(--ui)` },
-  decol:  { label: "おしゃれ明朝", css: `"Kaisei Decol",var(--hand)` },
-  lubri:  { label: "シャープ（Lubrifont）", css: `"WDXL Lubrifont JP N",var(--ui)` }
+  klee:   { label: "手書き（標準）", g: "std", css: `"Klee One",var(--hand)` },
+  maru:   { label: "まるゴシック", g: "std", css: `"Zen Maru Gothic",var(--ui)` },
+  bold:   { label: "極太ゴシック", g: "cool", css: `"Dela Gothic One",var(--ui)` },
+  heavy:  { label: "ヘビーゴシック", g: "cool", css: `"Zen Kaku Gothic New",var(--ui)` },
+  murecho:{ label: "スタイリッシュ極太", g: "cool", css: `"Murecho",var(--ui)` },
+  lubri:  { label: "シャープ（Lubrifont）", g: "cool", css: `"WDXL Lubrifont JP N",var(--ui)` },
+  rock:   { label: "ロック", g: "cool", css: `"RocknRoll One",var(--ui)` },
+  reggae: { label: "ギザギザ", g: "cool", css: `"Reggae One",var(--ui)` },
+  rampart:{ label: "立体アウトライン", g: "cool", css: `"Rampart One",var(--ui)` },
+  train:  { label: "ネオン線", g: "cool", css: `"Train One",var(--ui)` },
+  serifH: { label: "極太明朝", g: "wa", css: `"Noto Serif JP",var(--hand)` },
+  shipM:  { label: "力強い明朝", g: "wa", css: `"Shippori Mincho B1",var(--hand)` },
+  antique:{ label: "アンティーク", g: "wa", css: `"Shippori Antique B1",var(--hand)` },
+  zenAnt: { label: "古風な明朝", g: "wa", css: `"Zen Antique",var(--hand)` },
+  boku:   { label: "筆（力強い）", g: "wa", css: `"Yuji Boku",var(--hand)` },
+  syuku:  { label: "筆（すっきり）", g: "wa", css: `"Yuji Syuku",var(--hand)` },
+  decol:  { label: "おしゃれ明朝", g: "wa", css: `"Kaisei Decol",var(--hand)` },
+  round:  { label: "まるっと太字", g: "cute", css: `"M PLUS Rounded 1c",var(--ui)` },
+  mochiy: { label: "ポップ極太", g: "cute", css: `"Mochiy Pop One",var(--ui)` },
+  potta:  { label: "筆ポップ", g: "cute", css: `"Potta One",var(--ui)` },
+  daruma: { label: "ぽってり", g: "cute", css: `"Darumadrop One",var(--ui)` },
+  pop:    { label: "まるポップ", g: "cute", css: `"Hachi Maru Pop",var(--ui)` },
+  magic:  { label: "マジック書き", g: "cute", css: `"Yusei Magic",var(--hand)` },
+  pencil: { label: "えんぴつ", g: "cute", css: `"Yomogi",var(--hand)` },
+  dot:    { label: "ドット", g: "game", css: `"DotGothic16",var(--ui)` },
+  stick:  { label: "棒きれ", g: "game", css: `"Stick",var(--ui)` }
 };
 const fontCss = c => FONTS[c && c.font] ? FONTS[c.font].css : "";
 // text size per card (name / effect+flavor)

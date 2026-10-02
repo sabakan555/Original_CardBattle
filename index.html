@@ -8,6 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Oxanium:wght@600;700;800&family=Dela+Gothic+One&family=Klee+One:wght@600&family=Zen+Maru+Gothic:wght@500;700&family=Yusei+Magic&family=Hachi+Maru+Pop&family=DotGothic16&family=Kaisei+Decol:wght@700&family=Reggae+One&family=Yomogi&family=M+PLUS+Rounded+1c:wght@800&family=WDXL+Lubrifont+JP+N&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Antique+B1&display=swap"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Antique&display=swap"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Yuji+Boku&display=swap"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Yuji+Syuku&display=swap"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=RocknRoll+One&display=swap"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Rampart+One&display=swap"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Train+One&display=swap"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Stick&display=swap"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Mochiy+Pop+One&display=swap"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Potta+One&display=swap"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho+B1:wght@800&display=swap"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Darumadrop+One&display=swap"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Murecho:wght@900&display=swap"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@900&display=swap"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@900&display=swap">
 <style>
 :root{
   color-scheme: light;
@@ -909,6 +910,18 @@ nav.tabs button{position:relative}
 }
 .zones .card .done{white-space:nowrap}
 @media (max-width:640px){.zones .card .done{font-size:9.5px;padding:0 5px;top:-9px}}
+
+/* ---- font picker ---- */
+.font-grid{display:flex;flex-direction:column;gap:4px}
+.fg-h{font-size:12px;font-weight:700;color:var(--muted);margin-top:4px}
+.fg-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:6px}
+.fg-b{display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:6px 10px!important;border-radius:10px!important;text-align:left;box-shadow:none;min-width:0}
+.fg-b .fg-s{font-size:17px;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;font-weight:700}
+.fg-b small{font-size:10.5px;color:var(--muted);font-family:var(--ui)}
+.fg-b[aria-checked="true"]{border-color:var(--accent)!important;background:rgba(79,209,197,.16)!important}
+.fg-b[aria-checked="true"] small{color:var(--accent)}
+
+div.f{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:13px}
 </style>
 <style>html,body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
 </head>
@@ -1036,7 +1049,7 @@ nav.tabs button{position:relative}
           <label class="row" style="gap:6px;font-weight:700;cursor:pointer"><input type="checkbox" id="mkFrameless"> 半フレームレス（絵を下の文字の欄まで広げる）</label>
           <label class="row" id="flAlphaRow" hidden style="gap:8px;font-weight:700;font-size:13px">文字の欄の濃さ<input type="range" id="mkFlAlpha" min="0" max="100" step="5" value="68" style="flex:1;min-width:120px"><span id="flAlphaVal" style="min-width:3.5em">68%</span><button type="button" class="small ghost" id="btnFlAlpha">もとに戻す</button></label>
           <label class="row" id="tEdgeRow" hidden style="gap:6px;font-weight:700;font-size:13px;cursor:pointer"><input type="checkbox" id="mkTEdge"> 文字に白いふちをつける（絵の上でも読みやすくする）</label>
-          <label class="f">文字のフォント<select id="mkFont" aria-label="カードのフォント"></select></label>
+          <div class="f"><span>文字のフォント</span><select id="mkFont" aria-label="カードのフォント" hidden></select><div id="fontGrid" class="font-grid" role="radiogroup" aria-label="カードのフォント"></div></div>
           <div><h3>文字の大きさ</h3><div class="row"><label class="f" style="flex-direction:row;align-items:center;gap:6px">名前<select id="mkNameSize"></select></label><label class="f" style="flex-direction:row;align-items:center;gap:6px">効果・フレーバー<select id="mkTextSize"></select></label></div></div>
           <div><h3>ふりがな</h3><div class="row"><button class="small" id="mkRuby" type="button">ふりがなをつける</button><span class="note">漢字をえらんで押すと ｜漢字《》 になるので、《》の中に読みを入れてね</span></div><div class="ruby-prev" id="rubyPrev" hidden></div></div>
         </div>
@@ -1544,18 +1557,35 @@ const eqsOf = m => (m && m.eqs) || [];
 // a 化身-type equip doubles the equip on its left
 const eqMult = (list, k) => 1 + (list[k + 1] && absOf(card(list[k + 1].c)).some(a => a.k === "double") ? 1 : 0);
 const eqUsed = m => eqsOf(m).reduce((t, e) => t + eqCostOf(card(e.c)), 0);
+// g: どんな感じのフォントか（カード工房のフォント選びで分けて見せる）
+const FONT_GROUPS = { std: "ふつう", cool: "かっこいい", wa: "和風・重厚", cute: "かわいい", game: "ゲーム・遊び" };
 const FONTS = {
-  klee:   { label: "手書き（標準）", css: `"Klee One",var(--hand)` },
-  maru:   { label: "まるゴシック", css: `"Zen Maru Gothic",var(--ui)` },
-  bold:   { label: "極太ゴシック", css: `"Dela Gothic One",var(--ui)` },
-  round:  { label: "まるっと太字", css: `"M PLUS Rounded 1c",var(--ui)` },
-  magic:  { label: "マジック書き", css: `"Yusei Magic",var(--hand)` },
-  pencil: { label: "えんぴつ", css: `"Yomogi",var(--hand)` },
-  pop:    { label: "まるポップ", css: `"Hachi Maru Pop",var(--ui)` },
-  reggae: { label: "ギザギザ", css: `"Reggae One",var(--ui)` },
-  dot:    { label: "ドット", css: `"DotGothic16",var(--ui)` },
-  decol:  { label: "おしゃれ明朝", css: `"Kaisei Decol",var(--hand)` },
-  lubri:  { label: "シャープ（Lubrifont）", css: `"WDXL Lubrifont JP N",var(--ui)` }
+  klee:   { label: "手書き（標準）", g: "std", css: `"Klee One",var(--hand)` },
+  maru:   { label: "まるゴシック", g: "std", css: `"Zen Maru Gothic",var(--ui)` },
+  bold:   { label: "極太ゴシック", g: "cool", css: `"Dela Gothic One",var(--ui)` },
+  heavy:  { label: "ヘビーゴシック", g: "cool", css: `"Zen Kaku Gothic New",var(--ui)` },
+  murecho:{ label: "スタイリッシュ極太", g: "cool", css: `"Murecho",var(--ui)` },
+  lubri:  { label: "シャープ（Lubrifont）", g: "cool", css: `"WDXL Lubrifont JP N",var(--ui)` },
+  rock:   { label: "ロック", g: "cool", css: `"RocknRoll One",var(--ui)` },
+  reggae: { label: "ギザギザ", g: "cool", css: `"Reggae One",var(--ui)` },
+  rampart:{ label: "立体アウトライン", g: "cool", css: `"Rampart One",var(--ui)` },
+  train:  { label: "ネオン線", g: "cool", css: `"Train One",var(--ui)` },
+  serifH: { label: "極太明朝", g: "wa", css: `"Noto Serif JP",var(--hand)` },
+  shipM:  { label: "力強い明朝", g: "wa", css: `"Shippori Mincho B1",var(--hand)` },
+  antique:{ label: "アンティーク", g: "wa", css: `"Shippori Antique B1",var(--hand)` },
+  zenAnt: { label: "古風な明朝", g: "wa", css: `"Zen Antique",var(--hand)` },
+  boku:   { label: "筆（力強い）", g: "wa", css: `"Yuji Boku",var(--hand)` },
+  syuku:  { label: "筆（すっきり）", g: "wa", css: `"Yuji Syuku",var(--hand)` },
+  decol:  { label: "おしゃれ明朝", g: "wa", css: `"Kaisei Decol",var(--hand)` },
+  round:  { label: "まるっと太字", g: "cute", css: `"M PLUS Rounded 1c",var(--ui)` },
+  mochiy: { label: "ポップ極太", g: "cute", css: `"Mochiy Pop One",var(--ui)` },
+  potta:  { label: "筆ポップ", g: "cute", css: `"Potta One",var(--ui)` },
+  daruma: { label: "ぽってり", g: "cute", css: `"Darumadrop One",var(--ui)` },
+  pop:    { label: "まるポップ", g: "cute", css: `"Hachi Maru Pop",var(--ui)` },
+  magic:  { label: "マジック書き", g: "cute", css: `"Yusei Magic",var(--hand)` },
+  pencil: { label: "えんぴつ", g: "cute", css: `"Yomogi",var(--hand)` },
+  dot:    { label: "ドット", g: "game", css: `"DotGothic16",var(--ui)` },
+  stick:  { label: "棒きれ", g: "game", css: `"Stick",var(--ui)` }
 };
 const fontCss = c => FONTS[c && c.font] ? FONTS[c.font].css : "";
 // text size per card (name / effect+flavor)
@@ -2604,7 +2634,15 @@ setMkDeck("normal");
 $("#mkCost").addEventListener("change", syncCost); $("#mkAtk").addEventListener("input", syncCost);
 syncCost();
 $("#mkFont").innerHTML = Object.entries(FONTS).map(([k, v]) => `<option value="${k}" style='font-family:${v.css}'>${v.label}</option>`).join("");
-function syncFont(){ const k = $("#mkFont").value; $("#editCard").style.setProperty("--cf", FONTS[k] ? FONTS[k].css : ""); $("#mkFont").style.fontFamily = FONTS[k] ? FONTS[k].css : ""; }
+function syncFont(){ const k = $("#mkFont").value; $("#editCard").style.setProperty("--cf", FONTS[k] ? FONTS[k].css : ""); $("#mkFont").style.fontFamily = FONTS[k] ? FONTS[k].css : ""; renderFontGrid(); }
+// フォント選び: 見本の文字（カード名）をそれぞれのフォントで並べる
+function renderFontGrid(){
+  const box = $("#fontGrid"); if (!box) return;
+  const cur = $("#mkFont").value, sample = esc(($("#mkName") && $("#mkName").value.trim()) || "ドラゴン召喚！");
+  box.innerHTML = Object.entries(FONT_GROUPS).map(([g, gl]) => { const L = Object.entries(FONTS).filter(([, v]) => v.g === g); return L.length ? `<div class="fg-h">${gl}</div><div class="fg-row">${L.map(([k, v]) => `<button type="button" class="fg-b" role="radio" aria-checked="${k === cur}" data-font="${k}"><span class="fg-s" style='font-family:${v.css}'>${sample}</span><small>${v.label}</small></button>`).join("")}</div>` : ""; }).join("");
+}
+$("#fontGrid").addEventListener("click", e => { const b = e.target.closest("[data-font]"); if (!b) return; $("#mkFont").value = b.dataset.font; syncFont(); });
+{ let fT = null; $("#mkName").addEventListener("input", () => { clearTimeout(fT); fT = setTimeout(renderFontGrid, 250); }); }
 $("#mkFont").addEventListener("change", syncFont);
 $("#mkNameSize").innerHTML = $("#mkTextSize").innerHTML = Object.entries(SIZES_T).map(([k, v]) => `<option value="${k}">${v.label}</option>`).join("");
 $("#mkNameSize").value = $("#mkTextSize").value = "m";
