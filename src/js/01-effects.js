@@ -123,6 +123,7 @@ const KINDS = {
   reborn:     { label: "墓地から場に出す", target: "grave", text: () => `墓地のモンスター1体を自分の場に出す` },
   cancel:     { label: "発動・召喚を無効（打ち消し）", chain: true, text: () => `魔法・罠の発動かモンスターの召喚を無効にする（打ち消し）` },
   negate:     { label: "攻撃を無効にする（罠）", trap: true, text: () => `相手の攻撃を無効にする` },
+  atkDownAtk: { label: "攻撃してきたモンスターのATKダウン", n: true, trap: true, text: n => `攻撃してきたモンスターのATK−${n}` },
   killAtk:    { label: "攻撃モンスターを破壊（罠）", trap: true, text: () => `攻撃してきたモンスターを破壊` },
   manaNow:    { label: "マナを回復（このターン）", n: true, text: n => `マナを${n}回復する` },
   manaMax:    { label: "最大マナを増やす", n: true, text: n => `最大マナを${n}増やす` },
@@ -330,7 +331,12 @@ const payDiscOf = c => c && c.payDisc > 0 ? Math.round(+c.payDisc) : 0;
 const payDiscAll = c => !!(c && +c.payDisc === -1);
 const payMaxOf = c => c && c.payMax > 0 ? Math.round(+c.payMax) : 0;
 function extraCostText(c){ const L = [payLpOf(c) ? `LPを${payLpOf(c)}払う` : "", payDiscAll(c) ? "手札をすべて捨てる" : payDiscOf(c) ? `手札${c.payDiscTag ? `のタグ「${c.payDiscTag}」のカード` : ""}を${payDiscOf(c)}枚捨てる` : "", payMaxOf(c) ? `最大マナを${payMaxOf(c)}減らす` : ""].filter(Boolean); return L.length ? "【コスト】" + L.join("、") : ""; }
-function fxText(c){ return (c && c.token ? "【トークン】" : "") + (c && c.ex ? "【EX】" : "") + [c && c.noUse && (cardType(c) === "magic" || cardType(c) === "trap") ? "このカードは発動できない" : "", isPersist(c) ? "【永続】使ったあとも場に残る" : "", isField(c) ? "【フィールド】お互いに1枚だけ場に置ける（新しいフィールドが出ると、前のフィールドは墓地へ）。効果はお互いに効く" : "", extraCostText(c), tribText(c), atkCondText(c), ssText(c), fxText0(c)].filter(Boolean).join("。"); }
+// 発動タイミング（罠・速攻魔法）: 決めておくと、そのときにしか発動できない
+const WHEN_LABEL = { attacked: "相手が攻撃してきたとき", oppUse: "相手がカードを発動したとき", oppSummon: "相手がモンスターを召喚・特殊召喚したとき", oppEnd: "相手のターンの終わり" };
+const WHEN_ORDER = ["attacked", "oppSummon", "oppUse", "oppEnd"];
+function whenOf(c){ const t = c && cardType(c); return c && (t === "trap" || t === "magic") && !c.field && WHEN_LABEL[c.when] ? c.when : ""; }
+function whenText(c){ const w = whenOf(c); return w ? `【${WHEN_LABEL[w]}に発動できる】` : ""; }
+function fxText(c){ return (c && c.token ? "【トークン】" : "") + (c && c.ex ? "【EX】" : "") + (c && !c.noUse ? whenText(c) : "") + [c && c.noUse && (cardType(c) === "magic" || cardType(c) === "trap") ? "このカードは発動できない" : "", isPersist(c) ? "【永続】使ったあとも場に残る" : "", isField(c) ? "【フィールド】お互いに1枚だけ場に置ける（新しいフィールドが出ると、前のフィールドは墓地へ）。効果はお互いに効く" : "", extraCostText(c), tribText(c), atkCondText(c), ssText(c), fxText0(c)].filter(Boolean).join("。"); }
 /* ================= effect blocks: いつ / もし / なにを / ちがったら =================
    c.blocks = [{ trig, conds: [{k, op, n | name, where, match | text}], join: "and"|"or", then: [{kind, n, to}], else: [...] }]
    Older cards (c.fx + c.combo) are read as blocks too, so everything below runs on blocks. */

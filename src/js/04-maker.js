@@ -253,6 +253,7 @@ function setMkType(t){
   $("#fieldRow").hidden = t !== "magic" || $("#mkFrame").value === "spire";
   $("#exhaustRow").hidden = (t !== "magic" && t !== "trap") || pers;
   $("#noUseRow").hidden = t !== "magic" && t !== "trap";
+  syncWhenRow();
   $("#mkTab").textContent = mkTabLabel();
   if (typeof syncCost === "function" && $("#mkCost").options.length) syncCost();
   $("#eqRow").hidden = $("#eqNote").hidden = t !== "equip";
@@ -271,7 +272,7 @@ function setMkType(t){
   if (typeof syncTypePressed === "function") syncTypePressed();
   if (typeof bkSync === "function") bkSync();
   const curK = $("#fxKind").value, curCb = $("#cbKind").value;
-  const kinds = Object.entries(KINDS).filter(([, v]) => (!v.trap || t === "trap") && (!v.mon || t === "monster" || t === "equip") && (!v.chain || t === "trap" || t === "magic"));
+  const kinds = Object.entries(KINDS).filter(([, v]) => (!v.trap || mkTrapOk(t)) && (!v.mon || t === "monster" || t === "equip") && (!v.chain || t === "trap" || t === "magic"));
   const opts = kinds.map(([k, v]) => `<option value="${k}">${v.label}</option>`).join("");
   $("#fxKind").innerHTML = opts; $("#cbKind").innerHTML = opts;
   if (typeof refreshMoreFx === "function") refreshMoreFx();
@@ -289,7 +290,7 @@ function potionModeUI(){
   $("#mkKindNote").textContent = rel ? "いつでも効果が続く。選択の祭壇を使うデッキで、モンスターを倒すと10%で手に入る" : "選択の祭壇を使うデッキで、モンスターを倒すと40%で手に入る";
   $("#editCard").classList.toggle("potion", pot);
   $("#mkKindSub").hidden = !pot; $("#mkTypeWrap").hidden = pot;
-  ["#quickRow", "#persistRow", "#exhaustRow", "#noUseRow", "#payRow"].forEach(q => { if (pot) $(q).hidden = true; });
+  ["#quickRow", "#persistRow", "#exhaustRow", "#noUseRow", "#payRow", "#whenRow"].forEach(q => { if (pot) $(q).hidden = true; });
   if (!pot) $("#payRow").hidden = false;
   const fr = $("#mkFrame").closest("label"); if (fr) fr.hidden = pot;
   const fl = $("#mkFrameless").closest("label"); if (fl) fl.hidden = pot;
@@ -356,8 +357,8 @@ function readCombo(){
 const KIND_GROUPS = [
   { g: "none",    label: "なし", v: [["none", "なし"]] },
   { g: "dmg",     label: "ダメージを与える", v: [["dmg", "ダメージ"]] },
-  { g: "destroy", label: "モンスターを倒す", v: [["destroy", "相手のモンスターを破壊"], ["killAtk", "攻撃してきたモンスターを破壊（罠）"], ["blast", "自爆して、装備の枚数×○以下のATKを全部破壊"]] },
-  { g: "debuff",  label: "相手を弱らせる（デバフ）", v: [["vuln", "弱体（受けるダメージ1.5倍）"], ["weak", "脱力（与えるダメージが減る）"], ["atkDown", "ATKを下げる"], ["charm", "魅了（攻撃できなくする）"], ["oppStrDown", "筋力を失わせる（相手の次のターンの終わりまで）"], ["discard", "手札を捨てさせる（ランダム）"], ["manaDrain", "マナを減らす"], ["oppNoAtk", "攻撃できなくする（相手の次のターンまで）"], ["oppNoUse", "魔法・罠を発動できなくする（相手の次のターンまで）"]] },
+  { g: "destroy", label: "モンスターを倒す", v: [["destroy", "相手のモンスターを破壊"], ["killAtk", "攻撃してきたモンスターを破壊（罠・速攻魔法）"], ["blast", "自爆して、装備の枚数×○以下のATKを全部破壊"]] },
+  { g: "debuff",  label: "相手を弱らせる（デバフ）", v: [["vuln", "弱体（受けるダメージ1.5倍）"], ["weak", "脱力（与えるダメージが減る）"], ["atkDown", "ATKを下げる"], ["atkDownAtk", "攻撃してきたモンスターのATKを下げる（罠・速攻魔法）"], ["charm", "魅了（攻撃できなくする）"], ["oppStrDown", "筋力を失わせる（相手の次のターンの終わりまで）"], ["discard", "手札を捨てさせる（ランダム）"], ["manaDrain", "マナを減らす"], ["oppNoAtk", "攻撃できなくする（相手の次のターンまで）"], ["oppNoUse", "魔法・罠を発動できなくする（相手の次のターンまで）"]] },
   { g: "buff",    label: "自分を強くする（バフ）", v: [["str", "筋力を得る（与えるダメージ+○）"], ["strTemp", "筋力を得る（このターンだけ）"], ["selfAtk", "このモンスターのATKを上げる"], ["atkMul", "このモンスターのATKを○倍"], ["atkUp", "自分のモンスターのATKを上げる（えらぶ・全体・ランダム）"], ["vulnBonus", "弱体の相手へのダメージ+○%（ずっと）"]] },
   { g: "guard",   label: "守る・回復する", v: [["block", "ブロックを得る"], ["heal", "LPを回復する"], ["plate", "プレート（ターンのおわりにブロック）"], ["barricade", "ブロックが消えなくなる（ずっと）"], ["firstBlock2", "毎ターン最初のブロックが2倍（ずっと）"], ["rageNow", "このターン、アタックを使うたびブロック"], ["thornsNow", "攻撃されたら反撃（次の自分のターンまで）"]] },
   { g: "draw",    label: "カードを引く", v: [["draw", "○枚引く"], ["drawUntil", "アタック以外を引くまで引く"], ["oppDraw", "相手に○枚引かせる"]] },
@@ -371,7 +372,7 @@ const KIND_GROUPS = [
   { g: "rewrite", label: "カードを書きかえる（効果の追加・上書き・名前）", v: [["modAdd", "効果を追加する"], ["modRep", "効果を上書きする"], ["modClear", "効果をなくす"], ["modName", "名前を変える"]] },
   { g: "transform", label: "カードを変化させる", v: [["transformHand", "手札から○枚えらんで"], ["transformRand", "手札からランダムに○枚"], ["transformAtk", "手札のアタックすべて"], ["transformAll", "手札すべて"], ["transformSelf", "このカード自身"]] },
   { g: "give",    label: "相手にカードを送りこむ", v: [["oppDraw", "相手に○枚引かせる"], ["oppGenHand", "名前を指定したカードを相手の手札に"], ["oppGenDeck", "名前を指定したカードを相手の山札に混ぜる"], ["oppSummon", "名前を指定したモンスターを相手の場に出す"], ["oppSetNamed", "名前を指定した魔法・罠を相手の場にセット"]] },
-  { g: "negate",  label: "打ち消す・無効にする", v: [["cancel", "魔法・罠の発動かモンスターの召喚を打ち消す"], ["negate", "相手の攻撃を無効にする（罠）"]] },
+  { g: "negate",  label: "打ち消す・無効にする", v: [["cancel", "魔法・罠の発動かモンスターの召喚を打ち消す"], ["negate", "相手の攻撃を無効にする（罠・速攻魔法）"]] },
   { g: "equip",   label: "装備を動かす", v: [["moveEquips", "別のモンスターに付けかえる"], ["equipsToHand", "ほかの装備を手札に戻す"]] },
   { g: "minus",   label: "自分にデメリット", v: [["loseLp", "LPを失う（ブロックでは防げない）"], ["thisNoAtk", "このモンスターは攻撃できない（このターン）"], ["selfNoAtk", "自分のモンスターは攻撃できない（このターン）"], ["destroyOwn", "自分のモンスター1体を破壊"], ["destroyThis", "このモンスターを破壊"], ["destroyOwnAll", "自分のモンスターをすべて破壊"], ["oppStr", "相手が筋力を得る"], ["noDraw", "このターンもう引けない"]] },
   { g: "win",     label: "ゲームに勝つ", v: [["win", "勝利する"]] }
@@ -439,7 +440,12 @@ function syncFxForm(){
   syncEqLine();
   if (typeof updateSecs === "function") updateSecs();
 }
-$("#mkQuick").addEventListener("change", () => { $("#mkTab").textContent = mkTabLabel(); });
+$("#mkQuick").addEventListener("change", () => { $("#mkTab").textContent = mkTabLabel(); setMkType(MK.type); });
+// 発動タイミング: 罠と速攻魔法だけ（スパイア風・フィールドはなし）
+function mkTrapOk(t){ return t === "trap" || (t === "magic" && $("#mkQuick").checked && !$("#mkField").checked && $("#mkFrame").value !== "spire"); }
+function mkWhenVal(){ const t = MK.type, on = MK.kind !== "potion" && MK.kind !== "relic" && $("#mkFrame").value !== "spire" && (t === "trap" || (t === "magic" && $("#mkQuick").checked && !$("#mkField").checked)); return on && WHEN_LABEL[$("#mkWhen").value] ? $("#mkWhen").value : null; }
+function syncWhenRow(){ const t = MK.type, on = MK.kind !== "potion" && MK.kind !== "relic" && $("#mkFrame").value !== "spire" && (t === "trap" || (t === "magic" && $("#mkQuick").checked && !$("#mkField").checked)); $("#whenRow").hidden = !on; }
+$("#mkWhen").addEventListener("change", () => updateBkText());
 function mkTabLabel(){ const t = MK.type, pers = (t === "magic" || t === "trap") && $("#mkPersist").checked; if ($("#mkFrame").value === "spire") return SPIRE_LABEL[mkSk()]; return t === "magic" && $("#mkField").checked ? "フィールド魔法" : t === "magic" && $("#mkQuick").checked ? "速攻魔法" : (pers ? "永続" : "") + TYPE_LABEL[t]; }
 $("#mkPersist").addEventListener("change", () => { if ($("#mkPersist").checked) $("#mkField").checked = false; setMkType(MK.type); });
 $("#mkField").addEventListener("change", () => { if ($("#mkField").checked){ $("#mkPersist").checked = false; $("#mkQuick").checked = false; } setMkType(MK.type); });
@@ -504,7 +510,7 @@ function loadFxForm(c){
 /* ---- the block builder in the card maker ---- */
 MK.blocks = [];
 // 効果の作り方: かんたん (よく使う効果だけ) / こだわり (ぜんぶ). Things already set on a card always stay visible.
-function isEasyKind(k){ return ["dmg", "destroy", "killAtk", "vuln", "charm", "atkDown", "selfAtk", "atkUp", "atkAll", "heal", "block", "draw", "discard", "revive", "reborn", "cancel", "negate", "manaNow", "manaMax"].includes(k); }
+function isEasyKind(k){ return ["dmg", "destroy", "killAtk", "atkDownAtk", "vuln", "charm", "atkDown", "selfAtk", "atkUp", "atkAll", "heal", "block", "draw", "discard", "revive", "reborn", "cancel", "negate", "manaNow", "manaMax"].includes(k); }
 MK.easy = ls.get("cb_fxmode") !== "pro";
 function easyKinds(){ const ks = mkKinds(), e = ks.filter(isEasyKind); return e.length ? e : ks; }
 function syncProOn(){
@@ -527,7 +533,7 @@ $("#mkEx").addEventListener("change", () => updateBkText());
 function setFxMode(m){ MK.easy = m !== "pro"; ls.set("cb_fxmode", MK.easy ? "easy" : "pro"); applyFxMode(); }
 function mkKinds(){
   const t = MK.type;
-  return Object.entries(KINDS).filter(([k, v]) => k !== "none" && (!v.trap || t === "trap") && (!v.mon || t === "monster" || t === "equip") && (!v.chain || t === "trap" || t === "magic")).map(([k]) => k);
+  return Object.entries(KINDS).filter(([k, v]) => k !== "none" && (!v.trap || mkTrapOk(t)) && (!v.mon || t === "monster" || t === "equip") && (!v.chain || t === "trap" || t === "magic")).map(([k]) => k);
 }
 function mkTrigs(){ if (MK.kind === "relic") return RELIC_TRIGS; if (MK.type === "magic" && $("#mkField").checked) return FIELD_TRIGS; const t = MK.type, pers = (t === "magic" || t === "trap") && $("#mkPersist").checked; return t === "monster" ? MON_TRIGS : t === "equip" ? EQ_TRIGS : pers ? PERSIST_TRIGS : ["use"]; }
 const mkTrigLabel = k => { if (MK.kind === "relic") return RELIC_TRIG_LABEL[k]; if (MK.type === "magic" && $("#mkField").checked) return FIELD_TRIG_LABEL[k]; const t = MK.type, pers = (t === "magic" || t === "trap") && $("#mkPersist").checked; return pers ? PERSIST_TRIG_LABEL[k] : trigLabel(t, k); };
@@ -539,7 +545,7 @@ function kindGroups(avail, cur){
   return gs;
 }
 const defN = k => k === "atkMul" ? 2 : smallN(k) ? 1 : 100;
-function mkPreviewCard(){ return { field: MK.type === "magic" && $("#mkField").checked, ex: $("#mkEx").checked, noUse: (MK.type === "magic" || MK.type === "trap") && $("#mkNoUse").checked, tags: MK.kind === "card" || !MK.kind ? parseTags($("#mkTags").value) : [], tribTag: MK.type === "monster" ? $("#mkTribTag").value.trim() || null : null, ...(MK.type === "monster" ? mkVarFields() : {}), ...(MK.kind === "relic" ? { relicView: true } : {}), type: MK.type, frame: MK.kind === "potion" || MK.kind === "relic" ? "spire" : $("#mkFrame").value, persist: (MK.type === "magic" || MK.type === "trap") && $("#mkPersist").checked && !$("#mkField").checked, costX: $("#mkCost").value === "X", ...mkPays(), blocks: readBlocks(), ss: readSS(), eqN: Math.round(+$("#mkEq").value || 0), abs: readAbs() }; }
+function mkPreviewCard(){ return { when: mkWhenVal(), field: MK.type === "magic" && $("#mkField").checked, ex: $("#mkEx").checked, noUse: (MK.type === "magic" || MK.type === "trap") && $("#mkNoUse").checked, tags: MK.kind === "card" || !MK.kind ? parseTags($("#mkTags").value) : [], tribTag: MK.type === "monster" ? $("#mkTribTag").value.trim() || null : null, ...(MK.type === "monster" ? mkVarFields() : {}), ...(MK.kind === "relic" ? { relicView: true } : {}), type: MK.type, frame: MK.kind === "potion" || MK.kind === "relic" ? "spire" : $("#mkFrame").value, persist: (MK.type === "magic" || MK.type === "trap") && $("#mkPersist").checked && !$("#mkField").checked, costX: $("#mkCost").value === "X", ...mkPays(), blocks: readBlocks(), ss: readSS(), eqN: Math.round(+$("#mkEq").value || 0), abs: readAbs() }; }
 function readBlocks(){
   const bs = (MK.blocks || []).map(b => ({ trig: b.trig, ...(b.delay > 0 ? { delay: b.delay } : {}), ...(b.roll === "die" || b.roll === "coin" ? { roll: b.roll, ...(b.roll === "die" && b.faces && b.faces !== 6 ? { faces: b.faces } : {}) } : {}), join: b.join === "or" ? "or" : "and", conds: (b.conds || []).map(x => ({ ...x })), then: (b.then || []).map(cleanEff).filter(Boolean), else: (b.conds || []).length ? (b.else || []).map(cleanEff).filter(Boolean) : [] })).filter(b => b.then.length || b.else.length);
   return bs.length ? bs : null;
@@ -714,7 +720,7 @@ initBlocksUI();
 $("#mkFxMode").addEventListener("click", e => { const b = e.target.closest("button[data-m]"); if (b) setFxMode(b.dataset.m); });
 applyFxMode();
 function resetMaker(){
-  S.editId = null; setFrameless(false); setFlAlpha(FL_ALPHA_DEF); setTEdge(false); $("#mkName").value = ""; $("#mkEff").value = ""; $("#mkFlv").value = ""; $("#mkNameSize").value = $("#mkTextSize").value = "m"; syncSizes(); $("#mkAtk").value = 300; $("#mkEq").value = 200; $("#mkEqAb").value = "none"; $("#mkEqCost").value = "1"; $("#mkEqCap").value = ""; $("#mkFrame").value = ""; syncFrame(); $("#mkFont").value = "klee"; syncFont(); $("#mkQuick").checked = false; $("#mkExhaust").checked = false; $("#mkNoUse").checked = false; $("#mkToken").checked = false; $("#mkEx").checked = false; $("#mkNeow").checked = false; $("#mkPayLp").value = "0"; $("#mkPayDisc").value = "0"; $("#mkPayDiscTag").value = ""; $("#mkTags").value = ""; $("#mkTribTag").value = ""; $("#mkPayDiscAll").checked = false; $("#mkPayDisc").disabled = false; $("#mkPayMax").value = "0"; $("#mkPersist").checked = false; $("#mkField").checked = false; MK.sk = null; $("#mkRarity").value = "common"; $("#mkCost").value = "1"; setMkDeck("normal"); $("#mkLimit").value = "3"; clearCanvas(); undoStack = [];
+  S.editId = null; setFrameless(false); setFlAlpha(FL_ALPHA_DEF); setTEdge(false); $("#mkName").value = ""; $("#mkEff").value = ""; $("#mkFlv").value = ""; $("#mkNameSize").value = $("#mkTextSize").value = "m"; syncSizes(); $("#mkAtk").value = 300; $("#mkEq").value = 200; $("#mkEqAb").value = "none"; $("#mkEqCost").value = "1"; $("#mkEqCap").value = ""; $("#mkFrame").value = ""; syncFrame(); $("#mkFont").value = "klee"; syncFont(); $("#mkQuick").checked = false; $("#mkWhen").value = ""; $("#mkExhaust").checked = false; $("#mkNoUse").checked = false; $("#mkToken").checked = false; $("#mkEx").checked = false; $("#mkNeow").checked = false; $("#mkPayLp").value = "0"; $("#mkPayDisc").value = "0"; $("#mkPayDiscTag").value = ""; $("#mkTags").value = ""; $("#mkTribTag").value = ""; $("#mkPayDiscAll").checked = false; $("#mkPayDisc").disabled = false; $("#mkPayMax").value = "0"; $("#mkPersist").checked = false; $("#mkField").checked = false; MK.sk = null; $("#mkRarity").value = "common"; $("#mkCost").value = "1"; setMkDeck("normal"); $("#mkLimit").value = "3"; clearCanvas(); undoStack = [];
   setMkType("monster"); loadFxForm(null); loadAbs([]); loadSS(null); mkLoadVars(null);
   $("#mkTitle").textContent = "カードを描く"; $("#btnNew").hidden = true; $("#btnSave").textContent = "カードを保存"; potionModeUI();
 }
@@ -823,7 +829,7 @@ $("#btnSave").addEventListener("click", async () => {
   const id = S.editId || uid("c");
   const prev = S.cards.get(id) || userPotion(id) || userRelic(id) || builtinPotionCard(id);
   let eqN = Math.round(+$("#mkEq").value || 0); $("#mkEq").value = eqN;
-  const doc = { type: MK.type, name, atk: MK.type === "monster" ? atk : 0, atkInf, eqN: MK.type === "equip" ? eqN : 0, eqAb: "none", eqCost: MK.type === "equip" ? Math.max(0, Math.round(+$("#mkEqCost").value || 0)) : null, eqCap: MK.type === "monster" && $("#mkFrame").value === "socra" && $("#mkEqCap").value.trim() !== "" ? Math.max(0, Math.round(+$("#mkEqCap").value || 0)) : null, abs: MK.type === "monster" || MK.type === "equip" ? readAbs() : [], frame: $("#mkFrame").value || null, ss: readSS(), tags: parseTags($("#mkTags").value), tribTag: MK.type === "monster" ? $("#mkTribTag").value.trim() || null : null, ...(MK.type === "monster" ? mkVarFields() : { trib: null, atkConds: null, atkJoin: "and", tribCost: null, atkCondsCost: null, atkJoinCost: null }), effect: $("#mkEff").value.trim(), flavor: $("#mkFlv").value.trim(), nameSize: $("#mkNameSize").value, textSize: $("#mkTextSize").value, fx: null, combo: null, blocks: readBlocks(), font: $("#mkFont").value, quick: MK.type === "magic" && $("#mkFrame").value !== "spire" && $("#mkQuick").checked, persist: (MK.type === "magic" || MK.type === "trap") && $("#mkPersist").checked && !$("#mkField").checked, field: MK.type === "magic" && $("#mkField").checked || null, sk: mkSk(), rarity: $("#mkFrame").value === "spire" ? $("#mkRarity").value : null, exhaust: (MK.type === "magic" || MK.type === "trap") && $("#mkExhaust").checked, noUse: (MK.type === "magic" || MK.type === "trap") && $("#mkNoUse").checked || null, token: $("#mkToken").checked || null, ex: $("#mkEx").checked || null, ...mkPays(true), cost: MK.deck === "normal" ? null : $("#mkCost").value === "X" ? 0 : +$("#mkCost").value, costX: MK.deck !== "normal" && $("#mkCost").value === "X", deckMode: MK.deck, limit: +$("#mkLimit").value,
+  const doc = { type: MK.type, name, atk: MK.type === "monster" ? atk : 0, atkInf, eqN: MK.type === "equip" ? eqN : 0, eqAb: "none", eqCost: MK.type === "equip" ? Math.max(0, Math.round(+$("#mkEqCost").value || 0)) : null, eqCap: MK.type === "monster" && $("#mkFrame").value === "socra" && $("#mkEqCap").value.trim() !== "" ? Math.max(0, Math.round(+$("#mkEqCap").value || 0)) : null, abs: MK.type === "monster" || MK.type === "equip" ? readAbs() : [], frame: $("#mkFrame").value || null, ss: readSS(), tags: parseTags($("#mkTags").value), tribTag: MK.type === "monster" ? $("#mkTribTag").value.trim() || null : null, ...(MK.type === "monster" ? mkVarFields() : { trib: null, atkConds: null, atkJoin: "and", tribCost: null, atkCondsCost: null, atkJoinCost: null }), effect: $("#mkEff").value.trim(), flavor: $("#mkFlv").value.trim(), nameSize: $("#mkNameSize").value, textSize: $("#mkTextSize").value, fx: null, combo: null, blocks: readBlocks(), font: $("#mkFont").value, quick: MK.type === "magic" && $("#mkFrame").value !== "spire" && $("#mkQuick").checked, persist: (MK.type === "magic" || MK.type === "trap") && $("#mkPersist").checked && !$("#mkField").checked, field: MK.type === "magic" && $("#mkField").checked || null, sk: mkSk(), rarity: $("#mkFrame").value === "spire" ? $("#mkRarity").value : null, exhaust: (MK.type === "magic" || MK.type === "trap") && $("#mkExhaust").checked, noUse: (MK.type === "magic" || MK.type === "trap") && $("#mkNoUse").checked || null, when: mkWhenVal(), token: $("#mkToken").checked || null, ex: $("#mkEx").checked || null, ...mkPays(true), cost: MK.deck === "normal" ? null : $("#mkCost").value === "X" ? 0 : +$("#mkCost").value, costX: MK.deck !== "normal" && $("#mkCost").value === "X", deckMode: MK.deck, limit: +$("#mkLimit").value,
     img: prev && prev.img && !MK.artDirty ? prev.img : encodeArt(out, MK.kind === "potion" || MK.kind === "relic"), frameless: MK.frameless, textEdge: MK.frameless && $("#mkTEdge").checked || null, flAlpha: MK.frameless && MK.flAlpha != null && MK.flAlpha !== FL_ALPHA_DEF ? MK.flAlpha : null, author: S.name, ownerId: prev?.ownerId || S.uid || null, updatedAt: Date.now() };
   if (prev && prev.builtinPotion && !MK.artDirty && doc.img === potionArt(prev.potKey)) delete doc.img;
   if (MK.kind === "potion" || MK.kind === "relic") Object.assign(doc, { type: MK.kind, neow: MK.kind === "relic" && $("#mkNeow").checked || null, atk: 0, atkInf: false, eqN: 0, eqCost: null, eqCap: null, abs: [], frame: null, ss: null, quick: false, persist: false, sk: null, rarity: null, exhaust: false, payLp: null, payDisc: null, payMax: null, cost: null, costX: false, deckMode: "normal", limit: 0 });
@@ -946,7 +952,7 @@ $("#gallery").addEventListener("click", async e => {
   if (ed){
     const c = S.cards.get(ed.dataset.edit); if (!c || !(isMine(c) || (c.starter && isAdmin()))) return;
     setMkKind("card"); S.editId = c.id; setFrameless(!!c.frameless); setFlAlpha(c.flAlpha ?? FL_ALPHA_DEF); setTEdge(!!c.textEdge); MK.artDirty = false; $("#mkName").value = c.nameRuby || c.name; $("#mkEff").value = c.effect || ""; $("#mkFlv").value = c.flavor || ""; $("#mkNameSize").value = SIZES_T[c.nameSize] ? c.nameSize : "m"; $("#mkTextSize").value = SIZES_T[c.textSize] ? c.textSize : "m"; syncSizes(); $("#mkAtk").value = c.atkInf ? "∞" : (c.atk || 0); $("#mkLimit").value = String(cardLimit(c));
-    mkLoadVars(c); $("#mkQuick").checked = !!c.quick; $("#mkExhaust").checked = !!c.exhaust; $("#mkNoUse").checked = !!c.noUse; $("#mkToken").checked = !!c.token; $("#mkEx").checked = !!c.ex; $("#mkPayLp").value = String(payLpOf(c)); $("#mkPayDisc").value = String(payDiscOf(c)); $("#mkPayDiscTag").value = c.payDiscTag || ""; $("#mkTags").value = tagsOf(c).join(" "); $("#mkTribTag").value = c.tribTag || ""; $("#mkPayDiscAll").checked = payDiscAll(c); $("#mkPayDisc").disabled = payDiscAll(c); $("#mkPayMax").value = String(payMaxOf(c)); $("#mkPersist").checked = !!c.persist; $("#mkField").checked = !!c.field; MK.sk = c.sk || null; $("#mkRarity").value = rarityOf(c); setMkType(cardType(c)); loadFxForm(c); $("#mkFont").value = FONTS[c.font] ? c.font : "klee"; syncFont(); $("#mkCost").value = c.costX ? "X" : hasCost(c) ? String(costOf(c)) : "1"; setMkDeck(deckModeOf(c)); $("#mkEq").value = c.eqN || 0; $("#mkEqAb").value = "none"; $("#mkEqCost").value = String(eqCostOf(c)); $("#mkEqCap").value = hasEqCap(c) ? String(+c.eqCap) : ""; loadAbs(absOf(c)); syncEqLine(); $("#mkFrame").value = c.frame === "socra" || c.frame === "spire" ? c.frame : ""; syncFrame(); loadSS(c);
+    mkLoadVars(c); $("#mkQuick").checked = !!c.quick; $("#mkWhen").value = WHEN_LABEL[c.when] ? c.when : ""; $("#mkExhaust").checked = !!c.exhaust; $("#mkNoUse").checked = !!c.noUse; $("#mkToken").checked = !!c.token; $("#mkEx").checked = !!c.ex; $("#mkPayLp").value = String(payLpOf(c)); $("#mkPayDisc").value = String(payDiscOf(c)); $("#mkPayDiscTag").value = c.payDiscTag || ""; $("#mkTags").value = tagsOf(c).join(" "); $("#mkTribTag").value = c.tribTag || ""; $("#mkPayDiscAll").checked = payDiscAll(c); $("#mkPayDisc").disabled = payDiscAll(c); $("#mkPayMax").value = String(payMaxOf(c)); $("#mkPersist").checked = !!c.persist; $("#mkField").checked = !!c.field; MK.sk = c.sk || null; $("#mkRarity").value = rarityOf(c); setMkType(cardType(c)); loadFxForm(c); $("#mkFont").value = FONTS[c.font] ? c.font : "klee"; syncFont(); $("#mkCost").value = c.costX ? "X" : hasCost(c) ? String(costOf(c)) : "1"; setMkDeck(deckModeOf(c)); $("#mkEq").value = c.eqN || 0; $("#mkEqAb").value = "none"; $("#mkEqCost").value = String(eqCostOf(c)); $("#mkEqCap").value = hasEqCap(c) ? String(+c.eqCap) : ""; loadAbs(absOf(c)); syncEqLine(); $("#mkFrame").value = c.frame === "socra" || c.frame === "spire" ? c.frame : ""; syncFrame(); loadSS(c);
     if (!c.img){ clearCanvas(); undoStack = []; MK.artDirty = false; }
     else { const im = new Image(); im.onload = () => { clearCanvas(); setPhoto(im); setMode("draw"); composite(); undoStack = []; MK.artDirty = false; }; im.src = c.img; }
     $("#mkTitle").textContent = "カードを編集中"; $("#btnNew").hidden = false; $("#btnSave").textContent = "変更を保存";

@@ -348,8 +348,18 @@ function charmActive(st, m){
   return ["a", "b"].some(s => P(st, s).mz.some(x => x && x.u === ch.mu));
 }
 // 発動できない: the card itself (このカードは発動できない) or a lock put on the player (相手は魔法・罠を発動できない)
-function useBlockedWhy(st, s, c){
+// is window `win` the right moment for timing w?
+function whenWinOk(st, w, win){
+  const preSummon = win === "summon" || (win === "chain" && st.chain && st.chain.length === 1 && st.chain[0].summon);
+  if (w === "attacked") return win === "attack" || win === "chainAttack";
+  if (w === "oppSummon") return win === "summoned";
+  if (w === "oppUse") return (win === "chain" || win === "chainAttack") && !preSummon;
+  if (w === "oppEnd") return win === "end";
+  return true;
+}
+function useBlockedWhy(st, s, c, win){
   if (c && c.noUse && (cardType(c) === "magic" || cardType(c) === "trap")) return "このカードは発動できません";
+  { const w = whenOf(c); if (w && st && !whenWinOk(st, w, win !== undefined ? win : chainWindow(st))) return `このカードは「${WHEN_LABEL[w]}」にしか発動できません`; }
   if (st && s && (P(st, s).noUseUntil || 0) >= st.turnNo) return "いまは魔法・罠を発動できません（相手の効果）";
   return "";
 }
@@ -632,6 +642,7 @@ function applyEffect(st, s, c, target, ctx = {}, fx = normFx(c)){
     case "manaMax": if (me.mana){ const add = Math.min(n, MAX_MANA - me.mana.max); me.mana.max += add; me.mana.cur += n; if (me.spire) me.maxAdj = (me.maxAdj || 0) + add; log(st, s, `${src}で最大マナ+${add}、マナ+${n}（${me.mana.cur}/${me.mana.max}）`); } else log(st, s, `${src}：マナを使わないデッキなので効果なし`); break;
     case "manaDrain": if (op.mana){ const k = Math.min(n, op.mana.cur); op.mana.cur -= k; log(st, s, `${src}で${op.name}のマナを${k}減らした`); } else log(st, s, `${src}：相手はマナを使わないデッキなので効果なし`); break;
     case "negate": if (ctx.attack){ st.pending.negated = true; log(st, s, `${src}で攻撃を無効にした`); } else log(st, s, `${src}：無効にする攻撃がない`); break;
+    case "atkDownAtk": { const am = ctx.attack && P(st, ctx.attack.by).mz[ctx.attack.from]; if (am){ am.mod = (am.mod || 0) - n; log(st, s, `${src}で攻撃してきた「${card(am.c).name}」のATK−${n}`); } else log(st, s, `${src}：攻撃してきたモンスターがいない`); break; }
     case "killAtk": if (ctx.attack){ destroyMonster(st, ctx.attack.by, ctx.attack.from, src); } else log(st, s, `${src}：攻撃してきたモンスターがいない`); break;
     case "win": {
       let ok = true;
@@ -811,6 +822,7 @@ function summon(st, s, hi, zi, disc, trib){
   log(st, s, label); ev(st, { type: "summon", s, z });
   trigger(st, s, card(id), "summon", { zone: z, mon: { s, i: z, u: p.mz[z].u } });
   persistFire(st, s, "mySummon", {});
+  summonedWindow(st, s, z, false);
   return true;
 }
 // why special summon of hand[hi] isn't possible right now ("" = it is)
@@ -870,6 +882,7 @@ function specialSummon(st, s, hi, picks = []){
   log(st, s, `${paid ? paid + "、" : ""}「${c.name}」（ATK ${fmtN(baseAtk(c))}）を特殊召喚！`);
   trigger(st, s, c, "ssummon", { zone: z, mon: { s, i: z, u: p.mz[z].u } });
   persistFire(st, s, "mySummon", {});
+  summonedWindow(st, s, z, true);
   return true;
 }
 function setCard(st, s, hi, zi){
@@ -994,13 +1007,20 @@ function afterChain(st){
   const pd = st.pending; if (!pd || st.winner) return;
   if (pd.type === "attack") resolveAttack(st);
   else if (pd.type === "end") finishEndTurn(st);
+  else if (pd.type === "summoned") st.pending = null;
+}
+// after a summon succeeds, the opponent may answer with cards whose timing is 「相手がモンスターを召喚・特殊召喚したとき」
+function summonedWindow(st, s, z, special){
+  if (st.pending || st.winner || !responseOptions(st, O(s), "summoned").length) return;
+  st.pending = { type: "summoned", by: s, z, special: !!special, wait: true };
 }
 const isQuick = c => cardType(c) === "magic" && !!c.quick;
 // can this card's effect do anything in this window? (attack-only traps can't be used at end of turn; targets must exist)
 function usableIn(st, s, c, win){
-  if (useBlockedWhy(st, s, c)) return false;
+  if (useBlockedWhy(st, s, c, win)) return false;
   const fx = normFx(c);
-  if (fx && (fx.kind === "negate" || fx.kind === "killAtk") && win !== "attack" && win !== "chainAttack") return false;
+  if (win === "summoned" && whenOf(c) !== "oppSummon") return false;
+  if (fx && (fx.kind === "negate" || fx.kind === "killAtk" || fx.kind === "atkDownAtk") && win !== "attack" && win !== "chainAttack") return false;
   if (fx && fx.kind === "cancel" && win !== "chain" && win !== "chainAttack" && win !== "summon") return false;
   if (win === "summon" && (!fx || fx.kind !== "cancel")) return false;
   const opts = fx ? targetOptions(st, s, fx.kind, { tagName: fx.into || "" }) : null;

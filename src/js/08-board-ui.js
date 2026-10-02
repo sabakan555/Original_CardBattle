@@ -177,7 +177,7 @@ function renderBoard(){
       if (rm[op] && !rm[me]) hint += `<br><b>${esc(po.name)} が再戦をもうしこんでいます！</b>`;
     }
   } else if (st.pending){
-    hint = st.pending.type === "chain" ? (st.pending.by === me ? "相手がチェーンするか考えています…" : "チェーンするか選んでね") : st.pending.by === me ? (st.pending.type === "end" ? "ターン終了前に、相手が速攻魔法・罠を使うか考えています…" : "相手が罠・速攻魔法を使うか考えています…") : (st.pending.type === "end" ? "相手のターン終了前です" : "攻撃されています！");
+    hint = st.pending.type === "chain" ? (st.pending.by === me ? "相手がチェーンするか考えています…" : "チェーンするか選んでね") : st.pending.by === me ? (st.pending.type === "end" ? "ターン終了前に、相手が速攻魔法・罠を使うか考えています…" : "相手が罠・速攻魔法を使うか考えています…") : (st.pending.type === "end" ? "相手のターン終了前です" : st.pending.type === "summoned" ? "相手がモンスターを出しました" : "攻撃されています！");
   } else if (!myTurn){
     hint = `${esc(po.name)} のターンです`;
   } else if (atkFrom != null){
@@ -485,6 +485,7 @@ function renderOverlay(){
       const tgt = pd.to === "direct" ? "あなたに直接攻撃" : `「${card(P(st, me).mz[pd.to]?.c).name}」に攻撃`;
       head = "攻撃されています！"; msg = `${A.name} の「${am ? card(am.c).name : "？"}」（ATK ${am ? fmtN(atkOf(am)) : 0}）が${tgt}してきた。罠か速攻魔法を使う？`;
     } else if (win === "end"){ head = `${A.name} がターンを終えようとしています`; msg = "ターンが変わる前に、速攻魔法か罠を使う？"; }
+    else if (win === "summoned"){ const sm = A.mz[pd.z]; head = `「${sm ? card(sm.c).name : "？"}」が${pd.special ? "特殊召喚" : "召喚"}された！`; msg = "「相手がモンスターを召喚・特殊召喚したとき」のカードを使う？"; }
     else {
       const top = st.chain[st.chain.length - 1];
       head = top.summon ? `「${card(top.c).name}」が${top.special ? "特殊召喚" : "召喚"}されようとしている！` : `「${card(top.c).name}」が発動された！`;
@@ -664,7 +665,7 @@ $("#board").addEventListener("click", e => {
     const id = from === "hand" ? P(st, me).hand[sel.i] : P(st, me).sz[sel.i]?.c;
     const why = useBlockedWhy(st, me, card(id)); if (why){ toast(why); return; }
     const fx = normFx(card(id));
-    if (fx && (fx.kind === "negate" || fx.kind === "killAtk")){ toast("この罠は相手に攻撃されたときに使えます"); return; }
+    if (fx && (fx.kind === "negate" || fx.kind === "killAtk" || fx.kind === "atkDownAtk")){ toast("このカードは相手に攻撃されたときに使えます"); return; }
     const opts = fx ? targetOptions(st, me, fx.kind, { tagName: fx.into || "" }) : null;
     if (opts && !opts.length){ toast("効果の対象がいないので発動できません"); return; }
     G.sel = null; withDiscard(card(id), from === "hand" ? sel.i : -1, d => act(st => activate(st, me, from, sel.i, d.length ? { disc: d } : {})));
