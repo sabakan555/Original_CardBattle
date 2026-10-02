@@ -626,6 +626,13 @@ function runCard(st, s, c, trig, ctx = {}, then){
   step(st, 0);
 }
 // one block: check もし (a 質問 is asked last, only when it can still change the result), then なにを or ちがったら
+// サイコロ／コイン: 結果は ctx.roll に入り、その効果ブロックの条件・「出た目1につき」・「出た目の回数」で使える
+function doRoll(st, s, c, b){
+  const die = b.roll === "die", faces = Math.max(2, Math.min(20, Math.round(+b.faces || 6))), v = die ? 1 + Math.floor(Math.random() * faces) : (Math.random() < .5 ? 1 : 0);
+  log(st, s, `「${c ? c.name : "？"}」：${die ? `サイコロを振った → ${v}` : `コインを投げた → ${v ? "表" : "裏"}`}`);
+  ev(st, { type: "roll", s, kind: die ? "die" : "coin", v, faces });
+  return { kind: die ? "die" : "coin", v };
+}
 function runBlock(st, s, c, b, ctx, then){
   if (b.delay > 0 && !ctx.delayed){
     st.un = (st.un || 0) + 1; const p = P(st, s);
@@ -633,6 +640,7 @@ function runBlock(st, s, c, b, ctx, then){
     log(st, s, `「${c ? c.name : "？"}」：${b.delay === 1 ? "次の自分のターンのはじめ" : b.delay + "ターン後の自分のターンのはじめ"}に効果が出る（時計 ${b.delay}）`);
     then && then(st); return;
   }
+  if (b.roll === "die" || b.roll === "coin") ctx = { ...ctx, roll: doRoll(st, s, c, b) };
   const plain = b.conds.filter(x => x.k !== "ask"), ask = b.conds.find(x => x.k === "ask"), or = b.join === "or";
   const base = plain.length ? (or ? plain.some(x => condMet(st, s, c, x, ctx)) : plain.every(x => condMet(st, s, c, x, ctx))) : !or;
   const go = (st2, ok) => {
@@ -653,7 +661,8 @@ function runEffects(st, s, c, effs, ctx, then){
     if (KINDS[e.kind] && KINDS[e.kind].each && e.n > 1){ for (let r = 0; r < e.n; r++) one.push({ kind: e.kind, n: 1, ...(e.into ? { into: e.into } : {}) }); }
     else one.push(...expandFx({ kind: e.kind, n: e.n, to: e.to, ...(e.into ? { into: e.into } : {}), ...(e.intoId ? { intoId: e.intoId } : {}), ...(e.per ? { per: e.per, pm: e.pm, hits: e.hits } : {}), ...(KINDS[e.kind] && KINDS[e.kind].mod ? { mt: e.mt, ms: e.ms, mpl: e.mpl, mc: e.mc, mn: e.mn, gk: e.gk, gn: e.gn, nm: e.nm } : {}), ...(e.side ? { side: e.side } : {}), ...(e.tn ? { tn: e.tn } : {}) }));
     // 「×○回」: the same effect again and again
-    for (let r = 0; r < Math.max(1, Math.min(20, e.times || 1)); r++) list.push(...one);
+    const reps = e.timesDie ? (ctx && ctx.roll && ctx.roll.kind === "die" ? ctx.roll.v : 0) : Math.max(1, Math.min(20, e.times || 1));
+    for (let r = 0; r < reps; r++) list.push(...one);
   });
   if (c && c.costX && ctx.x != null && list.length){ const one = list.splice(0); for (let r = 0; r < ctx.x; r++) list.push(...one); if (!ctx.x) log(st, s, `「${c.name}」：X が0なので効果なし`); }
   const step = (st2, k) => { if (k >= list.length){ then && then(st2); return; } runEffect(st2, s, c, ctx, st3 => step(st3, k + 1), list[k]); };
