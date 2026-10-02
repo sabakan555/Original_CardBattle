@@ -1195,6 +1195,7 @@ nav.tabs button{position:relative}
         <h3 style="margin-top:14px">自分のターンでできること</h3>
         <ol>
           <li>モンスターの召喚は1ターンに1回だけ</li>
+          <li>プレイ：効果で山札の一番上などを「プレイ」したとき、モンスターは召喚扱いで場に出る（召喚権は使わず、残っていなくても出る。場がいっぱいなら墓地へ）。魔法・罠は発動した扱いになる。</li>
           <li>サイコロ・コイン：効果ブロックの「まず」でサイコロを振る（コインを投げる）と、その効果の「もし」でサイコロの目やコインの表裏を使ったり、出た目の数だけ効果を大きくしたり、出た目の回数くり返したりできる。</li>
           <li>時計マーク：「次の自分のターンのはじめ」「○ターン後の自分のターンのはじめ」に出る効果は、場の名前の下に時計と残りの数が出る。自分のターンのはじめに1へって、0になったら効果が出る。</li>
           <li>オンライン対戦で、動く番の人が3分なにもしないと、相手が「進める」を押してその番を終わらせられる。3回時間切れになると負け。</li>
@@ -4235,13 +4236,21 @@ function playTopCard(st, s, src, ex, then, extra){
   const id = p.deck.shift();
   if (!id){ log(st, s, `${src}：山札にカードがない`); then && then(st); return; }
   const c = card(id), t = cardType(c);
+  // モンスターは召喚扱いで場に出る（召喚権を使わない・残っていなくても出せる）
+  if (t === "monster"){
+    const z = freeZone(p.mz);
+    if (z < 0){ p.grave.push(id); log(st, s, `${src}で山札の一番上の「${c.name}」をめくった（場がいっぱいなので墓地へ）`); then && then(st); return; }
+    p.mz[z] = mkMon(st, id); ev(st, { type: "summon", s, z }); log(st, s, `${src}で山札の一番上の「${c.name}」をプレイ！（召喚扱いで場に出た）`);
+    runCard(st, s, c, "summon", { zone: z, mon: { s, i: z, u: p.mz[z].u } }, st2 => persistFire(st2, s, "mySummon", {}, then));
+    return;
+  }
   if (t !== "magic" && t !== "trap"){ p.grave.push(id); log(st, s, `${src}で山札の一番上の「${c.name}」をめくった（プレイできないので墓地へ）`); then && then(st); return; }
   log(st, s, `${src}で山札の一番上の「${c.name}」をプレイ！`); ev(st, { type: "spell", s, c: id }); countPlay(st, s, c);
   const pz = isPersist(c) && !ex ? freeZone(p.sz) : -1;
   if (pz >= 0){ st.un = (st.un || 0) + 1; p.sz[pz] = { c: id, turn: st.turnNo, face: true, u: st.un }; }
   else if (ex || exhausts(c)) exileCard(st, s, id, src);
   else p.grave.push(id);
-  runCard(st, s, c, "use", { x: 0, fromTop: true, ...(extra || {}) }, then);
+  runCard(st, s, c, "use", { x: 0, fromTop: true, ...(extra || {}) }, st2 => onCardUsed(st2, s, c, then));
 }
 // 変化: a card in hand turns into another one (a card named `into`, or a random スパイア風 card)
 // 名前でカードをさがす: 同じ名前のカードが何枚かあるときは
@@ -4273,7 +4282,7 @@ function autoPlayCard(st, s, id){
   if (pz >= 0){ st.un = (st.un || 0) + 1; p.sz[pz] = { c: id, turn: st.turnNo, face: true, u: st.un }; }
   else if (exhausts(c) || corrupted(st, s, c)) exileCard(st, s, id, `「${c.name}」`);
   else p.grave.push(id);
-  runCard(st, s, c, "use", { x: 0, autoRand: true }, null);
+  runCard(st, s, c, "use", { x: 0, autoRand: true }, st2 => onCardUsed(st2, s, c, null));
 }
 function genCards(st, s, sk, n, src, free){
   const p = P(st, s), pool = draftPool().filter(c => spireKind(c) === sk), got = [];

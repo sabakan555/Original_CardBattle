@@ -135,13 +135,21 @@ function playTopCard(st, s, src, ex, then, extra){
   const id = p.deck.shift();
   if (!id){ log(st, s, `${src}：山札にカードがない`); then && then(st); return; }
   const c = card(id), t = cardType(c);
+  // モンスターは召喚扱いで場に出る（召喚権を使わない・残っていなくても出せる）
+  if (t === "monster"){
+    const z = freeZone(p.mz);
+    if (z < 0){ p.grave.push(id); log(st, s, `${src}で山札の一番上の「${c.name}」をめくった（場がいっぱいなので墓地へ）`); then && then(st); return; }
+    p.mz[z] = mkMon(st, id); ev(st, { type: "summon", s, z }); log(st, s, `${src}で山札の一番上の「${c.name}」をプレイ！（召喚扱いで場に出た）`);
+    runCard(st, s, c, "summon", { zone: z, mon: { s, i: z, u: p.mz[z].u } }, st2 => persistFire(st2, s, "mySummon", {}, then));
+    return;
+  }
   if (t !== "magic" && t !== "trap"){ p.grave.push(id); log(st, s, `${src}で山札の一番上の「${c.name}」をめくった（プレイできないので墓地へ）`); then && then(st); return; }
   log(st, s, `${src}で山札の一番上の「${c.name}」をプレイ！`); ev(st, { type: "spell", s, c: id }); countPlay(st, s, c);
   const pz = isPersist(c) && !ex ? freeZone(p.sz) : -1;
   if (pz >= 0){ st.un = (st.un || 0) + 1; p.sz[pz] = { c: id, turn: st.turnNo, face: true, u: st.un }; }
   else if (ex || exhausts(c)) exileCard(st, s, id, src);
   else p.grave.push(id);
-  runCard(st, s, c, "use", { x: 0, fromTop: true, ...(extra || {}) }, then);
+  runCard(st, s, c, "use", { x: 0, fromTop: true, ...(extra || {}) }, st2 => onCardUsed(st2, s, c, then));
 }
 // 変化: a card in hand turns into another one (a card named `into`, or a random スパイア風 card)
 // 名前でカードをさがす: 同じ名前のカードが何枚かあるときは
@@ -173,7 +181,7 @@ function autoPlayCard(st, s, id){
   if (pz >= 0){ st.un = (st.un || 0) + 1; p.sz[pz] = { c: id, turn: st.turnNo, face: true, u: st.un }; }
   else if (exhausts(c) || corrupted(st, s, c)) exileCard(st, s, id, `「${c.name}」`);
   else p.grave.push(id);
-  runCard(st, s, c, "use", { x: 0, autoRand: true }, null);
+  runCard(st, s, c, "use", { x: 0, autoRand: true }, st2 => onCardUsed(st2, s, c, null));
 }
 function genCards(st, s, sk, n, src, free){
   const p = P(st, s), pool = draftPool().filter(c => spireKind(c) === sk), got = [];
