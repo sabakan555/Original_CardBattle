@@ -453,6 +453,8 @@ body.dm-lock{overflow:hidden}
 .lp b{font-size:28px;font-weight:600;font-variant-numeric:tabular-nums}
 .lp.low b{color:var(--hit)}
 .pile-tabs button{font-size:13px}
+.bk-row.bk-sub{flex-basis:100%;margin:4px 0 0 18px;padding:6px 8px;border-left:3px solid #8f6bd8;background:rgba(143,107,216,.08);border-radius:8px}
+.bk-subl{font-weight:700;color:#c9a6ff}
 .fieldz{display:flex;align-items:center;justify-content:center;gap:10px;margin:0 auto 6px;padding:6px 12px;border:2px dashed #5fe0d2;border-radius:14px;width:max-content;max-width:100%;background:rgba(95,224,210,.08);cursor:pointer}
 .fieldz .flbl{font-weight:800;color:#5fe0d2;font-size:13px}
 .fieldz .card{--w:64px}
@@ -1735,8 +1737,8 @@ function modTargetText(e){
   const T = modT(e), n = (e && e.mn) || 1, nm = (e && e.into) || "？", who = T.side === "me" ? "自分" : "相手", where = { hand: "手札", deck: "山札", both: "手札と山札" }[T.place];
   return T.scope === "pick" ? `${who}の手札のカード1枚` : T.scope === "all" ? `${who}の${where}のカードすべて` : T.scope === "rand" ? `${who}の${where}のランダムなカード${n}枚` : `${who}の${where}の「${nm}」すべて`;
 }
-function grantText(e){ const k = e && e.gk && KINDS[e.gk] && !KINDS[e.gk].mod ? e.gk : "draw"; return KINDS[k].text(e && e.gn || (smallN(k) ? 1 : 100)); }
-const cleanEff = e => e && KINDS[e.kind] && e.kind !== "none" ? { kind: e.kind, ...(e.n != null ? { n: e.n } : {}), ...(e.to && e.to !== "one" && TARGETABLE[e.kind] ? { to: e.to } : {}), ...(TARGETABLE[e.kind] && e.side === "me" ? { side: "me" } : {}), ...(TARGETABLE[e.kind] && (e.to === "n" || e.to === "random") && e.tn > 1 ? { tn: Math.min(10, Math.round(+e.tn)) } : {}), ...(KINDS[e.kind].name && e.into ? { into: String(e.into).slice(0, 40) } : {}), ...(KINDS[e.kind].name && e.into && e.intoId && pickCardKind(e.kind) ? { intoId: String(e.intoId).slice(0, 80) } : {}), ...(e.times > 1 ? { times: Math.min(20, Math.round(e.times)) } : {}), ...(e.timesDie ? { timesDie: true } : {}), ...(KINDS[e.kind].mod ? { ms: modT(e).side, mpl: modT(e).place, mc: modT(e).scope, ...(e.mn > 1 ? { mn: Math.min(40, Math.round(+e.mn)) } : {}), ...(e.gk && KINDS[e.gk] && !KINDS[e.gk].mod ? { gk: e.gk, gn: Math.max(1, Math.round(+e.gn || 1)) } : {}), ...(e.nm ? { nm: String(e.nm).slice(0, 20) } : {}), ...(modT(e).scope === "named" && e.into ? { into: String(e.into).slice(0, 40) } : {}) } : {}), ...(e.per && PER_DEFS[e.per] && PER_OK[e.kind] ? { per: e.per, pm: e.pm ?? 1, ...(e.hits && e.kind === "dmg" ? { hits: true } : {}) } : {}) } : null;
+function grantText(e){ if (e && e.ge && KINDS[e.ge.kind] && !KINDS[e.ge.kind].mod) return effsText({ type: "magic" }, [cleanEff(e.ge)].filter(Boolean)); const k = e && e.gk && KINDS[e.gk] && !KINDS[e.gk].mod ? e.gk : "draw"; return KINDS[k].text(e && e.gn || (smallN(k) ? 1 : 100)); }
+const cleanEff = e => e && KINDS[e.kind] && e.kind !== "none" ? { kind: e.kind, ...(e.n != null ? { n: e.n } : {}), ...(e.to && e.to !== "one" && TARGETABLE[e.kind] ? { to: e.to } : {}), ...(TARGETABLE[e.kind] && e.side === "me" ? { side: "me" } : {}), ...(TARGETABLE[e.kind] && (e.to === "n" || e.to === "random") && e.tn > 1 ? { tn: Math.min(10, Math.round(+e.tn)) } : {}), ...(KINDS[e.kind].name && e.into ? { into: String(e.into).slice(0, 40) } : {}), ...(KINDS[e.kind].name && e.into && e.intoId && pickCardKind(e.kind) ? { intoId: String(e.intoId).slice(0, 80) } : {}), ...(e.times > 1 ? { times: Math.min(20, Math.round(e.times)) } : {}), ...(e.timesDie ? { timesDie: true } : {}), ...(KINDS[e.kind].mod && (e.kind === "modAdd" || e.kind === "modRep") && e.ge && KINDS[e.ge.kind] && !KINDS[e.ge.kind].mod ? { ge: cleanEff(e.ge) } : {}), ...(KINDS[e.kind].mod ? { ms: modT(e).side, mpl: modT(e).place, mc: modT(e).scope, ...(e.mn > 1 ? { mn: Math.min(40, Math.round(+e.mn)) } : {}), ...(e.gk && KINDS[e.gk] && !KINDS[e.gk].mod ? { gk: e.gk, gn: Math.max(1, Math.round(+e.gn || 1)) } : {}), ...(e.nm ? { nm: String(e.nm).slice(0, 20) } : {}), ...(modT(e).scope === "named" && e.into ? { into: String(e.into).slice(0, 40) } : {}) } : {}), ...(e.per && PER_DEFS[e.per] && PER_OK[e.kind] ? { per: e.per, pm: e.pm ?? 1, ...(e.hits && e.kind === "dmg" ? { hits: true } : {}) } : {}) } : null;
 const LEGACY_COND = { lp: { k: "lp", op: "le" }, grave: { k: "grave", op: "ge" }, hand: { k: "sameHand", op: "ge" } };
 function blocksOf(c){
   if (!c) return [];
@@ -2874,19 +2876,19 @@ function renderBlocksUI(){
   const trigs = mkTrigs(), kinds = mkKinds(), groups = kindGroups(kinds), easy = !!MK.easy, ek = easyKinds();
   const gFor = (e, bi) => { const bk = (MK.blocks[bi] || {}).trig === "while" ? kinds.filter(k => STATIC_KINDS.includes(k) || k === e.kind) : kinds; return kindGroups(easy ? bk.filter(k => ek.includes(k) || k === e.kind || (MK.blocks[bi] || {}).trig === "while") : bk, e.kind); };
   const opt = (v, l, cur) => `<option value="${esc(v)}"${String(v) === String(cur) ? " selected" : ""}>${esc(l)}</option>`;
-  const effRow = (bi, part, e, j) => {
-    const gs = gFor(e, bi), has = x => x.v.some(([k]) => k === e.kind), g = (e._g && gs.find(x => x.g === e._g && has(x))) || gs.find(has) || gs[0];
+  const effRow = (bi, part, e, j, sub) => {
+    const gs = sub ? kindGroups(kinds.filter(k => !KINDS[k].mod && k !== "win"), e.kind) : gFor(e, bi), has = x => x.v.some(([k]) => k === e.kind), g = (e._g && gs.find(x => x.g === e._g && has(x))) || gs.find(has) || gs[0];
     const tg = TARGETABLE[e.kind];
-    return `<div class="bk-row" data-part="${part}" data-i="${j}"><span class="bk-no">${j + 1}</span>`
+    return `<div class="bk-row${sub ? " bk-sub" : ""}" data-part="${part}" data-i="${j}"${sub ? ' data-sub="ge"' : ""}>${sub ? `<span class="note bk-subl">${sub === "rep" ? "上書きする効果" : "足す効果"}</span>` : `<span class="bk-no">${j + 1}</span>`}`
       + `<select data-f="g" aria-label="なにをする">${gs.map(x => opt(x.g, x.label, g && g.g)).join("")}</select>`
       + (g && g.v.length > 1 ? `<select data-f="kind" aria-label="どれ">${g.v.map(([k, l]) => opt(k, l || KINDS[k].label, e.kind)).join("")}</select>` : "")
       + (tg ? toUI(e, opt) : "")
       + (KINDS[e.kind] && KINDS[e.kind].n ? `<input type="number" data-f="n" min="${e.per ? 0 : 1}" max="9999" value="${esc(e.n ?? defN(e.kind))}" aria-label="数">` : "")
-      + (KINDS[e.kind] && KINDS[e.kind].name ? `<input type="text" data-f="into" list="${KINDS[e.kind] && KINDS[e.kind].tag ? "tagNames" : "cardNames"}" maxlength="40" value="${esc(e.into || "")}" placeholder="${KINDS[e.kind].tag ? "タグ（例: アイアンクラッド）" : KINDS[e.kind].need ? (e.kind === "autoPlay" ? "名前に入る文字（例: ストライク）" : "カード名") : "カード名（空ならランダム）"}" aria-label="カード名">` + pickHTML(e) : "") + modRowHTML(e)
+      + (KINDS[e.kind] && KINDS[e.kind].name ? `<input type="text" data-f="into" list="${KINDS[e.kind] && KINDS[e.kind].tag ? "tagNames" : "cardNames"}" maxlength="40" value="${esc(e.into || "")}" placeholder="${KINDS[e.kind].tag ? "タグ（例: アイアンクラッド）" : KINDS[e.kind].need ? (e.kind === "autoPlay" ? "名前に入る文字（例: ストライク）" : "カード名") : "カード名（空ならランダム）"}" aria-label="カード名">` + pickHTML(e) : "") + modRowHTML(e) + ((e.kind === "modAdd" || e.kind === "modRep") && !sub ? effRow(bi, part, e.ge || (e.ge = { kind: e.gk && KINDS[e.gk] && !KINDS[e.gk].mod ? e.gk : "draw", n: e.gn || 1 }), j, e.kind === "modRep" ? "rep" : "add") : "")
       + (PER_OK[e.kind] && (!easy || e.per) ? `<select data-f="per" aria-label="ふえる">${opt("", "ふえない", e.per || "")}${Object.entries(PER_DEFS).map(([k, d]) => opt(k, d.label + d.u + "につき", e.per || "")).join("")}</select>` + (e.per ? (e.kind === "dmg" ? `<select data-f="hits" aria-label="ふえかた">${opt("", "数が＋", e.hits ? "1" : "")}${opt("1", "もう1回", e.hits ? "1" : "")}</select>` : "") + (e.hits ? "" : `<input type="number" data-f="pm" min="1" max="9999" value="${esc(e.pm ?? 1)}" aria-label="1つにつき増える数">`) : "") : "")
       + ((MK.blocks[bi] || {}).roll === "die" ? `<select data-f="timesDie" aria-label="くり返し">${opt("", "1回", e.timesDie ? "1" : "")}${opt("1", "×出た目の回数", e.timesDie ? "1" : "")}</select>` : "")
       + (!e.timesDie && (!easy || e.times > 1) ? `<label class="bk-times" title="同じ効果を何回くり返すか">×<input type="number" data-f="times" min="1" max="20" value="${esc(e.times || 1)}" aria-label="回数">回</label>` : "")
-      + `<button type="button" class="small ghost" data-bk="delRow" aria-label="この行を消す">×</button></div>`;
+      + (sub ? "" : `<button type="button" class="small ghost" data-bk="delRow" aria-label="この行を消す">×</button>`) + `</div>`;
   };
   const condRow = (b, x, j) => {
     let h = `<div class="bk-row" data-part="cond" data-i="${j}">`;
@@ -2943,9 +2945,7 @@ function modRowHTML(e){
     + `<select data-f="mc" aria-label="どのカードを">${canPick ? o("pick", "1枚えらぶ", T.scope) : ""}${o("all", "すべて", T.scope)}${o("rand", "ランダムに", T.scope)}${o("named", "名前を指定", T.scope)}</select>`;
   if (T.scope === "rand") h += `<input type="number" data-f="mn" min="1" max="40" value="${esc(e.mn || 1)}" aria-label="枚数" style="width:60px"><span class="note">枚</span>`;
   if (T.scope === "named") h += `<input type="text" data-f="into" list="cardNames" maxlength="40" value="${esc(e.into || "")}" placeholder="カード名" aria-label="カード名">`;
-  if (e.kind === "modAdd" || e.kind === "modRep"){
-    if (!e.gk || !GRANT_KINDS.includes(e.gk)) e.gk = "draw";
-    if (!e.gn) e.gn = smallN(e.gk) ? 1 : 100;
+  if (false){
     h += `<span class="note">${e.kind === "modAdd" ? "足す効果" : "上書きする効果"}</span><select data-f="gk" aria-label="足す効果">${GRANT_KINDS.filter(k => KINDS[k]).map(k => o(k, KINDS[k].label, e.gk)).join("")}</select><input type="number" data-f="gn" min="1" max="9999" value="${esc(e.gn)}" aria-label="数" style="width:80px">`;
   }
   if (e.kind === "modName") h += `<input type="text" data-f="nm" maxlength="20" value="${esc(e.nm || "")}" placeholder="新しい名前" aria-label="新しい名前">`;
@@ -2977,9 +2977,10 @@ function bkEvent(e, rerenderOnInput){
     x[f] = f === "n" || f === "cnt" ? Math.max(0, Math.round(+v || 0)) : v;
     return f === "op" || f === "where" || f === "match" ? renderBlocksUI() : updateBkText();
   }
-  const list = b[part], x = list && list[j]; if (!x) return;
-  if (f === "g"){ const g = (MK.easy && kindGroups(easyKinds()).find(q => q.g === v)) || kindGroups(mkKinds()).find(q => q.g === v); if (g){ list[j] = setG({ kind: g.v[0][0], n: defN(g.v[0][0]) }, g.g); } return renderBlocksUI(); }
-  if (f === "kind"){ list[j] = setG({ kind: v, n: x.n != null && smallN(v) === smallN(x.kind) ? x.n : defN(v), to: x.to, ...(x.side ? { side: x.side } : {}), ...(x.tn ? { tn: x.tn } : {}), ...(x.times > 1 ? { times: x.times } : {}), ...(KINDS[v] && KINDS[v].name && x.into ? { into: x.into } : {}), ...(PER_OK[v] && x.per ? { per: x.per, pm: x.pm, hits: v === "dmg" && x.hits } : {}), ...(KINDS[v] && KINDS[v].mod && (x.ms || x.mt) ? { mt: x.mt, ms: x.ms, mpl: x.mpl, mc: x.mc, mn: x.mn, gk: x.gk, gn: x.gn, nm: x.nm, into: x.into } : {}) }, x._g); return renderBlocksUI(); }
+  const list = b[part], x0 = list && list[j]; if (!x0) return;
+  const sub = row.dataset.sub === "ge", x = sub ? (x0.ge = x0.ge || { kind: "draw", n: 1 }) : x0, put = o => { if (sub) x0.ge = o; else list[j] = o; };
+  if (f === "g"){ const g = (MK.easy && kindGroups(easyKinds()).find(q => q.g === v)) || kindGroups(mkKinds()).find(q => q.g === v); if (g){ put(setG({ kind: g.v[0][0], n: defN(g.v[0][0]) }, g.g)); } return renderBlocksUI(); }
+  if (f === "kind"){ put(setG({ kind: v, n: x.n != null && smallN(v) === smallN(x.kind) ? x.n : defN(v), to: x.to, ...(x.side ? { side: x.side } : {}), ...(x.tn ? { tn: x.tn } : {}), ...(x.times > 1 ? { times: x.times } : {}), ...(KINDS[v] && KINDS[v].name && x.into ? { into: x.into } : {}), ...(PER_OK[v] && x.per ? { per: x.per, pm: x.pm, hits: v === "dmg" && x.hits } : {}), ...(KINDS[v] && KINDS[v].mod && (x.ms || x.mt) ? { mt: x.mt, ms: x.ms, mpl: x.mpl, mc: x.mc, mn: x.mn, gk: x.gk, gn: x.gn, nm: x.nm, into: x.into, ge: x.ge } : {}) }, x._g)); return renderBlocksUI(); }
   if (f === "into"){ x.into = v.trim(); x.intoId = autoPickId(x); return e.type === "change" ? renderBlocksUI() : updateBkText(); }
   if (f === "intoId"){ x.intoId = v; return updateBkText(); }
   if (f === "timesDie"){ x.timesDie = v === "1" || undefined; return renderBlocksUI(); }
@@ -4150,7 +4151,7 @@ function modApply(st, s, c, fx, target, src){
   else if (T.scope === "rand") shuffle(arrs.flatMap(arr => arr.map((_, i) => [arr, i]))).slice(0, k).forEach(x => out.push(x));
   else arrs.forEach(arr => arr.forEach((id, i) => { const x = card(id); if (x.name === fx.into || plainRuby(x.nameRuby || "") === fx.into) out.push([arr, i]); }));
   if (!out.length){ log(st, s, `${src}：書きかえるカードがない`); return; }
-  const gk = fx.gk && KINDS[fx.gk] && !KINDS[fx.gk].mod ? fx.gk : "draw", g = [cleanEff({ kind: gk, n: fx.gn || (smallN(gk) ? 1 : 100) })].filter(Boolean);
+  const gk = fx.gk && KINDS[fx.gk] && !KINDS[fx.gk].mod ? fx.gk : "draw", g = [fx.ge && KINDS[fx.ge.kind] && !KINDS[fx.ge.kind].mod ? cleanEff(fx.ge) : cleanEff({ kind: gk, n: fx.gn || (smallN(gk) ? 1 : 100) })].filter(Boolean);
   const ch = fx.kind === "modAdd" ? { add: g } : fx.kind === "modRep" ? { rep: g } : fx.kind === "modClear" ? { clear: true } : { name: String(fx.nm || "").slice(0, 20) || null };
   if (fx.kind === "modName" && !ch.name){ log(st, s, `${src}：新しい名前がない`); return; }
   out.forEach(([arr, i]) => { arr[i] = modId(st, arr[i], ch); });
@@ -4823,7 +4824,7 @@ function runEffects(st, s, c, effs, ctx, then){
   (effs || []).forEach(e => {
     const one = [];
     if (KINDS[e.kind] && KINDS[e.kind].each && e.n > 1){ for (let r = 0; r < e.n; r++) one.push({ kind: e.kind, n: 1, ...(e.into ? { into: e.into } : {}) }); }
-    else one.push(...expandFx({ kind: e.kind, n: e.n, to: e.to, ...(e.into ? { into: e.into } : {}), ...(e.intoId ? { intoId: e.intoId } : {}), ...(e.per ? { per: e.per, pm: e.pm, hits: e.hits } : {}), ...(KINDS[e.kind] && KINDS[e.kind].mod ? { mt: e.mt, ms: e.ms, mpl: e.mpl, mc: e.mc, mn: e.mn, gk: e.gk, gn: e.gn, nm: e.nm } : {}), ...(e.side ? { side: e.side } : {}), ...(e.tn ? { tn: e.tn } : {}) }));
+    else one.push(...expandFx({ kind: e.kind, n: e.n, to: e.to, ...(e.into ? { into: e.into } : {}), ...(e.intoId ? { intoId: e.intoId } : {}), ...(e.per ? { per: e.per, pm: e.pm, hits: e.hits } : {}), ...(KINDS[e.kind] && KINDS[e.kind].mod ? { mt: e.mt, ms: e.ms, mpl: e.mpl, mc: e.mc, mn: e.mn, gk: e.gk, gn: e.gn, nm: e.nm, ge: e.ge } : {}), ...(e.side ? { side: e.side } : {}), ...(e.tn ? { tn: e.tn } : {}) }));
     // 「×○回」: the same effect again and again
     const reps = e.timesDie ? (ctx && ctx.roll && ctx.roll.kind === "die" ? ctx.roll.v : 0) : Math.max(1, Math.min(20, e.times || 1));
     for (let r = 0; r < reps; r++) list.push(...one);
