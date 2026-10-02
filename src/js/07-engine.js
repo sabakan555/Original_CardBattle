@@ -479,7 +479,7 @@ function equip(st, s, hi, ts, ti, pos, disc){
   return true;
 }
 // visual events, stored in the game state so both players see the same animations
-function ev(st, e){ st.evn = (st.evn || 0) + 1; (st.ev || (st.ev = [])).push({ ...e, n: st.evn }); if (st.ev.length > 30) st.ev.splice(0, st.ev.length - 30); }
+function ev(st, e){ if (e.type === "spell" && e.c) st.recent = [...(st.recent || []), { c: e.c, s: e.s }].slice(-5); st.evn = (st.evn || 0) + 1; (st.ev || (st.ev = [])).push({ ...e, n: st.evn }); if (st.ev.length > 30) st.ev.splice(0, st.ev.length - 30); }
 // returns true if the monster actually left the field. opt.battle: destroyed by battle; opt.force: manual (no protection)
 function destroyMonster(st, s, i, why, opt = {}){
   const p = P(st, s), m = p.mz[i]; if (!m) return false;

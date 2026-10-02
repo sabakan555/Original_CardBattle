@@ -854,3 +854,47 @@ nav.tabs button{position:relative}
   .hbtn{height:76px}
   .hbtn .en{font-size:40px}
 }
+/* ---- battle usability ---- */
+.resp-focus,.resp-prev{display:flex;gap:12px;align-items:flex-start;background:rgba(255,255,255,.06);border:1px solid var(--line);border-radius:14px;padding:10px}
+.resp-prev{border-color:var(--accent);background:rgba(79,209,197,.1)}
+.resp-focus .card,.resp-prev .card{--w:96px;flex:none}
+.rf-txt{display:flex;flex-direction:column;gap:4px;min-width:0}
+.rf-txt p{margin:0;font-size:15px;line-height:1.55;overflow-wrap:anywhere}
+.rf-lbl{font-size:12px;font-weight:700;color:var(--accent)}
+.chainrow button.link{font:inherit;font-weight:700;cursor:pointer;box-shadow:none;margin:0;text-decoration:underline dotted;text-underline-offset:3px}
+.chainrow.onboard{justify-content:center;margin:2px 0}
+.chainrow.onboard .note{color:var(--muted)}
+.lastlog .older{opacity:.6;font-size:12.5px}
+.lname{all:unset;cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px;color:inherit;font-weight:700}
+.lname:hover,.lname:focus-visible{color:var(--accent)}
+.recent{display:flex;flex-direction:column;align-items:center;gap:4px;margin:4px 0}
+.recent .rc-list{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+.recent .rc{display:flex;flex-direction:column;align-items:center;gap:2px}
+.recent .rc .card{--w:46px}
+.recent .rc small{font-size:10px;color:var(--muted)}
+.recent .rc.theirs small{color:#ff9f8a}
+.card.attacking{box-shadow:0 0 0 3px #ff7a59,0 0 18px rgba(255,122,89,.8)!important}
+.card.atk-tgt{box-shadow:0 0 0 3px #ffd166,0 0 18px rgba(255,209,102,.8)!important}
+.card.attacking .done{background:#ff7a59;border-color:#ffb199}
+.card.atk-tgt .done{background:#b8860b;border-color:#ffd166}
+.card.aim{box-shadow:0 0 0 3px #ff7a59,0 0 20px rgba(255,122,89,.9)!important;transform:scale(1.06)}
+.zcap{display:none}
+#ovBack{position:fixed;left:50%;bottom:calc(18px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:9;padding:10px 22px;border-radius:99px;box-shadow:0 6px 20px rgba(0,0,0,.45)}
+#ovBack[hidden],#navTog[hidden]{display:none}
+#navTog{display:none}
+@media (max-width:960px){.side .pl{display:none}}
+@media (max-width:640px){
+  .zcap{display:block;position:absolute;left:50%;top:100%;transform:translateX(-50%);margin-top:2px;width:calc(var(--w) + 10px);font:600 9.5px/1.2 var(--ui);color:var(--ink);text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:none}
+  .zcap b{color:var(--accent)}
+  .zones{row-gap:16px;margin-bottom:12px}
+  body.in-battle nav.tabs{transform:translateY(110%);transition:transform .2s}
+  body.in-battle.navopen nav.tabs{transform:none}
+  #navTog{display:block;position:fixed;right:10px;bottom:calc(10px + env(safe-area-inset-bottom,0px));z-index:7;padding:6px 12px;font-size:13px;border-radius:99px;background:rgba(14,16,36,.92)}
+  body.in-battle.navopen #navTog{bottom:calc(70px + env(safe-area-inset-bottom,0px))}
+  body.in-battle #toast{bottom:calc(56px + env(safe-area-inset-bottom,0px))}
+  .pop.at-bottom{top:auto!important;bottom:calc(8px + env(safe-area-inset-bottom,0px))!important}
+  .resp-focus .card,.resp-prev .card{--w:72px}
+  .rf-txt p{font-size:13.5px}
+}
+.zones .card .done{white-space:nowrap}
+@media (max-width:640px){.zones .card .done{font-size:9.5px;padding:0 5px;top:-9px}}
