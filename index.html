@@ -922,6 +922,13 @@ nav.tabs button{position:relative}
 .fg-b[aria-checked="true"] small{color:var(--accent)}
 
 div.f{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:13px}
+
+.font-pick>summary{cursor:pointer;list-style:none;display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:8px 12px;border:2px solid var(--line);border-radius:12px;background:rgba(39,44,82,.6)}
+.font-pick>summary::-webkit-details-marker{display:none}
+.font-pick>summary::before{content:"▸";color:var(--accent)}
+.font-pick[open]>summary::before{content:"▾"}
+.font-pick .font-cur{font-size:17px;color:var(--ink)}
+.font-pick[open] .font-grid{margin-top:6px}
 </style>
 <style>html,body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
 </head>
@@ -1049,7 +1056,7 @@ div.f{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:13px}
           <label class="row" style="gap:6px;font-weight:700;cursor:pointer"><input type="checkbox" id="mkFrameless"> 半フレームレス（絵を下の文字の欄まで広げる）</label>
           <label class="row" id="flAlphaRow" hidden style="gap:8px;font-weight:700;font-size:13px">文字の欄の濃さ<input type="range" id="mkFlAlpha" min="0" max="100" step="5" value="68" style="flex:1;min-width:120px"><span id="flAlphaVal" style="min-width:3.5em">68%</span><button type="button" class="small ghost" id="btnFlAlpha">もとに戻す</button></label>
           <label class="row" id="tEdgeRow" hidden style="gap:6px;font-weight:700;font-size:13px;cursor:pointer"><input type="checkbox" id="mkTEdge"> 文字に白いふちをつける（絵の上でも読みやすくする）</label>
-          <div class="f"><span>文字のフォント</span><select id="mkFont" aria-label="カードのフォント" hidden></select><div id="fontGrid" class="font-grid" role="radiogroup" aria-label="カードのフォント"></div></div>
+          <details class="f font-pick" id="fontPick"><summary>文字のフォント：<span id="fontCur" class="font-cur"></span><span class="note">（押して変える）</span></summary><select id="mkFont" aria-label="カードのフォント" hidden></select><div id="fontGrid" class="font-grid" role="radiogroup" aria-label="カードのフォント"></div></details>
           <div><h3>文字の大きさ</h3><div class="row"><label class="f" style="flex-direction:row;align-items:center;gap:6px">名前<select id="mkNameSize"></select></label><label class="f" style="flex-direction:row;align-items:center;gap:6px">効果・フレーバー<select id="mkTextSize"></select></label></div></div>
           <div><h3>ふりがな</h3><div class="row"><button class="small" id="mkRuby" type="button">ふりがなをつける</button><span class="note">漢字をえらんで押すと ｜漢字《》 になるので、《》の中に読みを入れてね</span></div><div class="ruby-prev" id="rubyPrev" hidden></div></div>
         </div>
@@ -1427,6 +1434,9 @@ const KINDS = {
   oppStr:     { label: "相手が筋力を得る", n: true, text: n => `相手は筋力${n}を得る` },
   oppStrDown: { label: "相手の筋力を下げる（相手の次のターンの終わりまで）", n: true, text: n => `相手の次のターンの終わりまで、相手は筋力${n}を失う` },
   loseLp:     { label: "自分のLPを失う", n: true, text: n => `自分のLPを${n}失う` },
+  selfDisc:      { label: "自分の手札をえらんで捨てる（デメリット）", n: true, target: "hand", each: true, text: n => `自分の手札を${n}枚えらんで捨てる` },
+  selfDiscRand:  { label: "自分の手札をランダムに捨てる（デメリット）", n: true, text: n => `自分の手札をランダムに${n}枚捨てる` },
+  selfDiscAll:   { label: "自分の手札をすべて捨てる（デメリット）", text: () => `自分の手札をすべて捨てる` },
   exhaustHand:   { label: "手札をえらんで廃棄", n: true, target: "hand", each: true, text: n => `手札を${n}枚えらんで廃棄する` },
   exhaustRand:   { label: "手札をランダムに廃棄", n: true, text: n => `手札をランダムに${n}枚廃棄する` },
   exhaustAll:    { label: "手札をすべて廃棄", text: () => `手札をすべて廃棄する` },
@@ -1774,6 +1784,7 @@ const PER_DEFS = {
   tgtVuln:  { label: "対象の弱体", u: "1", val: (st, s, c, t) => { const op = P(st, O(s)); if (typeof t === "string" && t.startsWith("m:")){ const m = op.mz[+t.slice(2)]; return m ? m.vuln || 0 : 0; } return op.vuln || 0; } },
   exile:    { label: "廃棄札のカード", u: "1枚", val: (st, s) => (P(st, s).exile || []).length },
   exN:      { label: "直前の効果で廃棄したカード", u: "1枚", val: (st, s, c, t, ctx) => (ctx && ctx.exN) || 0 },
+  discN:    { label: "直前の効果で捨てた手札", u: "1枚", val: (st, s, c, t, ctx) => (ctx && ((ctx.hit && ctx.hit.discN) || ctx.discN)) || 0 },
   used:     { label: "この試合でこのカードを使った回数（今回をのぞく）", u: "1回", val: (st, s, c) => Math.max(0, ((P(st, s).usedCount || {})[c && c.id] || 0) - 1) },
   lostTotal:{ label: "この試合でLPを失った回数", u: "1回", val: (st, s) => P(st, s).lostTotal || 0 },
   handAtk:  { label: "手札のアタック", u: "1枚", val: (st, s) => P(st, s).hand.filter(id => isAttackCard(card(id))).length },
@@ -2639,10 +2650,13 @@ function syncFont(){ const k = $("#mkFont").value; $("#editCard").style.setPrope
 function renderFontGrid(){
   const box = $("#fontGrid"); if (!box) return;
   const cur = $("#mkFont").value, sample = esc(($("#mkName") && $("#mkName").value.trim()) || "ドラゴン召喚！");
+  { const fc = $("#fontCur"); if (fc){ const f = FONTS[cur] || FONTS.klee; fc.textContent = f.label; fc.style.fontFamily = f.css; } }
   box.innerHTML = Object.entries(FONT_GROUPS).map(([g, gl]) => { const L = Object.entries(FONTS).filter(([, v]) => v.g === g); return L.length ? `<div class="fg-h">${gl}</div><div class="fg-row">${L.map(([k, v]) => `<button type="button" class="fg-b" role="radio" aria-checked="${k === cur}" data-font="${k}"><span class="fg-s" style='font-family:${v.css}'>${sample}</span><small>${v.label}</small></button>`).join("")}</div>` : ""; }).join("");
 }
-$("#fontGrid").addEventListener("click", e => { const b = e.target.closest("[data-font]"); if (!b) return; $("#mkFont").value = b.dataset.font; syncFont(); });
+$("#fontGrid").addEventListener("click", e => { const b = e.target.closest("[data-font]"); if (!b) return; $("#mkFont").value = b.dataset.font; syncFont(); $("#fontPick").open = false; });
 { let fT = null; $("#mkName").addEventListener("input", () => { clearTimeout(fT); fT = setTimeout(renderFontGrid, 250); }); }
+$("#fontPick").addEventListener("toggle", () => { if ($("#fontPick").open) renderFontGrid(); });
+renderFontGrid();
 $("#mkFont").addEventListener("change", syncFont);
 $("#mkNameSize").innerHTML = $("#mkTextSize").innerHTML = Object.entries(SIZES_T).map(([k, v]) => `<option value="${k}">${v.label}</option>`).join("");
 $("#mkNameSize").value = $("#mkTextSize").value = "m";
@@ -2799,7 +2813,7 @@ const KIND_GROUPS = [
   { g: "give",    label: "相手にカードを送りこむ", v: [["oppDraw", "相手に○枚引かせる"], ["oppGenHand", "名前を指定したカードを相手の手札に"], ["oppGenDeck", "名前を指定したカードを相手の山札に混ぜる"], ["oppSummon", "名前を指定したモンスターを相手の場に出す"], ["oppSetNamed", "名前を指定した魔法・罠を相手の場にセット"]] },
   { g: "negate",  label: "打ち消す・無効にする", v: [["cancel", "魔法・罠の発動かモンスターの召喚を打ち消す"], ["negate", "相手の攻撃を無効にする（罠・速攻魔法）"]] },
   { g: "equip",   label: "装備を動かす", v: [["moveEquips", "別のモンスターに付けかえる"], ["equipsToHand", "ほかの装備を手札に戻す"]] },
-  { g: "minus",   label: "自分にデメリット", v: [["loseLp", "LPを失う（ブロックでは防げない）"], ["thisNoAtk", "このモンスターは攻撃できない（このターン）"], ["thisTopOnly", "一番ATKが高い相手にしか攻撃できない"], ["selfNoAtk", "自分のモンスターは攻撃できない（このターン）"], ["destroyOwn", "自分のモンスター1体を破壊"], ["destroyThis", "このモンスターを破壊"], ["destroyOwnAll", "自分のモンスターをすべて破壊"], ["oppStr", "相手が筋力を得る"], ["noDraw", "このターンもう引けない"]] },
+  { g: "minus",   label: "自分にデメリット", v: [["loseLp", "LPを失う（ブロックでは防げない）"], ["selfDisc", "手札をえらんで捨てる"], ["selfDiscRand", "手札をランダムに捨てる"], ["selfDiscAll", "手札をすべて捨てる"], ["thisNoAtk", "このモンスターは攻撃できない（このターン）"], ["thisTopOnly", "一番ATKが高い相手にしか攻撃できない"], ["selfNoAtk", "自分のモンスターは攻撃できない（このターン）"], ["destroyOwn", "自分のモンスター1体を破壊"], ["destroyThis", "このモンスターを破壊"], ["destroyOwnAll", "自分のモンスターをすべて破壊"], ["oppStr", "相手が筋力を得る"], ["noDraw", "このターンもう引けない"]] },
   { g: "win",     label: "ゲームに勝つ", v: [["win", "勝利する"]] }
 ];
 // kinds shown only when an older card already uses them (they're now 基本の効果 + 「だれに」)
@@ -4871,6 +4885,14 @@ function applyEffect(st, s, c, target, ctx = {}, fx = normFx(c)){
     case "loseLp": me.lp -= n; ev(st, { type: "hit", s, d: n, blk: 0 }); log(st, s, `${src}でLPを${n}失った`); lostLp(st, s); break;
     case "copyHand": if (c && hasCard(c.id)){ me.hand.push(c.id); log(st, s, `${src}のコピーを手札に加えた`); } break;
     case "copyDeck": if (c && hasCard(c.id)){ me.deck.splice(Math.floor(Math.random() * (me.deck.length + 1)), 0, c.id); log(st, s, `${src}のコピーを山札に混ぜた`); } break;
+    case "selfDisc": case "selfDiscRand": case "selfDiscAll": {
+      // 捨てた枚数は「直前の効果で捨てた手札1枚につき」で使う（この効果の中で足していく）
+      const L = fx.kind === "selfDisc" ? (me.hand[target] != null ? [target] : []) : fx.kind === "selfDiscAll" ? me.hand.map((_, k) => k) : shuffle(me.hand.map((_, k) => k)).slice(0, n || 1);
+      const gone = L.sort((a, b) => b - a).map(k => me.hand.splice(k, 1)[0]); me.grave.push(...gone);
+      const h = ctx.hit || ctx; h.discN = (h.discN || 0) + gone.length; ctx.discN = h.discN;
+      log(st, s, gone.length ? `${src}：手札の${gone.map(id => `「${card(id).name}」`).join("")}を捨てた` : `${src}：捨てる手札がない`);
+      break;
+    }
     case "exhaustHand": if (me.hand[target] != null) exileCard(st, s, me.hand.splice(target, 1)[0], src); break;
     case "exhaustRand": { let k = 0; for (let r = 0; r < (n || 1) && me.hand.length; r++){ exileCard(st, s, me.hand.splice(Math.floor(Math.random() * me.hand.length), 1)[0], src); k++; } if (!k) log(st, s, `${src}：廃棄する手札がない`); ctx.exN = k; break; }
     case "exhaustAll": { const L = me.hand.splice(0); L.forEach(id => exileCard(st, s, id, src)); ctx.exN = L.length; if (!L.length) log(st, s, `${src}：廃棄する手札がない`); break; }

@@ -910,3 +910,10 @@ nav.tabs button{position:relative}
 .fg-b[aria-checked="true"] small{color:var(--accent)}
 
 div.f{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:13px}
+
+.font-pick>summary{cursor:pointer;list-style:none;display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:8px 12px;border:2px solid var(--line);border-radius:12px;background:rgba(39,44,82,.6)}
+.font-pick>summary::-webkit-details-marker{display:none}
+.font-pick>summary::before{content:"▸";color:var(--accent)}
+.font-pick[open]>summary::before{content:"▾"}
+.font-pick .font-cur{font-size:17px;color:var(--ink)}
+.font-pick[open] .font-grid{margin-top:6px}

@@ -223,10 +223,13 @@ function syncFont(){ const k = $("#mkFont").value; $("#editCard").style.setPrope
 function renderFontGrid(){
   const box = $("#fontGrid"); if (!box) return;
   const cur = $("#mkFont").value, sample = esc(($("#mkName") && $("#mkName").value.trim()) || "ドラゴン召喚！");
+  { const fc = $("#fontCur"); if (fc){ const f = FONTS[cur] || FONTS.klee; fc.textContent = f.label; fc.style.fontFamily = f.css; } }
   box.innerHTML = Object.entries(FONT_GROUPS).map(([g, gl]) => { const L = Object.entries(FONTS).filter(([, v]) => v.g === g); return L.length ? `<div class="fg-h">${gl}</div><div class="fg-row">${L.map(([k, v]) => `<button type="button" class="fg-b" role="radio" aria-checked="${k === cur}" data-font="${k}"><span class="fg-s" style='font-family:${v.css}'>${sample}</span><small>${v.label}</small></button>`).join("")}</div>` : ""; }).join("");
 }
-$("#fontGrid").addEventListener("click", e => { const b = e.target.closest("[data-font]"); if (!b) return; $("#mkFont").value = b.dataset.font; syncFont(); });
+$("#fontGrid").addEventListener("click", e => { const b = e.target.closest("[data-font]"); if (!b) return; $("#mkFont").value = b.dataset.font; syncFont(); $("#fontPick").open = false; });
 { let fT = null; $("#mkName").addEventListener("input", () => { clearTimeout(fT); fT = setTimeout(renderFontGrid, 250); }); }
+$("#fontPick").addEventListener("toggle", () => { if ($("#fontPick").open) renderFontGrid(); });
+renderFontGrid();
 $("#mkFont").addEventListener("change", syncFont);
 $("#mkNameSize").innerHTML = $("#mkTextSize").innerHTML = Object.entries(SIZES_T).map(([k, v]) => `<option value="${k}">${v.label}</option>`).join("");
 $("#mkNameSize").value = $("#mkTextSize").value = "m";
@@ -383,7 +386,7 @@ const KIND_GROUPS = [
   { g: "give",    label: "相手にカードを送りこむ", v: [["oppDraw", "相手に○枚引かせる"], ["oppGenHand", "名前を指定したカードを相手の手札に"], ["oppGenDeck", "名前を指定したカードを相手の山札に混ぜる"], ["oppSummon", "名前を指定したモンスターを相手の場に出す"], ["oppSetNamed", "名前を指定した魔法・罠を相手の場にセット"]] },
   { g: "negate",  label: "打ち消す・無効にする", v: [["cancel", "魔法・罠の発動かモンスターの召喚を打ち消す"], ["negate", "相手の攻撃を無効にする（罠・速攻魔法）"]] },
   { g: "equip",   label: "装備を動かす", v: [["moveEquips", "別のモンスターに付けかえる"], ["equipsToHand", "ほかの装備を手札に戻す"]] },
-  { g: "minus",   label: "自分にデメリット", v: [["loseLp", "LPを失う（ブロックでは防げない）"], ["thisNoAtk", "このモンスターは攻撃できない（このターン）"], ["thisTopOnly", "一番ATKが高い相手にしか攻撃できない"], ["selfNoAtk", "自分のモンスターは攻撃できない（このターン）"], ["destroyOwn", "自分のモンスター1体を破壊"], ["destroyThis", "このモンスターを破壊"], ["destroyOwnAll", "自分のモンスターをすべて破壊"], ["oppStr", "相手が筋力を得る"], ["noDraw", "このターンもう引けない"]] },
+  { g: "minus",   label: "自分にデメリット", v: [["loseLp", "LPを失う（ブロックでは防げない）"], ["selfDisc", "手札をえらんで捨てる"], ["selfDiscRand", "手札をランダムに捨てる"], ["selfDiscAll", "手札をすべて捨てる"], ["thisNoAtk", "このモンスターは攻撃できない（このターン）"], ["thisTopOnly", "一番ATKが高い相手にしか攻撃できない"], ["selfNoAtk", "自分のモンスターは攻撃できない（このターン）"], ["destroyOwn", "自分のモンスター1体を破壊"], ["destroyThis", "このモンスターを破壊"], ["destroyOwnAll", "自分のモンスターをすべて破壊"], ["oppStr", "相手が筋力を得る"], ["noDraw", "このターンもう引けない"]] },
   { g: "win",     label: "ゲームに勝つ", v: [["win", "勝利する"]] }
 ];
 // kinds shown only when an older card already uses them (they're now 基本の効果 + 「だれに」)
