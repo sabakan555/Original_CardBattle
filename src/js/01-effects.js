@@ -6,7 +6,7 @@ const SPIRE_LABEL = { attack: "アタック", skill: "スキル", power: "パワ
 const RARITY = { common: "コモン", uncommon: "アンコモン", rare: "レア" };
 const rarityOf = c => c && RARITY[c.rarity] ? c.rarity : "common";
 const spireKind = c => { const t = cardType(c); if (c && c.sk && t === "magic") return c.persist ? "power" : c.sk === "attack" ? "attack" : "skill"; return t === "monster" ? "attack" : t === "trap" || (t === "magic" && c.persist) ? "power" : "skill"; };
-const typeLabel = c => { if (c && c.potionView) return "ポーション"; const t = cardType(c); return isQuick(c) ? "速攻魔法" : isPersist(c) ? "永続" + TYPE_LABEL[t] : TYPE_LABEL[t]; };
+const typeLabel = c => { if (c && c.potionView) return "ポーション"; const t = cardType(c); return isQuick(c) ? "速攻魔法" : isField(c) ? "フィールド魔法" : isPersist(c) ? "永続" + TYPE_LABEL[t] : TYPE_LABEL[t]; };
 const TRIGS = { summon: "召喚したとき", ssummon: "特殊召喚したとき", kill: "戦闘で相手を破壊したとき", destroyed: "破壊されたとき", battleLose: "バトルに負けたとき", turnStart: "自分のターンのはじめ", turnEnd: "自分のターンの終わり", enter: "場に出たとき", while: "場にいる間", anyUse: "魔法・罠が発動したとき", attach: "装備したとき", use: "発動したとき" };
 const MON_TRIGS = ["summon", "ssummon", "enter", "while", "anyUse", "kill", "destroyed", "battleLose", "turnStart", "turnEnd"];
 const EQ_TRIGS = ["attach", "turnStart", "turnEnd", "destroyed", "battleLose"];
@@ -16,7 +16,11 @@ const PERSIST_TRIGS = Object.keys(PERSIST_TRIG_LABEL);
 // レリック (カード以外): always on; 「手に入れたとき」 + the same timings as 永続 cards
 const RELIC_TRIG_LABEL = { gain: "手に入れたとき", ...Object.fromEntries(Object.entries(PERSIST_TRIG_LABEL).filter(([k]) => k !== "use" && k !== "while")) };
 const RELIC_TRIGS = Object.keys(RELIC_TRIG_LABEL);
-const isPersist = c => !!(c && c.persist && (cardType(c) === "magic" || cardType(c) === "trap"));
+const isPersist = c => !!(c && c.persist && !c.field && (cardType(c) === "magic" || cardType(c) === "trap"));
+// フィールド魔法: お互いに1枚だけ（場に1枚）。新しいフィールドが出ると、前のフィールドは持ち主の墓地へ。効果はどちらのプレイヤーにも効く
+const isField = c => !!(c && c.field && cardType(c) === "magic");
+const FIELD_TRIG_LABEL = { use: "出したとき", turnStart: "それぞれのターンのはじめ", turnEnd: "それぞれのターンのおわり", while: "場にある間", anyUse: "魔法・罠が発動したとき" };
+const FIELD_TRIGS = Object.keys(FIELD_TRIG_LABEL);
 const EQ_TRIG_LABEL = { destroyed: "装備したモンスターが破壊されたとき", battleLose: "装備したモンスターがバトルに負けたとき" };
 const trigLabel = (t, k) => (t === "equip" && EQ_TRIG_LABEL[k]) || TRIGS[k];
 const OLD_TRIG = { open: "summon", win: "kill", lose: "destroyed" };
@@ -325,7 +329,7 @@ const payDiscOf = c => c && c.payDisc > 0 ? Math.round(+c.payDisc) : 0;
 const payDiscAll = c => !!(c && +c.payDisc === -1);
 const payMaxOf = c => c && c.payMax > 0 ? Math.round(+c.payMax) : 0;
 function extraCostText(c){ const L = [payLpOf(c) ? `LPを${payLpOf(c)}払う` : "", payDiscAll(c) ? "手札をすべて捨てる" : payDiscOf(c) ? `手札${c.payDiscTag ? `のタグ「${c.payDiscTag}」のカード` : ""}を${payDiscOf(c)}枚捨てる` : "", payMaxOf(c) ? `最大マナを${payMaxOf(c)}減らす` : ""].filter(Boolean); return L.length ? "【コスト】" + L.join("、") : ""; }
-function fxText(c){ return (c && c.token ? "【トークン】" : "") + (c && c.ex ? "【EX】" : "") + [c && c.noUse && (cardType(c) === "magic" || cardType(c) === "trap") ? "このカードは発動できない" : "", isPersist(c) ? "【永続】使ったあとも場に残る" : "", extraCostText(c), tribText(c), atkCondText(c), ssText(c), fxText0(c)].filter(Boolean).join("。"); }
+function fxText(c){ return (c && c.token ? "【トークン】" : "") + (c && c.ex ? "【EX】" : "") + [c && c.noUse && (cardType(c) === "magic" || cardType(c) === "trap") ? "このカードは発動できない" : "", isPersist(c) ? "【永続】使ったあとも場に残る" : "", isField(c) ? "【フィールド】お互いに1枚だけ場に置ける（新しいフィールドが出ると、前のフィールドは墓地へ）。効果はお互いに効く" : "", extraCostText(c), tribText(c), atkCondText(c), ssText(c), fxText0(c)].filter(Boolean).join("。"); }
 /* ================= effect blocks: いつ / もし / なにを / ちがったら =================
    c.blocks = [{ trig, conds: [{k, op, n | name, where, match | text}], join: "and"|"or", then: [{kind, n, to}], else: [...] }]
    Older cards (c.fx + c.combo) are read as blocks too, so everything below runs on blocks. */
@@ -405,6 +409,7 @@ function normTrig(c, trig){
   const t = cardType(c);
   if (t === "monster"){ const k = OLD_TRIG[trig] || trig; return MON_TRIGS.includes(k) ? k : "summon"; }
   if (t === "equip") return EQ_TRIGS.includes(trig) ? trig : "attach";
+  if (isField(c)) return FIELD_TRIGS.includes(trig) ? trig : "use";
   if (isPersist(c)) return PERSIST_TRIGS.includes(trig) ? trig : "use";
   return "use";
 }
@@ -471,9 +476,10 @@ function clockSVG(n, cls){ return `<svg class="clk${cls ? " " + cls : ""}" viewB
 function clockMark(html){ return html ? html.replace(/【次の自分のターンのはじめ】/g, () => `<span class="clkm" title="次の自分のターンのはじめに出る">${clockSVG(1)}</span>`).replace(/【(\d)ターン後の自分のターンのはじめ】/g, (_, d) => `<span class="clkm" title="${d}ターン後の自分のターンのはじめに出る">${clockSVG(d)}</span>`) : html; }
 function blockText(c, b){
   const t = cardType(c), isMon = t === "monster" || t === "equip";
-  const head = c && c.relicView ? `【${RELIC_TRIG_LABEL[b.trig] || ""}】` : isMon ? `【${trigLabel(t, b.trig)}】` : isPersist(c) && b.trig !== "use" ? `【${PERSIST_TRIG_LABEL[b.trig]}】` : "";
+  const head = c && c.relicView ? `【${RELIC_TRIG_LABEL[b.trig] || ""}】` : isMon ? `【${trigLabel(t, b.trig)}】` : isField(c) && b.trig !== "use" ? `【${FIELD_TRIG_LABEL[b.trig]}】` : isPersist(c) && b.trig !== "use" ? `【${PERSIST_TRIG_LABEL[b.trig]}】` : "";
   let s = head + delayText(b.delay) + (b.roll === "die" ? `サイコロ${b.faces && b.faces !== 6 ? `（${b.faces}面）` : ""}を振る。` : b.roll === "coin" ? "コインを投げる。" : "") + condsText(b) + (b.then.length ? effsText(c, b.then) : "なにもしない");
   if (b.conds.length && b.else.length) s += `。そうでなければ、${effsText(c, b.else)}`;
+  if (isField(c)) s = s.replace(/(自分|相手)のモンスターすべて/g, "お互いのモンスターすべて");
   return s;
 }
 function fxText0(c){ const out = blocksOf(c).map(b => blockText(c, b)).join("。"); return c && c.costX && out ? "【X回くり返す】" + out : out; }

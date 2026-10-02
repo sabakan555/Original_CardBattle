@@ -245,6 +245,7 @@ function renderBoard(){
       <span class="zlabel">相手のモンスターゾーン</span>
       <div class="zones">${zoneHTML(op, "mz")}</div>
       <div class="bz">
+        ${st.field ? `<div class="fieldz" data-field title="フィールド（お互いに効く）"><span class="flbl">フィールド</span>${cardHTML(card(st.field.c), "xs pick", `data-field tabindex="0" role="button"`)}<span class="note">${esc(P(st, st.field.o).name)} が出した</span></div>` : ""}
         <h2>バトルゾーン</h2>
         <div class="turnline">ターン${st.turnNo}・${G.spectate ? `<span class="me">${esc(P(st, st.turn).name)} のターン</span>` : myTurn ? `<span class="me">あなたのターン</span>` : `<span class="op">${esc(po.name)} のターン</span>`}${myTurn && !pm.mana && !st.summoned ? "（召喚できる）" : ""}</div>
         <div class="lastlog">${last ? esc((last.s ? nm(st, last.s) + "：" : "") + last.m) : ""}</div>
@@ -585,6 +586,7 @@ $("#overlay").addEventListener("click", e => {
 $("#overlay").addEventListener("keydown", e => { const h = e.target.closest("[role=button]"); if (h && (e.key === "Enter" || e.key === " ")){ e.preventDefault(); h.click(); } });
 
 $("#board").addEventListener("click", e => {
+  if (e.target.closest("[data-field]") && G && G.st && G.st.field){ openCardView("field", [G.st.field.c], 0); return; }
   if (!G) return;
   const st = G.st, me = G.slot;
   const pb = e.target.closest("[data-potion]");

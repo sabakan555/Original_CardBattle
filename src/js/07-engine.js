@@ -52,7 +52,7 @@ function staticAtk(m){
   staticAtk.busy = true;
   try{
     const srcs = [];
-    for (const o of ["a", "b"]){ const p = P(st, o); p.mz.forEach((x, i) => { if (x) srcs.push({ o, c: card(x.c), mon: x, ctx: { zone: i, mon: { s: o, i, u: x.u } } }); }); p.sz.forEach((z, i) => { if (z && z.face && isPersist(card(z.c))) srcs.push({ o, c: card(z.c), mon: null, ctx: { pz: i } }); }); }
+    for (const o of ["a", "b"]){ const p = P(st, o); p.mz.forEach((x, i) => { if (x) srcs.push({ o, c: card(x.c), mon: x, ctx: { zone: i, mon: { s: o, i, u: x.u } } }); }); p.sz.forEach((z, i) => { if (z && z.face && isPersist(card(z.c))) srcs.push({ o, c: card(z.c), mon: null, ctx: { pz: i } }); }); if (st.field) srcs.push({ o, c: card(st.field.c), mon: null, ctx: { field: true } }); }
     srcs.forEach(src => blocksOf(src.c).forEach(b => {
       if (b.trig !== "while") return;
       const plain = b.conds.filter(x => x.k !== "ask"), ok = !plain.length || (b.join === "or" ? plain.some(x => condMet(st, src.o, src.c, x, src.ctx)) : plain.every(x => condMet(st, src.o, src.c, x, src.ctx)));
@@ -146,7 +146,8 @@ function playTopCard(st, s, src, ex, then, extra){
   if (t !== "magic" && t !== "trap"){ p.grave.push(id); log(st, s, `${src}で山札の一番上の「${c.name}」をめくった（プレイできないので墓地へ）`); then && then(st); return; }
   log(st, s, `${src}で山札の一番上の「${c.name}」をプレイ！`); ev(st, { type: "spell", s, c: id }); countPlay(st, s, c);
   const pz = isPersist(c) && !ex ? freeZone(p.sz) : -1;
-  if (pz >= 0){ st.un = (st.un || 0) + 1; p.sz[pz] = { c: id, turn: st.turnNo, face: true, u: st.un }; }
+  if (isField(c) && !ex) placeField(st, s, id);
+  else if (pz >= 0){ st.un = (st.un || 0) + 1; p.sz[pz] = { c: id, turn: st.turnNo, face: true, u: st.un }; }
   else if (ex || exhausts(c)) exileCard(st, s, id, src);
   else p.grave.push(id);
   runCard(st, s, c, "use", { x: 0, fromTop: true, ...(extra || {}) }, st2 => onCardUsed(st2, s, c, then));
@@ -178,7 +179,8 @@ function autoPlayCard(st, s, id){
   const p = P(st, s), c = card(id);
   log(st, s, `「${c.name}」を自動で使った！`); ev(st, { type: "spell", s, c: id }); countPlay(st, s, c);
   const pz = isPersist(c) ? freeZone(p.sz) : -1;
-  if (pz >= 0){ st.un = (st.un || 0) + 1; p.sz[pz] = { c: id, turn: st.turnNo, face: true, u: st.un }; }
+  if (isField(c)) placeField(st, s, id);
+  else if (pz >= 0){ st.un = (st.un || 0) + 1; p.sz[pz] = { c: id, turn: st.turnNo, face: true, u: st.un }; }
   else if (exhausts(c) || corrupted(st, s, c)) exileCard(st, s, id, `「${c.name}」`);
   else p.grave.push(id);
   runCard(st, s, c, "use", { x: 0, autoRand: true }, st2 => onCardUsed(st2, s, c, null));
@@ -390,7 +392,9 @@ function fireTurn(st, who, trig, then, timersDone){
   const L = [];
   for (const o of ["a", "b"]) P(st, o).mz.forEach((m, i) => { if (m) monTrigList(st, o, i, trig).forEach(x => { if (x.s === who && hasTrig(x.c, trig)) L.push(x); }); });
   const PL = persistList(st, who, trig, {}); PL.forEach(x => log(st, who, `${x.c.relicView ? "レリック" : "永続"}「${x.c.name}」の効果！`));
-  runList(st, L.concat(PL), then);
+  const fc = fieldCard(st), FL = fc && (trig === "turnStart" || trig === "turnEnd") && hasTrig(fc, trig) ? [{ s: who, c: fc, trig, ctx: { field: true } }] : [];
+  FL.forEach(x => log(st, who, `フィールド「${x.c.name}」の効果！`));
+  runList(st, L.concat(PL, FL), then);
 }
 // face-up 永続 cards of player s whose effect fires on `trig`
 function persistList(st, s, trig, ctx){
@@ -878,13 +882,14 @@ function activate(st, s, from, i, ctx = {}){
   countPlay(st, s, c);
   discardCost(st, s, c, shiftPicks(ctx.disc, from === "hand" ? i : null));
   // 永続: stays face-up in the magic/trap zone
-  if (keep){ st.un = (st.un || 0) + 1; p.sz[pz] = { c: id, turn: st.turnNo, face: true, u: st.un }; }
+  if (isField(c)) placeField(st, s, id);
+  else if (keep){ st.un = (st.un || 0) + 1; p.sz[pz] = { c: id, turn: st.turnNo, face: true, u: st.un }; }
   else if (exhausts(c) || corrupted(st, s, c)) (p.exile = p.exile || []).push(id);
   else p.grave.push(id);
   ev(st, { type: "spell", s, c: id });
   // ワン・ツーパンチ: this attack is played twice
   if (isAttackCard(c) && cardType(c) === "magic" && p.dblAtk > 0){ p.dblAtk--; ctx = { ...ctx, dbl: true }; log(st, s, `「${c.name}」をもう1回プレイする！`); }
-  pushChain(st, s, id, { ...ctx, fromHand: from === "hand" }, `${keep ? "永続" : ""}${t === "trap" ? "罠" : isQuick(c) ? "速攻魔法" : "魔法"}「${c.name}」`, keep ? { pz, pu: p.sz[pz].u } : null);
+  pushChain(st, s, id, { ...ctx, fromHand: from === "hand" }, `${keep ? "永続" : ""}${t === "trap" ? "罠" : isQuick(c) ? "速攻魔法" : isField(c) ? "フィールド魔法" : "魔法"}「${c.name}」`, keep ? { pz, pu: p.sz[pz].u } : isField(c) && st.field ? { fu: st.field.u } : null);
   if (!keep && (exhausts(c) || corrupted(st, s, c))){ p.exhaustedNow = (p.exhaustedNow || 0) + 1; log(st, s, `「${c.name}」は廃棄された（このゲームではもう使えない）`); persistFire(st, s, "exhaust", {}); }
   return true;
 }
@@ -907,6 +912,13 @@ function pushChain(st, s, id, ctx, label, extra){
   else resolveChain(st, resume);
 }
 // 魔法・罠が発動したとき: 両方の場のモンスター・表の永続カード・レリック、そして手札のモンスターが反応する（もし「発動したカードが…」で絞れる）
+function placeField(st, s, id){
+  const old = st.field;
+  if (old){ P(st, old.o).grave.push(old.c); log(st, s, `フィールド「${card(old.c).name}」は墓地へ（新しいフィールドが出た）`); }
+  st.un = (st.un || 0) + 1; st.field = { c: id, o: s, u: st.un };
+  log(st, s, `フィールド「${card(id).name}」が出た`);
+}
+const fieldCard = st => st && st.field ? card(st.field.c) : null;
 function onCardUsed(st, user, c, then){
   const t = cardType(c); if ((t !== "magic" && t !== "trap") || (st._usedDepth || 0) > 2 || st.winner){ then && then(st); return; }
   const used = { c: c.id, s: user }, L = [];
@@ -914,6 +926,7 @@ function onCardUsed(st, user, c, then){
     const p = P(st, o);
     p.mz.forEach((m, i) => { if (m && hasTrig(card(m.c), "anyUse")) L.push({ s: o, c: card(m.c), trig: "anyUse", ctx: { used, zone: i, mon: { s: o, i, u: m.u } } }); });
     persistList(st, o, "anyUse", { used }).forEach(x => L.push(x));
+    if (o === user && fieldCard(st) && hasTrig(fieldCard(st), "anyUse")) L.push({ s: user, c: fieldCard(st), trig: "anyUse", ctx: { used, field: true } });
     [...new Set(p.hand)].forEach(id => { const hc = card(id); if (cardType(hc) === "monster" && hasTrig(hc, "anyUse")) L.push({ s: o, c: hc, trig: "anyUse", ctx: { used, inHand: id } }); });
   }
   if (!L.length){ then && then(st); return; }
@@ -939,6 +952,7 @@ function resolveChain(st, resume){
     if (link.negated){
       log(st2, link.s, `「${c.name}」の発動は無効になった`);
       if (link.pz != null){ const p = P(st2, link.s), z = p.sz[link.pz]; if (z && z.u === link.pu){ p.sz[link.pz] = null; p.grave.push(z.c); } }
+      if (st2.field && st2.field.c === link.c && st2.field.o === link.s){ P(st2, link.s).grave.push(st2.field.c); st2.field = null; }
       step(st2); return;
     }
     if (link.cancel || (normFx(c) || {}).kind === "cancel"){

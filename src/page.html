@@ -100,6 +100,7 @@
           <label class="row" id="neowRow" hidden style="gap:6px;font-weight:700;cursor:pointer;margin-top:8px"><input type="checkbox" id="mkNeow"> ネオーレリック（試合のはじめのレリック選びに出る。ふつうの戦闘では手に入らない）</label></div>
         <div id="mkTypeWrap"><h3>カードの種類</h3><div class="seg" id="mkType"><button data-t="monster" aria-pressed="true">モンスター</button><button data-t="magic" aria-pressed="false">魔法</button><button data-t="equip" aria-pressed="false">装備</button><button data-t="trap" aria-pressed="false">罠</button><button data-t="power" aria-pressed="false" hidden>パワー</button></div></div>
         <label class="row" id="quickRow" hidden style="gap:6px;font-weight:700;cursor:pointer"><input type="checkbox" id="mkQuick"> 速攻魔法（相手のターンにも使える）</label>
+        <label class="row" id="fieldRow" hidden style="gap:6px;font-weight:700;cursor:pointer"><input type="checkbox" id="mkField"> フィールド魔法（お互いに1枚だけ。新しいフィールドが出ると前のフィールドは墓地へ。効果はお互いに効く）</label>
         <label class="row" id="persistRow" hidden style="gap:6px;font-weight:700;cursor:pointer"><input type="checkbox" id="mkPersist"> 永続（使ったあとも魔法・罠ゾーンに残って、効果が続く・最大5枚）</label>
         <label class="row" id="exhaustRow" hidden style="gap:6px;font-weight:700;cursor:pointer"><input type="checkbox" id="mkExhaust"> 廃棄（使ったら墓地に行かず、そのゲームから消える）</label>
         <label class="row" id="noUseRow" hidden style="gap:6px;font-weight:700;cursor:pointer"><input type="checkbox" id="mkNoUse"> 発動できない（手札からもセットしても使えない。相手の場にセットして場所をふさぐ用）</label>
@@ -347,6 +348,7 @@
         <h3 style="margin-top:14px">自分のターンでできること</h3>
         <ol>
           <li>モンスターの召喚は1ターンに1回だけ</li>
+          <li>フィールド魔法：場に置けるのはお互いに1枚だけ（バトルゾーンの上に出る）。新しいフィールド魔法が出ると、前のフィールドは持ち主の墓地へ。効果はお互いに効き、「それぞれのターンのはじめ／おわり」の効果はそのターンのプレイヤーに出る。</li>
           <li>プレイ：効果で山札の一番上などを「プレイ」したとき、モンスターは召喚扱いで場に出る（召喚権は使わず、残っていなくても出る。場がいっぱいなら墓地へ）。魔法・罠は発動した扱いになる。</li>
           <li>サイコロ・コイン：効果ブロックの「まず」でサイコロを振る（コインを投げる）と、その効果の「もし」でサイコロの目やコインの表裏を使ったり、出た目の数だけ効果を大きくしたり、出た目の回数くり返したりできる。</li>
           <li>時計マーク：「次の自分のターンのはじめ」「○ターン後の自分のターンのはじめ」に出る効果は、場の名前の下に時計と残りの数が出る。自分のターンのはじめに1へって、0になったら効果が出る。</li>
