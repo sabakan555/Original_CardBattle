@@ -183,7 +183,15 @@ function rebuildCards(){
 }
 
 /* ================= card html ================= */
+// キラ加工（holo）と名前の箔（foil）: どの枠のカードにも上からかぶせる
+const HOLO = { rainbow: "虹ホロ", sparkle: "星くず", galaxy: "ギャラクシー" };
+const FOIL = { gold: "金", silver: "銀", bronze: "銅", rainbow: "虹" };
 function cardHTML(c, cls = "", attrs = "", opts = {}){
+  const h = cardHTML0(c, cls, attrs, opts), ho = c && HOLO[c.holo] ? c.holo : "", fo = c && FOIL[c.foil] ? c.foil : "";
+  if (!ho && !fo) return h;
+  return h.replace(/^<div class="card /, `<div class="card${ho ? ` holo holo-${ho}` : ""}${fo ? ` foil-${fo}` : ""} `).replace(/<\/div>$/, ho ? `<span class="holo-fx" aria-hidden="true"></span></div>` : "</div>");
+}
+function cardHTML0(c, cls = "", attrs = "", opts = {}){
   if (!c) c = { name: "？", type: "monster", atk: 0 };
   const t = cardType(c);
   const art = c.img ? `<img alt="" src="${c.img}">` : `<span class="noart">絵なし</span>`;

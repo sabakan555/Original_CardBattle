@@ -919,3 +919,36 @@ div.f{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:13px}
 .font-pick[open] .font-grid{margin-top:6px}
 .bk-dbr{display:flex;flex-direction:column;gap:6px;padding:8px 10px;border-left:3px solid #e0a43a;background:rgba(224,164,58,.08);border-radius:8px}
 .bk-dbr-h b{font-size:14px}
+
+/* ---- キラ加工 / 名前の箔 / 3D傾き ---- */
+.card.holo{position:relative}
+.card .holo-fx{display:none}
+.card.holo .holo-fx{display:block;position:absolute;inset:0;border-radius:inherit;pointer-events:none;z-index:7;mix-blend-mode:multiply;opacity:.55;background-size:260% 260%;background-position:var(--hx,0%) var(--hy,50%);animation:holoMove 7s linear infinite}
+.card.holo.tilting .holo-fx{animation:none;opacity:calc(var(--ha,.6) + .2);transition:background-position .05s}
+.card.holo-rainbow .holo-fx{background-image:linear-gradient(115deg,#fff 12%,#ffb0d6 24%,#fff0a0 34%,#a8ffd8 44%,#a8d8ff 54%,#dcb0ff 64%,#ffb0d6 74%,#fff 88%)}
+.card.holo-sparkle .holo-fx{mix-blend-mode:multiply;opacity:.85;background-image:radial-gradient(circle,#7cc4ff 0 1.1px,transparent 1.7px),radial-gradient(circle,#ffc94d 0 1px,transparent 1.5px),linear-gradient(115deg,#fff 25%,#ffe6f3 40%,#e6f6ff 55%,#fff 70%);background-size:13px 13px,19px 19px,260% 260%;background-position:0 0,6px 9px,var(--hx,0%) var(--hy,50%);animation:holoMove 7s linear infinite,twinkle 2.4s ease-in-out infinite}
+.card.holo-galaxy .holo-fx{mix-blend-mode:multiply;opacity:.6;background-image:radial-gradient(circle,#6b7cff 0 .9px,transparent 1.4px),radial-gradient(ellipse at 25% 30%,#c9b3ff,transparent 60%),radial-gradient(ellipse at 75% 75%,#a6e4ff,transparent 60%),linear-gradient(115deg,#fff 20%,#ffc6ec 45%,#c6dcff 60%,#fff 80%);background-size:17px 17px,100% 100%,100% 100%,260% 260%;background-position:3px 5px,0 0,0 0,var(--hx,0%) var(--hy,50%)}
+@keyframes holoMove{0%{background-position:0% 50%}100%{background-position:260% 50%}}
+.card.holo-sparkle .holo-fx{animation-name:holoMove,twinkle}
+@keyframes twinkle{0%,100%{opacity:.55}50%{opacity:.9}}
+.card.holo-galaxy .holo-fx{animation:none}
+.card.holo-galaxy:not(.tilting) .holo-fx{animation:galaxyPan 9s ease-in-out infinite alternate}
+@keyframes galaxyPan{from{background-position:3px 5px,0 0,0 0,0% 50%}to{background-position:3px 5px,0 0,0 0,260% 50%}}
+/* name foil: metallic gradient text */
+.card[class*="foil-"] .c-name,.card[class*="foil-"] .s-main,.card[class*="foil-"] .p-name{-webkit-background-clip:text;background-clip:text;color:transparent!important;-webkit-text-fill-color:transparent;filter:drop-shadow(0 0 .6px rgba(0,0,0,.85)) drop-shadow(0 1px 0 rgba(0,0,0,.35))}
+.card.foil-gold .c-name,.card.foil-gold .s-main,.card.foil-gold .p-name{background-image:linear-gradient(100deg,#7a5410 0%,#e9c55a 22%,#fff3b8 34%,#c9952a 48%,#f6dc7a 62%,#8a6114 80%,#e9c55a 100%)}
+.card.foil-silver .c-name,.card.foil-silver .s-main,.card.foil-silver .p-name{background-image:linear-gradient(100deg,#5d6670 0%,#cfd6dd 22%,#ffffff 34%,#9aa4ae 48%,#e4e9ee 62%,#636c76 80%,#cfd6dd 100%)}
+.card.foil-bronze .c-name,.card.foil-bronze .s-main,.card.foil-bronze .p-name{background-image:linear-gradient(100deg,#5a2e12 0%,#c27a45 22%,#f2c39a 34%,#9a5528 48%,#d99a66 62%,#5f3416 80%,#c27a45 100%)}
+.card.foil-rainbow .c-name,.card.foil-rainbow .s-main,.card.foil-rainbow .p-name{background-image:linear-gradient(100deg,#e5367a,#f0a020,#3cc78a,#2f8de4,#9b4de0,#e5367a);background-size:200% 100%;animation:foilRun 5s linear infinite}
+@keyframes foilRun{to{background-position:200% 0}}
+/* the editor's name is an input: a solid metallic color there */
+.card.editor[class*="foil-"] .c-name{filter:none}
+.card.editor[class*="foil-"] .c-name input{-webkit-text-fill-color:currentColor}
+.card.editor.foil-gold .c-name input{color:#c9952a}.card.editor.foil-silver .c-name input{color:#8f99a3}.card.editor.foil-bronze .c-name input{color:#a8602f}.card.editor.foil-rainbow .c-name input{color:#9b4de0}
+.card.editor.foil-gold .c-name,.card.editor.foil-silver .c-name,.card.editor.foil-bronze .c-name,.card.editor.foil-rainbow .c-name{color:inherit!important;-webkit-text-fill-color:initial;background-image:none}
+.card.editor.holo .holo-fx{opacity:.3}
+/* 3D tilt */
+.detailcard,.cv-card{perspective:700px;touch-action:none}
+.detailcard .card,.cv-card .card{transition:transform .25s ease-out;transform-style:preserve-3d;will-change:transform}
+.detailcard .card.tilting,.cv-card .card.tilting{transition:transform .06s linear;box-shadow:0 18px 40px rgba(0,0,0,.45)}
+@media (prefers-reduced-motion:reduce){.card.holo .holo-fx,.card.foil-rainbow .c-name,.card.foil-rainbow .s-main,.card.foil-rainbow .p-name{animation:none!important}}

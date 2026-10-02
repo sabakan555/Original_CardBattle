@@ -931,6 +931,39 @@ div.f{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:13px}
 .font-pick[open] .font-grid{margin-top:6px}
 .bk-dbr{display:flex;flex-direction:column;gap:6px;padding:8px 10px;border-left:3px solid #e0a43a;background:rgba(224,164,58,.08);border-radius:8px}
 .bk-dbr-h b{font-size:14px}
+
+/* ---- キラ加工 / 名前の箔 / 3D傾き ---- */
+.card.holo{position:relative}
+.card .holo-fx{display:none}
+.card.holo .holo-fx{display:block;position:absolute;inset:0;border-radius:inherit;pointer-events:none;z-index:7;mix-blend-mode:multiply;opacity:.55;background-size:260% 260%;background-position:var(--hx,0%) var(--hy,50%);animation:holoMove 7s linear infinite}
+.card.holo.tilting .holo-fx{animation:none;opacity:calc(var(--ha,.6) + .2);transition:background-position .05s}
+.card.holo-rainbow .holo-fx{background-image:linear-gradient(115deg,#fff 12%,#ffb0d6 24%,#fff0a0 34%,#a8ffd8 44%,#a8d8ff 54%,#dcb0ff 64%,#ffb0d6 74%,#fff 88%)}
+.card.holo-sparkle .holo-fx{mix-blend-mode:multiply;opacity:.85;background-image:radial-gradient(circle,#7cc4ff 0 1.1px,transparent 1.7px),radial-gradient(circle,#ffc94d 0 1px,transparent 1.5px),linear-gradient(115deg,#fff 25%,#ffe6f3 40%,#e6f6ff 55%,#fff 70%);background-size:13px 13px,19px 19px,260% 260%;background-position:0 0,6px 9px,var(--hx,0%) var(--hy,50%);animation:holoMove 7s linear infinite,twinkle 2.4s ease-in-out infinite}
+.card.holo-galaxy .holo-fx{mix-blend-mode:multiply;opacity:.6;background-image:radial-gradient(circle,#6b7cff 0 .9px,transparent 1.4px),radial-gradient(ellipse at 25% 30%,#c9b3ff,transparent 60%),radial-gradient(ellipse at 75% 75%,#a6e4ff,transparent 60%),linear-gradient(115deg,#fff 20%,#ffc6ec 45%,#c6dcff 60%,#fff 80%);background-size:17px 17px,100% 100%,100% 100%,260% 260%;background-position:3px 5px,0 0,0 0,var(--hx,0%) var(--hy,50%)}
+@keyframes holoMove{0%{background-position:0% 50%}100%{background-position:260% 50%}}
+.card.holo-sparkle .holo-fx{animation-name:holoMove,twinkle}
+@keyframes twinkle{0%,100%{opacity:.55}50%{opacity:.9}}
+.card.holo-galaxy .holo-fx{animation:none}
+.card.holo-galaxy:not(.tilting) .holo-fx{animation:galaxyPan 9s ease-in-out infinite alternate}
+@keyframes galaxyPan{from{background-position:3px 5px,0 0,0 0,0% 50%}to{background-position:3px 5px,0 0,0 0,260% 50%}}
+/* name foil: metallic gradient text */
+.card[class*="foil-"] .c-name,.card[class*="foil-"] .s-main,.card[class*="foil-"] .p-name{-webkit-background-clip:text;background-clip:text;color:transparent!important;-webkit-text-fill-color:transparent;filter:drop-shadow(0 0 .6px rgba(0,0,0,.85)) drop-shadow(0 1px 0 rgba(0,0,0,.35))}
+.card.foil-gold .c-name,.card.foil-gold .s-main,.card.foil-gold .p-name{background-image:linear-gradient(100deg,#7a5410 0%,#e9c55a 22%,#fff3b8 34%,#c9952a 48%,#f6dc7a 62%,#8a6114 80%,#e9c55a 100%)}
+.card.foil-silver .c-name,.card.foil-silver .s-main,.card.foil-silver .p-name{background-image:linear-gradient(100deg,#5d6670 0%,#cfd6dd 22%,#ffffff 34%,#9aa4ae 48%,#e4e9ee 62%,#636c76 80%,#cfd6dd 100%)}
+.card.foil-bronze .c-name,.card.foil-bronze .s-main,.card.foil-bronze .p-name{background-image:linear-gradient(100deg,#5a2e12 0%,#c27a45 22%,#f2c39a 34%,#9a5528 48%,#d99a66 62%,#5f3416 80%,#c27a45 100%)}
+.card.foil-rainbow .c-name,.card.foil-rainbow .s-main,.card.foil-rainbow .p-name{background-image:linear-gradient(100deg,#e5367a,#f0a020,#3cc78a,#2f8de4,#9b4de0,#e5367a);background-size:200% 100%;animation:foilRun 5s linear infinite}
+@keyframes foilRun{to{background-position:200% 0}}
+/* the editor's name is an input: a solid metallic color there */
+.card.editor[class*="foil-"] .c-name{filter:none}
+.card.editor[class*="foil-"] .c-name input{-webkit-text-fill-color:currentColor}
+.card.editor.foil-gold .c-name input{color:#c9952a}.card.editor.foil-silver .c-name input{color:#8f99a3}.card.editor.foil-bronze .c-name input{color:#a8602f}.card.editor.foil-rainbow .c-name input{color:#9b4de0}
+.card.editor.foil-gold .c-name,.card.editor.foil-silver .c-name,.card.editor.foil-bronze .c-name,.card.editor.foil-rainbow .c-name{color:inherit!important;-webkit-text-fill-color:initial;background-image:none}
+.card.editor.holo .holo-fx{opacity:.3}
+/* 3D tilt */
+.detailcard,.cv-card{perspective:700px;touch-action:none}
+.detailcard .card,.cv-card .card{transition:transform .25s ease-out;transform-style:preserve-3d;will-change:transform}
+.detailcard .card.tilting,.cv-card .card.tilting{transition:transform .06s linear;box-shadow:0 18px 40px rgba(0,0,0,.45)}
+@media (prefers-reduced-motion:reduce){.card.holo .holo-fx,.card.foil-rainbow .c-name,.card.foil-rainbow .s-main,.card.foil-rainbow .p-name{animation:none!important}}
 </style>
 <style>html,body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
 </head>
@@ -1001,7 +1034,7 @@ div.f{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:13px}
   <!-- MAKE -->
   <section id="tab-make" hidden>
     <div class="maker">
-      <div class="mk-left"><div class="card editor" id="editCard"><div class="c-in">
+      <div class="mk-left"><div class="card editor" id="editCard"><span class="holo-fx" aria-hidden="true"></span><div class="c-in">
         <span class="c-cost" id="mkCostBadge" hidden></span><div class="c-name"><input type="text" id="mkName" maxlength="40" placeholder="カード名"></div>
         <div class="c-art"><canvas id="cv" width="560" height="400" aria-label="イラストを描くところ"></canvas><div class="fl-guide" id="flGuide" hidden>ここから下は半透明の文字の欄</div><div class="c-tab" id="mkTab">モンスター</div></div>
         <div class="c-text">
@@ -1058,6 +1091,7 @@ div.f{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:13px}
           <label class="row" style="gap:6px;font-weight:700;cursor:pointer"><input type="checkbox" id="mkFrameless"> 半フレームレス（絵を下の文字の欄まで広げる）</label>
           <label class="row" id="flAlphaRow" hidden style="gap:8px;font-weight:700;font-size:13px">文字の欄の濃さ<input type="range" id="mkFlAlpha" min="0" max="100" step="5" value="68" style="flex:1;min-width:120px"><span id="flAlphaVal" style="min-width:3.5em">68%</span><button type="button" class="small ghost" id="btnFlAlpha">もとに戻す</button></label>
           <label class="row" id="tEdgeRow" hidden style="gap:6px;font-weight:700;font-size:13px;cursor:pointer"><input type="checkbox" id="mkTEdge"> 文字に白いふちをつける（絵の上でも読みやすくする）</label>
+          <div class="row" style="gap:10px 14px;flex-wrap:wrap"><label class="f" style="flex-direction:row;align-items:center;gap:6px">キラ加工<select id="mkHolo" aria-label="キラ加工"><option value="">なし</option><option value="rainbow">虹ホロ</option><option value="sparkle">星くず</option><option value="galaxy">ギャラクシー</option></select></label><label class="f" style="flex-direction:row;align-items:center;gap:6px">名前の箔<select id="mkFoil" aria-label="名前の箔"><option value="">なし</option><option value="gold">金</option><option value="silver">銀</option><option value="bronze">銅</option><option value="rainbow">虹</option></select></label></div>
           <details class="f font-pick" id="fontPick"><summary>文字のフォント：<span id="fontCur" class="font-cur"></span><span class="note">（押して変える）</span></summary><select id="mkFont" aria-label="カードのフォント" hidden></select><div id="fontGrid" class="font-grid" role="radiogroup" aria-label="カードのフォント"></div></details>
           <div><h3>文字の大きさ</h3><div class="row"><label class="f" style="flex-direction:row;align-items:center;gap:6px">名前<select id="mkNameSize"></select></label><label class="f" style="flex-direction:row;align-items:center;gap:6px">効果・フレーバー<select id="mkTextSize"></select></label></div></div>
           <div><h3>ふりがな</h3><div class="row"><button class="small" id="mkRuby" type="button">ふりがなをつける</button><span class="note">漢字をえらんで押すと ｜漢字《》 になるので、《》の中に読みを入れてね</span></div><div class="ruby-prev" id="rubyPrev" hidden></div></div>
@@ -2103,7 +2137,15 @@ function rebuildCards(){
 }
 
 /* ================= card html ================= */
+// キラ加工（holo）と名前の箔（foil）: どの枠のカードにも上からかぶせる
+const HOLO = { rainbow: "虹ホロ", sparkle: "星くず", galaxy: "ギャラクシー" };
+const FOIL = { gold: "金", silver: "銀", bronze: "銅", rainbow: "虹" };
 function cardHTML(c, cls = "", attrs = "", opts = {}){
+  const h = cardHTML0(c, cls, attrs, opts), ho = c && HOLO[c.holo] ? c.holo : "", fo = c && FOIL[c.foil] ? c.foil : "";
+  if (!ho && !fo) return h;
+  return h.replace(/^<div class="card /, `<div class="card${ho ? ` holo holo-${ho}` : ""}${fo ? ` foil-${fo}` : ""} `).replace(/<\/div>$/, ho ? `<span class="holo-fx" aria-hidden="true"></span></div>` : "</div>");
+}
+function cardHTML0(c, cls = "", attrs = "", opts = {}){
   if (!c) c = { name: "？", type: "monster", atk: 0 };
   const t = cardType(c);
   const art = c.img ? `<img alt="" src="${c.img}">` : `<span class="noart">絵なし</span>`;
@@ -2480,6 +2522,14 @@ function setFlAlpha(v){
 }
 $("#mkFlAlpha").addEventListener("input", e => setFlAlpha(e.target.value));
 $("#btnFlAlpha").addEventListener("click", () => setFlAlpha(FL_ALPHA_DEF));
+function setShine(holo, foil){
+  $("#mkHolo").value = HOLO[holo] ? holo : ""; $("#mkFoil").value = FOIL[foil] ? foil : "";
+  const ec = $("#editCard"); [...ec.classList].filter(k => /^(holo|foil-)/.test(k)).forEach(k => ec.classList.remove(k));
+  if ($("#mkHolo").value) ec.classList.add("holo", "holo-" + $("#mkHolo").value);
+  if ($("#mkFoil").value) ec.classList.add("foil-" + $("#mkFoil").value);
+}
+$("#mkHolo").addEventListener("change", () => setShine($("#mkHolo").value, $("#mkFoil").value));
+$("#mkFoil").addEventListener("change", () => setShine($("#mkHolo").value, $("#mkFoil").value));
 function setTEdge(on){ $("#mkTEdge").checked = !!on; $("#editCard").classList.toggle("tedge", !!on); }
 $("#mkTEdge").addEventListener("change", e => setTEdge(e.target.checked));
 $("#mkFrameless").addEventListener("change", e => setFrameless(e.target.checked));
@@ -3199,7 +3249,7 @@ initBlocksUI();
 $("#mkFxMode").addEventListener("click", e => { const b = e.target.closest("button[data-m]"); if (b) setFxMode(b.dataset.m); });
 applyFxMode();
 function resetMaker(){
-  S.editId = null; setFrameless(false); setFlAlpha(FL_ALPHA_DEF); setTEdge(false); $("#mkName").value = ""; $("#mkEff").value = ""; $("#mkFlv").value = ""; $("#mkNameSize").value = $("#mkTextSize").value = "m"; syncSizes(); $("#mkAtk").value = 300; $("#mkEq").value = 200; $("#mkEqAb").value = "none"; $("#mkEqCost").value = "1"; $("#mkEqCap").value = ""; $("#mkFrame").value = ""; syncFrame(); $("#mkFont").value = "klee"; syncFont(); $("#mkQuick").checked = false; $("#mkWhen").value = ""; $("#mkFusion").checked = false; MK.fusion = null; renderFusion(); $("#mkExhaust").checked = false; $("#mkNoUse").checked = false; $("#mkToken").checked = false; $("#mkEx").checked = false; $("#mkNeow").checked = false; $("#mkPayLp").value = "0"; $("#mkPayDisc").value = "0"; $("#mkPayDiscTag").value = ""; $("#mkTags").value = ""; $("#mkTribTag").value = ""; $("#mkPayDiscAll").checked = false; $("#mkPayDisc").disabled = false; $("#mkPayMax").value = "0"; $("#mkPersist").checked = false; $("#mkField").checked = false; MK.sk = null; $("#mkRarity").value = "common"; $("#mkCost").value = "1"; setMkDeck("normal"); $("#mkLimit").value = "3"; clearCanvas(); undoStack = [];
+  S.editId = null; setFrameless(false); setFlAlpha(FL_ALPHA_DEF); setTEdge(false); setShine("", ""); $("#mkName").value = ""; $("#mkEff").value = ""; $("#mkFlv").value = ""; $("#mkNameSize").value = $("#mkTextSize").value = "m"; syncSizes(); $("#mkAtk").value = 300; $("#mkEq").value = 200; $("#mkEqAb").value = "none"; $("#mkEqCost").value = "1"; $("#mkEqCap").value = ""; $("#mkFrame").value = ""; syncFrame(); $("#mkFont").value = "klee"; syncFont(); $("#mkQuick").checked = false; $("#mkWhen").value = ""; $("#mkFusion").checked = false; MK.fusion = null; renderFusion(); $("#mkExhaust").checked = false; $("#mkNoUse").checked = false; $("#mkToken").checked = false; $("#mkEx").checked = false; $("#mkNeow").checked = false; $("#mkPayLp").value = "0"; $("#mkPayDisc").value = "0"; $("#mkPayDiscTag").value = ""; $("#mkTags").value = ""; $("#mkTribTag").value = ""; $("#mkPayDiscAll").checked = false; $("#mkPayDisc").disabled = false; $("#mkPayMax").value = "0"; $("#mkPersist").checked = false; $("#mkField").checked = false; MK.sk = null; $("#mkRarity").value = "common"; $("#mkCost").value = "1"; setMkDeck("normal"); $("#mkLimit").value = "3"; clearCanvas(); undoStack = [];
   setMkType("monster"); loadFxForm(null); loadAbs([]); loadSS(null); mkLoadVars(null);
   $("#mkTitle").textContent = "カードを描く"; $("#btnNew").hidden = true; $("#btnSave").textContent = "カードを保存"; potionModeUI();
 }
@@ -3310,7 +3360,7 @@ $("#btnSave").addEventListener("click", async () => {
   const prev = S.cards.get(id) || userPotion(id) || userRelic(id) || builtinPotionCard(id);
   let eqN = Math.round(+$("#mkEq").value || 0); $("#mkEq").value = eqN;
   const doc = { type: MK.type, name, atk: MK.type === "monster" ? atk : 0, atkInf, eqN: MK.type === "equip" ? eqN : 0, eqAb: "none", eqCost: MK.type === "equip" ? Math.max(0, Math.round(+$("#mkEqCost").value || 0)) : null, eqCap: MK.type === "monster" && $("#mkFrame").value === "socra" && $("#mkEqCap").value.trim() !== "" ? Math.max(0, Math.round(+$("#mkEqCap").value || 0)) : null, abs: MK.type === "monster" || MK.type === "equip" ? readAbs() : [], frame: $("#mkFrame").value || null, ss: readSS(), tags: parseTags($("#mkTags").value), tribTag: MK.type === "monster" ? $("#mkTribTag").value.trim() || null : null, ...(MK.type === "monster" ? mkVarFields() : { trib: null, atkConds: null, atkJoin: "and", tribCost: null, atkCondsCost: null, atkJoinCost: null }), effect: $("#mkEff").value.trim(), flavor: $("#mkFlv").value.trim(), nameSize: $("#mkNameSize").value, textSize: $("#mkTextSize").value, fx: null, combo: null, blocks: readBlocks(), font: $("#mkFont").value, quick: MK.type === "magic" && $("#mkFrame").value !== "spire" && $("#mkQuick").checked, persist: (MK.type === "magic" || MK.type === "trap") && $("#mkPersist").checked && !$("#mkField").checked, field: MK.type === "magic" && $("#mkField").checked || null, sk: mkSk(), rarity: $("#mkFrame").value === "spire" ? $("#mkRarity").value : null, exhaust: (MK.type === "magic" || MK.type === "trap") && $("#mkExhaust").checked, noUse: (MK.type === "magic" || MK.type === "trap") && $("#mkNoUse").checked || null, when: mkWhenVal(), fusion: mkFusionVal(), token: $("#mkToken").checked || null, ex: $("#mkEx").checked || !!mkFusionVal() || null, ...mkPays(true), cost: MK.deck === "normal" ? null : $("#mkCost").value === "X" ? 0 : +$("#mkCost").value, costX: MK.deck !== "normal" && $("#mkCost").value === "X", deckMode: MK.deck, limit: +$("#mkLimit").value,
-    img: prev && prev.img && !MK.artDirty ? prev.img : encodeArt(out, MK.kind === "potion" || MK.kind === "relic"), frameless: MK.frameless, textEdge: MK.frameless && $("#mkTEdge").checked || null, flAlpha: MK.frameless && MK.flAlpha != null && MK.flAlpha !== FL_ALPHA_DEF ? MK.flAlpha : null, author: S.name, ownerId: prev?.ownerId || S.uid || null, updatedAt: Date.now() };
+    img: prev && prev.img && !MK.artDirty ? prev.img : encodeArt(out, MK.kind === "potion" || MK.kind === "relic"), frameless: MK.frameless, textEdge: MK.frameless && $("#mkTEdge").checked || null, holo: $("#mkHolo").value || null, foil: $("#mkFoil").value || null, flAlpha: MK.frameless && MK.flAlpha != null && MK.flAlpha !== FL_ALPHA_DEF ? MK.flAlpha : null, author: S.name, ownerId: prev?.ownerId || S.uid || null, updatedAt: Date.now() };
   if (prev && prev.builtinPotion && !MK.artDirty && doc.img === potionArt(prev.potKey)) delete doc.img;
   if (MK.kind === "potion" || MK.kind === "relic") Object.assign(doc, { type: MK.kind, neow: MK.kind === "relic" && $("#mkNeow").checked || null, atk: 0, atkInf: false, eqN: 0, eqCost: null, eqCap: null, abs: [], frame: null, ss: null, quick: false, persist: false, sk: null, rarity: null, exhaust: false, payLp: null, payDisc: null, payMax: null, cost: null, costX: false, deckMode: "normal", limit: 0 });
   $("#btnSave").disabled = true;
@@ -3431,7 +3481,7 @@ $("#gallery").addEventListener("click", async e => {
   const ed = e.target.closest("[data-edit]"), del = e.target.closest("[data-del]");
   if (ed){
     const c = S.cards.get(ed.dataset.edit); if (!c || !(isMine(c) || (c.starter && isAdmin()))) return;
-    setMkKind("card"); S.editId = c.id; setFrameless(!!c.frameless); setFlAlpha(c.flAlpha ?? FL_ALPHA_DEF); setTEdge(!!c.textEdge); MK.artDirty = false; $("#mkName").value = c.nameRuby || c.name; $("#mkEff").value = c.effect || ""; $("#mkFlv").value = c.flavor || ""; $("#mkNameSize").value = SIZES_T[c.nameSize] ? c.nameSize : "m"; $("#mkTextSize").value = SIZES_T[c.textSize] ? c.textSize : "m"; syncSizes(); $("#mkAtk").value = c.atkInf ? "∞" : (c.atk || 0); $("#mkLimit").value = String(cardLimit(c));
+    setMkKind("card"); S.editId = c.id; setFrameless(!!c.frameless); setFlAlpha(c.flAlpha ?? FL_ALPHA_DEF); setTEdge(!!c.textEdge); setShine(c.holo, c.foil); MK.artDirty = false; $("#mkName").value = c.nameRuby || c.name; $("#mkEff").value = c.effect || ""; $("#mkFlv").value = c.flavor || ""; $("#mkNameSize").value = SIZES_T[c.nameSize] ? c.nameSize : "m"; $("#mkTextSize").value = SIZES_T[c.textSize] ? c.textSize : "m"; syncSizes(); $("#mkAtk").value = c.atkInf ? "∞" : (c.atk || 0); $("#mkLimit").value = String(cardLimit(c));
     mkLoadVars(c); $("#mkFusion").checked = !!(Array.isArray(c.fusion) && c.fusion.length); MK.fusion = Array.isArray(c.fusion) && c.fusion.length ? JSON.parse(JSON.stringify(c.fusion)) : null; renderFusion(); $("#mkQuick").checked = !!c.quick; $("#mkWhen").value = WHEN_LABEL[c.when] ? c.when : ""; $("#mkExhaust").checked = !!c.exhaust; $("#mkNoUse").checked = !!c.noUse; $("#mkToken").checked = !!c.token; $("#mkEx").checked = !!c.ex; $("#mkPayLp").value = String(payLpOf(c)); $("#mkPayDisc").value = String(payDiscOf(c)); $("#mkPayDiscTag").value = c.payDiscTag || ""; $("#mkTags").value = tagsOf(c).join(" "); $("#mkTribTag").value = c.tribTag || ""; $("#mkPayDiscAll").checked = payDiscAll(c); $("#mkPayDisc").disabled = payDiscAll(c); $("#mkPayMax").value = String(payMaxOf(c)); $("#mkPersist").checked = !!c.persist; $("#mkField").checked = !!c.field; MK.sk = c.sk || null; $("#mkRarity").value = rarityOf(c); setMkType(cardType(c)); loadFxForm(c); $("#mkFont").value = FONTS[c.font] ? c.font : "klee"; syncFont(); $("#mkCost").value = c.costX ? "X" : hasCost(c) ? String(costOf(c)) : "1"; setMkDeck(deckModeOf(c)); $("#mkEq").value = c.eqN || 0; $("#mkEqAb").value = "none"; $("#mkEqCost").value = String(eqCostOf(c)); $("#mkEqCap").value = hasEqCap(c) ? String(+c.eqCap) : ""; loadAbs(absOf(c)); syncEqLine(); $("#mkFrame").value = c.frame === "socra" || c.frame === "spire" ? c.frame : ""; syncFrame(); loadSS(c);
     if (!c.img){ clearCanvas(); undoStack = []; MK.artDirty = false; }
     else { const im = new Image(); im.onload = () => { clearCanvas(); setPhoto(im); setMode("draw"); composite(); undoStack = []; MK.artDirty = false; }; im.src = c.img; }
@@ -5931,6 +5981,17 @@ function currentDetail(){
 }
 const CLOSE = `<button class="x ghost" data-popclose aria-label="とじる">×</button>`;
 function openDetail(key, keepBack){ if (!G) return; const was = G.detailOpen; if (!keepBack) G.detailBack = null; G.lastDetail = key; G.detailOpen = true; renderDetail(currentDetail(), !was); }
+{
+  const host = t => t && t.closest && t.closest(".detailcard, .cv-card");
+  const tilt = (el, x, y) => { const card = el.querySelector(".card"); if (!card) return; const r = el.getBoundingClientRect(), px = Math.max(0, Math.min(1, (x - r.left) / r.width)), py = Math.max(0, Math.min(1, (y - r.top) / r.height));
+    card.style.transform = `perspective(700px) rotateY(${(px - .5) * 22}deg) rotateX(${(.5 - py) * 22}deg) scale(1.03)`; card.style.setProperty("--hx", (px * 100).toFixed(1) + "%"); card.style.setProperty("--hy", (py * 100).toFixed(1) + "%"); card.style.setProperty("--ha", (.35 + Math.hypot(px - .5, py - .5)).toFixed(2)); card.classList.add("tilting"); };
+  const reset = el => { const card = el && el.querySelector(".card"); if (!card) return; card.style.transform = ""; card.classList.remove("tilting"); ["--hx", "--hy", "--ha"].forEach(k => card.style.removeProperty(k)); };
+  let cur = null;
+  const reduce = (() => { try{ return matchMedia("(prefers-reduced-motion: reduce)").matches; }catch(e){ return false; } })();
+  document.addEventListener("pointermove", e => { if (reduce) return; const h = host(e.target); if (cur && cur !== h) reset(cur); cur = h; if (h) tilt(h, e.clientX, e.clientY); }, { passive: true });
+  document.addEventListener("pointerleave", () => { reset(cur); cur = null; });
+  document.addEventListener("pointerup", e => { if (e.pointerType !== "mouse"){ reset(cur); cur = null; } });
+}
 function renderDetail(info, anim){
   const box = $("#detailPop"); if (!box) return;
   if (!G || !G.detailOpen || !info){ box.hidden = true; box.innerHTML = ""; return; }

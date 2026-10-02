@@ -435,6 +435,17 @@ function currentDetail(){
 }
 const CLOSE = `<button class="x ghost" data-popclose aria-label="とじる">×</button>`;
 function openDetail(key, keepBack){ if (!G) return; const was = G.detailOpen; if (!keepBack) G.detailBack = null; G.lastDetail = key; G.detailOpen = true; renderDetail(currentDetail(), !was); }
+{
+  const host = t => t && t.closest && t.closest(".detailcard, .cv-card");
+  const tilt = (el, x, y) => { const card = el.querySelector(".card"); if (!card) return; const r = el.getBoundingClientRect(), px = Math.max(0, Math.min(1, (x - r.left) / r.width)), py = Math.max(0, Math.min(1, (y - r.top) / r.height));
+    card.style.transform = `perspective(700px) rotateY(${(px - .5) * 22}deg) rotateX(${(.5 - py) * 22}deg) scale(1.03)`; card.style.setProperty("--hx", (px * 100).toFixed(1) + "%"); card.style.setProperty("--hy", (py * 100).toFixed(1) + "%"); card.style.setProperty("--ha", (.35 + Math.hypot(px - .5, py - .5)).toFixed(2)); card.classList.add("tilting"); };
+  const reset = el => { const card = el && el.querySelector(".card"); if (!card) return; card.style.transform = ""; card.classList.remove("tilting"); ["--hx", "--hy", "--ha"].forEach(k => card.style.removeProperty(k)); };
+  let cur = null;
+  const reduce = (() => { try{ return matchMedia("(prefers-reduced-motion: reduce)").matches; }catch(e){ return false; } })();
+  document.addEventListener("pointermove", e => { if (reduce) return; const h = host(e.target); if (cur && cur !== h) reset(cur); cur = h; if (h) tilt(h, e.clientX, e.clientY); }, { passive: true });
+  document.addEventListener("pointerleave", () => { reset(cur); cur = null; });
+  document.addEventListener("pointerup", e => { if (e.pointerType !== "mouse"){ reset(cur); cur = null; } });
+}
 function renderDetail(info, anim){
   const box = $("#detailPop"); if (!box) return;
   if (!G || !G.detailOpen || !info){ box.hidden = true; box.innerHTML = ""; return; }

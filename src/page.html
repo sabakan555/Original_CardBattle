@@ -80,7 +80,7 @@
   <!-- MAKE -->
   <section id="tab-make" hidden>
     <div class="maker">
-      <div class="mk-left"><div class="card editor" id="editCard"><div class="c-in">
+      <div class="mk-left"><div class="card editor" id="editCard"><span class="holo-fx" aria-hidden="true"></span><div class="c-in">
         <span class="c-cost" id="mkCostBadge" hidden></span><div class="c-name"><input type="text" id="mkName" maxlength="40" placeholder="カード名"></div>
         <div class="c-art"><canvas id="cv" width="560" height="400" aria-label="イラストを描くところ"></canvas><div class="fl-guide" id="flGuide" hidden>ここから下は半透明の文字の欄</div><div class="c-tab" id="mkTab">モンスター</div></div>
         <div class="c-text">
@@ -137,6 +137,7 @@
           <label class="row" style="gap:6px;font-weight:700;cursor:pointer"><input type="checkbox" id="mkFrameless"> 半フレームレス（絵を下の文字の欄まで広げる）</label>
           <label class="row" id="flAlphaRow" hidden style="gap:8px;font-weight:700;font-size:13px">文字の欄の濃さ<input type="range" id="mkFlAlpha" min="0" max="100" step="5" value="68" style="flex:1;min-width:120px"><span id="flAlphaVal" style="min-width:3.5em">68%</span><button type="button" class="small ghost" id="btnFlAlpha">もとに戻す</button></label>
           <label class="row" id="tEdgeRow" hidden style="gap:6px;font-weight:700;font-size:13px;cursor:pointer"><input type="checkbox" id="mkTEdge"> 文字に白いふちをつける（絵の上でも読みやすくする）</label>
+          <div class="row" style="gap:10px 14px;flex-wrap:wrap"><label class="f" style="flex-direction:row;align-items:center;gap:6px">キラ加工<select id="mkHolo" aria-label="キラ加工"><option value="">なし</option><option value="rainbow">虹ホロ</option><option value="sparkle">星くず</option><option value="galaxy">ギャラクシー</option></select></label><label class="f" style="flex-direction:row;align-items:center;gap:6px">名前の箔<select id="mkFoil" aria-label="名前の箔"><option value="">なし</option><option value="gold">金</option><option value="silver">銀</option><option value="bronze">銅</option><option value="rainbow">虹</option></select></label></div>
           <details class="f font-pick" id="fontPick"><summary>文字のフォント：<span id="fontCur" class="font-cur"></span><span class="note">（押して変える）</span></summary><select id="mkFont" aria-label="カードのフォント" hidden></select><div id="fontGrid" class="font-grid" role="radiogroup" aria-label="カードのフォント"></div></details>
           <div><h3>文字の大きさ</h3><div class="row"><label class="f" style="flex-direction:row;align-items:center;gap:6px">名前<select id="mkNameSize"></select></label><label class="f" style="flex-direction:row;align-items:center;gap:6px">効果・フレーバー<select id="mkTextSize"></select></label></div></div>
           <div><h3>ふりがな</h3><div class="row"><button class="small" id="mkRuby" type="button">ふりがなをつける</button><span class="note">漢字をえらんで押すと ｜漢字《》 になるので、《》の中に読みを入れてね</span></div><div class="ruby-prev" id="rubyPrev" hidden></div></div>
