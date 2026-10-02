@@ -74,6 +74,7 @@ const KINDS = {
   transformRand: { label: "手札をランダムに変化させる", n: true, name: true, text: (n, into) => `手札をランダムに${n}枚、${intoText(into)}に変化させる` },
   transformAtk:  { label: "手札のアタックをすべて変化させる", name: true, text: (n, into) => `手札のアタックをすべて${intoText(into)}に変化させる` },
   transformAll:  { label: "手札をすべて変化させる", name: true, text: (n, into) => `手札をすべて${intoText(into)}に変化させる` },
+  transformSelf: { label: "このカード自身を変化させる", name: true, text: (n, into) => `このカードを${intoText(into)}に変化させる` },
   modAdd:        { label: "カードに効果を追加する", mod: true, target: "hand", text: (n, into, e) => `${modTargetText(e)}に「${grantText(e)}」の効果を追加する` },
   modRep:        { label: "カードの効果を上書きする", mod: true, target: "hand", text: (n, into, e) => `${modTargetText(e)}の効果を「${grantText(e)}」に上書きする` },
   modClear:      { label: "カードの効果をなくす", mod: true, target: "hand", text: (n, into, e) => `${modTargetText(e)}の効果をなくす` },

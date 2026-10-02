@@ -168,6 +168,27 @@ function intoId(into, srcCard, okFn){
   const pick = (owner && L.find(c => c.ownerId === owner)) || L.find(c => c.starter || !c.ownerId) || L.find(c => c.token) || L[0];
   return pick.id;
 }
+// このカード自身を変化: 場のモンスター（場所・装備はそのまま、ATKの増減はリセット）／装備／永続／フィールド／手札／墓地・廃棄 の順に探す
+function transformSelf(st, s, c, ctx, fx, src){
+  const isMon = x => cardType(x) === "monster";
+  const m = ctx.mon && monAt(st, ctx.mon);
+  let eq = null; if (ctx.eqU) ["a", "b"].forEach(o => P(st, o).mz.forEach(x => { if (x) eqsOf(x).forEach(e => { if (e.u === ctx.eqU) eq = e; }); }));
+  const ok = m ? isMon : null;
+  const id = fx.into ? fxCardId({ kind: m ? "oppSummon" : "transformHand", into: fx.into, intoId: fx.intoId }, c)
+    : (() => { const f = x => x && x.id !== c.id && !x.token && (!ok || ok(x)); let L = draftPool().filter(f); if (!L.length) L = [...S.cards.values()].filter(f); return L.length ? L[Math.floor(Math.random() * L.length)].id : null; })();
+  if (!id){ log(st, s, `${src}：${fx.into ? `「${fx.into}」という${m ? "モンスター" : "カード"}が見つからない` : "変化先のカードがない"}`); return; }
+  const done = (old, where) => log(st, s, `${src}で${where}の「${card(old).name}」が「${card(id).name}」に変化した`);
+  if (m){ const old = m.c; m.c = id; m.mod = 0; delete m.mul; ev(st, { type: "summon", s: ctx.mon.s, z: ctx.mon.i }); done(old, "場"); return; }
+  if (eq){ const old = eq.c; eq.c = id; done(old, "装備"); return; }
+  const p = P(st, s);
+  if (ctx.pz != null && p.sz[ctx.pz] && p.sz[ctx.pz].c === c.id){ p.sz[ctx.pz].c = id; done(c.id, "場"); return; }
+  if (ctx.field && st.field && st.field.c === c.id){ st.field.c = id; done(c.id, "フィールド"); return; }
+  if (ctx.inHand){ const k = p.hand.indexOf(ctx.inHand); if (k >= 0){ p.hand[k] = id; done(ctx.inHand, "手札"); return; } }
+  const zi = p.sz.findIndex(z => z && z.c === c.id); if (zi >= 0){ p.sz[zi].c = id; done(c.id, "場"); return; }
+  if (st.field && st.field.c === c.id && st.field.o === s){ st.field.c = id; done(c.id, "フィールド"); return; }
+  for (const [pile, where] of [[p.grave, "墓地"], [p.exile = p.exile || [], "廃棄"], [p.hand, "手札"]]){ const k = pile.lastIndexOf(c.id); if (k >= 0){ pile[k] = id; done(c.id, where); return; } }
+  log(st, s, `${src}：このカードが見つからない`);
+}
 function transformAt(st, s, k, into, src, srcCard, fxo){
   const p = P(st, s), old = p.hand[k]; if (old == null) return;
   const id = into ? fxCardId({ kind: "transformHand", into, intoId: fxo && fxo.intoId }, srcCard) : randSpire(false);
@@ -578,6 +599,7 @@ function applyEffect(st, s, c, target, ctx = {}, fx = normFx(c)){
     case "transformHand": transformAt(st, s, target, fx.into, src, c, fx); break;
     case "transformRand": { const L = shuffle(me.hand.map((_, k) => k)).slice(0, n || 1); if (!L.length) log(st, s, `${src}：手札がない`); L.forEach(k => transformAt(st, s, k, fx.into, src, c, fx)); break; }
     case "transformAtk": { const L = me.hand.map((id, k) => isAttackCard(card(id)) ? k : -1).filter(k => k >= 0); if (!L.length) log(st, s, `${src}：手札にアタックがない`); L.forEach(k => transformAt(st, s, k, fx.into, src, c, fx)); break; }
+    case "transformSelf": transformSelf(st, s, c, ctx, fx, src); break;
     case "transformAll": { if (!me.hand.length) log(st, s, `${src}：手札がない`); me.hand.forEach((_, k) => transformAt(st, s, k, fx.into, src, c, fx)); break; }
     case "oppNoAtk": case "oppNoUse": { const until = st.turn === s ? st.turnNo + 1 : st.turnNo, k = fx.kind === "oppNoAtk" ? "noAtkUntil" : "noUseUntil"; op[k] = Math.max(op[k] || 0, until); log(st, s, `${src}：${op.name}は次のターンの終わりまで${fx.kind === "oppNoAtk" ? "攻撃" : "魔法・罠を発動"}できない`); break; }
     case "oppSetNamed": {
