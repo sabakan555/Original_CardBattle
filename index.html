@@ -1030,6 +1030,14 @@ div.f{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:13px}
 .card.fut .c-in{position:static;display:block;height:auto;background:none;border-radius:0;overflow:visible}
 .card.fut .c-art{position:absolute;left:calc(var(--fu)*16);top:calc(var(--fu)*16);width:calc(var(--fu)*472);height:calc(var(--fu)*419);aspect-ratio:auto;border:none;background:#fff;overflow:hidden;z-index:auto}
 .card.fut .c-art>*:not(.c-tab){position:relative;z-index:0}
+/* 近未来＋半フレームレス：絵が灰色の欄（60%）の後ろまで続く */
+.card.fut.frameless .c-art{height:calc(var(--fu)*672);background:transparent}
+.card.fut .c-bgart{left:calc(var(--fu)*16);top:calc(var(--fu)*16);width:calc(var(--fu)*472);height:calc(var(--fu)*672);right:auto;bottom:auto;background:#fff;z-index:0}
+.card.fut.frameless .c-text{background:none}
+.card.fut.frameless:not(.editor) .c-tab{box-shadow:none}
+.card.fut .fl-guide{display:none!important}
+.card.editor.fut.frameless.pane-draw .c-text{pointer-events:none;opacity:.45}
+.card.editor.fut .c-art>canvas{width:auto;height:100%;max-width:none;left:50%;transform:translateX(-50%)}
 .card.fut .c-art>img,.card.fut .c-art>canvas{width:100%;height:100%;object-fit:cover;display:block}
 .card.fut .c-art .noart{display:grid;place-items:center;width:100%;height:100%;font-size:calc(var(--fu)*22);color:#888}
 .card.fut .c-name{position:absolute;left:calc(var(--fu)*132);top:calc(var(--fu)*14);width:calc(var(--fu)*240);height:calc(var(--fu)*42);padding:0!important;border:none!important;background:none;display:flex;align-items:center;justify-content:center;font-size:calc(var(--fu)*30*var(--nk,1));line-height:1!important;font-weight:800;letter-spacing:.02em;z-index:2;white-space:nowrap;overflow:hidden}
@@ -2247,7 +2255,7 @@ const FOIL = { gold: "金", silver: "銀", bronze: "銅", rainbow: "虹" };
 function cardHTML(c, cls = "", attrs = "", opts = {}){
   // 画像の枠（MTG風・近未来）: ふつうの枠と同じ中身に、枠の画像と文字の位置をかぶせる
   const fr = c && !c.potionView && !c.relicView && (c.frame === "mtg" || c.frame === "future") ? c.frame : "", mt = !!fr;
-  let h = cardHTML0(mt ? { ...c, frameless: false } : c, cls, attrs, opts);
+  let h = cardHTML0(mt ? { ...c, frameless: fr === "future" ? c.frameless : false } : c, cls, attrs, opts);
   // MTG風の枠（サバ缶デザイン）: ふつうの枠と同じ中身に、枠の見た目と下の宝石をかぶせる
   // MTG風: カードのフォントが標準（手書き）のままなら、Figmaのデザインのフォントを使う
   if (mt && (!c.font || c.font === "klee")) h = h.replace(/--cf:[^;']*;?/, "");
@@ -2621,7 +2629,7 @@ function setFrameless(on){
     undoStack = []; MK.artDirty = true;
   }
   $("#editCard").classList.toggle("frameless", MK.frameless); $("#flGuide").hidden = !MK.frameless;
-  $("#flAlphaRow").hidden = !MK.frameless; $("#tEdgeRow").hidden = !MK.frameless;
+  $("#flAlphaRow").hidden = !MK.frameless || $("#mkFrame").value === "future"; $("#tEdgeRow").hidden = !MK.frameless;
   composite();
 }
 // 半フレームレス: how solid the text box over the picture is (0 = see-through, 100 = solid)
@@ -2646,8 +2654,8 @@ $("#mkTEdge").addEventListener("change", e => setTEdge(e.target.checked));
 $("#mkFrameless").addEventListener("change", e => setFrameless(e.target.checked));
 function syncRarity(){ const sp = $("#mkFrame").value === "spire", r = $("#mkRarity").value; $("#rarityRow").hidden = !sp; ["common", "uncommon", "rare"].forEach(k => $("#editCard").classList.toggle("rar-" + k, sp && r === k)); }
 $("#mkRarity").addEventListener("change", syncRarity);
-function syncFrame(){ if (typeof updateSecs === "function") setTimeout(updateSecs); $("#editCard").classList.toggle("mtg", $("#mkFrame").value === "mtg"); $("#editCard").classList.toggle("fut", $("#mkFrame").value === "future"); $("#editCard").classList.toggle("socra", $("#mkFrame").value === "socra"); $("#editCard").classList.toggle("spire", $("#mkFrame").value === "spire"); syncRarity(); if ($("#mkFrame").value === "spire" && MK.frameless) setFrameless(false); $("#mkFrameless").closest("label").hidden = $("#mkFrame").value === "spire"; if (typeof syncTypeNames === "function") syncTypeNames(); $("#capRow").hidden = MK.type !== "monster" || $("#mkFrame").value !== "socra"; }
-$("#mkFrame").addEventListener("change", () => { syncFrame(); syncFont(); });
+function syncFrame(){ if (typeof updateSecs === "function") setTimeout(updateSecs); $("#editCard").classList.toggle("mtg", $("#mkFrame").value === "mtg"); $("#editCard").classList.toggle("fut", $("#mkFrame").value === "future"); $("#editCard").classList.toggle("socra", $("#mkFrame").value === "socra"); $("#editCard").classList.toggle("spire", $("#mkFrame").value === "spire"); syncRarity(); $("#flAlphaRow").hidden = !MK.frameless || $("#mkFrame").value === "future"; if ($("#mkFrame").value === "spire" && MK.frameless) setFrameless(false); $("#mkFrameless").closest("label").hidden = $("#mkFrame").value === "spire"; if (typeof syncTypeNames === "function") syncTypeNames(); $("#capRow").hidden = MK.type !== "monster" || $("#mkFrame").value !== "socra"; }
+$("#mkFrame").addEventListener("change", () => { if ($("#mkFrame").value === "future" && !MK.frameless) setFrameless(true); syncFrame(); syncFont(); });
 function clearCanvas(){ ik.clearRect(0, 0, ink.width, ink.height); photo = null; setMode("draw"); composite(); }
 $("#swatches").innerHTML = COLORS.map(c => `<button class="sw" style="background:${c}" data-c="${c}" aria-label="色 ${c}" aria-pressed="${c === pen.color}"></button>`).join("");
 $("#sizes").innerHTML = SIZES.map(([l, s]) => `<button data-s="${s}" aria-pressed="${s === pen.size}">${l}</button>`).join("");
@@ -3370,7 +3378,7 @@ setMkType("monster"); loadFxForm(null);
 function setMkPane(p){
   document.querySelectorAll("#mkTabs button").forEach(b => b.setAttribute("aria-pressed", b.dataset.pane === p));
   document.querySelectorAll(".tools-col .mk-pane").forEach(x => { x.hidden = x.dataset.pane !== p; });
-  ls.set("cb_mkpane", p);
+  ls.set("cb_mkpane", p); $("#editCard").classList.toggle("pane-draw", p === "draw");
 }
 $("#mkKind").addEventListener("click", e => { const b = e.target.closest("button[data-k]"); if (b && !S.editId) setMkKind(b.dataset.k); });
 $("#mkKind2").addEventListener("click", e => { const b = e.target.closest("button[data-k2]"); if (b && !S.editId) setMkKind(b.dataset.k2); });

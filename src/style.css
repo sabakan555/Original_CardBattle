@@ -1018,6 +1018,14 @@ div.f{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:13px}
 .card.fut .c-in{position:static;display:block;height:auto;background:none;border-radius:0;overflow:visible}
 .card.fut .c-art{position:absolute;left:calc(var(--fu)*16);top:calc(var(--fu)*16);width:calc(var(--fu)*472);height:calc(var(--fu)*419);aspect-ratio:auto;border:none;background:#fff;overflow:hidden;z-index:auto}
 .card.fut .c-art>*:not(.c-tab){position:relative;z-index:0}
+/* 近未来＋半フレームレス：絵が灰色の欄（60%）の後ろまで続く */
+.card.fut.frameless .c-art{height:calc(var(--fu)*672);background:transparent}
+.card.fut .c-bgart{left:calc(var(--fu)*16);top:calc(var(--fu)*16);width:calc(var(--fu)*472);height:calc(var(--fu)*672);right:auto;bottom:auto;background:#fff;z-index:0}
+.card.fut.frameless .c-text{background:none}
+.card.fut.frameless:not(.editor) .c-tab{box-shadow:none}
+.card.fut .fl-guide{display:none!important}
+.card.editor.fut.frameless.pane-draw .c-text{pointer-events:none;opacity:.45}
+.card.editor.fut .c-art>canvas{width:auto;height:100%;max-width:none;left:50%;transform:translateX(-50%)}
 .card.fut .c-art>img,.card.fut .c-art>canvas{width:100%;height:100%;object-fit:cover;display:block}
 .card.fut .c-art .noart{display:grid;place-items:center;width:100%;height:100%;font-size:calc(var(--fu)*22);color:#888}
 .card.fut .c-name{position:absolute;left:calc(var(--fu)*132);top:calc(var(--fu)*14);width:calc(var(--fu)*240);height:calc(var(--fu)*42);padding:0!important;border:none!important;background:none;display:flex;align-items:center;justify-content:center;font-size:calc(var(--fu)*30*var(--nk,1));line-height:1!important;font-weight:800;letter-spacing:.02em;z-index:2;white-space:nowrap;overflow:hidden}
