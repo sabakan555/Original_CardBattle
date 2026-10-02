@@ -985,7 +985,7 @@ div.f{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:13px}
 .card.mtg .c-text .fx{color:#000}
 .card.mtg .c-text .flv{font-family:"Shippori Mincho",serif;font-style:normal;font-weight:400;border-top:none;padding-top:0;font-size:calc(var(--mu)*20*var(--tk,1));line-height:calc(var(--mu)*25.88);letter-spacing:-.1em;color:#000;margin:auto 0 calc(var(--mu)*44)}
 .card.mtg .c-text.ha .flv{margin-bottom:calc(var(--mu)*44)}
-.card.mtg .c-atk{left:calc(var(--mu)*421);top:calc(var(--mu)*240);right:auto;bottom:auto;width:calc(var(--mu)*104);height:calc(var(--mu)*50);padding:0;border:none;border-radius:0;background:none;box-shadow:none;display:grid;place-items:center;font-family:"Shippori Mincho","Shippori Mincho B1",serif;font-weight:700;font-size:calc(var(--mu)*48);line-height:1;color:#000;z-index:4;white-space:nowrap;letter-spacing:0}
+.card.mtg .c-atk{left:calc(var(--mu)*421);top:calc(var(--mu)*240);right:auto;bottom:auto;width:calc(var(--mu)*104);height:calc(var(--mu)*50);padding:0;border:none;border-radius:0;background:none;box-shadow:none;display:grid;place-items:center;font-family:"Shippori Mincho","Shippori Mincho B1",serif;font-weight:700;font-size:calc(var(--mu)*40);line-height:1;color:#000;z-index:4;white-space:nowrap;letter-spacing:-.02em}
 .card.mtg .c-lim{position:absolute;left:calc(var(--mu)*-46);bottom:calc(var(--mu)*-52);color:#8a8f93;font-size:calc(var(--mu)*16);z-index:4}
 .card.mtg .m-gem{display:none}.card .m-gem{display:none}
 .card.mtg[class*="foil-"] .c-name{background:none!important;color:#000!important;-webkit-text-fill-color:currentColor;filter:none}
@@ -1001,7 +1001,7 @@ div.f{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:13px}
 .card.editor.mtg .c-name input{text-align:left;font-size:calc(var(--mu)*32*var(--nk,1));letter-spacing:-.1em;background:transparent;border:none;width:100%;font-family:inherit;font-weight:700;color:#000;padding:0}
 .card.editor.mtg .c-text{min-height:0;display:flex;flex-direction:column;gap:4px;padding-top:calc(var(--mu)*14)}
 .card.editor.mtg textarea{height:auto;flex:1;background:transparent;font-size:calc(var(--mu)*22);letter-spacing:-.1em;font-family:inherit;color:#000}
-.card.editor.mtg .c-atk{font-size:0}.card.editor.mtg .c-atk input{font-size:calc(var(--mu)*44);width:100%;text-align:center;background:transparent;font-family:"Shippori Mincho",serif;font-weight:700;color:#000}
+.card.editor.mtg .c-atk{font-size:0}.card.editor.mtg .c-atk input{font-size:calc(var(--mu)*40);width:100%;text-align:center;background:transparent;font-family:"Shippori Mincho",serif;font-weight:700;color:#000}
 /* ---- 同梱フォント（fonts/ ・JIS第1・第2水準に減らしたWOFF2）: ロゴたいぷゴシック（M+ライセンス）・源柔ゴシック（SIL OFL 1.1） ---- */
 @font-face{font-family:"LogoTypeGothic";src:url("fonts/LogoTypeGothic.woff2") format("woff2");font-weight:400 900;font-display:swap}
 @font-face{font-family:"GenJyuuGothic";src:url("fonts/GenJyuuGothic-Regular.woff2") format("woff2");font-weight:400 900;font-display:swap}
