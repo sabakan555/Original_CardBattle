@@ -7,9 +7,9 @@ const RARITY = { common: "コモン", uncommon: "アンコモン", rare: "レア
 const rarityOf = c => c && RARITY[c.rarity] ? c.rarity : "common";
 const spireKind = c => { const t = cardType(c); if (c && c.sk && t === "magic") return c.persist ? "power" : c.sk === "attack" ? "attack" : "skill"; return t === "monster" ? "attack" : t === "trap" || (t === "magic" && c.persist) ? "power" : "skill"; };
 const typeLabel = c => { if (c && c.potionView) return "ポーション"; const t = cardType(c); return isQuick(c) ? "速攻魔法" : isField(c) ? "フィールド魔法" : isPersist(c) ? "永続" + TYPE_LABEL[t] : TYPE_LABEL[t]; };
-const TRIGS = { summon: "召喚したとき", ssummon: "特殊召喚したとき", kill: "戦闘で相手を破壊したとき", destroyed: "破壊されたとき", battleLose: "バトルに負けたとき", turnStart: "自分のターンのはじめ", turnEnd: "自分のターンの終わり", enter: "場に出たとき", while: "場にいる間", anyUse: "魔法・罠が発動したとき", attach: "装備したとき", use: "発動したとき" };
-const MON_TRIGS = ["summon", "ssummon", "enter", "while", "anyUse", "kill", "destroyed", "battleLose", "turnStart", "turnEnd"];
-const EQ_TRIGS = ["attach", "turnStart", "turnEnd", "destroyed", "battleLose"];
+const TRIGS = { summon: "召喚したとき", ssummon: "特殊召喚したとき", attack: "攻撃するとき", kill: "戦闘で相手を破壊したとき", destroyed: "破壊されたとき", battleLose: "バトルに負けたとき", turnStart: "自分のターンのはじめ", turnEnd: "自分のターンの終わり", enter: "場に出たとき", while: "場にいる間", anyUse: "魔法・罠が発動したとき", attach: "装備したとき", use: "発動したとき" };
+const MON_TRIGS = ["summon", "ssummon", "enter", "while", "anyUse", "attack", "kill", "destroyed", "battleLose", "turnStart", "turnEnd"];
+const EQ_TRIGS = ["attach", "attack", "turnStart", "turnEnd", "destroyed", "battleLose"];
 // 永続魔法・永続罠 (スパイア風 のパワー): stay face-up in the magic/trap zone; their effect fires on one of these
 const PERSIST_TRIG_LABEL = { use: "発動したとき", while: "場にある間", anyUse: "魔法・罠が発動したとき", turnStart: "自分のターンのはじめ", turnEnd: "自分のターンのおわり", mySummon: "自分がモンスターを召喚するたび", exhaust: "自分のカードが廃棄されるたび", monDestroyed: "モンスターが破壊されるたび", myLoseLp: "自分のターンにLPを失うたび", blockGain: "自分がブロックを得るたび", vulnApply: "相手に弱体を付与するたび", atkPlay: "自分がアタックを使うたび" };
 const PERSIST_TRIGS = Object.keys(PERSIST_TRIG_LABEL);
@@ -21,7 +21,7 @@ const isPersist = c => !!(c && c.persist && !c.field && (cardType(c) === "magic"
 const isField = c => !!(c && c.field && cardType(c) === "magic");
 const FIELD_TRIG_LABEL = { use: "出したとき", turnStart: "それぞれのターンのはじめ", turnEnd: "それぞれのターンのおわり", while: "場にある間", anyUse: "魔法・罠が発動したとき" };
 const FIELD_TRIGS = Object.keys(FIELD_TRIG_LABEL);
-const EQ_TRIG_LABEL = { destroyed: "装備したモンスターが破壊されたとき", battleLose: "装備したモンスターがバトルに負けたとき" };
+const EQ_TRIG_LABEL = { attack: "装備したモンスターが攻撃するとき", destroyed: "装備したモンスターが破壊されたとき", battleLose: "装備したモンスターがバトルに負けたとき" };
 const trigLabel = (t, k) => (t === "equip" && EQ_TRIG_LABEL[k]) || TRIGS[k];
 const OLD_TRIG = { open: "summon", win: "kill", lose: "destroyed" };
 const KINDS = {

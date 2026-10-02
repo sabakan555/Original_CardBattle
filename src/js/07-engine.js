@@ -1066,8 +1066,11 @@ function declareAttack(st, s, from, to){
   ev(st, { type: "attack", s, from, to, c: m.c });
   const target = to === "direct" ? "直接攻撃" : `「${card(P(st, O(s)).mz[to].c).name}」に攻撃`;
   log(st, s, `「${card(m.c).name}」で${target}！`);
-  st.pending = { type: "attack", by: s, from, to, wait: responseOptions(st, O(s), "attack").length > 0 };
-  if (!st.pending.wait) resolveAttack(st);
+  // 「攻撃するとき」 effects (the monster and its equips) come first, then the defender may answer
+  st.pending = { type: "attack", by: s, from, to, wait: false };
+  const go = st2 => { const pd = st2.pending; if (!pd || pd.type !== "attack" || pd.by !== s || st2.winner) return; pd.wait = responseOptions(st2, O(s), "attack").length > 0; if (!pd.wait) resolveAttack(st2); };
+  const L = monTrigList(st, s, from, "attack").filter(x => hasTrig(x.c, "attack"));
+  if (L.length) runList(st, L, go); else go(st);
   return true;
 }
 // choice: null (pass) or { from: "sz"|"hand", i }
