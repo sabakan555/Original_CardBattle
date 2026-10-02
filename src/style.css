@@ -964,3 +964,6 @@ div.f{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:13px}
 .fxfusion .ff-lbl{font-family:var(--display);font-size:clamp(28px,6vw,46px);font-weight:900;letter-spacing:.06em;white-space:nowrap;background:linear-gradient(100deg,#ffd6f5,#c9a2ff 35%,#8fe3ff 65%,#fff3b8);-webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 2px 0 rgba(40,10,80,.9)) drop-shadow(0 0 12px rgba(190,120,255,.9))}
 @media (max-width:640px){.fxfusion .ff-res .card{--w:140px}}
 @media (prefers-reduced-motion:reduce){.fxfusion{display:none}}
+.fus-need{display:flex;flex-wrap:wrap;gap:6px;align-items:center}.fus-need .chip{background:rgba(190,120,255,.18);border:1px solid #b98cff;border-radius:99px;padding:2px 10px;font-weight:700;font-size:13px}
+.overlay .warn{color:#ff9f8a;font-weight:700}
+.overlay .acts-sticky{position:sticky;bottom:-16px;z-index:2;background:rgba(18,20,42,.97);padding:10px 0 12px;margin-bottom:-6px}

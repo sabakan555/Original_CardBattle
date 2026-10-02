@@ -549,6 +549,14 @@ function renderOverlay(){
   } else if (st.askQ && st.askQ.ans == null && st.askQ.to === me && !G.spectate && !st.winner){
     const aq = st.askQ;
     html = `<div class="box"><h2 style="margin:0">${esc(P(st, aq.by).name)} の「${esc(aq.name)}」からの質問</h2><p style="margin:0;font-size:18px;font-weight:700">${esc(aq.text)}</p><p class="muted" style="margin:0">あなたの答えで相手のカードの効果が変わります</p><div class="row"><button class="primary" data-askq="yes">はい</button><button data-askq="no">いいえ</button><button class="ghost" data-peek>盤面を見る</button></div></div>`; peek = true;
+  } else if (G.fusPick && !st.winner){
+    const f = G.fusPick, fc = card(f.target), X = P(st, f.q.s);
+    const cand = [...X.hand.map((id, i) => ({ k: "hand:" + i, id, where: "手札" })), ...X.mz.map((m, i) => m ? { k: "mz:" + i, id: m.c, where: "場", m } : null).filter(Boolean)].filter(x => fc.fusion.some(y => fusionMatOk(x.id, y)));
+    const picks = f.picked.map(k => { const [from, i] = k.split(":"); return { from, i: +i }; }), ok = picks.length === f.need && !!fusionPlanFrom(st, f.q.s, fc, picks);
+    const item = x => `<div class="g-item">${cardHTML(card(x.id), "sm pick" + (f.picked.includes(x.k) ? " sel" : ""), `data-fpick="${x.k}" tabindex="0" role="button" aria-pressed="${f.picked.includes(x.k)}"`, x.m ? { mod: modOf(x.m), ...mOpt(f.q.s) } : mOpt(f.q.s))}<div class="meta">${x.where}</div></div>`;
+    const hd = cand.filter(x => x.where === "手札"), fd = cand.filter(x => x.where === "場");
+    html = `<div class="box"><h2 style="margin:0">「${esc(fc.name)}」の素材をえらぶ</h2><div class="fus-need"><span class="note">必要な素材：</span>${fc.fusion.map(x => `<span class="chip">${esc(fusionMatText(x))}</span>`).join("<span>＋</span>")}</div>${hd.length ? `<h3 style="margin:0">手札</h3><div class="gallery">${hd.map(item).join("")}</div>` : ""}${fd.length ? `<h3 style="margin:0">自分の場</h3><div class="gallery">${fd.map(item).join("")}</div>` : ""}<p class="${ok || f.picked.length < f.need ? "muted" : "warn"}" style="margin:0">${f.picked.length} / ${f.need} 枚えらんだ${f.picked.length === f.need && !ok ? "（この組み合わせでは素材がそろわない）" : ""}</p><div class="row acts-sticky"><button class="primary" data-fgo ${ok ? "" : "disabled"}>融合する！</button><button class="ghost" data-fback>融合モンスターをえらびなおす</button><button class="ghost" data-peek>盤面を見る</button></div></div>`;
+    peek = true;
   } else if (G.chooseQ.length && G.chooseQ[0].ask){
     const q = G.chooseQ[0];
     const yesTxt = q.block ? effsText(q.c, q.block.b.then) + (q.block.b.else.length ? `／「いいえ」なら：${effsText(q.c, q.block.b.else)}` : "") : KINDS[q.fx.kind].text(q.fx.n);
@@ -665,7 +673,18 @@ $("#overlay").addEventListener("click", e => {
   if (rl){ const k = rl.dataset.relic; act(st => chooseRelic(st, G.slot, k)); return; }
   const sw = e.target.closest("[data-sprout]");
   if (sw){ const k = sw.dataset.sprout; act(st => chooseRelic(st, G.slot, "sprout", k)); return; }
+  { const fp = e.target.closest("[data-fpick]"); if (fp && G.fusPick){ const k = fp.dataset.fpick, P0 = G.fusPick.picked, at = P0.indexOf(k); if (at >= 0) P0.splice(at, 1); else if (P0.length < G.fusPick.need) P0.push(k); renderAll(); return; } }
+  if (e.target.closest("[data-fgo]") && G.fusPick){ const f = G.fusPick, picks = f.picked.map(k => { const [from, i] = k.split(":"); return { from, i: +i }; }); G.fusPick = null; act(st => { applyEffect(st, f.q.s, f.q.c, f.target, { ...f.q.ctx, fusMats: picks }, f.q.fx); f.q.then && f.q.then(st); }); return; }
+  if (e.target.closest("[data-fback]") && G.fusPick){ G.chooseQ.unshift(G.fusPick.q); G.fusPick = null; renderAll(); return; }
   const opt = e.target.closest("[data-opt]");
+  if (opt && G.chooseQ.length && G.chooseQ[0].fx.kind === "fusion"){
+    const q = G.chooseQ[0], target = opt.dataset.opt, fc = card(target), X = P(st0(), q.s);
+    const pool = [...X.hand.map((id, i) => ["hand:" + i, id]), ...X.mz.map((m, i) => m ? ["mz:" + i, m.c] : null).filter(Boolean)].filter(([, id]) => fc.fusion.some(x => fusionMatOk(id, x)));
+    G.chooseQ.shift();
+    // only one way to do it → no need to ask
+    if (pool.length === fc.fusion.length){ act(st => { applyEffect(st, q.s, q.c, target, q.ctx, q.fx); q.then && q.then(st); }); return; }
+    G.fusPick = { q, target, need: fc.fusion.length, picked: [] }; renderAll(); return;
+  }
   if (opt && G.chooseQ.length){
     const q = G.chooseQ.shift(); const t = KINDS[q.fx.kind].target;
     const target = t === "grave" || t === "any" || t === "draft" || t === "graveAny" || t === "tagPick" || q.ctx.spireAtk ? opt.dataset.opt : +opt.dataset.opt;

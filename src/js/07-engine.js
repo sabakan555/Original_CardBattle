@@ -206,6 +206,15 @@ function fusionPlan(st, s, fc){
   if (freeZone(p.mz) < 0 && !out.some(x => x.from === "mz")) return null;
   return out;
 }
+// picks = [{from: "hand"|"mz", i}] chosen by the player → a plan, or null if they don't match the materials
+function fusionPlanFrom(st, s, fc, picks){
+  const p = P(st, s), pool = (picks || []).map(x => ({ from: x.from, i: +x.i, id: x.from === "hand" ? p.hand[+x.i] : p.mz[+x.i] && p.mz[+x.i].c })).filter(x => x.id != null);
+  if (!isFusion(fc) || pool.length !== fc.fusion.length || new Set(pool.map(x => x.from + x.i)).size !== pool.length) return null;
+  const used = new Set(), rec = k => { if (k >= fc.fusion.length) return true; for (let j = 0; j < pool.length; j++){ if (used.has(j) || !fusionMatOk(pool[j].id, fc.fusion[k])) continue; used.add(j); if (rec(k + 1)) return true; used.delete(j); } return false; };
+  if (!rec(0)) return null;
+  if (freeZone(p.mz) < 0 && !pool.some(x => x.from === "mz")) return null;
+  return pool;
+}
 function transformAt(st, s, k, into, src, srcCard, fxo){
   const p = P(st, s), old = p.hand[k]; if (old == null) return;
   const id = into ? fxCardId({ kind: "transformHand", into, intoId: fxo && fxo.intoId }, srcCard) : randSpire(false);
@@ -625,7 +634,7 @@ function applyEffect(st, s, c, target, ctx = {}, fx = normFx(c)){
     case "drawUntil": { let k = 0, last = null; while (k < 12 && !me.noDraw){ if (!me.deck.length) refill(st, s); if (!me.deck.length) break; last = me.deck.shift(); me.hand.push(last); k++; if (!isAttackCard(card(last))) break; } log(st, s, `${src}でカードを${k}枚引いた${last && !isAttackCard(card(last)) ? `（「${card(last).name}」で止まった）` : ""}`); break; }
     case "tagSearch": case "tagGraveHand": { const src = fx.kind === "tagSearch" ? me.deck : me.grave, k = src.indexOf(target); if (k >= 0){ src.splice(k, 1); me.hand.push(target); log(st, s, `${src === me.deck ? "山札" : "墓地"}から「${card(target).name}」を手札に加えた`); if (fx.kind === "tagSearch") me.deck = shuffle(me.deck); } break; }
     case "fusion": {
-      const fc = card(target), ex = (me.ex = me.ex || []), k = ex.indexOf(target), plan = k >= 0 && isFusion(fc) ? fusionPlan(st, s, fc) : null;
+      const fc = card(target), ex = (me.ex = me.ex || []), k = ex.indexOf(target), plan = k >= 0 && isFusion(fc) ? (ctx.fusMats && fusionPlanFrom(st, s, fc, ctx.fusMats)) || fusionPlan(st, s, fc) : null;
       if (!plan){ log(st, s, `${src}：融合できない（素材が足りない）`); break; }
       const names = plan.map(x => `「${card(x.id).name}」`).join("");
       plan.filter(x => x.from === "hand").map(x => x.i).sort((a, b) => b - a).forEach(i => me.grave.push(me.hand.splice(i, 1)[0]));

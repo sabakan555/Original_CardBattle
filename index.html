@@ -976,6 +976,9 @@ div.f{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:13px}
 .fxfusion .ff-lbl{font-family:var(--display);font-size:clamp(28px,6vw,46px);font-weight:900;letter-spacing:.06em;white-space:nowrap;background:linear-gradient(100deg,#ffd6f5,#c9a2ff 35%,#8fe3ff 65%,#fff3b8);-webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 2px 0 rgba(40,10,80,.9)) drop-shadow(0 0 12px rgba(190,120,255,.9))}
 @media (max-width:640px){.fxfusion .ff-res .card{--w:140px}}
 @media (prefers-reduced-motion:reduce){.fxfusion{display:none}}
+.fus-need{display:flex;flex-wrap:wrap;gap:6px;align-items:center}.fus-need .chip{background:rgba(190,120,255,.18);border:1px solid #b98cff;border-radius:99px;padding:2px 10px;font-weight:700;font-size:13px}
+.overlay .warn{color:#ff9f8a;font-weight:700}
+.overlay .acts-sticky{position:sticky;bottom:-16px;z-index:2;background:rgba(18,20,42,.97);padding:10px 0 12px;margin-bottom:-6px}
 </style>
 <style>html,body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
 </head>
@@ -4561,6 +4564,15 @@ function fusionPlan(st, s, fc){
   if (freeZone(p.mz) < 0 && !out.some(x => x.from === "mz")) return null;
   return out;
 }
+// picks = [{from: "hand"|"mz", i}] chosen by the player → a plan, or null if they don't match the materials
+function fusionPlanFrom(st, s, fc, picks){
+  const p = P(st, s), pool = (picks || []).map(x => ({ from: x.from, i: +x.i, id: x.from === "hand" ? p.hand[+x.i] : p.mz[+x.i] && p.mz[+x.i].c })).filter(x => x.id != null);
+  if (!isFusion(fc) || pool.length !== fc.fusion.length || new Set(pool.map(x => x.from + x.i)).size !== pool.length) return null;
+  const used = new Set(), rec = k => { if (k >= fc.fusion.length) return true; for (let j = 0; j < pool.length; j++){ if (used.has(j) || !fusionMatOk(pool[j].id, fc.fusion[k])) continue; used.add(j); if (rec(k + 1)) return true; used.delete(j); } return false; };
+  if (!rec(0)) return null;
+  if (freeZone(p.mz) < 0 && !pool.some(x => x.from === "mz")) return null;
+  return pool;
+}
 function transformAt(st, s, k, into, src, srcCard, fxo){
   const p = P(st, s), old = p.hand[k]; if (old == null) return;
   const id = into ? fxCardId({ kind: "transformHand", into, intoId: fxo && fxo.intoId }, srcCard) : randSpire(false);
@@ -4980,7 +4992,7 @@ function applyEffect(st, s, c, target, ctx = {}, fx = normFx(c)){
     case "drawUntil": { let k = 0, last = null; while (k < 12 && !me.noDraw){ if (!me.deck.length) refill(st, s); if (!me.deck.length) break; last = me.deck.shift(); me.hand.push(last); k++; if (!isAttackCard(card(last))) break; } log(st, s, `${src}でカードを${k}枚引いた${last && !isAttackCard(card(last)) ? `（「${card(last).name}」で止まった）` : ""}`); break; }
     case "tagSearch": case "tagGraveHand": { const src = fx.kind === "tagSearch" ? me.deck : me.grave, k = src.indexOf(target); if (k >= 0){ src.splice(k, 1); me.hand.push(target); log(st, s, `${src === me.deck ? "山札" : "墓地"}から「${card(target).name}」を手札に加えた`); if (fx.kind === "tagSearch") me.deck = shuffle(me.deck); } break; }
     case "fusion": {
-      const fc = card(target), ex = (me.ex = me.ex || []), k = ex.indexOf(target), plan = k >= 0 && isFusion(fc) ? fusionPlan(st, s, fc) : null;
+      const fc = card(target), ex = (me.ex = me.ex || []), k = ex.indexOf(target), plan = k >= 0 && isFusion(fc) ? (ctx.fusMats && fusionPlanFrom(st, s, fc, ctx.fusMats)) || fusionPlan(st, s, fc) : null;
       if (!plan){ log(st, s, `${src}：融合できない（素材が足りない）`); break; }
       const names = plan.map(x => `「${card(x.id).name}」`).join("");
       plan.filter(x => x.from === "hand").map(x => x.i).sort((a, b) => b - a).forEach(i => me.grave.push(me.hand.splice(i, 1)[0]));
@@ -6108,6 +6120,14 @@ function renderOverlay(){
   } else if (st.askQ && st.askQ.ans == null && st.askQ.to === me && !G.spectate && !st.winner){
     const aq = st.askQ;
     html = `<div class="box"><h2 style="margin:0">${esc(P(st, aq.by).name)} の「${esc(aq.name)}」からの質問</h2><p style="margin:0;font-size:18px;font-weight:700">${esc(aq.text)}</p><p class="muted" style="margin:0">あなたの答えで相手のカードの効果が変わります</p><div class="row"><button class="primary" data-askq="yes">はい</button><button data-askq="no">いいえ</button><button class="ghost" data-peek>盤面を見る</button></div></div>`; peek = true;
+  } else if (G.fusPick && !st.winner){
+    const f = G.fusPick, fc = card(f.target), X = P(st, f.q.s);
+    const cand = [...X.hand.map((id, i) => ({ k: "hand:" + i, id, where: "手札" })), ...X.mz.map((m, i) => m ? { k: "mz:" + i, id: m.c, where: "場", m } : null).filter(Boolean)].filter(x => fc.fusion.some(y => fusionMatOk(x.id, y)));
+    const picks = f.picked.map(k => { const [from, i] = k.split(":"); return { from, i: +i }; }), ok = picks.length === f.need && !!fusionPlanFrom(st, f.q.s, fc, picks);
+    const item = x => `<div class="g-item">${cardHTML(card(x.id), "sm pick" + (f.picked.includes(x.k) ? " sel" : ""), `data-fpick="${x.k}" tabindex="0" role="button" aria-pressed="${f.picked.includes(x.k)}"`, x.m ? { mod: modOf(x.m), ...mOpt(f.q.s) } : mOpt(f.q.s))}<div class="meta">${x.where}</div></div>`;
+    const hd = cand.filter(x => x.where === "手札"), fd = cand.filter(x => x.where === "場");
+    html = `<div class="box"><h2 style="margin:0">「${esc(fc.name)}」の素材をえらぶ</h2><div class="fus-need"><span class="note">必要な素材：</span>${fc.fusion.map(x => `<span class="chip">${esc(fusionMatText(x))}</span>`).join("<span>＋</span>")}</div>${hd.length ? `<h3 style="margin:0">手札</h3><div class="gallery">${hd.map(item).join("")}</div>` : ""}${fd.length ? `<h3 style="margin:0">自分の場</h3><div class="gallery">${fd.map(item).join("")}</div>` : ""}<p class="${ok || f.picked.length < f.need ? "muted" : "warn"}" style="margin:0">${f.picked.length} / ${f.need} 枚えらんだ${f.picked.length === f.need && !ok ? "（この組み合わせでは素材がそろわない）" : ""}</p><div class="row acts-sticky"><button class="primary" data-fgo ${ok ? "" : "disabled"}>融合する！</button><button class="ghost" data-fback>融合モンスターをえらびなおす</button><button class="ghost" data-peek>盤面を見る</button></div></div>`;
+    peek = true;
   } else if (G.chooseQ.length && G.chooseQ[0].ask){
     const q = G.chooseQ[0];
     const yesTxt = q.block ? effsText(q.c, q.block.b.then) + (q.block.b.else.length ? `／「いいえ」なら：${effsText(q.c, q.block.b.else)}` : "") : KINDS[q.fx.kind].text(q.fx.n);
@@ -6224,7 +6244,18 @@ $("#overlay").addEventListener("click", e => {
   if (rl){ const k = rl.dataset.relic; act(st => chooseRelic(st, G.slot, k)); return; }
   const sw = e.target.closest("[data-sprout]");
   if (sw){ const k = sw.dataset.sprout; act(st => chooseRelic(st, G.slot, "sprout", k)); return; }
+  { const fp = e.target.closest("[data-fpick]"); if (fp && G.fusPick){ const k = fp.dataset.fpick, P0 = G.fusPick.picked, at = P0.indexOf(k); if (at >= 0) P0.splice(at, 1); else if (P0.length < G.fusPick.need) P0.push(k); renderAll(); return; } }
+  if (e.target.closest("[data-fgo]") && G.fusPick){ const f = G.fusPick, picks = f.picked.map(k => { const [from, i] = k.split(":"); return { from, i: +i }; }); G.fusPick = null; act(st => { applyEffect(st, f.q.s, f.q.c, f.target, { ...f.q.ctx, fusMats: picks }, f.q.fx); f.q.then && f.q.then(st); }); return; }
+  if (e.target.closest("[data-fback]") && G.fusPick){ G.chooseQ.unshift(G.fusPick.q); G.fusPick = null; renderAll(); return; }
   const opt = e.target.closest("[data-opt]");
+  if (opt && G.chooseQ.length && G.chooseQ[0].fx.kind === "fusion"){
+    const q = G.chooseQ[0], target = opt.dataset.opt, fc = card(target), X = P(st0(), q.s);
+    const pool = [...X.hand.map((id, i) => ["hand:" + i, id]), ...X.mz.map((m, i) => m ? ["mz:" + i, m.c] : null).filter(Boolean)].filter(([, id]) => fc.fusion.some(x => fusionMatOk(id, x)));
+    G.chooseQ.shift();
+    // only one way to do it → no need to ask
+    if (pool.length === fc.fusion.length){ act(st => { applyEffect(st, q.s, q.c, target, q.ctx, q.fx); q.then && q.then(st); }); return; }
+    G.fusPick = { q, target, need: fc.fusion.length, picked: [] }; renderAll(); return;
+  }
   if (opt && G.chooseQ.length){
     const q = G.chooseQ.shift(); const t = KINDS[q.fx.kind].target;
     const target = t === "grave" || t === "any" || t === "draft" || t === "graveAny" || t === "tagPick" || q.ctx.spireAtk ? opt.dataset.opt : +opt.dataset.opt;
