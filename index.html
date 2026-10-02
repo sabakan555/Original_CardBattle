@@ -1363,6 +1363,8 @@ const KINDS = {
   tagGraveHand:  { label: "墓地からタグのカードを手札に加える", n: true, name: true, need: true, tag: true, target: "tagPick", each: true, text: (n, t) => `墓地からタグ「${t || "？"}」のカードを${n}枚えらんで手札に加える` },
   tagSummonHand: { label: "手札からタグのモンスターを場に出す", name: true, need: true, tag: true, target: "tagPick", text: (n, t) => `手札からタグ「${t || "？"}」のモンスター1体を自分の場に出す` },
   tagSummonDeck: { label: "山札からタグのモンスターを場に出す", name: true, need: true, tag: true, target: "tagPick", text: (n, t) => `山札からタグ「${t || "？"}」のモンスター1体を自分の場に出す` },
+  exSummon:      { label: "EXデッキのモンスターを場に出す", target: "tagPick", text: () => `EXデッキのモンスター1体を自分の場に出す` },
+  tagSummonEx:   { label: "EXデッキからタグのモンスターを場に出す", name: true, need: true, tag: true, target: "tagPick", text: (n, t) => `EXデッキからタグ「${t || "？"}」のモンスター1体を自分の場に出す` },
   tagSummonGrave:{ label: "墓地からタグのモンスターを場に出す", name: true, need: true, tag: true, target: "tagPick", text: (n, t) => `墓地からタグ「${t || "？"}」のモンスター1体を自分の場に出す` },
   tagGen:        { label: "タグのついたランダムなカードを手札に加える", n: true, name: true, need: true, tag: true, text: (n, t) => `タグ「${t || "？"}」のついたランダムなカードを${n}枚手札に加える` },
   copyHand:   { label: "このカードのコピーを手札に加える", text: () => `このカードのコピーを1枚手札に加える` },
@@ -2573,7 +2575,7 @@ const KIND_GROUPS = [
   { g: "draw",    label: "カードを引く", v: [["draw", "○枚引く"], ["drawUntil", "アタック以外を引くまで引く"], ["oppDraw", "相手に○枚引かせる"]] },
   { g: "fetch",   label: "カードを手札に持ってくる", v: [["tagSearch", "タグのカードを山札から（えらぶ）"], ["tagGraveHand", "タグのカードを墓地から（えらぶ）"], ["revive", "墓地のモンスターを手札に"], ["graveAtkToHand", "墓地のランダムなアタックを手札に"]] },
   { g: "make",    label: "カードを生み出す・コピーする", v: [["copyHand", "このカードのコピーを手札に"], ["copyDeck", "このカードのコピーを山札に"], ["copyGrave", "このカードのコピーを墓地に"], ["copyLastAtk", "直前に使ったアタックのコピーを手札に"], ["genAttack", "ランダムなアタックを手札に"], ["genAttack0", "ランダムなアタックを手札に（このターンコスト0）"], ["genSkill", "ランダムなスキルを手札に"], ["genPower", "ランダムなパワーを手札に"], ["genNamed", "名前を指定したカード（トークンなど）を手札に"], ["tagGen", "タグのカードをランダムに生み出して手札に"], ["draft", "スパイア風カードを○枚から1枚えらんで墓地に"]] },
-  { g: "summon",  label: "モンスターを場に出す", v: [["reborn", "墓地のモンスターを場に"], ["tagSummonHand", "タグのモンスターを手札から"], ["tagSummonDeck", "タグのモンスターを山札から"], ["tagSummonGrave", "タグのモンスターを墓地から"]] },
+  { g: "summon",  label: "モンスターを場に出す", v: [["reborn", "墓地のモンスターを場に"], ["tagSummonHand", "タグのモンスターを手札から"], ["tagSummonDeck", "タグのモンスターを山札から"], ["tagSummonGrave", "タグのモンスターを墓地から"], ["exSummon", "EXデッキのモンスターを（えらんで）"], ["tagSummonEx", "タグのモンスターをEXデッキから"]] },
   { g: "free",    label: "踏み倒す（コストを払わずに使う）", v: [["playTop", "山札の一番上をプレイ（○枚）"], ["playTopEx", "山札の一番上をプレイして廃棄（○枚）"], ["playHandAtk", "手札のランダムなアタックをプレイ"], ["autoPlay", "名前に○が入ったカードを引いたら自動で使う"], ["dblAtk", "次のアタックをもう1回使う"], ["freeAttack", "次に使うアタックのコストを0に"], ["freeSkill", "次に使うスキルのコストを0に"], ["freePower", "次に使うパワーのコストを0に"], ["corrupt", "スキルがずっと0コスト（使うと廃棄）"]] },
   { g: "mana",    label: "マナ", v: [["manaNow", "マナを回復（このターン）"], ["manaMax", "最大マナを増やす"], ["manaDrain", "相手のマナを減らす"]] },
   { g: "deck",    label: "山札・墓地をあやつる", v: [["graveToTop", "墓地のカードを山札の一番上に"], ["playTop", "山札の一番上をプレイ（○枚）"], ["playTopEx", "山札の一番上をプレイして廃棄（○枚）"], ["drawUntil", "アタック以外を引くまで引く"], ["draft", "スパイア風カードを○枚から1枚えらんで墓地に"]] },
@@ -4154,9 +4156,10 @@ function targetOptions(st, s, kind, ctx = {}){
   if (t === "draft") return (ctx.draft || []).filter(id => S.cards.has(id));
   if (t === "hand") return P(st, s).hand.map((_, i) => i);
   if (t === "tagPick"){
-    const p = P(st, s), tag = ctx.tagName || "", src = /Hand$/.test(kind) && kind !== "tagGraveHand" ? p.hand : /Deck$|tagSearch/.test(kind) ? p.deck : p.grave;
-    if (/^tagSummon/.test(kind) && freeZone(p.mz) < 0) return [];
-    return [...new Set(src.filter(id => hasTag(id, tag) && (!/^tagSummon/.test(kind) || cardType(card(id)) === "monster")))];
+    const p = P(st, s), tag = ctx.tagName || "", fromEx = kind === "exSummon" || kind === "tagSummonEx", src = fromEx ? (p.ex || []) : /Hand$/.test(kind) && kind !== "tagGraveHand" ? p.hand : /Deck$|tagSearch/.test(kind) ? p.deck : p.grave;
+    const summ = /^tagSummon/.test(kind) || kind === "exSummon";
+    if (summ && freeZone(p.mz) < 0) return [];
+    return [...new Set(src.filter(id => (kind === "exSummon" || hasTag(id, tag)) && (!summ || cardType(card(id)) === "monster")))];
   }
   if (t === "graveAny") return [...new Set(P(st, s).grave)].filter(id => S.cards.has(id));
   if (t === "grave"){
@@ -4441,11 +4444,11 @@ function applyEffect(st, s, c, target, ctx = {}, fx = normFx(c)){
     case "noDraw": me.noDraw = true; log(st, s, `${src}：このターンはもうカードを引けない`); break;
     case "drawUntil": { let k = 0, last = null; while (k < 12 && !me.noDraw){ if (!me.deck.length) refill(st, s); if (!me.deck.length) break; last = me.deck.shift(); me.hand.push(last); k++; if (!isAttackCard(card(last))) break; } log(st, s, `${src}でカードを${k}枚引いた${last && !isAttackCard(card(last)) ? `（「${card(last).name}」で止まった）` : ""}`); break; }
     case "tagSearch": case "tagGraveHand": { const src = fx.kind === "tagSearch" ? me.deck : me.grave, k = src.indexOf(target); if (k >= 0){ src.splice(k, 1); me.hand.push(target); log(st, s, `${src === me.deck ? "山札" : "墓地"}から「${card(target).name}」を手札に加えた`); if (fx.kind === "tagSearch") me.deck = shuffle(me.deck); } break; }
-    case "tagSummonHand": case "tagSummonDeck": case "tagSummonGrave": {
-      const src = fx.kind === "tagSummonHand" ? me.hand : fx.kind === "tagSummonDeck" ? me.deck : me.grave, k = src.indexOf(target), z = freeZone(me.mz);
+    case "tagSummonHand": case "tagSummonDeck": case "tagSummonGrave": case "tagSummonEx": case "exSummon": {
+      const src = fx.kind === "tagSummonHand" ? me.hand : fx.kind === "tagSummonDeck" ? me.deck : fx.kind === "tagSummonGrave" ? me.grave : (me.ex = me.ex || []), k = src.indexOf(target), z = freeZone(me.mz);
       if (k < 0 || z < 0){ log(st, s, `「${c.name}」：出せるモンスターがいない`); break; }
       src.splice(k, 1); me.mz[z] = mkMon(st, target); ev(st, { type: "summon", s, z });
-      log(st, s, `${src === me.hand ? "手札" : src === me.deck ? "山札" : "墓地"}から「${card(target).name}」を場に出した`);
+      log(st, s, `${src === me.hand ? "手札" : src === me.deck ? "山札" : src === me.grave ? "墓地" : "EXデッキ"}から「${card(target).name}」を場に出した`);
       trigger(st, s, card(target), "ssummon", { zone: z, mon: { s, i: z, u: me.mz[z].u } }); persistFire(st, s, "mySummon", {});
       break;
     }

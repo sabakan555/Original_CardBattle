@@ -184,9 +184,10 @@ function targetOptions(st, s, kind, ctx = {}){
   if (t === "draft") return (ctx.draft || []).filter(id => S.cards.has(id));
   if (t === "hand") return P(st, s).hand.map((_, i) => i);
   if (t === "tagPick"){
-    const p = P(st, s), tag = ctx.tagName || "", src = /Hand$/.test(kind) && kind !== "tagGraveHand" ? p.hand : /Deck$|tagSearch/.test(kind) ? p.deck : p.grave;
-    if (/^tagSummon/.test(kind) && freeZone(p.mz) < 0) return [];
-    return [...new Set(src.filter(id => hasTag(id, tag) && (!/^tagSummon/.test(kind) || cardType(card(id)) === "monster")))];
+    const p = P(st, s), tag = ctx.tagName || "", fromEx = kind === "exSummon" || kind === "tagSummonEx", src = fromEx ? (p.ex || []) : /Hand$/.test(kind) && kind !== "tagGraveHand" ? p.hand : /Deck$|tagSearch/.test(kind) ? p.deck : p.grave;
+    const summ = /^tagSummon/.test(kind) || kind === "exSummon";
+    if (summ && freeZone(p.mz) < 0) return [];
+    return [...new Set(src.filter(id => (kind === "exSummon" || hasTag(id, tag)) && (!summ || cardType(card(id)) === "monster")))];
   }
   if (t === "graveAny") return [...new Set(P(st, s).grave)].filter(id => S.cards.has(id));
   if (t === "grave"){
@@ -471,11 +472,11 @@ function applyEffect(st, s, c, target, ctx = {}, fx = normFx(c)){
     case "noDraw": me.noDraw = true; log(st, s, `${src}：このターンはもうカードを引けない`); break;
     case "drawUntil": { let k = 0, last = null; while (k < 12 && !me.noDraw){ if (!me.deck.length) refill(st, s); if (!me.deck.length) break; last = me.deck.shift(); me.hand.push(last); k++; if (!isAttackCard(card(last))) break; } log(st, s, `${src}でカードを${k}枚引いた${last && !isAttackCard(card(last)) ? `（「${card(last).name}」で止まった）` : ""}`); break; }
     case "tagSearch": case "tagGraveHand": { const src = fx.kind === "tagSearch" ? me.deck : me.grave, k = src.indexOf(target); if (k >= 0){ src.splice(k, 1); me.hand.push(target); log(st, s, `${src === me.deck ? "山札" : "墓地"}から「${card(target).name}」を手札に加えた`); if (fx.kind === "tagSearch") me.deck = shuffle(me.deck); } break; }
-    case "tagSummonHand": case "tagSummonDeck": case "tagSummonGrave": {
-      const src = fx.kind === "tagSummonHand" ? me.hand : fx.kind === "tagSummonDeck" ? me.deck : me.grave, k = src.indexOf(target), z = freeZone(me.mz);
+    case "tagSummonHand": case "tagSummonDeck": case "tagSummonGrave": case "tagSummonEx": case "exSummon": {
+      const src = fx.kind === "tagSummonHand" ? me.hand : fx.kind === "tagSummonDeck" ? me.deck : fx.kind === "tagSummonGrave" ? me.grave : (me.ex = me.ex || []), k = src.indexOf(target), z = freeZone(me.mz);
       if (k < 0 || z < 0){ log(st, s, `「${c.name}」：出せるモンスターがいない`); break; }
       src.splice(k, 1); me.mz[z] = mkMon(st, target); ev(st, { type: "summon", s, z });
-      log(st, s, `${src === me.hand ? "手札" : src === me.deck ? "山札" : "墓地"}から「${card(target).name}」を場に出した`);
+      log(st, s, `${src === me.hand ? "手札" : src === me.deck ? "山札" : src === me.grave ? "墓地" : "EXデッキ"}から「${card(target).name}」を場に出した`);
       trigger(st, s, card(target), "ssummon", { zone: z, mon: { s, i: z, u: me.mz[z].u } }); persistFire(st, s, "mySummon", {});
       break;
     }
