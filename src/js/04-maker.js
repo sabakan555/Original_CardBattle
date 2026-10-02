@@ -597,6 +597,7 @@ function renderBlocksUI(){
     if (isNumCond(x.k)) h += `<select data-f="op" aria-label="くらべかた">${opt("ge", "以上", x.op)}${opt("le", "以下", x.op)}${opt("eq", "ちょうど", x.op)}</select><input type="number" data-f="n" min="0" max="99999" value="${esc(x.n ?? 1)}" aria-label="数">`;
     if (x.k === "card") h += `<input type="text" data-f="name" maxlength="40" placeholder="カード名" value="${esc(x.name || "")}" aria-label="カード名"><select data-f="where" aria-label="どこに">${Object.entries(WHERE).map(([k, v]) => opt(k, "自分の" + v, x.where || "field")).join("")}</select><select data-f="match" aria-label="名前の合わせ方">${opt("exact", "名前がぴったり", x.match)}${opt("part", "名前に含む", x.match)}${opt("tag", "タグ", x.match)}</select><input type="number" data-f="cnt" min="0" max="99" value="${esc(x.cnt ?? 1)}" aria-label="枚数" style="width:64px">枚<select data-f="op" aria-label="くらべかた">${opt("ge", "以上", x.op || "ge")}${opt("le", "以下", x.op)}</select>`;
     if (x.k === "used") h += `<select data-f="who" aria-label="だれが">${opt("any", "だれでも", x.who || "any")}${opt("me", "自分が", x.who || "any")}${opt("op", "相手が", x.who || "any")}</select><select data-f="match" aria-label="どのカード">${opt("trap", "罠", x.match)}${opt("magic", "魔法", x.match)}${opt("name", "名前がぴったり", x.match)}${opt("part", "名前に含む", x.match)}${opt("tag", "タグ", x.match)}${opt("any", "なんでも", x.match)}</select>${["name", "part", "tag"].includes(x.match) ? `<input type="text" data-f="name" maxlength="40" list="${x.match === "tag" ? "tagNames" : "cardNames"}" placeholder="${x.match === "tag" ? "タグ" : "カード名"}" value="${esc(x.name || "")}" aria-label="カード名">` : ""}`;
+    if (x.k === "stronger") h += `<select data-f="side" aria-label="どこに">${opt("op", "相手の場に", x.side || "op")}${opt("me", "自分の場に", x.side || "op")}${opt("any", "どちらかの場に", x.side || "op")}</select><span class="note">このモンスターよりATKが高いモンスターが</span><select data-f="has" aria-label="いる・いない">${opt("yes", "いる", x.has || "yes")}${opt("no", "いない", x.has || "yes")}</select>`;
     if (x.k === "ask") h += `<select data-f="who" aria-label="だれに聞く">${opt("me", "自分に聞く", x.who === "op" ? "op" : "me")}${opt("op", "相手に聞く", x.who === "op" ? "op" : "me")}</select>`;
     if (x.k === "ask") h += `<input type="text" data-f="text" maxlength="40" placeholder="例: 物理学実験を履修していますか？" value="${esc(x.text || "")}" aria-label="質問">`;
     return h + `<button type="button" class="small ghost" data-bk="delRow" aria-label="この条件を消す">×</button></div>`;
@@ -677,7 +678,7 @@ function bkEvent(e, rerenderOnInput){
   if (part === "cond"){
     const x = b.conds[j]; if (!x) return;
     if (f === "join"){ b.join = v; return renderBlocksUI(); }
-    if (f === "k"){ b.conds[j] = v === "card" ? { k: v, name: "", where: "field", match: "exact" } : v === "ask" ? { k: v, text: "" } : v === "used" ? { k: v, who: "any", match: "trap", name: "" } : { k: v, op: v === "lp" ? "le" : "ge", n: v === "lp" || v === "oppLp" ? 300 : 1 }; return renderBlocksUI(); }
+    if (f === "k"){ b.conds[j] = v === "stronger" ? { k: v, side: "op", has: "yes" } : v === "card" ? { k: v, name: "", where: "field", match: "exact" } : v === "ask" ? { k: v, text: "" } : v === "used" ? { k: v, who: "any", match: "trap", name: "" } : { k: v, op: v === "lp" ? "le" : "ge", n: v === "lp" || v === "oppLp" ? 300 : 1 }; return renderBlocksUI(); }
     x[f] = f === "n" || f === "cnt" ? Math.max(0, Math.round(+v || 0)) : v;
     return f === "op" || f === "where" || f === "match" ? renderBlocksUI() : updateBkText();
   }
@@ -802,6 +803,7 @@ function renderAtkConds(){
     h += `<select data-f="k" aria-label="なにが">${Object.entries(COND_DEFS).filter(([k, d]) => k !== "ask" && !d.roll).map(([k, d]) => opt(k, d.label, x.k)).join("")}</select>`;
     if (isNumCond(x.k)) h += `<select data-f="op" aria-label="くらべかた">${opt("ge", "以上", x.op)}${opt("le", "以下", x.op)}${opt("eq", "ちょうど", x.op)}</select><input type="number" data-f="n" min="0" max="99999" value="${esc(x.n ?? 1)}" aria-label="数">`;
     if (x.k === "card") h += `<input type="text" data-f="name" maxlength="40" placeholder="カード名" value="${esc(x.name || "")}" aria-label="カード名"><select data-f="where" aria-label="どこに">${Object.entries(WHERE).map(([k, v]) => opt(k, "自分の" + v, x.where || "field")).join("")}</select><select data-f="match" aria-label="名前の合わせ方">${opt("exact", "名前がぴったり", x.match)}${opt("part", "名前に含む", x.match)}${opt("tag", "タグ", x.match)}</select><input type="number" data-f="cnt" min="0" max="99" value="${esc(x.cnt ?? 1)}" aria-label="枚数" style="width:64px">枚<select data-f="op" aria-label="くらべかた">${opt("ge", "以上", x.op || "ge")}${opt("le", "以下", x.op)}</select>`;
+    if (x.k === "stronger") h += `<select data-f="side" aria-label="どこに">${opt("op", "相手の場に", x.side || "op")}${opt("me", "自分の場に", x.side || "op")}${opt("any", "どちらかの場に", x.side || "op")}</select><span class="note">このモンスターよりATKが高いモンスターが</span><select data-f="has" aria-label="いる・いない">${opt("yes", "いる", x.has || "yes")}${opt("no", "いない", x.has || "yes")}</select>`;
     return h + `<button type="button" class="small ghost" data-del="${j}" aria-label="この条件を消す">×</button></div>`;
   }).join("") || `<span class="note">なし（いつでも攻撃できる）</span>`;
   updateBkText();
@@ -811,7 +813,7 @@ function atkCondEvent(e, rerender){
   const j = +el.closest(".bk-row").dataset.i, x = MK.atkConds[j]; if (!x) return;
   const f = el.dataset.f, v = el.value;
   if (f === "join"){ MK.atkJoin = v; return renderAtkConds(); }
-  if (f === "k"){ MK.atkConds[j] = v === "card" ? { k: v, name: "", where: "field", match: "exact", cnt: 1, op: "ge" } : { k: v, op: v === "lp" ? "le" : "ge", n: v === "lp" || v === "oppLp" ? 300 : v === "otherMon" ? 2 : 1 }; return renderAtkConds(); }
+  if (f === "k"){ MK.atkConds[j] = v === "stronger" ? { k: v, side: "op", has: "no" } : v === "card" ? { k: v, name: "", where: "field", match: "exact", cnt: 1, op: "ge" } : { k: v, op: v === "lp" ? "le" : "ge", n: v === "lp" || v === "oppLp" ? 300 : v === "otherMon" ? 2 : 1 }; return renderAtkConds(); }
   x[f] = f === "n" || f === "cnt" ? Math.max(0, Math.round(+v || 0)) : v;
   return rerender ? renderAtkConds() : updateBkText();
 }

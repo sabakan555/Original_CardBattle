@@ -364,6 +364,7 @@ const COND_DEFS = {
   ask:      { label: "質問して「はい」と答えた" },
   used:     { label: "発動したカード（「魔法・罠が発動したとき」用）" },
   die:      { label: "サイコロの目（「まず」でサイコロを振ったとき）", who: "サイコロの目が", unit: "", roll: true, val: (st, s, c, ctx) => ctx && ctx.roll && ctx.roll.kind === "die" ? ctx.roll.v : 0 },
+  stronger: { label: "このモンスターよりATKが高いモンスターがいる・いない" },
   coinH:    { label: "コインが表（「まず」でコインを投げたとき）", roll: true },
   coinT:    { label: "コインが裏（「まず」でコインを投げたとき）", roll: true }
 };
@@ -390,14 +391,23 @@ function condPhrase(x){
   if (x.k === "card"){ const cnt = +(x.cnt ?? 1), op = x.op === "le" ? "le" : "ge"; return `${x.match === "tag" ? `タグ「${x.name || "？"}」のカード` : x.match === "part" ? `名前に「${x.name || "？"}」が入ったカード` : `「${x.name || "？"}」`}が自分の${WHERE[x.where] || WHERE.field}に${cnt === 1 && op === "ge" ? "ある" : `${cnt}枚${OPS[op]}ある`}`; }
   if (x.k === "ask") return `${x.who === "op" ? "相手が" : ""}「${x.text || "？"}」に「はい」`;
   if (x.k === "costDeck") return "自分がコストデッキを使っている";
+  if (x.k === "stronger") return `${{ me: "自分の場に", any: "場に" }[x.side] || "相手の場に"}このモンスターよりATKが高いモンスターが${x.has === "no" ? "いない" : "いる"}`;
   if (x.k === "coinH") return "コインが表";
   if (x.k === "used") return `${{ me: "自分が", op: "相手が" }[x.who] || ""}発動したカードが${usedWhat(x)}`;
   if (x.k === "coinT") return "コインが裏";
   const d = COND_DEFS[x.k]; return `${d.who}${x.n ?? 0}${d.unit}${x.op in OPS ? OPS[x.op] : OPS.ge}`;
 }
 const condsText = b => b.conds && b.conds.length ? b.conds.map(condPhrase).join(b.join === "or" ? "か、" : "、かつ") + "なら、" : "";
+// how many monsters on `side` have more ATK than this monster (the one on the field, or the card's own ATK)
+function strongerCount(st, s, c, ctx, side){
+  const ref = ctx && ctx.mon ? monAt(st, ctx.mon) : ctx && ctx.zone != null ? P(st, s).mz[ctx.zone] : null;
+  const a = ref ? atkOf(ref) : c && cardType(c) === "monster" ? baseAtk(c) : 0;
+  let n = 0; for (const o of side === "me" ? [s] : side === "any" ? [s, O(s)] : [O(s)]) P(st, o).mz.forEach(m => { if (m && m !== ref && atkOf(m) > a) n++; });
+  return n;
+}
 function condMet(st, s, c, x, ctx){
   if (x.k === "costDeck") return !!P(st, s).mana;
+  if (x.k === "stronger"){ const n = strongerCount(st, s, c, ctx, x.side || "op"); return x.has === "no" ? n === 0 : n > 0; }
   if (x.k === "used"){
     const u = ctx && ctx.used; if (!u) return false;
     if (x.who === "me" && u.s !== s) return false; if (x.who === "op" && u.s === s) return false;
