@@ -757,12 +757,26 @@ nav.tabs button{position:relative}
 .dk-edit-grid{display:flex;flex-direction:column}
 .dk-edit-main{min-width:0}
 .dk-side{order:-1}
-@media (min-width:900px){
-  .dk-edit-grid{display:grid;grid-template-columns:minmax(0,1fr) 290px;gap:16px;align-items:start}
+@media (min-width:641px){
+  .dk-edit-grid{display:grid;grid-template-columns:minmax(0,1fr) 270px;gap:16px;align-items:start}
   .dk-side{order:0;position:sticky;top:12px;max-height:calc(100vh - 24px);overflow:auto;margin-bottom:0}
   .dk-side .dkv-grid{grid-template-columns:1fr;gap:3px}
   .dk-side .dk-strip{height:32px}
   .dk-side .dkv-head{flex-direction:column;align-items:flex-start;gap:8px}
+  .dk-sheet-x,.dk-sheet-bg,#btnDeckSheet{display:none!important}
+}
+/* スマホ: デッキの中身は下から出るシート（カードを足しても上の並びがずれない） */
+.dk-sheet-x{display:none}
+#cardView{z-index:80}
+@media (max-width:640px){
+  .dk-side{position:fixed;left:0;right:0;bottom:0;z-index:70;margin:0!important;max-height:72vh;overflow:auto;border-radius:18px 18px 0 0!important;padding:10px 14px calc(18px + env(safe-area-inset-bottom,0px))!important;transform:translateY(105%);transition:transform .22s ease;box-shadow:0 -10px 30px rgba(0,0,0,.5)}
+  .dk-side.sheet-open{transform:none}
+  .dk-side>summary{pointer-events:none;position:sticky;top:-10px;background:inherit;padding:6px 0;z-index:1}
+  .dk-side>summary::before{content:""!important}
+  .dk-side>summary::after{content:"";position:absolute;left:50%;top:-4px;width:44px;height:5px;margin-left:-22px;border-radius:9px;background:var(--line)}
+  .dk-sheet-x{display:inline-block;pointer-events:auto;float:right;margin-top:-2px}
+  .dk-sheet-bg{position:fixed;inset:0;z-index:69;background:rgba(0,0,0,.45)}
+  .dk-sheet-bg[hidden]{display:none}
 }
 .dk-strips-wrap .dkv-grid{margin-top:10px}
 @media (max-width:640px){.dkv-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.dk-strip .ds-name{font-size:11px}}
@@ -1104,9 +1118,10 @@ nav.tabs button{position:relative}
     <div class="filters" id="deckFilters"></div>
     <div class="deck-pool" id="deckPool"></div>
     </div>
-    <details class="box dkv-box dk-side" id="deckViewBox" open><summary><b>デッキの中身</b> <span class="note" id="deckViewNote"></span></summary><div id="deckView"></div></details>
+    <details class="box dkv-box dk-side" id="deckViewBox" open><summary><b>デッキの中身</b> <span class="note" id="deckViewNote"></span><button type="button" class="small ghost dk-sheet-x" id="btnDeckSheetX">とじる</button></summary><div id="deckView"></div></details>
     </div>
-    <div class="deck-float" id="deckFloat"><span id="deckFloatMeter"></span><button class="primary small" id="btnDeckSave2">デッキを保存</button></div>
+    <div class="deck-float" id="deckFloat"><span id="deckFloatMeter"></span><button class="small" id="btnDeckSheet" type="button">中身を見る ▲</button><button class="primary small" id="btnDeckSave2">デッキを保存</button></div>
+    <div class="dk-sheet-bg" id="deckSheetBg" hidden></div>
     </div>
   </section>
 
@@ -3291,6 +3306,11 @@ function renderDeck(){
 }
 $("#deckMana").addEventListener("change", renderDeck);
 $("#deckView").addEventListener("click", e => stripClick(e, "deck"));
+// スマホ: 下から出るシートのひらく／とじる
+function deckSheet(open){ $("#deckViewBox").classList.toggle("sheet-open", !!open); $("#deckSheetBg").hidden = !open; if (open) $("#deckViewBox").open = true; }
+$("#btnDeckSheet").addEventListener("click", () => deckSheet(!$("#deckViewBox").classList.contains("sheet-open")));
+$("#btnDeckSheetX").addEventListener("click", e => { e.preventDefault(); e.stopPropagation(); deckSheet(false); });
+$("#deckSheetBg").addEventListener("click", () => deckSheet(false));
 $("#deckViewBox").open = ls.get("cb_dkv", true) !== false;
 $("#deckViewBox").addEventListener("toggle", () => ls.set("cb_dkv", $("#deckViewBox").open));
 $("#deckSpire").addEventListener("change", renderDeck);

@@ -26,6 +26,11 @@ function renderDeck(){
 }
 $("#deckMana").addEventListener("change", renderDeck);
 $("#deckView").addEventListener("click", e => stripClick(e, "deck"));
+// スマホ: 下から出るシートのひらく／とじる
+function deckSheet(open){ $("#deckViewBox").classList.toggle("sheet-open", !!open); $("#deckSheetBg").hidden = !open; if (open) $("#deckViewBox").open = true; }
+$("#btnDeckSheet").addEventListener("click", () => deckSheet(!$("#deckViewBox").classList.contains("sheet-open")));
+$("#btnDeckSheetX").addEventListener("click", e => { e.preventDefault(); e.stopPropagation(); deckSheet(false); });
+$("#deckSheetBg").addEventListener("click", () => deckSheet(false));
 $("#deckViewBox").open = ls.get("cb_dkv", true) !== false;
 $("#deckViewBox").addEventListener("toggle", () => ls.set("cb_dkv", $("#deckViewBox").open));
 $("#deckSpire").addEventListener("change", renderDeck);
