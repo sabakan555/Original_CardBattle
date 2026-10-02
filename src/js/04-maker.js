@@ -61,7 +61,7 @@ $("#mkFrameless").addEventListener("change", e => setFrameless(e.target.checked)
 function syncRarity(){ const sp = $("#mkFrame").value === "spire", r = $("#mkRarity").value; $("#rarityRow").hidden = !sp; ["common", "uncommon", "rare"].forEach(k => $("#editCard").classList.toggle("rar-" + k, sp && r === k)); }
 $("#mkRarity").addEventListener("change", syncRarity);
 function syncFrame(){ if (typeof updateSecs === "function") setTimeout(updateSecs); $("#editCard").classList.toggle("mtg", $("#mkFrame").value === "mtg"); $("#editCard").classList.toggle("socra", $("#mkFrame").value === "socra"); $("#editCard").classList.toggle("spire", $("#mkFrame").value === "spire"); syncRarity(); if ($("#mkFrame").value === "spire" && MK.frameless) setFrameless(false); $("#mkFrameless").closest("label").hidden = $("#mkFrame").value === "spire"; if (typeof syncTypeNames === "function") syncTypeNames(); $("#capRow").hidden = MK.type !== "monster" || $("#mkFrame").value !== "socra"; }
-$("#mkFrame").addEventListener("change", syncFrame);
+$("#mkFrame").addEventListener("change", () => { syncFrame(); syncFont(); });
 function clearCanvas(){ ik.clearRect(0, 0, ink.width, ink.height); photo = null; setMode("draw"); composite(); }
 $("#swatches").innerHTML = COLORS.map(c => `<button class="sw" style="background:${c}" data-c="${c}" aria-label="色 ${c}" aria-pressed="${c === pen.color}"></button>`).join("");
 $("#sizes").innerHTML = SIZES.map(([l, s]) => `<button data-s="${s}" aria-pressed="${s === pen.size}">${l}</button>`).join("");
@@ -226,7 +226,7 @@ setMkDeck("normal");
 $("#mkCost").addEventListener("change", syncCost); $("#mkAtk").addEventListener("input", syncCost);
 syncCost();
 $("#mkFont").innerHTML = Object.entries(FONTS).map(([k, v]) => `<option value="${k}" style='font-family:${v.css}'>${v.label}</option>`).join("");
-function syncFont(){ const k = $("#mkFont").value; $("#editCard").style.setProperty("--cf", FONTS[k] ? FONTS[k].css : ""); $("#mkFont").style.fontFamily = FONTS[k] ? FONTS[k].css : ""; renderFontGrid(); }
+function syncFont(){ const k = $("#mkFont").value; if ($("#mkFrame").value === "mtg" && k === "klee") $("#editCard").style.removeProperty("--cf"); else $("#editCard").style.setProperty("--cf", FONTS[k] ? FONTS[k].css : ""); $("#mkFont").style.fontFamily = FONTS[k] ? FONTS[k].css : ""; renderFontGrid(); }
 // フォント選び: 見本の文字（カード名）をそれぞれのフォントで並べる
 function renderFontGrid(){
   const box = $("#fontGrid"); if (!box) return;

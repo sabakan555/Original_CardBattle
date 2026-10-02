@@ -968,38 +968,37 @@ div.f{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:13px}
 .overlay .warn{color:#ff9f8a;font-weight:700}
 .overlay .acts-sticky{position:sticky;bottom:-16px;z-index:2;background:rgba(18,20,42,.97);padding:10px 0 12px;margin-bottom:-6px}
 
-/* ---- MTG風の枠（Figma「Frame 43」をもとに） 630×880 の設計をカードの幅に合わせて縮める ---- */
-.card.mtg{--mu:calc(var(--w)/630);--mt:#738c97;--mbar:#c3ccd2;--mline:#565252;aspect-ratio:630/880;padding:0;background:#0a0a0c;border-radius:calc(var(--mu)*30);border:none;font-family:var(--cf,"Shippori Mincho B1","Noto Serif JP",var(--hand))}
-.card.mtg.magic{--mt:#6e9584;--mbar:#c9d6cc}.card.mtg.trap{--mt:#93718a;--mbar:#d6c8d1}.card.mtg.equip{--mt:#9a8761;--mbar:#d8cfbc}.card.mtg.token{--mt:#7c7f84;--mbar:#cfd1d4}
-.card.mtg::before{content:"";position:absolute;left:calc(var(--mu)*38);right:calc(var(--mu)*38);top:calc(var(--mu)*36);bottom:calc(var(--mu)*58);border-radius:calc(var(--mu)*18) calc(var(--mu)*18) calc(var(--mu)*120) calc(var(--mu)*120);background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='3' seed='7'/%3E%3CfeColorMatrix values='0 0 0 0 .9 0 0 0 0 .94 0 0 0 0 .97 0 0 0 .62 -.08'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"),var(--mt);box-shadow:inset 0 0 calc(var(--mu)*10) rgba(0,0,0,.35)}
+/* ---- MTG風の枠（サバ缶のFigma「Frame 43」）: 枠はFigmaから書き出した画像そのまま、文字の大きさ・位置はFigmaの数値（630×880基準） ---- */
+.card.mtg{--mu:calc(var(--w)/630);aspect-ratio:630/880;padding:0;background:transparent;border:none;border-radius:calc(var(--mu)*24);box-shadow:0 calc(var(--mu)*4) calc(var(--mu)*12) rgba(0,0,0,.35);color:#000;font-family:var(--cf,"Shippori Mincho","Shippori Mincho B1",serif)}
+.card.mtg::before{content:"";position:absolute;inset:0;background:url("assets/mtg_frame.webp") center/100% 100% no-repeat;border-radius:inherit;z-index:0;pointer-events:none}
+.card.mtg.magic::before{filter:hue-rotate(-60deg) saturate(1.3)}.card.mtg.trap::before{filter:hue-rotate(110deg) saturate(1.2)}.card.mtg.equip::before{filter:sepia(.45) hue-rotate(-20deg)}.card.mtg.token::before{filter:grayscale(1)}
 .card.mtg .c-in{position:static;display:block;height:auto;background:none;border-radius:0;overflow:visible}
-.card.mtg .c-name{position:absolute;left:calc(var(--mu)*41);top:calc(var(--mu)*49);width:calc(var(--mu)*548);height:calc(var(--mu)*44);box-sizing:border-box;border:calc(var(--mu)*7) solid var(--mline)!important;border-radius:999px;background:linear-gradient(180deg,#e3e9ed,var(--mbar) 55%,#a9b3b9);box-shadow:0 calc(var(--mu)*3) 0 rgba(0,0,0,.35);padding:0 calc(var(--mu)*60) 0 calc(var(--mu)*16)!important;text-align:left;font-size:calc(var(--mu)*30*var(--nk,1));line-height:calc(var(--mu)*30)!important;display:flex;align-items:center;z-index:2;letter-spacing:-.04em;font-weight:800}
-.card.mtg.costed .c-name{padding-left:calc(var(--mu)*16)!important}
-.card.mtg .c-cost{left:auto;right:calc(var(--mu)*54);top:calc(var(--mu)*54);width:calc(var(--mu)*33);height:calc(var(--mu)*33);padding:0;border:calc(var(--mu)*2) solid #333;border-radius:50%;background:radial-gradient(circle at 35% 30%,#fff,#d9d9d9 55%,#9a9a9a);display:grid;place-items:center;font-size:calc(var(--mu)*24);line-height:1;z-index:3;box-shadow:0 calc(var(--mu)*3) 0 rgba(0,0,0,.4);color:#111}
-.card.mtg .c-art{position:absolute;left:calc(var(--mu)*48);top:calc(var(--mu)*93);width:calc(var(--mu)*534);height:calc(var(--mu)*401);box-sizing:border-box;aspect-ratio:auto;border:calc(var(--mu)*7) solid var(--mline);background:#d9d9d9;overflow:visible;z-index:1}
+.card.mtg .c-name{position:absolute;left:calc(var(--mu)*57);top:calc(var(--mu)*52);width:calc(var(--mu)*472);height:calc(var(--mu)*38);padding:0!important;border:none!important;background:none;text-align:left;display:flex;align-items:center;font-size:calc(var(--mu)*32*var(--nk,1));line-height:1!important;letter-spacing:-.1em;font-weight:700;z-index:2;white-space:nowrap;overflow:hidden}
+.card.mtg.costed .c-name{padding-left:0!important}
+.card.mtg .m-nm{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;padding-right:.1em}
+.card.mtg .c-cost{left:calc(var(--mu)*543);top:calc(var(--mu)*54);right:auto;width:calc(var(--mu)*33);height:calc(var(--mu)*33);padding:0;border:none;border-radius:50%;background:none;box-shadow:none;display:grid;place-items:center;font-size:calc(var(--mu)*32);line-height:1;letter-spacing:-.1em;font-weight:700;color:#000;z-index:3}
+.card.mtg .c-art{position:absolute;left:calc(var(--mu)*55);top:calc(var(--mu)*100);width:calc(var(--mu)*520);height:calc(var(--mu)*387);aspect-ratio:auto;border:none;background:transparent;overflow:visible;z-index:1}
 .card.mtg .c-art>img,.card.mtg .c-art>canvas{width:100%;height:100%;object-fit:cover;display:block}
-.card.mtg .c-art .noart{display:grid;place-items:center;height:100%;font-size:calc(var(--mu)*30)}
-.card.mtg .c-tab{left:calc(var(--mu)*-15);right:auto;top:calc(100% - var(--mu)*4);bottom:auto;width:calc(var(--mu)*548);height:calc(var(--mu)*44);box-sizing:border-box;border:calc(var(--mu)*7) solid var(--mline)!important;border-radius:999px;background:linear-gradient(180deg,#e3e9ed,var(--mbar) 55%,#a9b3b9);box-shadow:0 calc(var(--mu)*3) 0 rgba(0,0,0,.35);padding:0 calc(var(--mu)*16);display:flex;align-items:center;font-size:calc(var(--mu)*28);font-weight:800;color:#111!important;letter-spacing:-.04em;z-index:3}
-.card.mtg .c-text{position:absolute;left:calc(var(--mu)*57);top:calc(var(--mu)*546);width:calc(var(--mu)*512);height:calc(var(--mu)*278);box-sizing:border-box;border:calc(var(--mu)*7) solid var(--mline);background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='3' seed='7'/%3E%3CfeColorMatrix values='0 0 0 0 .9 0 0 0 0 .94 0 0 0 0 .97 0 0 0 .62 -.08'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"),rgba(188,198,204,.92);box-shadow:inset 0 0 calc(var(--mu)*12) calc(var(--mu)*4) rgba(0,0,0,.18);padding:calc(var(--mu)*30) calc(var(--mu)*14) calc(var(--mu)*14);font-family:var(--cf,"Zen Kaku Gothic New",var(--ui));font-size:calc(var(--mu)*22*var(--tk,1));line-height:1.45;min-height:0;z-index:1}
-.card.mtg .c-text .fx{color:#14324a}
-.card.mtg .c-text .flv{font-family:"Shippori Mincho B1","Noto Serif JP",var(--hand);border-top:none;font-size:calc(var(--mu)*19*var(--tk,1));margin-bottom:calc(var(--mu)*48);color:#2c3338}
-.card.mtg .c-atk{left:calc(var(--mu)*428);top:calc(var(--mu)*240);right:auto;bottom:auto;width:calc(var(--mu)*104);height:calc(var(--mu)*50);box-sizing:border-box;border:calc(var(--mu)*3) solid #1b1b1b;border-radius:calc(var(--mu)*18);background:linear-gradient(180deg,#f3f7f3,#cfd9d2 60%,#a8b3ac);padding:0;display:grid;place-items:center;font-family:"Shippori Mincho B1","Noto Serif JP",var(--hand);font-weight:800;font-size:calc(var(--mu)*38);line-height:1;color:#111;z-index:4;box-shadow:0 calc(var(--mu)*4) 0 rgba(0,0,0,.45);white-space:nowrap;overflow:hidden}
-.card.mtg .c-lim{position:absolute;left:calc(var(--mu)*-10);bottom:calc(var(--mu)*-46);color:#9aa3a8;font-size:calc(var(--mu)*18);z-index:4}
-.card.mtg .c-eqc{z-index:4}
-.card.mtg .m-gem{position:absolute;left:calc(var(--mu)*280);top:calc(var(--mu)*814);width:calc(var(--mu)*66);height:calc(var(--mu)*29);border-radius:50%;border:calc(var(--mu)*8) solid #050505;box-sizing:content-box;transform:translate(calc(var(--mu)*-8),calc(var(--mu)*-8));background:radial-gradient(ellipse at 40% 35%,#f4f4f4,#9c9c9c 45%,#4a4a4a 80%);z-index:4}
-.card .m-gem{display:none}.card.mtg .m-gem{display:block}
-/* editor (the same parts, with inputs) */
-.card.editor.mtg{--w:min(330px,86vw)}
-.card.editor.mtg .c-in{height:auto}
-.card.editor.mtg .c-name input{text-align:left;font-size:calc(var(--mu)*28*var(--nk,1));background:transparent;border:none;width:100%;font-family:inherit;font-weight:800}
-.card.editor.mtg .c-text{min-height:0;padding:calc(var(--mu)*14);display:flex;flex-direction:column;gap:4px}
-.card.editor.mtg textarea{height:auto;flex:1;background:transparent;font-size:calc(var(--mu)*20)}
-.card.editor.mtg .c-atk{font-size:0}.card.editor.mtg .c-atk input{font-size:calc(var(--mu)*34);width:100%;text-align:center;background:transparent;font-family:inherit;font-weight:800;color:#111}
-.card.mtg .c-text{overflow:visible}
-.card.mtg .m-nm{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
-.card.mtg[class*="foil-"] .c-name{background:linear-gradient(180deg,#e3e9ed,var(--mbar) 55%,#a9b3b9)!important;color:#111!important;-webkit-text-fill-color:currentColor;filter:none}
+.card.mtg .c-art .noart{display:grid;place-items:center;width:100%;height:100%;font-size:calc(var(--mu)*32);letter-spacing:-.1em;font-weight:700;color:#000;background:none}
+.card.mtg .c-tab{left:calc(var(--mu)*2);right:auto;top:calc(var(--mu)*398);bottom:auto;width:calc(var(--mu)*480);height:calc(var(--mu)*38);padding:0;border:none!important;border-radius:0;background:none;display:flex;align-items:center;font-size:calc(var(--mu)*32);line-height:1;letter-spacing:-.1em;font-weight:700;color:#000!important;z-index:3}
+.card.mtg .c-text{position:absolute;left:calc(var(--mu)*64);top:calc(var(--mu)*553);width:calc(var(--mu)*498);height:calc(var(--mu)*264);border:none;background:none;box-shadow:none;padding:calc(var(--mu)*42) calc(var(--mu)*8) calc(var(--mu)*12) calc(var(--mu)*7);font-family:var(--cf,"Zen Maru Gothic",var(--ui));font-weight:500;font-size:calc(var(--mu)*22*var(--tk,1));line-height:calc(var(--mu)*25.88*var(--tk,1));letter-spacing:-.1em;color:#000;overflow:visible;min-height:0;z-index:1}
+.card.mtg .c-text .fx{color:#000}
+.card.mtg .c-text .flv{font-family:"Shippori Mincho",serif;font-style:normal;font-weight:400;border-top:none;padding-top:0;font-size:calc(var(--mu)*20*var(--tk,1));line-height:calc(var(--mu)*25.88);letter-spacing:-.1em;color:#000;margin:auto 0 calc(var(--mu)*44)}
+.card.mtg .c-text.ha .flv{margin-bottom:calc(var(--mu)*44)}
+.card.mtg .c-atk{left:calc(var(--mu)*421);top:calc(var(--mu)*240);right:auto;bottom:auto;width:calc(var(--mu)*104);height:calc(var(--mu)*50);padding:0;border:none;border-radius:0;background:none;box-shadow:none;display:grid;place-items:center;font-family:"Shippori Mincho","Shippori Mincho B1",serif;font-weight:700;font-size:calc(var(--mu)*48);line-height:1;color:#000;z-index:4;white-space:nowrap;letter-spacing:0}
+.card.mtg .c-lim{position:absolute;left:calc(var(--mu)*-46);bottom:calc(var(--mu)*-52);color:#8a8f93;font-size:calc(var(--mu)*16);z-index:4}
+.card.mtg .m-gem{display:none}.card .m-gem{display:none}
+.card.mtg[class*="foil-"] .c-name{background:none!important;color:#000!important;-webkit-text-fill-color:currentColor;filter:none}
 .card.mtg[class*="foil-"] .m-nm{-webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent;filter:drop-shadow(0 0 .6px rgba(0,0,0,.9))}
 .card.mtg.foil-gold .m-nm{background-image:linear-gradient(100deg,#7a5410 0%,#e9c55a 22%,#fff3b8 34%,#c9952a 48%,#f6dc7a 62%,#8a6114 80%,#e9c55a 100%)}
 .card.mtg.foil-silver .m-nm{background-image:linear-gradient(100deg,#5d6670 0%,#cfd6dd 22%,#ffffff 34%,#9aa4ae 48%,#e4e9ee 62%,#636c76 80%,#cfd6dd 100%)}
 .card.mtg.foil-bronze .m-nm{background-image:linear-gradient(100deg,#5a2e12 0%,#c27a45 22%,#f2c39a 34%,#9a5528 48%,#d99a66 62%,#5f3416 80%,#c27a45 100%)}
 .card.mtg.foil-rainbow .m-nm{background-image:linear-gradient(100deg,#e5367a,#f0a020,#3cc78a,#2f8de4,#9b4de0,#e5367a);background-size:200% 100%;animation:foilRun 5s linear infinite}
+.card.mtg.holo .holo-fx{border-radius:calc(var(--mu)*24)}
+/* editor */
+.card.editor.mtg{--w:min(330px,86vw)}
+.card.editor.mtg .c-in{height:auto}
+.card.editor.mtg .c-name input{text-align:left;font-size:calc(var(--mu)*32*var(--nk,1));letter-spacing:-.1em;background:transparent;border:none;width:100%;font-family:inherit;font-weight:700;color:#000;padding:0}
+.card.editor.mtg .c-text{min-height:0;display:flex;flex-direction:column;gap:4px;padding-top:calc(var(--mu)*14)}
+.card.editor.mtg textarea{height:auto;flex:1;background:transparent;font-size:calc(var(--mu)*22);letter-spacing:-.1em;font-family:inherit;color:#000}
+.card.editor.mtg .c-atk{font-size:0}.card.editor.mtg .c-atk input{font-size:calc(var(--mu)*44);width:100%;text-align:center;background:transparent;font-family:"Shippori Mincho",serif;font-weight:700;color:#000}
