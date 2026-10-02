@@ -442,6 +442,7 @@ body.dm-lock{overflow:hidden}
 .lp b{font-size:28px;font-weight:600;font-variant-numeric:tabular-nums}
 .lp.low b{color:var(--hit)}
 .pile-tabs button{font-size:13px}
+.bk-pick{font-size:12px;max-width:16em}
 .turn-timer{font-size:13px;min-height:0}
 .turn-timer .tmr{color:var(--muted)}
 .turn-timer .tmr.warn{color:#f2c14e;font-weight:700}

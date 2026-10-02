@@ -573,7 +573,7 @@ function renderBlocksUI(){
       + (g && g.v.length > 1 ? `<select data-f="kind" aria-label="どれ">${g.v.map(([k, l]) => opt(k, l || KINDS[k].label, e.kind)).join("")}</select>` : "")
       + (tg ? `<select data-f="to" aria-label="だれに">${tg.map(o => opt(o, o === "one" && hitsPlayer(e.kind) ? ($("#mkFrame").value === "spire" ? "相手のモンスター1体（いなければ相手）" : "相手") : TO_LABEL[o], e.to || "one")).join("")}</select>` : "")
       + (KINDS[e.kind] && KINDS[e.kind].n ? `<input type="number" data-f="n" min="${e.per ? 0 : 1}" max="9999" value="${esc(e.n ?? defN(e.kind))}" aria-label="数">` : "")
-      + (KINDS[e.kind] && KINDS[e.kind].name ? `<input type="text" data-f="into" list="${KINDS[e.kind] && KINDS[e.kind].tag ? "tagNames" : "cardNames"}" maxlength="40" value="${esc(e.into || "")}" placeholder="${KINDS[e.kind].tag ? "タグ（例: アイアンクラッド）" : KINDS[e.kind].need ? (e.kind === "autoPlay" ? "名前に入る文字（例: ストライク）" : "カード名") : "カード名（空ならランダム）"}" aria-label="カード名">` : "")
+      + (KINDS[e.kind] && KINDS[e.kind].name ? `<input type="text" data-f="into" list="${KINDS[e.kind] && KINDS[e.kind].tag ? "tagNames" : "cardNames"}" maxlength="40" value="${esc(e.into || "")}" placeholder="${KINDS[e.kind].tag ? "タグ（例: アイアンクラッド）" : KINDS[e.kind].need ? (e.kind === "autoPlay" ? "名前に入る文字（例: ストライク）" : "カード名") : "カード名（空ならランダム）"}" aria-label="カード名">` + pickHTML(e) : "")
       + (PER_OK[e.kind] && (!easy || e.per) ? `<select data-f="per" aria-label="ふえる">${opt("", "ふえない", e.per || "")}${Object.entries(PER_DEFS).map(([k, d]) => opt(k, d.label + d.u + "につき", e.per || "")).join("")}</select>` + (e.per ? (e.kind === "dmg" ? `<select data-f="hits" aria-label="ふえかた">${opt("", "数が＋", e.hits ? "1" : "")}${opt("1", "もう1回", e.hits ? "1" : "")}</select>` : "") + (e.hits ? "" : `<input type="number" data-f="pm" min="1" max="9999" value="${esc(e.pm ?? 1)}" aria-label="1つにつき増える数">`) : "") : "")
       + (!easy || e.times > 1 ? `<label class="bk-times" title="同じ効果を何回くり返すか">×<input type="number" data-f="times" min="1" max="20" value="${esc(e.times || 1)}" aria-label="回数">回</label>` : "")
       + `<button type="button" class="small ghost" data-bk="delRow" aria-label="この行を消す">×</button></div>`;
@@ -610,6 +610,17 @@ function updateBkText(){
 function bkSync(){ if ($("#bkUI")) renderBlocksUI(); }
 // remember which menu (group) a row was picked from — a kind can sit in two menus (e.g. 踏み倒す and 山札・墓地). Not saved.
 function setG(o, g){ if (g) Object.defineProperty(o, "_g", { value: g, writable: true, configurable: true, enumerable: false }); return o; }
+// 同じ名前のカードが何枚もあるときは「どのカード？」をえらべる（1枚だけなら自動でそれに決まる）
+function pickHTML(e){
+  if (!pickCardKind(e.kind) || !e.into) return "";
+  const L = nameCands(e.into, e.kind);
+  if (!L.length) return `<span class="note bk-pick">見つからない名前です</span>`;
+  if (L.length === 1){ e.intoId = L[0].id; }
+  if (L.length === 1) return `<span class="note bk-pick" title="このカードに決まっています">✓ ${esc(TYPE_LABEL[cardType(L[0])] || "")}・${esc(L[0].starter ? "はじめから" : L[0].author || "？")}</span>`;
+  const cur = L.some(c => c.id === e.intoId) ? e.intoId : (autoPickId(e) || L[0].id); e.intoId = cur;
+  return `<select data-f="intoId" aria-label="どのカード？" class="bk-pick">${L.map(c => `<option value="${esc(c.id)}"${c.id === cur ? " selected" : ""}>${esc(c.name)}（${esc(TYPE_LABEL[cardType(c)] || "")}・${esc(c.starter ? "はじめから" : c.author || "？")}${c.token ? "・トークン" : ""}）</option>`).join("")}</select>`;
+}
+function autoPickId(x){ if (!pickCardKind(x.kind) || !x.into) return null; const L = nameCands(x.into, x.kind); if (!L.length) return null; if (x.intoId && L.some(c => c.id === x.intoId)) return x.intoId; return intoId(x.into, { ownerId: S.uid }, PICK_OK[x.kind]); }
 function bkEvent(e, rerenderOnInput){
   const el = e.target.closest("[data-f]"); if (!el) return;
   const bi = +el.closest(".bk").dataset.b, b = MK.blocks[bi]; if (!b) return;
@@ -626,7 +637,8 @@ function bkEvent(e, rerenderOnInput){
   const list = b[part], x = list && list[j]; if (!x) return;
   if (f === "g"){ const g = (MK.easy && kindGroups(easyKinds()).find(q => q.g === v)) || kindGroups(mkKinds()).find(q => q.g === v); if (g){ list[j] = setG({ kind: g.v[0][0], n: defN(g.v[0][0]) }, g.g); } return renderBlocksUI(); }
   if (f === "kind"){ list[j] = setG({ kind: v, n: x.n != null && smallN(v) === smallN(x.kind) ? x.n : defN(v), to: x.to, ...(x.times > 1 ? { times: x.times } : {}), ...(KINDS[v] && KINDS[v].name && x.into ? { into: x.into } : {}), ...(PER_OK[v] && x.per ? { per: x.per, pm: x.pm, hits: v === "dmg" && x.hits } : {}) }, x._g); return renderBlocksUI(); }
-  if (f === "into"){ x.into = v.trim(); return updateBkText(); }
+  if (f === "into"){ x.into = v.trim(); x.intoId = autoPickId(x); return e.type === "change" ? renderBlocksUI() : updateBkText(); }
+  if (f === "intoId"){ x.intoId = v; return updateBkText(); }
   if (f === "times"){ x.times = Math.max(1, Math.min(20, Math.round(+v || 1))); return updateBkText(); }
   if (f === "per"){ x.per = v || null; if (!v){ x.hits = false; } else if (x.pm == null) x.pm = x.kind === "dmg" || x.kind === "block" ? (v === "myBlock" ? 1 : 40) : 1; return renderBlocksUI(); }
   if (f === "hits"){ x.hits = v === "1"; return renderBlocksUI(); }
