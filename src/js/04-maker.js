@@ -1,0 +1,930 @@
+/* ================= maker ================= */
+const cv = $("#cv"), cx = cv.getContext("2d");
+const COLORS = ["#1e2328", "#e0533a", "#f29b38", "#f2c94c", "#4caf6e", "#3d8bd9", "#8e5bc9", "#f28fb5", "#8b5a3c", "#ffffff"];
+const SIZES = [["細", 4], ["中", 9], ["太", 18], ["特太", 34]];
+const pen = { color: COLORS[0], size: 9, erase: false };
+const MK = { type: "monster", sk: null };
+// スパイア風 kind being made (null for other frames)
+function mkSk(){ if ($("#mkFrame").value !== "spire") return null; const t = MK.type; if (t === "magic") return $("#mkPersist").checked ? "power" : MK.sk === "attack" ? "attack" : "skill"; return t === "monster" ? "attack" : t === "trap" ? "power" : "skill"; }
+let undoStack = [], drawing = false, last = null;
+S.editId = null;
+// layers: photo (movable background) + ink (pen strokes, transparent)
+const ink = document.createElement("canvas"); ink.width = cv.width; ink.height = cv.height;
+const ik = ink.getContext("2d");
+let photo = null; // { img, x, y, s, base, r }
+MK.mode = "draw";
+function composite(){
+  cx.setTransform(1, 0, 0, 1, 0, 0);
+  if (MK.kind === "potion" || MK.kind === "relic") cx.clearRect(0, 0, cv.width, cv.height);
+  else { cx.fillStyle = "#fff"; cx.fillRect(0, 0, cv.width, cv.height); }
+  if (photo){
+    cx.save(); cx.translate(photo.x, photo.y); cx.rotate(photo.r); cx.scale(photo.s, photo.s);
+    cx.drawImage(photo.img, -photo.img.width / 2, -photo.img.height / 2); cx.restore();
+  }
+  cx.drawImage(ink, 0, 0);
+  if (MK.mode === "photo"){ cx.strokeStyle = "rgba(224,83,58,.9)"; cx.lineWidth = 6; cx.setLineDash([14, 10]); cx.strokeRect(3, 3, cv.width - 6, cv.height - 6); cx.setLineDash([]); }
+}
+MK.frameless = false;
+function setFrameless(on){
+  MK.frameless = !!on; $("#mkFrameless").checked = MK.frameless;
+  const H = MK.frameless ? 680 : 400;
+  if (cv.height !== H){
+    const keep = document.createElement("canvas"); keep.width = ink.width; keep.height = ink.height; keep.getContext("2d").drawImage(ink, 0, 0);
+    cv.height = H; ink.height = H; ik.drawImage(keep, 0, 0);
+    if (photo){ const nb = Math.max(cv.width / photo.img.width, cv.height / photo.img.height); photo.s *= nb / photo.base; photo.base = nb; }
+    undoStack = []; MK.artDirty = true;
+  }
+  $("#editCard").classList.toggle("frameless", MK.frameless); $("#flGuide").hidden = !MK.frameless;
+  $("#flAlphaRow").hidden = !MK.frameless; $("#tEdgeRow").hidden = !MK.frameless;
+  composite();
+}
+// 半フレームレス: how solid the text box over the picture is (0 = see-through, 100 = solid)
+const FL_ALPHA_DEF = 68;
+function setFlAlpha(v){
+  v = Math.max(0, Math.min(100, Math.round(+v))); if (!isFinite(v)) v = FL_ALPHA_DEF;
+  MK.flAlpha = v; $("#mkFlAlpha").value = String(v); $("#flAlphaVal").textContent = v + "%";
+  $("#editCard").style.setProperty("--fla", v + "%"); $("#editCard").classList.toggle("fl0", v === 0);
+}
+$("#mkFlAlpha").addEventListener("input", e => setFlAlpha(e.target.value));
+$("#btnFlAlpha").addEventListener("click", () => setFlAlpha(FL_ALPHA_DEF));
+function setTEdge(on){ $("#mkTEdge").checked = !!on; $("#editCard").classList.toggle("tedge", !!on); }
+$("#mkTEdge").addEventListener("change", e => setTEdge(e.target.checked));
+$("#mkFrameless").addEventListener("change", e => setFrameless(e.target.checked));
+function syncRarity(){ const sp = $("#mkFrame").value === "spire", r = $("#mkRarity").value; $("#rarityRow").hidden = !sp; ["common", "uncommon", "rare"].forEach(k => $("#editCard").classList.toggle("rar-" + k, sp && r === k)); }
+$("#mkRarity").addEventListener("change", syncRarity);
+function syncFrame(){ if (typeof updateSecs === "function") setTimeout(updateSecs); $("#editCard").classList.toggle("socra", $("#mkFrame").value === "socra"); $("#editCard").classList.toggle("spire", $("#mkFrame").value === "spire"); syncRarity(); if ($("#mkFrame").value === "spire" && MK.frameless) setFrameless(false); $("#mkFrameless").closest("label").hidden = $("#mkFrame").value === "spire"; if (typeof syncTypeNames === "function") syncTypeNames(); $("#capRow").hidden = MK.type !== "monster" || $("#mkFrame").value !== "socra"; }
+$("#mkFrame").addEventListener("change", syncFrame);
+function clearCanvas(){ ik.clearRect(0, 0, ink.width, ink.height); photo = null; setMode("draw"); composite(); }
+$("#swatches").innerHTML = COLORS.map(c => `<button class="sw" style="background:${c}" data-c="${c}" aria-label="色 ${c}" aria-pressed="${c === pen.color}"></button>`).join("");
+$("#sizes").innerHTML = SIZES.map(([l, s]) => `<button data-s="${s}" aria-pressed="${s === pen.size}">${l}</button>`).join("");
+$("#swatches").addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return; pen.color = b.dataset.c; pen.erase = false; syncTools(); });
+$("#sizes").addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return; pen.size = +b.dataset.s; syncTools(); });
+$("#btnErase").addEventListener("click", () => { pen.erase = !pen.erase; syncTools(); });
+function syncTools(){
+  document.querySelectorAll(".sw").forEach(b => b.setAttribute("aria-pressed", !pen.erase && b.dataset.c === pen.color));
+  document.querySelectorAll("#sizes button").forEach(b => b.setAttribute("aria-pressed", +b.dataset.s === pen.size));
+  $("#btnErase").setAttribute("aria-pressed", pen.erase); $("#btnErase").classList.toggle("primary", pen.erase);
+}
+function pushUndo(){ MK.artDirty = true; try{ undoStack.push({ ink: ik.getImageData(0, 0, ink.width, ink.height), photo: photo ? { ...photo } : null }); if (undoStack.length > 25) undoStack.shift(); }catch(e){} }
+$("#btnUndo").addEventListener("click", () => { const d = undoStack.pop(); if (!d) return; MK.artDirty = true; ik.putImageData(d.ink, 0, 0); photo = d.photo; if (!photo && MK.mode === "photo") setMode("draw"); syncPhotoUI(); composite(); });
+$("#btnClear").addEventListener("click", () => { pushUndo(); clearCanvas(); });
+// 大きく描く: the canvas and the pen tools move into a popup (no text boxes nearby, so iPad's handwriting-to-text doesn't pop up)
+const DM = { open: false };
+function openDrawModal(){
+  if (DM.open) return; DM.open = true;
+  DM.ph = document.createComment("cv"); cv.parentNode.insertBefore(DM.ph, cv); $("#drawModal .dm-canvas").appendChild(cv);
+  const pane = document.querySelector('.tools-col .mk-pane[data-pane="draw"]');
+  DM.pane = pane; DM.pp = pane.parentNode; DM.pn = pane.nextSibling; DM.ph2 = pane.hidden; pane.hidden = false; $("#drawModal .dm-tools").appendChild(pane);
+  $("#drawModal").classList.toggle("potion", MK.kind === "potion" || MK.kind === "relic");
+  $("#drawModal").hidden = false; document.body.classList.add("dm-lock");
+  if (typeof composite === "function") composite();
+}
+function closeDrawModal(){
+  if (!DM.open) return; DM.open = false;
+  DM.ph.parentNode.insertBefore(cv, DM.ph); DM.ph.remove();
+  DM.pp.insertBefore(DM.pane, DM.pn); DM.pane.hidden = DM.ph2;
+  $("#drawModal").hidden = true; document.body.classList.remove("dm-lock");
+  if (typeof composite === "function") composite();
+}
+$("#dmDone").addEventListener("click", closeDrawModal);
+$("#btnBigDraw").addEventListener("click", openDrawModal);
+document.addEventListener("keydown", e => { if (e.key === "Escape" && DM.open) closeDrawModal(); });
+// with a pen or a finger, touching the small canvas on the card opens the popup instead
+document.addEventListener("pointerdown", e => {
+  if (DM.open || e.target !== cv || (e.pointerType !== "pen" && e.pointerType !== "touch")) return;
+  e.preventDefault(); e.stopImmediatePropagation(); openDrawModal();
+}, true);
+function pt(e){ const r = cv.getBoundingClientRect(); return { x: (e.clientX - r.left) * cv.width / r.width, y: (e.clientY - r.top) * cv.height / r.height }; }
+function stroke(a, b){
+  ik.globalCompositeOperation = pen.erase ? "destination-out" : "source-over";
+  ik.strokeStyle = ik.fillStyle = pen.erase ? "#000" : pen.color;
+  ik.lineWidth = pen.erase ? pen.size * 2 : pen.size; ik.lineCap = ik.lineJoin = "round";
+  if (a.x === b.x && a.y === b.y){ ik.beginPath(); ik.arc(a.x, a.y, ik.lineWidth / 2, 0, 7); ik.fill(); }
+  else { ik.beginPath(); ik.moveTo(a.x, a.y); ik.lineTo(b.x, b.y); ik.stroke(); }
+  ik.globalCompositeOperation = "source-over";
+}
+// photo placement mode
+function setMode(m){
+  MK.mode = m;
+  cv.style.cursor = m === "photo" ? "move" : "crosshair";
+  syncPhotoUI();
+}
+function syncPhotoUI(){
+  $("#photoPanel").hidden = MK.mode !== "photo" || !photo;
+  $("#phEdit").hidden = MK.mode === "photo" || !photo;
+  if (photo){ $("#phScale").value = Math.round(photo.s / photo.base * 100); $("#phRot").value = Math.round(photo.r * 180 / Math.PI); }
+}
+function fitPhoto(){ if (!photo) return; photo.x = cv.width / 2; photo.y = cv.height / 2; photo.r = 0; photo.s = photo.base; }
+function setPhoto(img){
+  pushUndo();
+  const base = Math.max(cv.width / img.width, cv.height / img.height);
+  photo = { img, x: cv.width / 2, y: cv.height / 2, s: base, base, r: 0 };
+  setMode("photo"); composite();
+}
+const drawImageCover = setPhoto;
+let drag = null;
+// photo mode: one finger moves, two fingers zoom + rotate (the wheel also zooms)
+const mkPtrs = new Map(); let mkPinch = null;
+const twoOf = m => { const [a, b] = [...m.values()]; return { d: Math.hypot(a.x - b.x, a.y - b.y) || 1, a: Math.atan2(b.y - a.y, b.x - a.x) }; };
+cv.addEventListener("pointerdown", e => {
+  e.preventDefault(); cv.setPointerCapture(e.pointerId);
+  if (MK.mode === "photo" && photo){
+    mkPtrs.set(e.pointerId, pt(e));
+    if (mkPtrs.size === 1){ pushUndo(); drag = { p: pt(e), x: photo.x, y: photo.y }; }
+    if (mkPtrs.size === 2){ const t = twoOf(mkPtrs); mkPinch = { d: t.d, a: t.a, s: photo.s, r: photo.r }; drag = null; }
+    return;
+  }
+  pushUndo(); drawing = true; last = pt(e); stroke(last, last); composite();
+});
+cv.addEventListener("pointermove", e => {
+  if (MK.mode === "photo" && photo && mkPtrs.has(e.pointerId)){
+    mkPtrs.set(e.pointerId, pt(e));
+    if (mkPinch && mkPtrs.size >= 2){ const t = twoOf(mkPtrs); photo.s = Math.min(photo.base * 4, Math.max(photo.base * .1, mkPinch.s * t.d / mkPinch.d)); photo.r = mkPinch.r + t.a - mkPinch.a; syncPhotoUI(); composite(); return; }
+  }
+  if (drag){ const p = pt(e); photo.x = drag.x + p.x - drag.p.x; photo.y = drag.y + p.y - drag.p.y; composite(); return; }
+  if (!drawing) return;
+  const evs = e.getCoalescedEvents ? e.getCoalescedEvents() : [e];
+  for (const ev of (evs.length ? evs : [e])){ const p = pt(ev); stroke(last, p); last = p; }
+  composite();
+});
+const endStroke = e => { drawing = false; mkPtrs.delete(e.pointerId); if (mkPtrs.size < 2) mkPinch = null; if (!mkPtrs.size) drag = null; };
+cv.addEventListener("pointerup", endStroke); cv.addEventListener("pointercancel", endStroke);
+cv.addEventListener("wheel", e => {
+  if (MK.mode !== "photo" || !photo) return;
+  e.preventDefault();
+  const k = Math.exp(-e.deltaY * 0.0015);
+  photo.s = Math.min(photo.base * 4, Math.max(photo.base * 0.1, photo.s * k));
+  syncPhotoUI(); composite();
+}, { passive: false });
+$("#phScale").addEventListener("input", e => { if (!photo) return; photo.s = photo.base * (+e.target.value / 100); composite(); });
+$("#phRot").addEventListener("input", e => { if (!photo) return; photo.r = (+e.target.value) * Math.PI / 180; composite(); });
+$("#phScale").addEventListener("pointerdown", () => pushUndo());
+$("#phRot").addEventListener("pointerdown", () => pushUndo());
+$("#phFit").addEventListener("click", () => { pushUndo(); fitPhoto(); syncPhotoUI(); composite(); });
+$("#phDel").addEventListener("click", () => { pushUndo(); photo = null; setMode("draw"); composite(); });
+$("#phDone").addEventListener("click", () => { setMode("draw"); composite(); });
+$("#phEdit").addEventListener("click", () => { setMode("photo"); composite(); });
+$("#mkFile").addEventListener("change", e => {
+  const f = e.target.files[0]; if (!f) return;
+  const rd = new FileReader(); rd.onload = () => { const im = new Image(); im.onload = () => setPhoto(im); im.src = rd.result; }; rd.readAsDataURL(f); e.target.value = "";
+});
+composite();
+$("#mkEqAb").innerHTML = Object.entries(EQ_AB).map(([k, v]) => `<option value="${k}">${v}</option>`).join("");
+$("#mkEqAb").addEventListener("input", syncEqLine); $("#mkEq").addEventListener("input", syncEqLine);
+function syncEqLine(){
+  if (MK.type !== "equip" && MK.type !== "monster") return;
+  if (typeof updateBkText === "function" && $("#bkUI") && $("#bkUI").childNodes.length){ updateBkText(); return; }
+  const c = { type: MK.type, eqN: Math.round(+$("#mkEq").value || 0), abs: readAbs(), fx: readFx(), combo: readCombo(), ss: readSS() };
+  $("#mkFxLine").textContent = [MK.type === "equip" ? eqText(c) : monAbsText(c), fxText(c)].filter(Boolean).join("。");
+}
+function renderAbsForm(t){
+  const cur = readAbs();
+  $("#mkAbs").innerHTML = Object.entries(ABS).filter(([, v]) => !v.only || v.only === (t === "equip" ? "eq" : "mon")).map(([k, v]) =>
+    `<label><input type="checkbox" data-ab="${k}"> ${v.label}${v.name ? ` 名前<input type="text" data-abname="${k}" maxlength="20" placeholder="例: ただの">` : ""}${v.n ? ` 数<input type="number" data-abn="${k}" min="1" max="9999" value="${v.n}">` : ""}</label>`).join("");
+  loadAbs(cur);
+}
+function readAbs(){
+  if (!document.querySelector("#mkAbs [data-ab]")) return [];
+  return [...document.querySelectorAll("#mkAbs [data-ab]")].filter(x => x.checked).map(x => {
+    const k = x.dataset.ab, a = { k };
+    if (ABS[k].n){ const el = document.querySelector(`#mkAbs [data-abn="${k}"]`); a.n = Math.max(1, Math.round(+(el && el.value) || ABS[k].n)); }
+    if (ABS[k].name){ const el = document.querySelector(`#mkAbs [data-abname="${k}"]`); a.name = (el && el.value.trim()) || ""; }
+    return a;
+  });
+}
+function loadAbs(list){
+  document.querySelectorAll("#mkAbs [data-ab]").forEach(x => { x.checked = false; });
+  (list || []).forEach(a => {
+    const x = document.querySelector(`#mkAbs [data-ab="${a.k}"]`); if (!x) return; x.checked = true;
+    const n = document.querySelector(`#mkAbs [data-abn="${a.k}"]`); if (n && a.n) n.value = a.n;
+    const m = document.querySelector(`#mkAbs [data-abname="${a.k}"]`); if (m && a.name) m.value = a.name;
+  });
+  syncEqLine();
+}
+$("#mkAbs").addEventListener("input", syncEqLine); $("#mkAbs").addEventListener("change", syncEqLine);
+$("#fxAskOn").addEventListener("change", () => { $("#fxAskWrap").hidden = !$("#fxAskOn").checked; syncFxForm(); });
+$("#fxAsk").addEventListener("input", () => syncFxForm());
+MK.deck = "normal";
+function syncCost(){
+  const v = MK.deck === "normal" ? "" : $("#mkCost").value;
+  $("#mkCostBadge").textContent = v; $("#mkCostBadge").hidden = v === ""; $("#editCard").classList.toggle("costed", v !== "");
+}
+$("#mkCost").innerHTML = Array.from({ length: MAX_MANA + 1 }, (_, k) => `<option value="${k}">${k}</option>`).join("") + `<option value="X">X（あるマナを全部使って、効果をX回くり返す）</option>`;
+$("#mkCost").value = "1";
+const MODE_NOTE = { normal: "マナを使わない、ふつうのデッキ用。コストはつかない", cost: "コストデッキ専用。ふつうのデッキには入れられない", both: "どちらのデッキにも入れられる。ふつうのデッキで遊ぶときはコストが表示されない" };
+function setMkDeck(m){ MK.deck = DECK_LABEL[m] ? m : "normal"; if (typeof syncMkView === "function") setTimeout(syncMkView); document.querySelectorAll("#mkMode button").forEach(b => b.setAttribute("aria-pressed", b.dataset.m === MK.deck)); $("#costRow").hidden = MK.deck === "normal"; $("#modeNote").textContent = MODE_NOTE[MK.deck]; syncCost(); }
+$("#mkMode").addEventListener("click", e => { const b = e.target.closest("button"); if (b) setMkDeck(b.dataset.m); });
+setMkDeck("normal");
+$("#mkCost").addEventListener("change", syncCost); $("#mkAtk").addEventListener("input", syncCost);
+syncCost();
+$("#mkFont").innerHTML = Object.entries(FONTS).map(([k, v]) => `<option value="${k}" style='font-family:${v.css}'>${v.label}</option>`).join("");
+function syncFont(){ const k = $("#mkFont").value; $("#editCard").style.setProperty("--cf", FONTS[k] ? FONTS[k].css : ""); $("#mkFont").style.fontFamily = FONTS[k] ? FONTS[k].css : ""; }
+$("#mkFont").addEventListener("change", syncFont);
+$("#mkNameSize").innerHTML = $("#mkTextSize").innerHTML = Object.entries(SIZES_T).map(([k, v]) => `<option value="${k}">${v.label}</option>`).join("");
+$("#mkNameSize").value = $("#mkTextSize").value = "m";
+function syncSizes(){ const ec = $("#editCard"); ec.style.setProperty("--nk", sizeK($("#mkNameSize").value)); ec.style.setProperty("--tk", sizeK($("#mkTextSize").value)); syncRubyPrev(); }
+$("#mkNameSize").addEventListener("change", syncSizes); $("#mkTextSize").addEventListener("change", syncSizes);
+function syncRubyPrev(){
+  const parts = [["名前", $("#mkName").value], ["効果", $("#mkEff").value], ["フレーバー", $("#mkFlv").value]].filter(([, v]) => /《/.test(v));
+  const box = $("#rubyPrev"); box.hidden = !parts.length;
+  box.innerHTML = parts.map(([k, v]) => `<div><span class="note">${k}：</span>${rubyHTML(v)}</div>`).join("");
+}
+let rubyField = null;
+["#mkName", "#mkEff", "#mkFlv"].forEach(s => { $(s).addEventListener("focus", e => { rubyField = e.target; }); $(s).addEventListener("input", syncRubyPrev); });
+$("#mkRuby").addEventListener("mousedown", e => e.preventDefault()); // keep the text selection
+$("#mkRuby").addEventListener("click", () => {
+  const el = rubyField || $("#mkName"); const a = el.selectionStart ?? el.value.length, b = el.selectionEnd ?? a;
+  const sel = el.value.slice(a, b), ins = `｜${sel}《》`;
+  el.setRangeText(ins, a, b, "end");
+  const caret = sel ? a + ins.length - 1 : a + 1; // inside 《》, or where the kanji goes
+  el.focus(); el.setSelectionRange(caret, caret); syncRubyPrev();
+});
+$("#mkInf").addEventListener("click", () => { $("#mkAtk").value = $("#mkAtk").value.trim() === "∞" ? "300" : "∞"; });
+$("#fxCond").innerHTML = Object.entries(CONDS).map(([k, v]) => `<option value="${k}">${v.label}</option>`).join("");
+function setMkType(t){
+  if (MK.kind === "potion" || MK.kind === "relic") t = "magic";
+  MK.type = t;
+  document.querySelectorAll("#mkType button").forEach(b => b.setAttribute("aria-pressed", b.dataset.t === t));
+  const ec = $("#editCard"); ec.classList.remove("monster", "magic", "trap", "equip"); ec.classList.add(t);
+  $("#atkRow").hidden = $("#infRow").hidden = t !== "monster";
+  $("#quickRow").hidden = t !== "magic" || $("#mkFrame").value === "spire";
+  const pers = (t === "magic" || t === "trap") && $("#mkPersist").checked;
+  $("#persistRow").hidden = (t !== "magic" && t !== "trap") || $("#mkFrame").value === "spire";
+  $("#exhaustRow").hidden = (t !== "magic" && t !== "trap") || pers;
+  $("#noUseRow").hidden = t !== "magic" && t !== "trap";
+  $("#mkTab").textContent = mkTabLabel();
+  if (typeof syncCost === "function" && $("#mkCost").options.length) syncCost();
+  $("#eqRow").hidden = $("#eqNote").hidden = t !== "equip";
+  $("#capRow").hidden = t !== "monster" || $("#mkFrame").value !== "socra";
+  $("#absBox").hidden = t !== "monster" && t !== "equip";
+  $("#absHead").textContent = t === "equip" ? "装備したモンスターに付く能力" : "このモンスターの能力";
+  renderAbsForm(t);
+  $("#cbBox").hidden = t === "equip";
+  $("#ssBox").hidden = t !== "monster";
+  const trigs = t === "monster" ? MON_TRIGS : t === "equip" ? EQ_TRIGS : pers ? PERSIST_TRIGS : ["use"];
+  const cur = $("#fxTrig").value;
+  $("#fxTrig").innerHTML = trigs.map(k => `<option value="${k}">${pers ? PERSIST_TRIG_LABEL[k] : trigLabel(t, k)}</option>`).join("");
+  if (trigs.includes(cur)) $("#fxTrig").value = cur;
+  $("#trigWrap").hidden = t !== "monster" && t !== "equip" && !pers;
+  { const sk = mkSk(), ec = $("#editCard"); ec.classList.toggle("sk-attack", sk === "attack"); ec.classList.toggle("sk-power", sk === "power"); }
+  if (typeof syncTypePressed === "function") syncTypePressed();
+  if (typeof bkSync === "function") bkSync();
+  const curK = $("#fxKind").value, curCb = $("#cbKind").value;
+  const kinds = Object.entries(KINDS).filter(([, v]) => (!v.trap || t === "trap") && (!v.mon || t === "monster" || t === "equip") && (!v.chain || t === "trap" || t === "magic"));
+  const opts = kinds.map(([k, v]) => `<option value="${k}">${v.label}</option>`).join("");
+  $("#fxKind").innerHTML = opts; $("#cbKind").innerHTML = opts;
+  if (typeof refreshMoreFx === "function") refreshMoreFx();
+  $("#fxKind").value = kinds.some(([k]) => k === curK) ? curK : "none";
+  $("#cbKind").value = kinds.some(([k]) => k === curCb) ? curCb : "none";
+  syncFxForm();
+  potionModeUI();
+  if (typeof syncMkView === "function") syncMkView();
+}
+// つくるもの: カード / カード以外（ポーション）
+function potionModeUI(){
+  const pot = MK.kind === "potion" || MK.kind === "relic", rel = MK.kind === "relic", what = rel ? "レリック" : "ポーション";
+  document.querySelectorAll("#mkKind2 button").forEach(b => b.setAttribute("aria-pressed", b.dataset.k2 === MK.kind));
+  $("#neowRow").hidden = !rel;
+  $("#mkKindNote").textContent = rel ? "いつでも効果が続く。選択の祭壇を使うデッキで、モンスターを倒すと10%で手に入る" : "選択の祭壇を使うデッキで、モンスターを倒すと40%で手に入る";
+  $("#editCard").classList.toggle("potion", pot);
+  $("#mkKindSub").hidden = !pot; $("#mkTypeWrap").hidden = pot;
+  ["#quickRow", "#persistRow", "#exhaustRow", "#noUseRow", "#payRow"].forEach(q => { if (pot) $(q).hidden = true; });
+  if (!pot) $("#payRow").hidden = false;
+  const fr = $("#mkFrame").closest("label"); if (fr) fr.hidden = pot;
+  const fl = $("#mkFrameless").closest("label"); if (fl) fl.hidden = pot;
+  if (pot && MK.frameless) setFrameless(false);
+  if (typeof composite === "function") composite();
+  if (pot) $("#rarityRow").hidden = true;
+  const db = document.querySelector('#mkTabs button[data-pane="deck"]'); if (db) db.hidden = pot;
+  if (pot && db && db.getAttribute("aria-pressed") === "true") setMkPane("draw");
+  if (pot){ $("#mkTab").textContent = what; $("#mkCostBadge").hidden = true; }
+  $("#mkTitle").textContent = pot ? (S.editId ? `${what}を編集中` : `${what}を描く`) : (S.editId ? "カードを編集中" : "カードを描く");
+  if (!S.editId) $("#btnSave").textContent = pot ? `${what}を保存` : "カードを保存";
+}
+function setMkKind(k){
+  MK.kind = k === "potion" || k === "relic" ? k : "card";
+  const other = MK.kind !== "card";
+  document.querySelectorAll("#mkKind button").forEach(b => b.setAttribute("aria-pressed", b.dataset.k === (other ? "potion" : "card")));
+  if (other){ $("#mkFrame").value = ""; if (typeof syncFrame === "function") syncFrame(); setMkDeck("normal"); }
+  setMkType(other ? "magic" : MK.type);
+  if (typeof bkSync === "function") bkSync();
+}
+$("#ssCond").innerHTML = Object.entries(SS_CONDS).map(([k, v]) => `<option value="${k}">${v.label}</option>`).join("");
+$("#ssCost").innerHTML = Object.entries(SS_COSTS).map(([k, v]) => `<option value="${k}">${v.label}</option>`).join("");
+function readSS(){
+  if (MK.type !== "monster" || !$("#ssOn").checked) return null;
+  return { on: true, cond: $("#ssCond").value, n: Math.max(0, Math.round(+$("#ssN").value || 0)), name: $("#ssName").value.trim(), cost: $("#ssCost").value, cn: Math.max(1, Math.round(+$("#ssCn").value || 1)), only: $("#ssOnly").checked };
+}
+function syncSS(){
+  $("#ssOpts").hidden = !$("#ssOn").checked;
+  $("#ssNWrap").hidden = !(SS_CONDS[$("#ssCond").value] || {}).n;
+  $("#ssNameWrap").hidden = !(SS_CONDS[$("#ssCond").value] || {}).name;
+  $("#ssCnWrap").hidden = !(SS_COSTS[$("#ssCost").value] || {}).n;
+  if (typeof syncFxForm === "function") syncFxForm();
+}
+function loadSS(c){
+  const s = c && c.ss && c.ss.on ? c.ss : null;
+  $("#ssOn").checked = !!s; $("#ssCond").value = s && SS_CONDS[s.cond] ? s.cond : "none"; $("#ssN").value = s && s.n != null ? s.n : 1; $("#ssName").value = s ? s.name || "" : "";
+  $("#ssCost").value = s && SS_COSTS[s.cost] ? s.cost : "none"; $("#ssCn").value = s && s.cn ? s.cn : 1; $("#ssOnly").checked = !!(s && s.only);
+  syncSS();
+}
+["#ssOn", "#ssCond", "#ssN", "#ssName", "#ssCost", "#ssCn", "#ssOnly"].forEach(q => { $(q).addEventListener("input", syncSS); $(q).addEventListener("change", syncSS); });
+function readFx(){
+  const kind = $("#fxKind").value; if (!kind || kind === "none") return null;
+  const fx = { trig: MK.type === "monster" || MK.type === "equip" || ((MK.type === "magic" || MK.type === "trap") && $("#mkPersist").checked) ? $("#fxTrig").value : "use", kind };
+  if ($("#fxAskOn").checked && $("#fxAsk").value.trim()) fx.ask = $("#fxAsk").value.trim();
+  if (KINDS[kind].n) fx.n = Math.max(1, Math.round(+$("#fxN").value || 1));
+  if (TARGETABLE[kind] && $("#fxKind").dataset.to && $("#fxKind").dataset.to !== "one") fx.to = $("#fxKind").dataset.to;
+  if (kind === "win"){ fx.cond = $("#fxCond").value; if (CONDS[fx.cond].n) fx.cn = Math.max(1, Math.round(+$("#fxCn").value || 1)); }
+  const more = [...document.querySelectorAll("#moreFx .mfx")].map(r => { const s = r.querySelector(".mfk"), k = s.value, m = { kind: k }; if (TARGETABLE[k] && s.dataset.to && s.dataset.to !== "one") m.to = s.dataset.to; if (KINDS[k] && KINDS[k].n) m.n = Math.max(1, Math.round(+r.querySelector(".mfn").value || 1)); return m; }).filter(m => KINDS[m.kind] && m.kind !== "none");
+  if (more.length) fx.more = more;
+  return fx;
+}
+function readCombo(){
+  if (MK.type === "equip") return null;
+  const name = $("#cbName").value.trim(), kind = $("#cbKind").value;
+  if (!name || !kind || kind === "none") return null;
+  const cb = { name, where: $("#cbWhere").value, match: $("#cbMatch").value, kind, trig: MK.type === "monster" ? $("#fxTrig").value : "use" };
+  if (KINDS[kind].n) cb.n = Math.max(1, Math.round(+$("#cbN").value || 1));
+  if (TARGETABLE[kind] && $("#cbKind").dataset.to && $("#cbKind").dataset.to !== "one") cb.to = $("#cbKind").dataset.to;
+  return cb;
+}
+
+/* ---- effect picker: "なにをする" (a group) + "だれに・どれ" (which one), instead of one long list.
+   The original <select> stays as the value everything else reads; these two just drive it. ---- */
+const KIND_GROUPS = [
+  { g: "none",    label: "なし", v: [["none", "なし"]] },
+  { g: "dmg",     label: "ダメージを与える", v: [["dmg", "ダメージ"]] },
+  { g: "destroy", label: "モンスターを倒す", v: [["destroy", "相手のモンスターを破壊"], ["killAtk", "攻撃してきたモンスターを破壊（罠）"], ["blast", "自爆して、装備の枚数×○以下のATKを全部破壊"]] },
+  { g: "debuff",  label: "相手を弱らせる（デバフ）", v: [["vuln", "弱体（受けるダメージ1.5倍）"], ["weak", "脱力（与えるダメージが減る）"], ["atkDown", "ATKを下げる"], ["charm", "魅了（攻撃できなくする）"], ["oppStrDown", "筋力を失わせる（相手の次のターンの終わりまで）"], ["discard", "手札を捨てさせる（ランダム）"], ["manaDrain", "マナを減らす"], ["oppNoAtk", "攻撃できなくする（相手の次のターンまで）"], ["oppNoUse", "魔法・罠を発動できなくする（相手の次のターンまで）"]] },
+  { g: "buff",    label: "自分を強くする（バフ）", v: [["str", "筋力を得る（与えるダメージ+○）"], ["strTemp", "筋力を得る（このターンだけ）"], ["selfAtk", "このモンスターのATKを上げる"], ["atkUp", "自分のモンスター1体のATKを上げる"], ["atkAll", "自分のモンスター全部のATKを上げる"], ["vulnBonus", "弱体の相手へのダメージ+○%（ずっと）"]] },
+  { g: "guard",   label: "守る・回復する", v: [["block", "ブロックを得る"], ["heal", "LPを回復する"], ["plate", "プレート（ターンのおわりにブロック）"], ["barricade", "ブロックが消えなくなる（ずっと）"], ["firstBlock2", "毎ターン最初のブロックが2倍（ずっと）"], ["rageNow", "このターン、アタックを使うたびブロック"], ["thornsNow", "攻撃されたら反撃（次の自分のターンまで）"]] },
+  { g: "draw",    label: "カードを引く", v: [["draw", "○枚引く"], ["drawUntil", "アタック以外を引くまで引く"], ["oppDraw", "相手に○枚引かせる"]] },
+  { g: "fetch",   label: "カードを手札に持ってくる", v: [["tagSearch", "タグのカードを山札から（えらぶ）"], ["tagGraveHand", "タグのカードを墓地から（えらぶ）"], ["revive", "墓地のモンスターを手札に"], ["graveAtkToHand", "墓地のランダムなアタックを手札に"]] },
+  { g: "make",    label: "カードを生み出す・コピーする", v: [["copyHand", "このカードのコピーを手札に"], ["copyDeck", "このカードのコピーを山札に"], ["copyGrave", "このカードのコピーを墓地に"], ["copyLastAtk", "直前に使ったアタックのコピーを手札に"], ["genAttack", "ランダムなアタックを手札に"], ["genAttack0", "ランダムなアタックを手札に（このターンコスト0）"], ["genSkill", "ランダムなスキルを手札に"], ["genPower", "ランダムなパワーを手札に"], ["genNamed", "名前を指定したカード（トークンなど）を手札に"], ["tagGen", "タグのカードをランダムに生み出して手札に"], ["draft", "スパイア風カードを○枚から1枚えらんで墓地に"]] },
+  { g: "summon",  label: "モンスターを場に出す", v: [["reborn", "墓地のモンスターを場に"], ["tagSummonHand", "タグのモンスターを手札から"], ["tagSummonDeck", "タグのモンスターを山札から"], ["tagSummonGrave", "タグのモンスターを墓地から"]] },
+  { g: "free",    label: "踏み倒す（コストを払わずに使う）", v: [["playTop", "山札の一番上をプレイ（○枚）"], ["playTopEx", "山札の一番上をプレイして廃棄（○枚）"], ["playHandAtk", "手札のランダムなアタックをプレイ"], ["autoPlay", "名前に○が入ったカードを引いたら自動で使う"], ["dblAtk", "次のアタックをもう1回使う"], ["freeAttack", "次に使うアタックのコストを0に"], ["freeSkill", "次に使うスキルのコストを0に"], ["freePower", "次に使うパワーのコストを0に"], ["corrupt", "スキルがずっと0コスト（使うと廃棄）"]] },
+  { g: "mana",    label: "マナ", v: [["manaNow", "マナを回復（このターン）"], ["manaMax", "最大マナを増やす"], ["manaDrain", "相手のマナを減らす"]] },
+  { g: "deck",    label: "山札・墓地をあやつる", v: [["graveToTop", "墓地のカードを山札の一番上に"], ["playTop", "山札の一番上をプレイ（○枚）"], ["playTopEx", "山札の一番上をプレイして廃棄（○枚）"], ["drawUntil", "アタック以外を引くまで引く"], ["draft", "スパイア風カードを○枚から1枚えらんで墓地に"]] },
+  { g: "exhaust", label: "カードを廃棄する", v: [["exhaustHand", "手札から○枚えらんで"], ["exhaustRand", "手札からランダムに○枚"], ["exhaustAll", "手札をすべて"], ["exhaustNonAtk", "手札のアタック以外をすべて"]] },
+  { g: "transform", label: "カードを変化させる", v: [["transformHand", "手札から○枚えらんで"], ["transformRand", "手札からランダムに○枚"], ["transformAtk", "手札のアタックすべて"], ["transformAll", "手札すべて"]] },
+  { g: "give",    label: "相手にカードを送りこむ", v: [["oppDraw", "相手に○枚引かせる"], ["oppGenHand", "名前を指定したカードを相手の手札に"], ["oppGenDeck", "名前を指定したカードを相手の山札に混ぜる"], ["oppSummon", "名前を指定したモンスターを相手の場に出す"], ["oppSetNamed", "名前を指定した魔法・罠を相手の場にセット"]] },
+  { g: "negate",  label: "打ち消す・無効にする", v: [["cancel", "魔法・罠の発動かモンスターの召喚を打ち消す"], ["negate", "相手の攻撃を無効にする（罠）"]] },
+  { g: "equip",   label: "装備を動かす", v: [["moveEquips", "別のモンスターに付けかえる"], ["equipsToHand", "ほかの装備を手札に戻す"]] },
+  { g: "minus",   label: "自分にデメリット", v: [["loseLp", "LPを失う（ブロックでは防げない）"], ["oppStr", "相手が筋力を得る"], ["noDraw", "このターンもう引けない"]] },
+  { g: "win",     label: "ゲームに勝つ", v: [["win", "勝利する"]] }
+];
+// kinds shown only when an older card already uses them (they're now 基本の効果 + 「だれに」)
+const intoText = into => into ? `「${into}」` : "ランダムなスパイア風カード";
+const PICK_HIDDEN = ["bash", "dmgRand", "dmgAll", "vulnAll", "weakAll", "atkDownAll", "charmAll", "destroyAll"];
+function attachKindPicker(sel){
+  if (!sel) return;
+  if (!sel._kp){
+    const mk = (cls, aria) => { const x = document.createElement("select"); x.className = cls; x.setAttribute("aria-label", aria); return x; };
+    const g = mk("kp-g", "なにをする"), v = mk("kp-v", "どれ"), t = mk("kp-t", "だれに");
+    const lab = sel.parentElement && sel.parentElement.tagName === "LABEL" ? sel.parentElement : null;
+    sel.hidden = true;
+    if (lab){
+      sel.after(g);
+      const wv = document.createElement("label"); wv.className = "f kp-vwrap"; wv.append("どれ", v);
+      const wt = document.createElement("label"); wt.className = "f kp-vwrap"; wt.append("だれに", t);
+      lab.after(wv, wt); sel._kpWrap = wv; sel._kpTWrap = wt;
+    } else sel.after(g, v, t);
+    const push = () => { sel.value = v.value; sel.dataset.to = t.value || ""; sel.dispatchEvent(new Event("input", { bubbles: true })); sel.dispatchEvent(new Event("change", { bubbles: true })); };
+    g.addEventListener("change", () => { fillV(sel); fillT(sel); push(); });
+    v.addEventListener("change", () => { fillT(sel); push(); });
+    t.addEventListener("change", push);
+    sel._kp = { g, v, t, sig: "" };
+  }
+  const avail = [...sel.options].map(o => o.value).filter(k => !PICK_HIDDEN.includes(k) || k === sel.value), { g } = sel._kp, sig = avail.join(",");
+  if (sig !== sel._kp.sig){
+    sel._kp.sig = sig;
+    const known = new Set(KIND_GROUPS.flatMap(x => x.v.map(y => y[0])));
+    const groups = KIND_GROUPS.map(x => ({ ...x, v: x.v.filter(([k]) => avail.includes(k)) })).filter(x => x.v.length);
+    avail.filter(k => !known.has(k)).forEach(k => groups.push({ g: "k_" + k, label: (KINDS[k] || {}).label || k, v: [[k, ""]] }));
+    sel._kp.groups = groups;
+    g.innerHTML = groups.map(x => `<option value="${x.g}">${x.label}</option>`).join("");
+  }
+  const cur = sel._kp.groups.find(x => x.v.some(([k]) => k === sel.value)) || sel._kp.groups[0];
+  if (cur) g.value = cur.g;
+  fillV(sel, sel.value); fillT(sel, sel.dataset.to);
+}
+function fillV(sel, want){
+  const { g, v } = sel._kp, grp = sel._kp.groups.find(x => x.g === g.value); if (!grp) return;
+  v.innerHTML = grp.v.map(([k, l]) => `<option value="${k}">${l || (KINDS[k] || {}).label || k}</option>`).join("");
+  v.value = grp.v.some(([k]) => k === want) ? want : grp.v[0][0];
+  const one = grp.v.length < 2; v.hidden = one; if (sel._kpWrap) sel._kpWrap.hidden = one;
+}
+// 「だれに」: for effects aimed at the opponent's side
+function fillT(sel, want){
+  const { v, t } = sel._kp, k = v.value, opts = TARGETABLE[k];
+  t.innerHTML = opts ? opts.map(o => `<option value="${o}">${o === "one" && hitsPlayer(k) ? "1体をえらぶ（スパイア風は相手のモンスター優先、ふつうの枠は相手）" : TO_LABEL[o]}</option>`).join("") : "";
+  t.value = opts && opts.includes(want) ? want : opts ? opts[0] : "";
+  t.hidden = !opts; if (sel._kpTWrap) sel._kpTWrap.hidden = !opts;
+  sel.dataset.to = t.value || "";
+}
+function syncFxForm(){
+  attachKindPicker($("#fxKind")); attachKindPicker($("#cbKind"));
+  const kind = $("#fxKind").value;
+  $("#cbNWrap").hidden = !(KINDS[$("#cbKind").value] && KINDS[$("#cbKind").value].n);
+  $("#fxNWrap").hidden = !(KINDS[kind] && KINDS[kind].n);
+  if (typeof syncMoreFx === "function") syncMoreFx();
+  $("#condRow").hidden = kind !== "win";
+  $("#fxCnWrap").hidden = !(CONDS[$("#fxCond").value] || {}).n;
+  if ($("#bkUI") && $("#bkUI").childNodes.length) updateBkText(); else $("#mkFxLine").textContent = fxText({ type: MK.type, fx: readFx(), combo: readCombo(), ss: readSS() });
+  $("#fxAskWrap").hidden = !$("#fxAskOn").checked;
+  $("#cbState").textContent = readCombo() ? "（設定あり）" : "";
+  syncEqLine();
+  if (typeof updateSecs === "function") updateSecs();
+}
+$("#mkQuick").addEventListener("change", () => { $("#mkTab").textContent = mkTabLabel(); });
+function mkTabLabel(){ const t = MK.type, pers = (t === "magic" || t === "trap") && $("#mkPersist").checked; if ($("#mkFrame").value === "spire") return SPIRE_LABEL[mkSk()]; return t === "magic" && $("#mkQuick").checked ? "速攻魔法" : (pers ? "永続" : "") + TYPE_LABEL[t]; }
+$("#mkPersist").addEventListener("change", () => setMkType(MK.type));
+["#mkPayLp", "#mkPayDisc", "#mkPayMax"].forEach(q => $(q).addEventListener("input", () => updateBkText()));
+function mkPays(save){ const v = q => Math.max(0, Math.round(+$(q).value || 0)) || (save ? null : 0); return { payLp: v("#mkPayLp"), payDisc: $("#mkPayDiscAll").checked ? -1 : v("#mkPayDisc"), payDiscTag: $("#mkPayDiscTag").value.trim() || null, payMax: v("#mkPayMax") }; }
+["#mkPayDiscTag", "#mkTags", "#mkTribTag"].forEach(q => $(q).addEventListener("input", () => updateBkText()));
+$("#mkPayDiscAll").addEventListener("change", () => { $("#mkPayDisc").disabled = $("#mkPayDiscAll").checked; updateBkText(); });
+// スパイア風: スキル = magic, パワー = 永続 magic (the kind buttons show which one is on)
+function syncTypePressed(){ const sk = mkSk(), map = { monster: "attack", magic: "skill", power: "power" }; document.querySelectorAll("#mkType button").forEach(b => { const k = b.dataset.t; b.setAttribute("aria-pressed", sk ? map[k] === sk : k === MK.type); }); }
+// スパイア風: the kind buttons read アタック / スキル / パワー and there is no 装備
+function syncTypeNames(){ const sp = $("#mkFrame").value === "spire"; document.querySelectorAll("#mkType button").forEach(b => { b.dataset.base = b.dataset.base || b.textContent; b.textContent = sp ? SPIRE_LABEL[b.dataset.t] : b.dataset.base; b.hidden = sp ? b.dataset.t === "equip" || b.dataset.t === "trap" : b.dataset.t === "power"; }); if (sp && MK.type !== "magic"){ const k = MK.type === "trap" ? "power" : "attack"; MK.sk = k; $("#mkPersist").checked = k === "power"; setMkType("magic"); } else setMkType(MK.type || "monster"); if (MK.type) $("#mkTab").textContent = mkTabLabel(); }
+$("#mkType").addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return; if ($("#mkFrame").value === "spire"){ const k = { monster: "attack", magic: "skill", power: "power" }[b.dataset.t]; if (!k) return; MK.sk = k; $("#mkPersist").checked = k === "power"; setMkType("magic"); return; } setMkType(b.dataset.t); });
+// sensible default numbers when the effect kind changes (cards to draw vs. points)
+// 数の入れ方: ダメージ・ATK・LP・ブロックのような「量」は100くらい、それ以外（枚数・回数・ターン数）は1から
+const BIG_N = ["dmg", "heal", "block", "selfAtk", "atkUp", "atkAll", "atkDown", "loseLp", "plate", "thornsNow", "rageNow", "blast", "str", "strTemp", "oppStr", "oppStrDown", "vulnBonus", "bash", "dmgRand", "dmgAll", "atkDownAll"];
+const smallN = k => !BIG_N.includes(k);
+[["#fxKind", "#fxN"], ["#cbKind", "#cbN"]].forEach(([k, n]) => $(k).addEventListener("change", () => {
+  const v = +$(n).value || 0, kind = $(k).value;
+  if (smallN(kind) && v > 5) $(n).value = 1;
+  if (!smallN(kind) && v < 50) $(n).value = 100;
+  syncFxForm();
+}));
+$("#cbWhere").innerHTML = Object.entries(WHERE).map(([k, v]) => `<option value="${k}">自分の${v}</option>`).join("");
+["#fxTrig", "#fxKind", "#fxN", "#fxCond", "#fxCn", "#cbName", "#cbMatch", "#cbWhere", "#cbKind", "#cbN"].forEach(s => $(s).addEventListener("input", syncFxForm));
+// 追加の効果 rows (any number): what to do + a number, run right after the main effect
+function moreKindOpts(){ return [...$("#fxKind").options].filter(o => o.value !== "none" && o.value !== "win").map(o => `<option value="${o.value}">${o.textContent}</option>`).join(""); }
+function addMoreFx(m){
+  const r = document.createElement("div"); r.className = "mfx";
+  r.innerHTML = `<span class="note">そのあと</span><select class="mfk">${moreKindOpts()}</select><input type="number" class="mfn" min="1" max="9999" value="${m && m.n ? m.n : 100}"><button class="small ghost" type="button" data-mfdel aria-label="この効果を消す">×</button>`;
+  const lg = m && TO_LEGACY[m.kind]; const mk = lg ? lg[0] : m && m.kind;
+  if (mk && r.querySelector(`.mfk option[value="${mk}"]`)) r.querySelector(".mfk").value = mk;
+  r.querySelector(".mfk").dataset.to = lg ? lg[1] : (m && m.to) || "";
+  $("#moreFx").appendChild(r); syncMoreFx();
+}
+function syncMoreFx(){
+  const on = $("#fxKind").value && $("#fxKind").value !== "none";
+  $("#btnMoreFx").hidden = !on; $("#moreFx").hidden = !on;
+  document.querySelectorAll("#moreFx .mfx").forEach(r => { const s = r.querySelector(".mfk"), k = s.value; attachKindPicker(s); r.querySelector(".mfn").hidden = !(KINDS[k] && KINDS[k].n); });
+}
+function refreshMoreFx(){ const cur = [...document.querySelectorAll("#moreFx .mfx")].map(r => ({ kind: r.querySelector(".mfk").value, n: +r.querySelector(".mfn").value, to: r.querySelector(".mfk").dataset.to })); $("#moreFx").innerHTML = ""; cur.forEach(m => { if ([...$("#fxKind").options].some(o => o.value === m.kind)) addMoreFx(m); }); syncMoreFx(); }
+$("#btnMoreFx").addEventListener("click", () => { addMoreFx({ kind: "draw", n: 1 }); syncFxForm(); });
+$("#moreFx").addEventListener("click", e => { const d = e.target.closest("[data-mfdel]"); if (d){ d.closest(".mfx").remove(); syncFxForm(); } });
+$("#moreFx").addEventListener("input", e => { if (e.target.closest(".kp-g,.kp-v,.kp-t")) return; syncMoreFx(); syncFxForm(); });
+$("#moreFx").addEventListener("change", e => { if (e.target.closest(".kp-g,.kp-v,.kp-t")) return; const s = e.target.closest(".mfk"); if (s){ const n = s.parentNode.querySelector(".mfn"), v = +n.value || 0; if (smallN(s.value) && v > 5) n.value = 1; if (!smallN(s.value) && v < 50) n.value = 100; } syncMoreFx(); syncFxForm(); });
+function loadFxForm(c){
+  if (typeof loadBlocks === "function") loadBlocks(c);
+  const fx = normFx(c);
+  $("#moreFx").innerHTML = "";
+  { const lg = fx && TO_LEGACY[fx.kind]; $("#fxKind").value = fx ? (lg ? lg[0] : fx.kind) : "none"; $("#fxKind").dataset.to = lg ? lg[1] : (fx && fx.to) || ""; }
+  moreFx(fx).forEach(m => addMoreFx(m));
+  if (fx && (MK.type === "monster" || MK.type === "equip" || isPersist(c))) $("#fxTrig").value = fx.trig;
+  $("#fxAskOn").checked = !!(fx && fx.ask); $("#fxAsk").value = fx && fx.ask ? fx.ask : "";
+  $("#fxN").value = fx && fx.n ? fx.n : 100;
+  $("#fxCond").value = fx && fx.cond ? fx.cond : "none";
+  $("#fxCn").value = fx && fx.cn ? fx.cn : 3;
+  const cb = normCombo(c);
+  if (cb && MK.type === "monster" && !fx) $("#fxTrig").value = cb.trig;
+  $("#cbName").value = cb ? cb.name : ""; $("#cbBox").open = !!cb; $("#cbWhere").value = cb ? cb.where : "field"; $("#cbMatch").value = cb ? cb.match : "exact"; { const lg = cb && TO_LEGACY[cb.kind]; $("#cbKind").value = cb ? (lg ? lg[0] : cb.kind) : "none"; $("#cbKind").dataset.to = lg ? lg[1] : (cb && cb.to) || ""; } $("#cbN").value = cb && cb.n ? cb.n : 100;
+  syncFxForm();
+}
+
+/* ---- the block builder in the card maker ---- */
+MK.blocks = [];
+// 効果の作り方: かんたん (よく使う効果だけ) / こだわり (ぜんぶ). Things already set on a card always stay visible.
+function isEasyKind(k){ return ["dmg", "destroy", "killAtk", "vuln", "charm", "atkDown", "selfAtk", "atkUp", "atkAll", "heal", "block", "draw", "discard", "revive", "reborn", "cancel", "negate", "manaNow", "manaMax"].includes(k); }
+MK.easy = ls.get("cb_fxmode") !== "pro";
+function easyKinds(){ const ks = mkKinds(), e = ks.filter(isEasyKind); return e.length ? e : ks; }
+function syncProOn(){
+  const on = (q, v) => { const el = $(q); if (el) el.classList.toggle("pro-on", !!v); };
+  on("#payRow", (+$("#mkPayLp").value || 0) || (+$("#mkPayDisc").value || 0) || $("#mkPayDiscAll").checked || (+$("#mkPayMax").value || 0));
+  on("#secAtk", (MK.atkConds || []).length);
+  on("#secSs", (+$("#mkTrib").value || 0) || $("#ssOn").checked);
+  on("#tokenRow", $("#mkToken").checked);
+  { const ec = $("#editCard"); if (ec) ec.classList.toggle("token", $("#mkToken").checked); }
+}
+function applyFxMode(){
+  document.body.classList.toggle("fx-easy", !!MK.easy);
+  document.querySelectorAll("#mkFxMode button").forEach(b => b.setAttribute("aria-pressed", String((b.dataset.m === "easy") === !!MK.easy)));
+  const n = $("#fxModeNote"); if (n) n.textContent = MK.easy ? "よく使う効果だけ出しています。条件・くり返し・追加コスト・生贄などは「こだわり」で" : "ぜんぶの効果・条件・コストが使えます";
+  syncProOn(); renderBlocksUI();
+}
+$("#mkToken").addEventListener("change", syncProOn);
+$("#mkNoUse").addEventListener("change", () => updateBkText());
+$("#mkEx").addEventListener("change", () => updateBkText());
+function setFxMode(m){ MK.easy = m !== "pro"; ls.set("cb_fxmode", MK.easy ? "easy" : "pro"); applyFxMode(); }
+function mkKinds(){
+  const t = MK.type;
+  return Object.entries(KINDS).filter(([k, v]) => k !== "none" && (!v.trap || t === "trap") && (!v.mon || t === "monster" || t === "equip") && (!v.chain || t === "trap" || t === "magic")).map(([k]) => k);
+}
+function mkTrigs(){ if (MK.kind === "relic") return RELIC_TRIGS; const t = MK.type, pers = (t === "magic" || t === "trap") && $("#mkPersist").checked; return t === "monster" ? MON_TRIGS : t === "equip" ? EQ_TRIGS : pers ? PERSIST_TRIGS : ["use"]; }
+const mkTrigLabel = k => { if (MK.kind === "relic") return RELIC_TRIG_LABEL[k]; const t = MK.type, pers = (t === "magic" || t === "trap") && $("#mkPersist").checked; return pers ? PERSIST_TRIG_LABEL[k] : trigLabel(t, k); };
+function kindGroups(avail, cur){
+  avail = avail.filter(k => !PICK_HIDDEN.includes(k) || k === cur);
+  const known = new Set(KIND_GROUPS.flatMap(x => x.v.map(y => y[0])));
+  const gs = KIND_GROUPS.filter(x => x.g !== "none").map(x => ({ ...x, v: x.v.filter(([k]) => avail.includes(k)) })).filter(x => x.v.length);
+  avail.filter(k => !known.has(k)).forEach(k => gs.push({ g: "k_" + k, label: (KINDS[k] || {}).label || k, v: [[k, ""]] }));
+  return gs;
+}
+const defN = k => smallN(k) ? 1 : 100;
+function mkPreviewCard(){ return { ex: $("#mkEx").checked, noUse: (MK.type === "magic" || MK.type === "trap") && $("#mkNoUse").checked, tags: MK.kind === "card" || !MK.kind ? parseTags($("#mkTags").value) : [], tribTag: MK.type === "monster" ? $("#mkTribTag").value.trim() || null : null, ...(MK.type === "monster" ? mkVarFields() : {}), ...(MK.kind === "relic" ? { relicView: true } : {}), type: MK.type, frame: MK.kind === "potion" || MK.kind === "relic" ? "spire" : $("#mkFrame").value, persist: (MK.type === "magic" || MK.type === "trap") && $("#mkPersist").checked, costX: $("#mkCost").value === "X", ...mkPays(), blocks: readBlocks(), ss: readSS(), eqN: Math.round(+$("#mkEq").value || 0), abs: readAbs() }; }
+function readBlocks(){
+  const bs = (MK.blocks || []).map(b => ({ trig: b.trig, join: b.join === "or" ? "or" : "and", conds: (b.conds || []).map(x => ({ ...x })), then: (b.then || []).map(cleanEff).filter(Boolean), else: (b.conds || []).length ? (b.else || []).map(cleanEff).filter(Boolean) : [] })).filter(b => b.then.length || b.else.length);
+  return bs.length ? bs : null;
+}
+function loadBlocks(c){ MK.blocks = c ? JSON.parse(JSON.stringify(blocksOf(c))) : []; renderBlocksUI(); }
+const BK_TEMPLATES = [
+  { name: "ダメージ＋ドロー", then: [{ kind: "dmg", n: 100 }, { kind: "draw", n: 1 }] },
+  { name: "ブロック＋ドロー", then: [{ kind: "block", n: 100 }, { kind: "draw", n: 1 }] },
+  { name: "召喚したとき強化", trig: "summon", then: [{ kind: "selfAtk", n: 100 }] },
+  { name: "全体攻撃", then: [{ kind: "dmg", n: 100, to: "all" }] },
+  { name: "もし〜なら", conds: [{ k: "lp", op: "le", n: 300 }], then: [{ kind: "heal", n: 200 }], else: [{ kind: "draw", n: 1 }] }
+];
+function bkNormalize(){
+  MK.blocks = MK.blocks || [];
+  const trigs = mkTrigs(), kinds = mkKinds();
+  MK.blocks.forEach(b => {
+    if (!trigs.includes(b.trig)) b.trig = trigs[0];
+    b.conds = b.conds || []; b.else = b.else || []; b.join = b.join === "or" ? "or" : "and";
+    const unLegacy = e => { const lg = TO_LEGACY[e.kind]; return lg && kinds.includes(lg[0]) ? { ...e, kind: lg[0], to: lg[1] } : e; };
+    b.then = (b.then || []).map(unLegacy).filter(e => kinds.includes(e.kind)); b.else = b.else.map(unLegacy).filter(e => kinds.includes(e.kind));
+  });
+}
+function renderBlocksUI(){
+  const box = $("#bkUI"); if (!box) return;
+  bkNormalize();
+  const trigs = mkTrigs(), kinds = mkKinds(), groups = kindGroups(kinds), easy = !!MK.easy, ek = easyKinds();
+  const gFor = e => kindGroups(easy ? kinds.filter(k => ek.includes(k) || k === e.kind) : kinds, e.kind);
+  const opt = (v, l, cur) => `<option value="${esc(v)}"${String(v) === String(cur) ? " selected" : ""}>${esc(l)}</option>`;
+  const effRow = (bi, part, e, j) => {
+    const gs = gFor(e), has = x => x.v.some(([k]) => k === e.kind), g = (e._g && gs.find(x => x.g === e._g && has(x))) || gs.find(has) || gs[0];
+    const tg = TARGETABLE[e.kind];
+    return `<div class="bk-row" data-part="${part}" data-i="${j}"><span class="bk-no">${j + 1}</span>`
+      + `<select data-f="g" aria-label="なにをする">${gs.map(x => opt(x.g, x.label, g && g.g)).join("")}</select>`
+      + (g && g.v.length > 1 ? `<select data-f="kind" aria-label="どれ">${g.v.map(([k, l]) => opt(k, l || KINDS[k].label, e.kind)).join("")}</select>` : "")
+      + (tg ? `<select data-f="to" aria-label="だれに">${tg.map(o => opt(o, o === "one" && hitsPlayer(e.kind) ? ($("#mkFrame").value === "spire" ? "相手のモンスター1体（いなければ相手）" : "相手") : TO_LABEL[o], e.to || "one")).join("")}</select>` : "")
+      + (KINDS[e.kind] && KINDS[e.kind].n ? `<input type="number" data-f="n" min="${e.per ? 0 : 1}" max="9999" value="${esc(e.n ?? defN(e.kind))}" aria-label="数">` : "")
+      + (KINDS[e.kind] && KINDS[e.kind].name ? `<input type="text" data-f="into" list="${KINDS[e.kind] && KINDS[e.kind].tag ? "tagNames" : "cardNames"}" maxlength="40" value="${esc(e.into || "")}" placeholder="${KINDS[e.kind].tag ? "タグ（例: アイアンクラッド）" : KINDS[e.kind].need ? (e.kind === "autoPlay" ? "名前に入る文字（例: ストライク）" : "カード名") : "カード名（空ならランダム）"}" aria-label="カード名">` : "")
+      + (PER_OK[e.kind] && (!easy || e.per) ? `<select data-f="per" aria-label="ふえる">${opt("", "ふえない", e.per || "")}${Object.entries(PER_DEFS).map(([k, d]) => opt(k, d.label + d.u + "につき", e.per || "")).join("")}</select>` + (e.per ? (e.kind === "dmg" ? `<select data-f="hits" aria-label="ふえかた">${opt("", "数が＋", e.hits ? "1" : "")}${opt("1", "もう1回", e.hits ? "1" : "")}</select>` : "") + (e.hits ? "" : `<input type="number" data-f="pm" min="1" max="9999" value="${esc(e.pm ?? 1)}" aria-label="1つにつき増える数">`) : "") : "")
+      + (!easy || e.times > 1 ? `<label class="bk-times" title="同じ効果を何回くり返すか">×<input type="number" data-f="times" min="1" max="20" value="${esc(e.times || 1)}" aria-label="回数">回</label>` : "")
+      + `<button type="button" class="small ghost" data-bk="delRow" aria-label="この行を消す">×</button></div>`;
+  };
+  const condRow = (b, x, j) => {
+    let h = `<div class="bk-row" data-part="cond" data-i="${j}">`;
+    if (j > 0) h += `<select data-f="join" aria-label="つなぎ" class="bk-join">${opt("and", "かつ", b.join)}${opt("or", "または", b.join)}</select>`;
+    h += `<select data-f="k" aria-label="なにが">${Object.entries(COND_DEFS).map(([k, d]) => opt(k, d.label, x.k)).join("")}</select>`;
+    if (isNumCond(x.k)) h += `<select data-f="op" aria-label="くらべかた">${opt("ge", "以上", x.op)}${opt("le", "以下", x.op)}</select><input type="number" data-f="n" min="0" max="99999" value="${esc(x.n ?? 1)}" aria-label="数">`;
+    if (x.k === "card") h += `<input type="text" data-f="name" maxlength="40" placeholder="カード名" value="${esc(x.name || "")}" aria-label="カード名"><select data-f="where" aria-label="どこに">${Object.entries(WHERE).map(([k, v]) => opt(k, "自分の" + v, x.where || "field")).join("")}</select><select data-f="match" aria-label="名前の合わせ方">${opt("exact", "名前がぴったり", x.match)}${opt("part", "名前に含む", x.match)}${opt("tag", "タグ", x.match)}</select><input type="number" data-f="cnt" min="0" max="99" value="${esc(x.cnt ?? 1)}" aria-label="枚数" style="width:64px">枚<select data-f="op" aria-label="くらべかた">${opt("ge", "以上", x.op || "ge")}${opt("le", "以下", x.op)}</select>`;
+    if (x.k === "ask") h += `<input type="text" data-f="text" maxlength="40" placeholder="例: 物理学実験を履修していますか？" value="${esc(x.text || "")}" aria-label="質問">`;
+    return h + `<button type="button" class="small ghost" data-bk="delRow" aria-label="この条件を消す">×</button></div>`;
+  };
+  const tpls = BK_TEMPLATES.filter(tp => [...(tp.then || []), ...(tp.else || [])].every(e => kinds.includes(e.kind)) && (!tp.trig || trigs.includes(tp.trig)) && (!easy || (!tp.conds && [...(tp.then || [])].every(e => ek.includes(e.kind)))));
+  box.innerHTML = `<div class="bk-sentence"><div class="bk-cap">できあがる文</div><div id="bkText"></div></div>`
+    + (tpls.length ? `<div class="bk-tpls"><span class="note">ひな形から始める：</span>${tpls.map((tp, i) => `<button type="button" class="small" data-tpl="${BK_TEMPLATES.indexOf(tp)}">${esc(tp.name)}</button>`).join("")}</div>` : "")
+    + MK.blocks.map((b, bi) => `<div class="bk" data-b="${bi}"><div class="bk-h"><b>効果 ${bi + 1}</b><span style="flex:1"></span>`
+      + `<button type="button" class="small ghost" data-bk="up" aria-label="上へ" ${bi ? "" : "disabled"}>↑</button><button type="button" class="small ghost" data-bk="down" aria-label="下へ" ${bi < MK.blocks.length - 1 ? "" : "disabled"}>↓</button><button type="button" class="small ghost danger" data-bk="del" aria-label="この効果を消す">×</button></div>`
+      + `<div class="bk-grid">`
+      + (trigs.length > 1 ? `<span class="bk-tag t-when">いつ</span><div><select data-f="trig" aria-label="いつ">${trigs.map(k => opt(k, mkTrigLabel(k), b.trig)).join("")}</select></div>` : "")
+      + (easy && !b.conds.length ? "" : `<span class="bk-tag t-if">もし</span><div class="bk-col">${b.conds.map((x, j) => condRow(b, x, j)).join("")}<button type="button" class="small bk-add" data-bk="addCond">＋ 条件を足す</button>${b.conds.length ? "" : `<span class="note">なし（いつも出る）</span>`}</div>`)
+      + `<span class="bk-tag t-do">なにを</span><div class="bk-col">${b.then.map((e, j) => effRow(bi, "then", e, j)).join("")}<button type="button" class="small bk-add" data-bk="addEff" data-part="then">＋ ${b.then.length ? "そのあと…" : "効果を選ぶ"}</button></div>`
+      + (b.conds.length ? `<span class="bk-tag t-else">ちがったら</span><div class="bk-col">${b.else.map((e, j) => effRow(bi, "else", e, j)).join("")}<button type="button" class="small bk-add" data-bk="addEff" data-part="else">＋ ${b.else.length ? "そのあと…" : "効果を選ぶ（なくてもいい）"}</button></div>` : "")
+      + `</div></div>`).join("")
+    + `<button type="button" class="bk-new" data-bk="addBlock">＋ 効果ブロックを足す${trigs.length > 1 ? "（べつのタイミング）" : ""}</button>`;
+  updateBkText();
+}
+function updateBkText(){
+  const c = mkPreviewCard(), el = $("#bkText");
+  if (el) el.textContent = fxText({ ...c }) || "まだ効果がありません（なくてもOK。自由に書いた効果は手動で処理します）";
+  $("#mkFxLine").textContent = MK.type === "equip" || MK.type === "monster" ? [MK.type === "equip" ? eqText(c) : monAbsText(c), fxText(c)].filter(Boolean).join("。") : fxText(c);
+  if (typeof updateSecs === "function") updateSecs();
+}
+function bkSync(){ if ($("#bkUI")) renderBlocksUI(); }
+// remember which menu (group) a row was picked from — a kind can sit in two menus (e.g. 踏み倒す and 山札・墓地). Not saved.
+function setG(o, g){ if (g) Object.defineProperty(o, "_g", { value: g, writable: true, configurable: true, enumerable: false }); return o; }
+function bkEvent(e, rerenderOnInput){
+  const el = e.target.closest("[data-f]"); if (!el) return;
+  const bi = +el.closest(".bk").dataset.b, b = MK.blocks[bi]; if (!b) return;
+  const f = el.dataset.f, v = el.value;
+  if (f === "trig"){ b.trig = v; return updateBkText(); }
+  const row = el.closest(".bk-row"), part = row.dataset.part, j = +row.dataset.i;
+  if (part === "cond"){
+    const x = b.conds[j]; if (!x) return;
+    if (f === "join"){ b.join = v; return renderBlocksUI(); }
+    if (f === "k"){ b.conds[j] = v === "card" ? { k: v, name: "", where: "field", match: "exact" } : v === "ask" ? { k: v, text: "" } : { k: v, op: v === "lp" ? "le" : "ge", n: v === "lp" || v === "oppLp" ? 300 : 1 }; return renderBlocksUI(); }
+    x[f] = f === "n" || f === "cnt" ? Math.max(0, Math.round(+v || 0)) : v;
+    return f === "op" || f === "where" || f === "match" ? renderBlocksUI() : updateBkText();
+  }
+  const list = b[part], x = list && list[j]; if (!x) return;
+  if (f === "g"){ const g = (MK.easy && kindGroups(easyKinds()).find(q => q.g === v)) || kindGroups(mkKinds()).find(q => q.g === v); if (g){ list[j] = setG({ kind: g.v[0][0], n: defN(g.v[0][0]) }, g.g); } return renderBlocksUI(); }
+  if (f === "kind"){ list[j] = setG({ kind: v, n: x.n != null && smallN(v) === smallN(x.kind) ? x.n : defN(v), to: x.to, ...(x.times > 1 ? { times: x.times } : {}), ...(KINDS[v] && KINDS[v].name && x.into ? { into: x.into } : {}), ...(PER_OK[v] && x.per ? { per: x.per, pm: x.pm, hits: v === "dmg" && x.hits } : {}) }, x._g); return renderBlocksUI(); }
+  if (f === "into"){ x.into = v.trim(); return updateBkText(); }
+  if (f === "times"){ x.times = Math.max(1, Math.min(20, Math.round(+v || 1))); return updateBkText(); }
+  if (f === "per"){ x.per = v || null; if (!v){ x.hits = false; } else if (x.pm == null) x.pm = x.kind === "dmg" || x.kind === "block" ? (v === "myBlock" ? 1 : 40) : 1; return renderBlocksUI(); }
+  if (f === "hits"){ x.hits = v === "1"; return renderBlocksUI(); }
+  if (f === "pm"){ x.pm = Math.max(1, Math.round(+v || 1)); return updateBkText(); }
+  if (f === "to"){ x.to = v; return updateBkText(); }
+  if (f === "n"){ x.n = Math.max(x.per ? 0 : 1, Math.round(+v || 0)); return updateBkText(); }
+}
+function initBlocksUI(){
+  const box = $("#bkUI"); if (!box || box._on) return; box._on = true;
+  box.addEventListener("change", e => bkEvent(e));
+  box.addEventListener("input", e => { if (e.target.matches("input")) bkEvent(e); });
+  box.addEventListener("click", e => {
+    const tp = e.target.closest("[data-tpl]");
+    if (tp){ const t = BK_TEMPLATES[+tp.dataset.tpl], trigs = mkTrigs(); MK.blocks.push({ trig: t.trig && trigs.includes(t.trig) ? t.trig : trigs[0], join: "and", conds: JSON.parse(JSON.stringify(t.conds || [])), then: JSON.parse(JSON.stringify(t.then || [])), else: JSON.parse(JSON.stringify(t.else || [])) }); return renderBlocksUI(); }
+    const btn = e.target.closest("[data-bk]"); if (!btn) return;
+    const a = btn.dataset.bk, bkEl = btn.closest(".bk"), bi = bkEl ? +bkEl.dataset.b : -1, b = MK.blocks[bi];
+    if (a === "addBlock"){ MK.blocks.push({ trig: mkTrigs()[0], join: "and", conds: [], then: [{ kind: mkKinds().includes("dmg") ? "dmg" : mkKinds()[0], n: 100 }], else: [] }); return renderBlocksUI(); }
+    if (!b) return;
+    if (a === "del"){ MK.blocks.splice(bi, 1); return renderBlocksUI(); }
+    if (a === "up" && bi > 0){ [MK.blocks[bi - 1], MK.blocks[bi]] = [MK.blocks[bi], MK.blocks[bi - 1]]; return renderBlocksUI(); }
+    if (a === "down" && bi < MK.blocks.length - 1){ [MK.blocks[bi + 1], MK.blocks[bi]] = [MK.blocks[bi], MK.blocks[bi + 1]]; return renderBlocksUI(); }
+    if (a === "addCond"){ b.conds.push({ k: "lp", op: "le", n: 300 }); return renderBlocksUI(); }
+    if (a === "addEff"){ const part = btn.dataset.part, k0 = (b[part][b[part].length - 1] || {}).kind ? "draw" : "dmg", k = mkKinds().includes(k0) ? k0 : easyKinds()[0]; b[part].push({ kind: k, n: defN(k) }); return renderBlocksUI(); }
+    if (a === "delRow"){ const row = btn.closest(".bk-row"), part = row.dataset.part, j = +row.dataset.i; (part === "cond" ? b.conds : b[part]).splice(j, 1); return renderBlocksUI(); }
+  });
+}
+initBlocksUI();
+$("#mkFxMode").addEventListener("click", e => { const b = e.target.closest("button[data-m]"); if (b) setFxMode(b.dataset.m); });
+applyFxMode();
+function resetMaker(){
+  S.editId = null; setFrameless(false); setFlAlpha(FL_ALPHA_DEF); setTEdge(false); $("#mkName").value = ""; $("#mkEff").value = ""; $("#mkFlv").value = ""; $("#mkNameSize").value = $("#mkTextSize").value = "m"; syncSizes(); $("#mkAtk").value = 300; $("#mkEq").value = 200; $("#mkEqAb").value = "none"; $("#mkEqCost").value = "1"; $("#mkEqCap").value = ""; $("#mkFrame").value = ""; syncFrame(); $("#mkFont").value = "klee"; syncFont(); $("#mkQuick").checked = false; $("#mkExhaust").checked = false; $("#mkNoUse").checked = false; $("#mkToken").checked = false; $("#mkEx").checked = false; $("#mkNeow").checked = false; $("#mkPayLp").value = "0"; $("#mkPayDisc").value = "0"; $("#mkPayDiscTag").value = ""; $("#mkTags").value = ""; $("#mkTribTag").value = ""; $("#mkPayDiscAll").checked = false; $("#mkPayDisc").disabled = false; $("#mkPayMax").value = "0"; $("#mkPersist").checked = false; MK.sk = null; $("#mkRarity").value = "common"; $("#mkCost").value = "1"; setMkDeck("normal"); $("#mkLimit").value = "3"; clearCanvas(); undoStack = [];
+  setMkType("monster"); loadFxForm(null); loadAbs([]); loadSS(null); mkLoadVars(null);
+  $("#mkTitle").textContent = "カードを描く"; $("#btnNew").hidden = true; $("#btnSave").textContent = "カードを保存"; potionModeUI();
+}
+setMkType("monster"); loadFxForm(null);
+/* ---- maker tabs + folding effect boxes (a line on each box says what's set) ---- */
+function setMkPane(p){
+  document.querySelectorAll("#mkTabs button").forEach(b => b.setAttribute("aria-pressed", b.dataset.pane === p));
+  document.querySelectorAll(".tools-col .mk-pane").forEach(x => { x.hidden = x.dataset.pane !== p; });
+  ls.set("cb_mkpane", p);
+}
+$("#mkKind").addEventListener("click", e => { const b = e.target.closest("button[data-k]"); if (b && !S.editId) setMkKind(b.dataset.k); });
+$("#mkKind2").addEventListener("click", e => { const b = e.target.closest("button[data-k2]"); if (b && !S.editId) setMkKind(b.dataset.k2); });
+$("#mkTabs").addEventListener("click", e => { const b = e.target.closest("button[data-pane]"); if (b) setMkPane(b.dataset.pane); });
+function updateSecs(){
+  const t = MK.type, sum = (id, txt, on) => { const el = $(id); if (!el) return; el.textContent = txt; el.classList.toggle("on", !!on); };
+  const bs = typeof readBlocks === "function" ? readBlocks() : null;
+  sum("#sumFx", bs ? fxText({ ...mkPreviewCard(), ss: null }) || "設定あり" : "なし", !!bs);
+  const abs = readAbs();
+  $("#secAbs").hidden = t !== "monster" && t !== "equip";
+  $("#secAbsTitle").textContent = t === "equip" ? "装備したモンスターに付く能力" : "能力";
+  sum("#sumAbs", abs.length ? abs.map(a => ABS[a.k] ? ABS[a.k].label : a.k).join("・") : "なし", abs.length);
+  $("#secEq").hidden = $("#eqNote").hidden && $("#capRow").hidden;
+  $("#secEqTitle").textContent = t === "equip" ? "装備コスト" : "装備キャパ";
+  if (t === "equip") sum("#sumEq", `コスト ${Math.max(0, Math.round(+$("#mkEqCost").value || 0))}`, true);
+  else sum("#sumEq", $("#mkEqCap").value.trim() === "" ? "自動（ATK÷100）" : `キャパ ${$("#mkEqCap").value}`, $("#mkEqCap").value.trim() !== "");
+  $("#secSs").hidden = t !== "monster";
+  $("#secAtk").hidden = t !== "monster";
+  syncProOn();
+  sum("#sumAtk", (MK.atkConds || []).length ? (MK.atkConds || []).map(condPhrase).join(MK.atkJoin === "or" ? "か、" : "、かつ") : "なし", (MK.atkConds || []).length);
+  const ss = readSS();
+  { const tn = +$("#mkTrib").value || 0; sum("#sumSs", [tn ? `生贄${tn}体` : "", ss ? (ss.only ? "特殊召喚のみ・" : "") + (SS_CONDS[ss.cond] ? SS_CONDS[ss.cond].label : "") : ""].filter(Boolean).join("・") || "なし", !!ss || tn > 0); }
+}
+["#mkEqCost", "#mkEqCap"].forEach(q => $(q).addEventListener("input", updateSecs));
+$("#mkTrib").addEventListener("change", () => updateBkText());
+// コストデッキ版 / コストなし版: 生贄召喚 and 攻撃の条件 can differ (only for 「どちらでも」 cards)
+MK.view = "free"; MK.varFree = null; MK.varCost = null;
+function mkCurVar(){ return { trib: +$("#mkTrib").value || 0, atkConds: JSON.parse(JSON.stringify(MK.atkConds || [])), atkJoin: MK.atkJoin === "or" ? "or" : "and" }; }
+function mkShowVar(v){ $("#mkTrib").value = String(v.trib || 0); MK.atkConds = JSON.parse(JSON.stringify(v.atkConds || [])); MK.atkJoin = v.atkJoin === "or" ? "or" : "and"; renderAtkConds(); }
+function mkVarFields(){
+  const cur = mkCurVar(), free = MK.view !== "cost" ? cur : (MK.varFree || cur), cost = MK.view === "cost" ? cur : MK.varCost;
+  const out = { trib: free.trib || null, atkConds: free.atkConds.length ? free.atkConds : null, atkJoin: free.atkJoin, tribCost: null, atkCondsCost: null, atkJoinCost: null };
+  if (MK.deck === "both" && cost && JSON.stringify(cost) !== JSON.stringify(free)) Object.assign(out, { tribCost: cost.trib, atkCondsCost: cost.atkConds, atkJoinCost: cost.atkJoin });
+  return out;
+}
+function syncMkView(){
+  const show = MK.deck === "both" && (MK.kind || "card") === "card";
+  if (!show && MK.view === "cost") setMkView("free");
+  $("#mkViewRow").hidden = !show; $("#mkViewNote").hidden = !show || MK.type !== "monster";
+  document.querySelectorAll("#mkView button").forEach(b => b.setAttribute("aria-pressed", b.dataset.v === MK.view));
+  $("#editCard").classList.toggle("view-free", show && MK.view === "free");
+}
+function setMkView(v){
+  if (v === MK.view) return;
+  const cur = mkCurVar(); if (MK.view === "free") MK.varFree = cur; else MK.varCost = cur;
+  MK.view = v; mkShowVar(v === "free" ? (MK.varFree || cur) : (MK.varCost || MK.varFree || cur));
+  syncMkView(); updateBkText();
+}
+function mkLoadVars(c){
+  MK.view = "free";
+  MK.varFree = { trib: c ? tribOf(c) : 0, atkConds: c && Array.isArray(c.atkConds) ? c.atkConds : [], atkJoin: c && c.atkJoin === "or" ? "or" : "and" };
+  MK.varCost = c && (c.tribCost != null || Array.isArray(c.atkCondsCost)) ? { trib: c.tribCost != null ? +c.tribCost || 0 : MK.varFree.trib, atkConds: Array.isArray(c.atkCondsCost) ? c.atkCondsCost : MK.varFree.atkConds, atkJoin: (Array.isArray(c.atkCondsCost) ? c.atkJoinCost : c.atkJoin) === "or" ? "or" : "and" } : null;
+  mkShowVar(MK.varFree); syncMkView();
+}
+$("#mkView").addEventListener("click", e => { const b = e.target.closest("button[data-v]"); if (b) setMkView(b.dataset.v); });
+// 攻撃の条件 rows (the same conditions as 「もし」, without 質問)
+function renderAtkConds(){
+  const box = $("#atkCondUI"); if (!box) return;
+  MK.atkConds = MK.atkConds || [];
+  const opt = (v, l, cur) => `<option value="${esc(v)}"${String(v) === String(cur) ? " selected" : ""}>${esc(l)}</option>`;
+  box.innerHTML = MK.atkConds.map((x, j) => {
+    let h = `<div class="bk-row" data-i="${j}">`;
+    if (j > 0) h += `<select data-f="join" aria-label="つなぎ" class="bk-join">${opt("and", "かつ", MK.atkJoin)}${opt("or", "または", MK.atkJoin)}</select>`;
+    h += `<select data-f="k" aria-label="なにが">${Object.entries(COND_DEFS).filter(([k]) => k !== "ask").map(([k, d]) => opt(k, d.label, x.k)).join("")}</select>`;
+    if (isNumCond(x.k)) h += `<select data-f="op" aria-label="くらべかた">${opt("ge", "以上", x.op)}${opt("le", "以下", x.op)}</select><input type="number" data-f="n" min="0" max="99999" value="${esc(x.n ?? 1)}" aria-label="数">`;
+    if (x.k === "card") h += `<input type="text" data-f="name" maxlength="40" placeholder="カード名" value="${esc(x.name || "")}" aria-label="カード名"><select data-f="where" aria-label="どこに">${Object.entries(WHERE).map(([k, v]) => opt(k, "自分の" + v, x.where || "field")).join("")}</select><select data-f="match" aria-label="名前の合わせ方">${opt("exact", "名前がぴったり", x.match)}${opt("part", "名前に含む", x.match)}${opt("tag", "タグ", x.match)}</select><input type="number" data-f="cnt" min="0" max="99" value="${esc(x.cnt ?? 1)}" aria-label="枚数" style="width:64px">枚<select data-f="op" aria-label="くらべかた">${opt("ge", "以上", x.op || "ge")}${opt("le", "以下", x.op)}</select>`;
+    return h + `<button type="button" class="small ghost" data-del="${j}" aria-label="この条件を消す">×</button></div>`;
+  }).join("") || `<span class="note">なし（いつでも攻撃できる）</span>`;
+  updateBkText();
+}
+function atkCondEvent(e, rerender){
+  const el = e.target.closest("[data-f]"); if (!el) return;
+  const j = +el.closest(".bk-row").dataset.i, x = MK.atkConds[j]; if (!x) return;
+  const f = el.dataset.f, v = el.value;
+  if (f === "join"){ MK.atkJoin = v; return renderAtkConds(); }
+  if (f === "k"){ MK.atkConds[j] = v === "card" ? { k: v, name: "", where: "field", match: "exact", cnt: 1, op: "ge" } : { k: v, op: v === "lp" ? "le" : "ge", n: v === "lp" || v === "oppLp" ? 300 : v === "otherMon" ? 2 : 1 }; return renderAtkConds(); }
+  x[f] = f === "n" || f === "cnt" ? Math.max(0, Math.round(+v || 0)) : v;
+  return rerender ? renderAtkConds() : updateBkText();
+}
+$("#atkCondUI").addEventListener("change", e => atkCondEvent(e, true));
+$("#atkCondUI").addEventListener("input", e => { if (e.target.matches("input")) atkCondEvent(e, false); });
+$("#atkCondUI").addEventListener("click", e => { const d = e.target.closest("[data-del]"); if (d){ MK.atkConds.splice(+d.dataset.del, 1); renderAtkConds(); } });
+$("#btnAddAtkCond").addEventListener("click", () => { (MK.atkConds = MK.atkConds || []).push({ k: "otherMon", op: "ge", n: 2 }); renderAtkConds(); });
+$("#mkAbs").addEventListener("change", updateSecs);
+setMkPane(["draw", "look", "fx", "deck"].includes(ls.get("cb_mkpane", "draw")) ? ls.get("cb_mkpane", "draw") : "draw");
+updateSecs();
+$("#btnNew").addEventListener("click", resetMaker);
+$("#btnSave").addEventListener("click", async () => {
+  const name = $("#mkName").value.trim();
+  if (!name){ toast("カード名を書いてね"); $("#mkName").focus(); return; }
+  const atkRaw = $("#mkAtk").value.trim().toLowerCase().replace(/[０-９]/g, ch => String.fromCharCode(ch.charCodeAt(0) - 0xFEE0));
+  const atkInf = MK.type === "monster" && INF_WORDS.includes(atkRaw);
+  const atk = atkInf ? 0 : Math.max(0, Math.round(+atkRaw || 0)); $("#mkAtk").value = atkInf ? "∞" : atk;
+  const wasMode = MK.mode; MK.mode = "draw"; composite();
+  const out = document.createElement("canvas"); out.width = cv.width; out.height = cv.height; out.getContext("2d").drawImage(cv, 0, 0);
+  MK.mode = wasMode; composite();
+  const id = S.editId || uid("c");
+  const prev = S.cards.get(id) || userPotion(id) || userRelic(id) || builtinPotionCard(id);
+  let eqN = Math.round(+$("#mkEq").value || 0); $("#mkEq").value = eqN;
+  const doc = { type: MK.type, name, atk: MK.type === "monster" ? atk : 0, atkInf, eqN: MK.type === "equip" ? eqN : 0, eqAb: "none", eqCost: MK.type === "equip" ? Math.max(0, Math.round(+$("#mkEqCost").value || 0)) : null, eqCap: MK.type === "monster" && $("#mkFrame").value === "socra" && $("#mkEqCap").value.trim() !== "" ? Math.max(0, Math.round(+$("#mkEqCap").value || 0)) : null, abs: MK.type === "monster" || MK.type === "equip" ? readAbs() : [], frame: $("#mkFrame").value || null, ss: readSS(), tags: parseTags($("#mkTags").value), tribTag: MK.type === "monster" ? $("#mkTribTag").value.trim() || null : null, ...(MK.type === "monster" ? mkVarFields() : { trib: null, atkConds: null, atkJoin: "and", tribCost: null, atkCondsCost: null, atkJoinCost: null }), effect: $("#mkEff").value.trim(), flavor: $("#mkFlv").value.trim(), nameSize: $("#mkNameSize").value, textSize: $("#mkTextSize").value, fx: null, combo: null, blocks: readBlocks(), font: $("#mkFont").value, quick: MK.type === "magic" && $("#mkFrame").value !== "spire" && $("#mkQuick").checked, persist: (MK.type === "magic" || MK.type === "trap") && $("#mkPersist").checked, sk: mkSk(), rarity: $("#mkFrame").value === "spire" ? $("#mkRarity").value : null, exhaust: (MK.type === "magic" || MK.type === "trap") && $("#mkExhaust").checked, noUse: (MK.type === "magic" || MK.type === "trap") && $("#mkNoUse").checked || null, token: $("#mkToken").checked || null, ex: $("#mkEx").checked || null, ...mkPays(true), cost: MK.deck === "normal" ? null : $("#mkCost").value === "X" ? 0 : +$("#mkCost").value, costX: MK.deck !== "normal" && $("#mkCost").value === "X", deckMode: MK.deck, limit: +$("#mkLimit").value,
+    img: prev && prev.img && !MK.artDirty ? prev.img : encodeArt(out, MK.kind === "potion" || MK.kind === "relic"), frameless: MK.frameless, textEdge: MK.frameless && $("#mkTEdge").checked || null, flAlpha: MK.frameless && MK.flAlpha != null && MK.flAlpha !== FL_ALPHA_DEF ? MK.flAlpha : null, author: S.name, ownerId: prev?.ownerId || S.uid || null, updatedAt: Date.now() };
+  if (prev && prev.builtinPotion && !MK.artDirty && doc.img === potionArt(prev.potKey)) delete doc.img;
+  if (MK.kind === "potion" || MK.kind === "relic") Object.assign(doc, { type: MK.kind, neow: MK.kind === "relic" && $("#mkNeow").checked || null, atk: 0, atkInf: false, eqN: 0, eqCost: null, eqCap: null, abs: [], frame: null, ss: null, quick: false, persist: false, sk: null, rarity: null, exhaust: false, payLp: null, payDisc: null, payMax: null, cost: null, costX: false, deckMode: "normal", limit: 0 });
+  $("#btnSave").disabled = true;
+  try{
+    if (prev && prev.starter){ await saveBuiltinDoc(id, { ...doc, author: prev.author, ownerId: null }); toast("はじめからあるカードを更新しました（みんなに反映されます）"); }
+    else { await saveCardDoc(id, doc); toast(MK.kind === "potion" || MK.kind === "relic" ? (MK.kind === "relic" ? "レリック" : "ポーション") + (S.editId ? "を更新しました" : "を保存しました！") : S.editId ? "カードを更新しました" : "カードを保存しました！"); }
+    resetMaker();
+  }
+  catch(e){ writeErr(e); }
+  finally{ $("#btnSave").disabled = false; }
+});
+$("#galFilter").addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return; S.galF = b.dataset.f; document.querySelectorAll("#galFilter button").forEach(x => x.setAttribute("aria-pressed", x === b)); renderGallery(); });
+let delArm = null;
+// the 7 built-in ポーション, shown like home-made ones
+const POTION_COL = { fire: "#e0533a", blast: "#f29b38", block: "#3d8bd9", energy: "#f2c94c", speed: "#4caf6e", fear: "#8e5bc9", heal: "#f28fb5" };
+// a simple flask picture for the built-in ones (they have no drawing)
+const potionArt = k => "data:image/svg+xml," + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 280 200"><path d="M122 30h36v44l40 70a18 18 0 0 1-16 27H98a18 18 0 0 1-16-27l40-70z" fill="#fff" stroke="#1e2328" stroke-width="7" stroke-linejoin="round"/><path d="M104 118h72l22 34a12 12 0 0 1-10 18H92a12 12 0 0 1-10-18z" fill="${POTION_COL[k] || "#e0533a"}"/><rect x="114" y="20" width="52" height="16" rx="5" fill="#8b5a3c" stroke="#1e2328" stroke-width="5"/><circle cx="120" cy="145" r="7" fill="#fff" opacity=".7"/><circle cx="150" cy="132" r="4" fill="#fff" opacity=".7"/></svg>`);
+const builtinPotionCards = () => Object.keys(POTIONS).map(k => builtinPotionCard(k));
+function potionList(){
+  const f = S.filt.gal || {};
+  let L = [...(S.userPotions || [])].sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+  if (S.galF === "mine") L = L.filter(c => isMine(c)); else L = L.concat(builtinPotionCards());
+  if (f.q){ const ws = normQ(f.q).split(/\s+/).filter(Boolean); L = L.filter(c => { const hay = normQ([c.name, plainRuby(c.effect || ""), fxText0(potionCard(c.potKey || c.id)), c.author, "ポーション"].join(" ")); return ws.every(w => hay.includes(w)); }); }
+  return L;
+}
+const potItemHTML = c => `<div class="g-item">${potionHTML(c, "sm")}<div class="meta">${c.builtinPotion ? "はじめから" + (c.edited ? "（編集ずみ）" : "") : "by " + esc(c.author || "？")}</div>${c.builtinPotion && isAdmin() ? `<div class="row g-btns" style="gap:6px"><button class="small" data-pedit="${esc(c.id)}" title="はじめからあるポーションを編集（管理者）">編集</button>${c.edited ? `<button class="small" data-preset="${esc(c.id)}">${delArm === "pr:" + c.id ? "本当に戻す" : "元に戻す"}</button>` : ""}</div>` : ""}${!c.builtinPotion && isMine(c) ? `<div class="row" style="gap:6px"><button class="small" data-pedit="${esc(c.id)}">編集</button><button class="small danger" data-pdel="${esc(c.id)}">${delArm === c.id ? "本当に消す" : "消す"}</button></div>` : ""}</div>`;
+// レリック in the gallery (the built-in ネオーレリック are shown too)
+function builtinRelicCards(){ return Object.keys(RELICS).map(k => ({ id: "relic-" + k, name: RELICS[k].name, effect: RELICS[k].text, fx: null, blocks: null, img: "", author: "はじめから", builtinRelic: true, neow: true, relicView: true })); }
+function relicList(){
+  const f = S.filt.gal || {};
+  let L = [...(S.userRelics || [])].sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0)).map(c => ({ ...c, relicView: true }));
+  if (S.galF === "mine") L = L.filter(c => isMine(c)); else L = L.concat(builtinRelicCards());
+  if (f.q){ const ws = normQ(f.q).split(/\s+/).filter(Boolean); L = L.filter(c => { const hay = normQ([c.name, plainRuby(c.effect || ""), fxText0({ ...c, type: "magic" }), c.author, "レリック", c.neow ? "ネオー" : ""].join(" ")); return ws.every(w => hay.includes(w)); }); }
+  return L;
+}
+const relItemHTML = c => `<div class="g-item">${potionHTML(c, "sm")}<div class="meta">${c.neow ? "ネオー・" : ""}${c.builtinRelic ? "はじめから" : "by " + esc(c.author || "？")}</div>${!c.builtinRelic && isMine(c) ? `<div class="row" style="gap:6px"><button class="small" data-pedit="${esc(c.id)}">編集</button><button class="small danger" data-pdel="${esc(c.id)}">${delArm === c.id ? "本当に消す" : "消す"}</button></div>` : ""}</div>`;
+function renderPotGallery(){
+  { const f = S.filt.gal || {}, L = relicList(); $("#relWrap").hidden = !L.length || f.type !== "all" || !!f.fx; $("#relGallery").innerHTML = L.map(relItemHTML).join(""); }
+  const f = S.filt.gal || {}, L = potionList();
+  // 「すべて」 shows them under the cards; 「ポーション」 shows only them (in the main list)
+  $("#potWrap").hidden = !L.length || f.type !== "all" || !!f.fx;
+  $("#potGallery").innerHTML = L.map(potItemHTML).join("");
+}
+async function potGalClick(e){
+  const ed = e.target.closest("[data-pedit]"), del = e.target.closest("[data-pdel]"), rs = e.target.closest("[data-preset]");
+  if (rs && isAdmin()){
+    const id = rs.dataset.preset;
+    if (delArm !== "pr:" + id){ delArm = "pr:" + id; renderGallery(); return true; }
+    delArm = null;
+    try{ await deleteBuiltinDoc(id); toast("ポーションをはじめの状態に戻しました"); } catch(err){ writeErr(err); }
+    return true;
+  }
+  if (ed){
+    const c = userPotion(ed.dataset.pedit) || userRelic(ed.dataset.pedit) || (isAdmin() ? builtinPotionCard(ed.dataset.pedit) : null); if (!c || !(isMine(c) || (c.builtinPotion && isAdmin()))) return true;
+    resetMaker(); setMkKind(c.type === "relic" ? "relic" : "potion"); $("#mkNeow").checked = !!c.neow;
+    S.editId = c.id; MK.artDirty = false; $("#mkName").value = c.nameRuby || c.name; $("#mkEff").value = c.effect || ""; $("#mkFlv").value = c.flavor || "";
+    $("#mkNameSize").value = SIZES_T[c.nameSize] ? c.nameSize : "m"; $("#mkTextSize").value = SIZES_T[c.textSize] ? c.textSize : "m"; syncSizes();
+    $("#mkFont").value = FONTS[c.font] ? c.font : "klee"; syncFont();
+    loadFxForm({ ...c, type: "magic", ...(c.type === "relic" ? { relicView: true } : {}) });
+    if (!c.img){ clearCanvas(); undoStack = []; MK.artDirty = false; }
+    else { const im = new Image(); im.onload = () => { clearCanvas(); setPhoto(im); setMode("draw"); composite(); undoStack = []; MK.artDirty = false; }; im.src = c.img; }
+    potionModeUI(); $("#btnNew").hidden = false; $("#btnSave").textContent = "変更を保存";
+    window.scrollTo({ top: 0, behavior: "smooth" });
+    return true;
+  }
+  if (del){
+    const id = del.dataset.pdel; if (!isMine(userPotion(id) || userRelic(id))) return true;
+    if (delArm !== id){ delArm = id; renderGallery(); return true; }
+    delArm = null;
+    try{ await deleteCardDoc(id); toast("消しました"); } catch(err){ writeErr(err); }
+    return true;
+  }
+  return !!ed;
+}
+$("#potGallery").addEventListener("click", potGalClick);
+$("#relGallery").addEventListener("click", potGalClick);
+// 管理者: add a tag to every card shown in the gallery (own cards + built-in ones; others' cards are skipped)
+async function bulkTag(){
+  const tag = parseTags($("#bulkTag").value)[0]; if (!tag || !isAdmin()) return;
+  let ok = 0, skip = 0;
+  for (const id of S.galIds || []){
+    const c = S.cards.get(id); if (!c || tagsOf(c).includes(tag)) continue;
+    const tags = [...tagsOf(c), tag].slice(0, 8);
+    try{
+      if (c.starter){ await saveBuiltinDoc(id, { ...(S.builtinEdits[id] || {}), tags }); ok++; }
+      else if (isMine(c)){ const { id: _, ...doc } = c; await saveCardDoc(id, JSON.parse(JSON.stringify({ ...doc, tags }))); ok++; }
+      else skip++;
+    }catch(e){ writeErr(e); return; }
+  }
+  toast(`${ok}枚にタグ「${tag}」をつけました${skip ? `（ほかの人のカード${skip}枚はつけられませんでした）` : ""}`);
+}
+$("#btnBulkTag").addEventListener("click", bulkTag);
+function renderGallery(){
+  $("#adminTagRow").hidden = !isAdmin();
+  let list = [...S.userCards].sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+  if (S.galF === "mine") list = list.filter(c => isMine(c));
+  const items = list.map(c => {
+    return "";
+  });
+  if (S.galF === "all") list = list.concat(S.starters);
+  const total = list.length;
+  list = sortCards(list.filter(c => matchCard(c, S.filt.gal)), S.filt.gal.sort);
+  S.galIds = list.map(c => c.id);
+  setCount("gal", list.length, total);
+  const items2 = list.map(c => {
+    if (c.starter) return `<div class="g-item">${cardHTML(c, "sm")}<div class="meta">${esc(c.author)}</div>${isAdmin() ? `<div class="row g-btns"><button class="small" data-edit="${esc(c.id)}" title="はじめからあるカードを編集（管理者）">編集</button></div>` : ""}</div>`;
+    const mine = isMine(c);
+    return `<div class="g-item">${cardHTML(c, "sm")}<div class="meta">by ${esc(c.author || "？")}</div>${!mine && S.db ? tradeBtnHTML(c) : ""}${mine ? `<div class="row" style="gap:6px"><button class="small" data-edit="${esc(c.id)}">編集</button><button class="small danger" data-del="${esc(c.id)}">${delArm === c.id ? "本当に消す" : "消す"}</button></div>${isAdmin() && S.starters.some(b => b.name === c.name) ? `<button class="small g-wide" data-toBuiltin="${esc(c.id)}">${delArm === "b:" + c.id ? "本当に？（このカードは消えます）" : "はじめからあるカードと入れ替え"}</button>` : ""}` : ""}</div>`;
+  });
+  renderPotGallery();
+  if ((S.filt.gal || {}).type === "relic"){ const L = relicList(); setCount("gal", L.length, L.length); $("#gallery").innerHTML = L.map(relItemHTML).join("") || `<p class="muted">レリックがありません。</p>`; return; }
+  if ((S.filt.gal || {}).type === "potion"){ const L = potionList(); setCount("gal", L.length, L.length); $("#gallery").innerHTML = L.map(potItemHTML).join("") || `<p class="muted">ポーションがありません。上の「つくるもの」で「カード以外」をえらぶと作れます。</p>`; return; }
+  $("#gallery").innerHTML = items2.join("") || (total ? `<p class="muted">条件に合うカードがありません。</p>` : `<p class="muted">まだ自分のカードはありません。上で描いてみよう！</p>`);
+}
+$("#gallery").addEventListener("click", async e => {
+  if (e.target.closest("[data-pedit],[data-pdel],[data-preset]")){ potGalClick(e); return; }
+  const tb = e.target.closest("[data-trade]"); if (tb){ openTradeDlg(tb.dataset.trade); return; }
+  const ed = e.target.closest("[data-edit]"), del = e.target.closest("[data-del]");
+  if (ed){
+    const c = S.cards.get(ed.dataset.edit); if (!c || !(isMine(c) || (c.starter && isAdmin()))) return;
+    setMkKind("card"); S.editId = c.id; setFrameless(!!c.frameless); setFlAlpha(c.flAlpha ?? FL_ALPHA_DEF); setTEdge(!!c.textEdge); MK.artDirty = false; $("#mkName").value = c.nameRuby || c.name; $("#mkEff").value = c.effect || ""; $("#mkFlv").value = c.flavor || ""; $("#mkNameSize").value = SIZES_T[c.nameSize] ? c.nameSize : "m"; $("#mkTextSize").value = SIZES_T[c.textSize] ? c.textSize : "m"; syncSizes(); $("#mkAtk").value = c.atkInf ? "∞" : (c.atk || 0); $("#mkLimit").value = String(cardLimit(c));
+    mkLoadVars(c); $("#mkQuick").checked = !!c.quick; $("#mkExhaust").checked = !!c.exhaust; $("#mkNoUse").checked = !!c.noUse; $("#mkToken").checked = !!c.token; $("#mkEx").checked = !!c.ex; $("#mkPayLp").value = String(payLpOf(c)); $("#mkPayDisc").value = String(payDiscOf(c)); $("#mkPayDiscTag").value = c.payDiscTag || ""; $("#mkTags").value = tagsOf(c).join(" "); $("#mkTribTag").value = c.tribTag || ""; $("#mkPayDiscAll").checked = payDiscAll(c); $("#mkPayDisc").disabled = payDiscAll(c); $("#mkPayMax").value = String(payMaxOf(c)); $("#mkPersist").checked = !!c.persist; MK.sk = c.sk || null; $("#mkRarity").value = rarityOf(c); setMkType(cardType(c)); loadFxForm(c); $("#mkFont").value = FONTS[c.font] ? c.font : "klee"; syncFont(); $("#mkCost").value = c.costX ? "X" : hasCost(c) ? String(costOf(c)) : "1"; setMkDeck(deckModeOf(c)); $("#mkEq").value = c.eqN || 0; $("#mkEqAb").value = "none"; $("#mkEqCost").value = String(eqCostOf(c)); $("#mkEqCap").value = hasEqCap(c) ? String(+c.eqCap) : ""; loadAbs(absOf(c)); syncEqLine(); $("#mkFrame").value = c.frame === "socra" || c.frame === "spire" ? c.frame : ""; syncFrame(); loadSS(c);
+    if (!c.img){ clearCanvas(); undoStack = []; MK.artDirty = false; }
+    else { const im = new Image(); im.onload = () => { clearCanvas(); setPhoto(im); setMode("draw"); composite(); undoStack = []; MK.artDirty = false; }; im.src = c.img; }
+    $("#mkTitle").textContent = "カードを編集中"; $("#btnNew").hidden = false; $("#btnSave").textContent = "変更を保存";
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+  // admin: a card you drew takes the place of the built-in card with the same name (your copy is then removed)
+  const tbi = e.target.closest("[data-tobuiltin]");
+  if (tbi && isAdmin()){
+    const id = tbi.dataset.tobuiltin, c = S.cards.get(id), base = c && S.starters.find(b => b.name === c.name);
+    if (!c || !base || !isMine(c)) return;
+    if (delArm !== "b:" + id){ delArm = "b:" + id; renderGallery(); return; }
+    delArm = null;
+    try{
+      const doc = JSON.parse(JSON.stringify({ ...c, id: undefined, starter: undefined, edited: undefined, author: base.author, ownerId: null, updatedAt: Date.now() }));
+      await saveBuiltinDoc(base.id, doc);
+      for (const d of myDecks().filter(d => d.cards.includes(id))) await saveDeckDoc(d.id, { ...d, id: undefined, cards: d.cards.map(x => x === id ? base.id : x), key: d.key === id ? base.id : d.key || null });
+      await deleteCardDoc(id);
+      toast(`「${base.name}」（${base.author}）をこのカードに入れ替えました`);
+    }catch(err){ writeErr(err); }
+    return;
+  }
+  const rs = e.target.closest("[data-reset]");
+  if (rs && isAdmin()){
+    const id = rs.dataset.reset;
+    if (delArm !== "r:" + id){ delArm = "r:" + id; renderGallery(); return; }
+    delArm = null;
+    try{ await deleteBuiltinDoc(id); toast("はじめの状態に戻しました"); } catch(err){ writeErr(err); }
+    return;
+  }
+  if (del){
+    const id = del.dataset.del;
+    if (!isMine(S.cards.get(id))) return;
+    if (delArm !== id){ delArm = id; renderGallery(); return; }
+    delArm = null;
+    try{ await deleteCardDoc(id); toast("カードを消しました"); } catch(err){ writeErr(err); }
+  }
+});
+

@@ -1,0 +1,411 @@
+/* ================= effect catalog ================= */
+const TYPE_LABEL = { monster: "モンスター", magic: "魔法", equip: "装備", trap: "罠" };
+// スパイア風 cards use Slay-the-Spire style names for the same three kinds
+const SPIRE_LABEL = { attack: "アタック", skill: "スキル", power: "パワー", monster: "アタック", magic: "スキル", equip: "装備", trap: "パワー" };
+// スパイア風 kind: アタック / スキル are one-shot magic, パワー is 永続 magic (older cards: monster → アタック, trap → パワー)
+const RARITY = { common: "コモン", uncommon: "アンコモン", rare: "レア" };
+const rarityOf = c => c && RARITY[c.rarity] ? c.rarity : "common";
+const spireKind = c => { const t = cardType(c); if (c && c.sk && t === "magic") return c.persist ? "power" : c.sk === "attack" ? "attack" : "skill"; return t === "monster" ? "attack" : t === "trap" || (t === "magic" && c.persist) ? "power" : "skill"; };
+const typeLabel = c => { if (c && c.potionView) return "ポーション"; const t = cardType(c); return isQuick(c) ? "速攻魔法" : isPersist(c) ? "永続" + TYPE_LABEL[t] : TYPE_LABEL[t]; };
+const TRIGS = { summon: "召喚したとき", ssummon: "特殊召喚したとき", kill: "戦闘で相手を破壊したとき", destroyed: "破壊されたとき", battleLose: "バトルに負けたとき", turnStart: "自分のターンのはじめ", turnEnd: "自分のターンの終わり", attach: "装備したとき", use: "発動したとき" };
+const MON_TRIGS = ["summon", "ssummon", "kill", "destroyed", "battleLose", "turnStart", "turnEnd"];
+const EQ_TRIGS = ["attach", "turnStart", "turnEnd", "destroyed", "battleLose"];
+// 永続魔法・永続罠 (スパイア風 のパワー): stay face-up in the magic/trap zone; their effect fires on one of these
+const PERSIST_TRIG_LABEL = { use: "発動したとき", turnStart: "自分のターンのはじめ", turnEnd: "自分のターンのおわり", mySummon: "自分がモンスターを召喚するたび", exhaust: "自分のカードが廃棄されるたび", monDestroyed: "モンスターが破壊されるたび", myLoseLp: "自分のターンにLPを失うたび", blockGain: "自分がブロックを得るたび", vulnApply: "相手に弱体を付与するたび", atkPlay: "自分がアタックを使うたび" };
+const PERSIST_TRIGS = Object.keys(PERSIST_TRIG_LABEL);
+// レリック (カード以外): always on; 「手に入れたとき」 + the same timings as 永続 cards
+const RELIC_TRIG_LABEL = { gain: "手に入れたとき", ...Object.fromEntries(Object.entries(PERSIST_TRIG_LABEL).filter(([k]) => k !== "use")) };
+const RELIC_TRIGS = Object.keys(RELIC_TRIG_LABEL);
+const isPersist = c => !!(c && c.persist && (cardType(c) === "magic" || cardType(c) === "trap"));
+const EQ_TRIG_LABEL = { destroyed: "装備したモンスターが破壊されたとき", battleLose: "装備したモンスターがバトルに負けたとき" };
+const trigLabel = (t, k) => (t === "equip" && EQ_TRIG_LABEL[k]) || TRIGS[k];
+const OLD_TRIG = { open: "summon", win: "kill", lose: "destroyed" };
+const KINDS = {
+  none:       { label: "なし" },
+  heal:       { label: "自分のLPを回復", n: true, text: n => `自分のLPを${n}回復` },
+  dmg:        { label: "相手にダメージ", n: true, text: n => `相手に${n}ダメージ` },
+  draw:       { label: "カードを引く", n: true, text: n => `カードを${n}枚引く` },
+  discard:    { label: "相手の手札を捨てさせる", n: true, text: n => `相手の手札をランダムに${n}枚捨てさせる` },
+  destroy:    { label: "相手モンスター1体を破壊", target: "opp", text: () => `相手のモンスター1体を破壊` },
+  destroyAll: { label: "相手モンスターを全部破壊", text: () => `相手のモンスターをすべて破壊` },
+  selfAtk:    { label: "このモンスターのATKアップ", n: true, mon: true, text: n => `このモンスターのATK+${n}` },
+  moveEquips: { label: "装備を別のモンスターに付けかえる", mon: true, target: "any", text: () => `このモンスターの装備（このカード以外）をすべて、ほかのモンスター1体（相手のでもOK）に付けかえる` },
+  equipsToHand: { label: "ほかの装備を手札に戻す", mon: true, text: () => `いっしょに付いていたほかの装備を、持ち主の手札に戻す` },
+  blast:      { label: "自爆（装備の枚数×○以下を全部破壊）", n: true, mon: true, text: n => `付いていた装備の枚数×${n}以下のATKのモンスターをすべて破壊し、破壊したうち一番低いATKぶんのダメージを相手に与える` },
+  charm:      { label: "相手モンスター1体を魅了（攻撃できなくする）", target: "opp", mon: true, text: () => `相手のモンスター1体を魅了する（このカードが場にある間、そのモンスターは攻撃できない）` },
+  atkUp:      { label: "自分のモンスターのATKアップ", n: true, target: "mine", text: n => `自分のモンスター1体のATK+${n}` },
+  block:      { label: "ブロックを得る（次の自分のターンまでダメージを肩代わり）", n: true, text: n => `ブロックを${n}得る` },
+  vuln:       { label: "相手を弱体にする（受けるダメージ1.5倍・○ターン）", n: true, text: n => `相手を弱体${n}にする` },
+  weak:       { label: "相手を脱力にする（与えるダメージ0.75倍・○ターン）", n: true, text: n => `相手を脱力${n}にする` },
+  weakAll:    { label: "相手と相手のモンスター全部を脱力にする", n: true, text: n => `相手と相手のモンスターすべてを脱力${n}にする` },
+  str:        { label: "筋力を得る（与えるダメージ+○）", n: true, text: n => `筋力${n}を得る` },
+  strTemp:    { label: "このターンだけ筋力を得る", n: true, text: n => `このターン、筋力${n}を得る` },
+  oppStr:     { label: "相手が筋力を得る", n: true, text: n => `相手は筋力${n}を得る` },
+  oppStrDown: { label: "相手の筋力を下げる（相手の次のターンの終わりまで）", n: true, text: n => `相手の次のターンの終わりまで、相手は筋力${n}を失う` },
+  loseLp:     { label: "自分のLPを失う", n: true, text: n => `自分のLPを${n}失う` },
+  exhaustHand:   { label: "手札をえらんで廃棄", n: true, target: "hand", each: true, text: n => `手札を${n}枚えらんで廃棄する` },
+  exhaustRand:   { label: "手札をランダムに廃棄", n: true, text: n => `手札をランダムに${n}枚廃棄する` },
+  exhaustAll:    { label: "手札をすべて廃棄", text: () => `手札をすべて廃棄する` },
+  exhaustNonAtk: { label: "手札のアタック以外をすべて廃棄", text: () => `手札のアタック以外をすべて廃棄する` },
+  graveToTop:    { label: "墓地のカードを山札の一番上に置く", n: true, target: "graveAny", each: true, text: n => `墓地のカードを${n}枚えらんで山札の一番上に置く` },
+  playTop:       { label: "山札の一番上のカードをプレイ", n: true, text: n => `山札の一番上のカードを${n > 1 ? n + "枚" : ""}プレイする` },
+  playTopEx:     { label: "山札の一番上のカードをプレイして廃棄", n: true, text: n => `山札の一番上のカードを${n > 1 ? n + "枚" : ""}プレイし、それを廃棄する` },
+  noDraw:        { label: "このターン、もうカードを引けない", text: () => `このターン、これ以上カードを引けない` },
+  drawUntil:     { label: "アタック以外を引くまで引く", text: () => `アタック以外のカードを引くまで、カードを引く` },
+  barricade:  { label: "ブロックがターンのはじめに消えなくなる", text: () => `ブロックが自分のターンのはじめに消えなくなる` },
+  plate:      { label: "プレートを得る（ターンのおわりにその分ブロック）", n: true, text: n => `プレート${n}を得る（自分のターンのおわりにブロック${n}を得る。LPを失うたび20減る）` },
+  corrupt:    { label: "スキルのコストが0になり、使うと廃棄される", text: () => `スキルのコストが0になる。スキルを使うたび、それを廃棄する` },
+  vulnBonus:  { label: "弱体の相手に与えるダメージがさらに○%ふえる", n: true, text: n => `弱体の相手に与えるダメージがさらに${n}%ふえる` },
+  firstBlock2:{ label: "毎ターン最初にカードで得るブロックが2倍", text: () => `毎ターン、最初にカードで得るブロックが2倍になる` },
+  rageNow:    { label: "このターン、アタックを使うたびブロックを得る", n: true, text: n => `このターン、アタックを使うたびブロックを${n}得る` },
+  thornsNow:  { label: "次の自分のターンまで、攻撃されるたび反撃", n: true, text: n => `次の自分のターンのはじめまで、モンスターに攻撃されるたび、そのモンスターに${n}ダメージ` },
+  dblAtk:     { label: "次に使うアタックをもう1回プレイ", n: true, text: n => `このターン、次に使う${n > 1 ? n + "枚の" : ""}アタックをもう1回プレイする` },
+  copyLastAtk:{ label: "直前に使ったアタックのコピーを手札に加える", text: () => `直前に使ったアタックのコピーを1枚手札に加える` },
+  graveAtkToHand: { label: "墓地のランダムなアタックを手札に加える", n: true, text: n => `墓地のランダムなアタックを${n}枚手札に加える` },
+  playHandAtk:{ label: "手札のランダムなアタックをプレイ", n: true, text: n => `手札のランダムなアタックを${n > 1 ? n + "枚" : "1枚"}プレイする` },
+  transformHand: { label: "手札をえらんで変化させる", target: "hand", each: true, n: true, name: true, text: (n, into) => `手札を${n}枚えらんで、${intoText(into)}に変化させる` },
+  transformRand: { label: "手札をランダムに変化させる", n: true, name: true, text: (n, into) => `手札をランダムに${n}枚、${intoText(into)}に変化させる` },
+  transformAtk:  { label: "手札のアタックをすべて変化させる", name: true, text: (n, into) => `手札のアタックをすべて${intoText(into)}に変化させる` },
+  transformAll:  { label: "手札をすべて変化させる", name: true, text: (n, into) => `手札をすべて${intoText(into)}に変化させる` },
+  oppNoAtk:      { label: "相手は攻撃できない（相手の次のターンの終わりまで）", text: () => `相手の次のターンの終わりまで、相手のモンスターは攻撃できない` },
+  oppNoUse:      { label: "相手は魔法・罠を発動できない（相手の次のターンの終わりまで）", text: () => `相手の次のターンの終わりまで、相手は魔法・罠を発動できない` },
+  oppSetNamed:   { label: "名前を指定した魔法・罠を相手の場にセットする", n: true, name: true, need: true, text: (n, into) => `「${into || "？"}」を${n > 1 ? n + "枚" : ""}相手の魔法・罠ゾーンにセットする` },
+  oppDraw:       { label: "相手にカードを引かせる", n: true, text: n => `相手はカードを${n}枚引く` },
+  oppGenHand:    { label: "名前を指定したカードを相手の手札に加える", n: true, name: true, need: true, text: (n, into) => `「${into || "？"}」を${n}枚相手の手札に加える` },
+  oppGenDeck:    { label: "名前を指定したカードを相手の山札に混ぜる", n: true, name: true, need: true, text: (n, into) => `「${into || "？"}」を${n}枚相手の山札に混ぜる` },
+  oppSummon:     { label: "名前を指定したモンスターを相手の場に出す", n: true, name: true, need: true, text: (n, into) => `「${into || "？"}」を${n > 1 ? n + "体" : ""}相手の場に出す` },
+  genNamed:      { label: "名前を指定したカードを手札に加える", n: true, name: true, need: true, text: (n, into) => `「${into || "？"}」を${n}枚手札に加える` },
+  autoPlay:      { label: "名前に○が入ったカードを引くたび自動で使う", name: true, need: true, text: (n, into) => `これから、名前に「${into || "？"}」が入ったカードを引くたび、それを自動で使う（ねらいはランダム）` },
+  tagSearch:     { label: "山札からタグのカードを手札に加える", n: true, name: true, need: true, tag: true, target: "tagPick", each: true, text: (n, t) => `山札からタグ「${t || "？"}」のカードを${n}枚えらんで手札に加える` },
+  tagGraveHand:  { label: "墓地からタグのカードを手札に加える", n: true, name: true, need: true, tag: true, target: "tagPick", each: true, text: (n, t) => `墓地からタグ「${t || "？"}」のカードを${n}枚えらんで手札に加える` },
+  tagSummonHand: { label: "手札からタグのモンスターを場に出す", name: true, need: true, tag: true, target: "tagPick", text: (n, t) => `手札からタグ「${t || "？"}」のモンスター1体を自分の場に出す` },
+  tagSummonDeck: { label: "山札からタグのモンスターを場に出す", name: true, need: true, tag: true, target: "tagPick", text: (n, t) => `山札からタグ「${t || "？"}」のモンスター1体を自分の場に出す` },
+  tagSummonGrave:{ label: "墓地からタグのモンスターを場に出す", name: true, need: true, tag: true, target: "tagPick", text: (n, t) => `墓地からタグ「${t || "？"}」のモンスター1体を自分の場に出す` },
+  tagGen:        { label: "タグのついたランダムなカードを手札に加える", n: true, name: true, need: true, tag: true, text: (n, t) => `タグ「${t || "？"}」のついたランダムなカードを${n}枚手札に加える` },
+  copyHand:   { label: "このカードのコピーを手札に加える", text: () => `このカードのコピーを1枚手札に加える` },
+  copyDeck:   { label: "このカードのコピーを山札に混ぜる", text: () => `このカードのコピーを1枚山札に混ぜる` },
+  genAttack:  { label: "ランダムなアタックを手札に加える", n: true, text: n => `ランダムなアタックを${n}枚手札に加える` },
+  genAttack0: { label: "ランダムなアタックを手札に加える（このターンはコスト0）", n: true, text: n => `ランダムなアタックを${n}枚手札に加える（このターンはコスト0で使える）` },
+  genSkill:   { label: "ランダムなスキルを手札に加える", n: true, text: n => `ランダムなスキルを${n}枚手札に加える` },
+  genPower:   { label: "ランダムなパワーを手札に加える", n: true, text: n => `ランダムなパワーを${n}枚手札に加える` },
+  bash:       { label: "相手にダメージ＋弱体2", n: true, text: n => `相手に${n}ダメージを与え、弱体2にする` },
+  dmgRand:    { label: "ランダムな敵に○ダメージ（相手か相手のモンスター）", n: true, text: n => `ランダムな敵（相手か相手のモンスター）に${n}ダメージ` },
+  dmgAll:     { label: "相手と相手のモンスター全部に○ダメージ", n: true, text: n => `相手と相手のモンスターすべてに${n}ダメージ` },
+  copyGrave:  { label: "このカードのコピーを墓地に加える", text: () => `このカードのコピーを1枚墓地に加える` },
+  freeAttack: { label: "次に使うアタックのコストを0にする", text: () => `次に使うアタックのコストを0にする` },
+  freeSkill:  { label: "次に使うスキルのコストを0にする", text: () => `次に使うスキルのコストを0にする` },
+  freePower:  { label: "次に使うパワーのコストを0にする", text: () => `次に使うパワーのコストを0にする` },
+  draft:      { label: "スパイアのカードを○枚から1枚えらんで墓地に加える", n: true, target: "draft", text: n => `ランダムなスパイア風カード${n}枚から1枚えらんで墓地に加える` },
+  atkAll:     { label: "自分のモンスター全部のATKアップ", n: true, text: n => `自分のモンスターすべてのATK+${n}` },
+  charmAll:   { label: "相手モンスター全部を魅了（攻撃できなくする）", mon: true, text: () => `相手のモンスターすべてを魅了する（このカードが場にある間、攻撃できない）` },
+  vulnAll:    { label: "相手と相手のモンスター全部を弱体にする", n: true, text: n => `相手と相手のモンスターすべてを弱体${n}にする` },
+  atkDownAll: { label: "相手のモンスター全部のATKダウン", n: true, text: n => `相手のモンスターすべてのATK−${n}` },
+  atkDown:    { label: "相手のモンスターのATKダウン", n: true, target: "opp", text: n => `相手のモンスター1体のATK−${n}` },
+  revive:     { label: "墓地から手札に戻す", target: "grave", text: () => `墓地のモンスター1体を手札に戻す` },
+  reborn:     { label: "墓地から場に出す", target: "grave", text: () => `墓地のモンスター1体を自分の場に出す` },
+  cancel:     { label: "発動・召喚を無効（打ち消し）", chain: true, text: () => `魔法・罠の発動かモンスターの召喚を無効にする（打ち消し）` },
+  negate:     { label: "攻撃を無効にする（罠）", trap: true, text: () => `相手の攻撃を無効にする` },
+  killAtk:    { label: "攻撃モンスターを破壊（罠）", trap: true, text: () => `攻撃してきたモンスターを破壊` },
+  manaNow:    { label: "マナを回復（このターン）", n: true, text: n => `マナを${n}回復する` },
+  manaMax:    { label: "最大マナを増やす", n: true, text: n => `最大マナを${n}増やす` },
+  manaDrain:  { label: "相手のマナを減らす", n: true, text: n => `相手のマナを${n}減らす` },
+  win:        { label: "ゲームに勝利する", text: () => `ゲームに勝利する` }
+};
+const CONDS = {
+  none:  { label: "条件なし", text: () => "" },
+  lp:    { label: "自分のLPが○以下", n: true, text: n => `自分のLPが${n}以下なら、` },
+  grave: { label: "自分の墓地が○枚以上", n: true, text: n => `自分の墓地が${n}枚以上なら、` },
+  hand:  { label: "手札にこのカードが○枚", n: true, text: n => `手札にこのカードが${n}枚そろっていたら、` }
+};
+const EQ_AB = { none: "なし", twice: "1ターンに2回攻撃できる", direct: "相手の場にモンスターがいても直接攻撃できる", guard: "戦闘では破壊されない" };
+// abilities: stuck on a monster (its own, or given by an equip). only: "mon" = monster cards only, "eq" = equip cards only.
+// self: the text is about this card itself, not "the monster"
+const ABS = {
+  twice:      { label: "1ターンに2回攻撃できる" },
+  haste:      { label: "速攻（出たターンから攻撃できる）" },
+  direct:     { label: "相手の場にモンスターがいても直接攻撃できる" },
+  guard:      { label: "戦闘では破壊されない" },
+  noEffect:   { label: "効果では破壊されない" },
+  noAttack:   { label: "攻撃できない" },
+  taunt:      { label: "相手に狙われる（ほかのモンスターは攻撃・効果の対象にされない）" },
+  dmgCut:     { label: "戦闘で受けるダメージを減らす", n: 300, text: n => `戦闘で受けるダメージが${n}減る` },
+  substitute: { label: "破壊されるとき、かわりにほかの装備を1枚墓地へ", only: "eq", self: true, text: () => `装備したモンスターが破壊されるとき、かわりにほかの装備1枚を墓地へ送る` },
+  negateOnce: { label: "1回だけ、相手の発動・召喚を打ち消せる", only: "eq", self: true, text: () => `1回だけ、相手の魔法・罠の発動かモンスターの召喚を打ち消せる` },
+  double:     { label: "左どなりの装備の効果を2倍にする", only: "eq", self: true, text: () => `このカードの左どなりの装備の効果は2倍になる` },
+  eqBonus:    { label: "特定の名前の装備を付けているとATKアップ", only: "mon", self: true, n: 300, name: true, text: (n, nm) => `名前に「${nm || "？"}」が入った装備を付けているとき、ATK+${n}` }
+};
+const absOf = c => !c ? [] : Array.isArray(c.abs) ? c.abs.filter(a => a && ABS[a.k]) : (c.eqAb && c.eqAb !== "none" && ABS[c.eqAb] ? [{ k: c.eqAb }] : []);
+const abPhrase = a => ABS[a.k].text ? ABS[a.k].text(a.n || 0, a.name || "") : ABS[a.k].label;
+function absText(c, who){
+  const L = absOf(c), mon = L.filter(a => !ABS[a.k].self), self = L.filter(a => ABS[a.k].self);
+  const parts = [];
+  if (mon.length) parts.push(`${who}は${mon.map(abPhrase).join("、")}`);
+  self.forEach(a => parts.push(abPhrase(a)));
+  return parts.join("。");
+}
+function eqText(c){
+  const n = c.eqN || 0, parts = [];
+  if (n) parts.push(`装備したモンスターのATK${n > 0 ? "+" : "−"}${Math.abs(n)}`);
+  const ab = absText(c, "装備したモンスター"); if (ab) parts.push(ab);
+  return parts.join("。");
+}
+const monAbsText = c => absText(c, "このモンスター");
+// equip capacity: a monster holds equips whose costs add up to its capacity (blank = ATK÷100)
+const eqCostOf = c => Math.max(0, Math.round(+(c && c.eqCost) || 0));
+const hasEqCap = c => !!c && c.eqCap != null && c.eqCap !== "" && !isNaN(+c.eqCap);
+function eqCapOf(c){ if (hasEqCap(c)) return Math.max(0, Math.round(+c.eqCap)); const b = baseAtk(c); return isFinite(b) ? Math.floor(b / 100) : 99; }
+const eqsOf = m => (m && m.eqs) || [];
+// a 化身-type equip doubles the equip on its left
+const eqMult = (list, k) => 1 + (list[k + 1] && absOf(card(list[k + 1].c)).some(a => a.k === "double") ? 1 : 0);
+const eqUsed = m => eqsOf(m).reduce((t, e) => t + eqCostOf(card(e.c)), 0);
+const FONTS = {
+  klee:   { label: "手書き（標準）", css: `"Klee One",var(--hand)` },
+  maru:   { label: "まるゴシック", css: `"Zen Maru Gothic",var(--ui)` },
+  bold:   { label: "極太ゴシック", css: `"Dela Gothic One",var(--ui)` },
+  round:  { label: "まるっと太字", css: `"M PLUS Rounded 1c",var(--ui)` },
+  magic:  { label: "マジック書き", css: `"Yusei Magic",var(--hand)` },
+  pencil: { label: "えんぴつ", css: `"Yomogi",var(--hand)` },
+  pop:    { label: "まるポップ", css: `"Hachi Maru Pop",var(--ui)` },
+  reggae: { label: "ギザギザ", css: `"Reggae One",var(--ui)` },
+  dot:    { label: "ドット", css: `"DotGothic16",var(--ui)` },
+  decol:  { label: "おしゃれ明朝", css: `"Kaisei Decol",var(--hand)` },
+  lubri:  { label: "シャープ（Lubrifont）", css: `"WDXL Lubrifont JP N",var(--ui)` }
+};
+const fontCss = c => FONTS[c && c.font] ? FONTS[c.font].css : "";
+// text size per card (name / effect+flavor)
+const SIZES_T = { s: { label: "小さめ", k: .82 }, m: { label: "ふつう", k: 1 }, l: { label: "大きめ", k: 1.2 } };
+const sizeK = v => (SIZES_T[v] || SIZES_T.m).k;
+// furigana: ｜漢字《かんじ》, or just 漢字《かんじ》 right after kanji
+function rubyHTML(t){
+  return esc(t).replace(/[｜|]([^｜|《》\n]+?)《([^《》\n]*?)》/g, "<ruby>$1<rt>$2</rt></ruby>")
+    .replace(/([\u3400-\u9FFF\uF900-\uFAFF々〆ヵヶ]+)《([^《》\n]*?)》/g, "<ruby>$1<rt>$2</rt></ruby>");
+}
+const plainRuby = t => String(t || "").replace(/[｜|]([^｜|《》\n]+?)《[^《》\n]*?》/g, "$1").replace(/《[^《》\n]*?》/g, "");
+const cardType = c => (c && (c.type === "magic" || c.type === "trap" || c.type === "equip")) ? c.type : "monster";
+const MAX_MANA = 10;
+// cost is only what the card's creator set; no cost means 0
+const hasCost = c => !!c && c.cost != null && c.cost !== "" && !isNaN(+c.cost);
+function costOf(c){ return hasCost(c) ? Math.max(0, Math.min(MAX_MANA, +c.cost)) : 0; }
+// which decks a card can go in: normal (no mana), cost (mana decks only), both. Older cards: with a cost → both, without → normal
+const DECK_LABEL = { normal: "ふつうのデッキ", cost: "コストデッキ", both: "どちらでも" };
+const deckModeOf = c => c && DECK_LABEL[c.deckMode] ? c.deckMode : hasCost(c) ? (c && c.starter ? "cost" : "both") : "normal";
+const fitsDeck = (c, mana) => { const m = deckModeOf(c); return m === "both" || m === (mana ? "cost" : "normal"); };
+const cardLimit = c => (c && c.limit != null) ? +c.limit : 3;
+function normFx(c){
+  if (c && Array.isArray(c.blocks)){ const b = blocksOf(c).find(x => x.then.length); return b ? { ...b.then[0], trig: b.trig } : null; }
+  return normFx0(c);
+}
+function normFx0(c){
+  const fx = c && c.fx; if (!fx || !fx.kind || fx.kind === "none" || !KINDS[fx.kind]) return null;
+  const t = cardType(c);
+  let trig = "use";
+  if (t === "monster"){ const k = OLD_TRIG[fx.trig] || fx.trig; trig = MON_TRIGS.includes(k) ? k : "summon"; }
+  if (t === "equip") trig = EQ_TRIGS.includes(fx.trig) ? fx.trig : "attach";
+  if (isPersist(c)) trig = PERSIST_TRIGS.includes(fx.trig) ? fx.trig : "use";
+  return { ...fx, trig };
+}
+const WHERE = { field: "場", grave: "墓地", hand: "手札", any: "場か墓地", deck: "山札", all: "場・手札・山札・墓地のどこか" };
+function normCombo(c){
+  const cb = c && c.combo; if (!cb || !cb.name || !cb.kind || cb.kind === "none" || !KINDS[cb.kind]) return null;
+  const t = cardType(c); if (t === "equip") return null;
+  const trig = t === "monster" ? (MON_TRIGS.includes(cb.trig) ? cb.trig : (normFx0(c) || {}).trig || "summon") : "use";
+  return { ...cb, where: WHERE[cb.where] ? cb.where : "field", match: cb.match === "part" ? "part" : "exact", trig };
+}
+/* ---- special summon from the hand: the card's own condition + what you pay instead (a normal summon is not used up) ---- */
+const SS_CONDS = {
+  none:    { label: "条件なし", text: () => "" },
+  oppHas:  { label: "相手の場にモンスターがいる", text: () => "相手の場にモンスターがいるなら、" },
+  myEmpty: { label: "自分の場にモンスターがいない", text: () => "自分の場にモンスターがいないなら、" },
+  oppMore: { label: "相手のモンスターが自分より多い", text: () => "相手の場のモンスターが自分より多いなら、" },
+  lp:      { label: "自分のLPが○以下", n: true, text: n => `自分のLPが${n}以下なら、` },
+  grave:   { label: "自分の墓地が○枚以上", n: true, text: n => `自分の墓地が${n}枚以上なら、` },
+  name:    { label: "名前に○が入ったモンスターが自分の場にいる", name: true, text: (n, nm) => `名前に「${nm || "？"}」が入ったモンスターが自分の場にいるなら、` }
+};
+const SS_COSTS = {
+  none:    { label: "なし", text: () => "" },
+  tribute: { label: "自分のモンスター○体を墓地へ送る", n: true, text: n => `自分のモンスター${n}体を墓地へ送って、` },
+  discard: { label: "手札を○枚捨てる", n: true, text: n => `手札を${n}枚捨てて、` },
+  lp:      { label: "LPを○払う", n: true, text: n => `LPを${n}払って、` }
+};
+const ssOf = c => c && cardType(c) === "monster" && c.ss && c.ss.on ? { cond: SS_CONDS[c.ss.cond] ? c.ss.cond : "none", n: +c.ss.n || 0, name: c.ss.name || "", cost: SS_COSTS[c.ss.cost] ? c.ss.cost : "none", cn: Math.max(1, +c.ss.cn || 1), only: !!c.ss.only } : null;
+// 生贄召喚: a normal summon that sends this many of your own monsters to the graveyard first
+// (st, s) given: a コストデッキ player uses tribCost when the card has one
+function tribOf(c, st, s){
+  if (!c || cardType(c) !== "monster") return 0;
+  const v = +(st && s && P(st, s).mana && c.tribCost != null ? c.tribCost : c.trib) || 0;
+  return v > 0 ? Math.min(3, Math.round(v)) : 0;
+}
+function tribText(c){
+  if (!c || cardType(c) !== "monster") return "";
+  const f = tribOf(c), k = c.tribCost != null ? Math.min(3, Math.max(0, Math.round(+c.tribCost || 0))) : f;
+  if (!f && !k) return "";
+  const tg = c.tribTag ? `タグ「${c.tribTag}」の` : "";
+  if (f === k) return `【生贄召喚】自分の${tg}モンスター${f}体を墓地へ送って召喚する`;
+  const w = n => n ? `${n}体` : "いらない";
+  return `【生贄召喚】召喚するとき自分の${tg}モンスターを墓地へ送る（コストなしデッキ：${w(f)}／コストデッキ：${w(k)}）`;
+}
+function ssText(c){
+  const ss = ssOf(c); if (!ss) return "";
+  return `${ss.only ? "このカードは普通には召喚できない。" : ""}【特殊召喚】${SS_CONDS[ss.cond].text(ss.n, ss.name)}${SS_COSTS[ss.cost].text(ss.cn)}手札から特殊召喚できる`;
+}
+// extra effects that follow the main one (same timing), e.g. 「100ダメージを与えて、1枚引く」
+const moreFx = fx => (fx && Array.isArray(fx.more) ? fx.more : []).filter(m => m && KINDS[m.kind] && m.kind !== "none" && m.kind !== "win");
+const costLabel = c => c && c.costX ? "X" : costOf(c);
+
+/* ---- 「だれに」: one base effect (ダメージ / 弱体 / 魅了 / ATKダウン / 破壊) + who it goes to ---- */
+const TARGETABLE = { dmg: ["one", "two", "random", "all"], vuln: ["one", "two", "random", "all"], weak: ["one", "two", "random", "all"], atkDown: ["one", "two", "random", "all"], charm: ["one", "two", "random", "all"], destroy: ["one", "two", "random", "all"] };
+const TO_LABEL = { one: "1体をえらぶ", two: "ちがう2体をえらぶ", random: "ランダムに1体", all: "全体" };
+const TO_ALL = { dmg: "dmgAll", vuln: "vulnAll", weak: "weakAll", atkDown: "atkDownAll", charm: "charmAll", destroy: "destroyAll" };
+const TO_LEGACY = { dmgRand: ["dmg", "random"], dmgAll: ["dmg", "all"], vulnAll: ["vuln", "all"], weakAll: ["weak", "all"], atkDownAll: ["atkDown", "all"], charmAll: ["charm", "all"], destroyAll: ["destroy", "all"] };
+const hitsPlayer = k => k === "dmg" || k === "vuln" || k === "weak";
+// the words for who gets it: 相手 / 相手のモンスター …
+function toPhrase(kind, to, spire){
+  const pl = hitsPlayer(kind);
+  if (to === "all") return pl ? "相手と相手のモンスターすべて" : "相手のモンスターすべて";
+  if (to === "random") return pl ? "ランダムな敵（相手か相手のモンスター）" : "ランダムな相手のモンスター1体";
+  if (to === "two") return pl ? "相手のモンスターちがう2体（足りなければ相手も）" : "相手のモンスター2体";
+  return pl ? (spire ? "相手のモンスター1体（いなければ相手）" : "相手") : "相手のモンスター1体";
+}
+function toText(kind, n, to, spire){
+  const w = toPhrase(kind, to, spire);
+  if (kind === "dmg") return `${w}に${n}ダメージ`;
+  if (kind === "vuln") return `${w}を弱体${n}にする`;
+  if (kind === "weak") return `${w}を脱力${n}にする`;
+  if (kind === "atkDown") return `${w}のATK−${n}`;
+  if (kind === "charm") return `${w}を魅了する（このカードが場にある間、攻撃できない）`;
+  if (kind === "destroy") return `${w}を破壊`;
+  return KINDS[kind].text(n);
+}
+// one effect → what the engine runs (全体 → the old 全体 kinds, 2体 → twice with different targets, ランダム → a random pick)
+function expandFx(f){
+  const to = f.to, k = f.kind;
+  if (!to || to === "one" || !TARGETABLE[k]) return [f];
+  if (to === "all") return [{ ...f, kind: TO_ALL[k], to: null }];
+  if (to === "random") return [{ ...f, rand: true }];
+  if (to === "two") return [{ ...f, distinct: true }, { ...f, distinct: true, ask: "" }];
+  return [f];
+}
+// 追加コスト: LPを払う / 手札を捨てる / 最大マナを減らす（払えないと使えない）
+const payLpOf = c => c && c.payLp > 0 ? Math.round(+c.payLp) : 0;
+// タグ: free words on a card (c.tags), used by effects, conditions and costs
+const tagsOf = c => c && Array.isArray(c.tags) ? c.tags.filter(Boolean) : [];
+const hasTag = (id, tag) => !!tag && tagsOf(card(id)).includes(tag);
+const parseTags = s => [...new Set(String(s || "").split(/[\s,、，#＃]+/).map(t => t.trim()).filter(Boolean))].slice(0, 8);
+const payDiscOf = c => c && c.payDisc > 0 ? Math.round(+c.payDisc) : 0;
+// 「手札をすべて捨てる」 (payDisc -1): the rest of the hand goes, however many that is (0 is fine too)
+const payDiscAll = c => !!(c && +c.payDisc === -1);
+const payMaxOf = c => c && c.payMax > 0 ? Math.round(+c.payMax) : 0;
+function extraCostText(c){ const L = [payLpOf(c) ? `LPを${payLpOf(c)}払う` : "", payDiscAll(c) ? "手札をすべて捨てる" : payDiscOf(c) ? `手札${c.payDiscTag ? `のタグ「${c.payDiscTag}」のカード` : ""}を${payDiscOf(c)}枚捨てる` : "", payMaxOf(c) ? `最大マナを${payMaxOf(c)}減らす` : ""].filter(Boolean); return L.length ? "【コスト】" + L.join("、") : ""; }
+function fxText(c){ return (c && c.token ? "【トークン】" : "") + (c && c.ex ? "【EX】" : "") + [c && c.noUse && (cardType(c) === "magic" || cardType(c) === "trap") ? "このカードは発動できない" : "", isPersist(c) ? "【永続】使ったあとも場に残る" : "", extraCostText(c), tribText(c), atkCondText(c), ssText(c), fxText0(c)].filter(Boolean).join("。"); }
+/* ================= effect blocks: いつ / もし / なにを / ちがったら =================
+   c.blocks = [{ trig, conds: [{k, op, n | name, where, match | text}], join: "and"|"or", then: [{kind, n, to}], else: [...] }]
+   Older cards (c.fx + c.combo) are read as blocks too, so everything below runs on blocks. */
+const COND_DEFS = {
+  lp:       { label: "自分のLP", who: "自分のLPが", unit: "", val: (st, s) => P(st, s).lp },
+  oppLp:    { label: "相手のLP", who: "相手のLPが", unit: "", val: (st, s) => P(st, O(s)).lp },
+  hand:     { label: "自分の手札の枚数", who: "自分の手札が", unit: "枚", val: (st, s) => P(st, s).hand.length },
+  grave:    { label: "自分の墓地の枚数", who: "自分の墓地が", unit: "枚", val: (st, s) => P(st, s).grave.length },
+  otherMon: { label: "自分のほかのモンスターの数（このカード以外）", who: "自分のほかのモンスターが", unit: "体", val: (st, s, c, ctx) => P(st, s).mz.filter((m, i) => m && !(ctx && ctx.zone != null && i === ctx.zone)).length },
+  myMon:    { label: "自分のモンスターの数", who: "自分のモンスターが", unit: "体", val: (st, s) => P(st, s).mz.filter(Boolean).length },
+  oppMon:   { label: "相手のモンスターの数", who: "相手のモンスターが", unit: "体", val: (st, s) => P(st, O(s)).mz.filter(Boolean).length },
+  mana:     { label: "自分のマナ", who: "自分のマナが", unit: "", val: (st, s) => { const m = P(st, s).mana; return m ? m.cur : 0; } },
+  block:    { label: "自分のブロック", who: "自分のブロックが", unit: "", val: (st, s) => P(st, s).block || 0 },
+  oppVuln:  { label: "相手の弱体", who: "相手の弱体が", unit: "", val: (st, s) => P(st, O(s)).vuln || 0 },
+  lostNow:  { label: "このターンLPを失った回数", who: "このターンLPを失った回数が", unit: "回", val: (st, s) => P(st, s).lostNow || 0 },
+  exNow:    { label: "このターン廃棄した枚数", who: "このターン廃棄したカードが", unit: "枚", val: (st, s) => P(st, s).exhaustedNow || 0 },
+  exile:    { label: "廃棄札の枚数", who: "廃棄札のカードが", unit: "枚", val: (st, s) => (P(st, s).exile || []).length },
+  atkNow:   { label: "このターン使ったアタックの枚数", who: "このターン使ったアタックが", unit: "枚", val: (st, s) => P(st, s).atkNow || 0 },
+  myStr:    { label: "自分の筋力", who: "自分の筋力が", unit: "", val: (st, s) => P(st, s).str || 0 },
+  sameHand: { label: "手札のこのカードの枚数", who: "手札にこのカードが", unit: "枚", val: (st, s, c, ctx) => P(st, s).hand.filter(id => id === c.id).length + (ctx && ctx.fromHand ? 1 : 0) },
+  card:     { label: "特定のカードがある" },
+  costDeck: { label: "自分がコストデッキを使っている" },
+  ask:      { label: "質問して「はい」と答えた" }
+};
+const OPS = { ge: "以上", le: "以下" };
+// 「○1つにつき」: what a number can grow with (ダメージ / ブロック / マナ / 回復, or the number of hits)
+const PER_DEFS = {
+  myBlock:  { label: "自分のブロック", u: "1", val: (st, s) => P(st, s).block || 0 },
+  strike:   { label: "名前に「ストライク」が入った自分のカード", u: "1枚", val: (st, s) => { const p = P(st, s); return [...p.hand, ...p.deck, ...p.grave].filter(id => /ストライク/.test(card(id).name || "")).length; } },
+  tgtVuln:  { label: "対象の弱体", u: "1", val: (st, s, c, t) => { const op = P(st, O(s)); if (typeof t === "string" && t.startsWith("m:")){ const m = op.mz[+t.slice(2)]; return m ? m.vuln || 0 : 0; } return op.vuln || 0; } },
+  exile:    { label: "廃棄札のカード", u: "1枚", val: (st, s) => (P(st, s).exile || []).length },
+  exN:      { label: "直前の効果で廃棄したカード", u: "1枚", val: (st, s, c, t, ctx) => (ctx && ctx.exN) || 0 },
+  used:     { label: "この試合でこのカードを使った回数（今回をのぞく）", u: "1回", val: (st, s, c) => Math.max(0, ((P(st, s).usedCount || {})[c && c.id] || 0) - 1) },
+  lostTotal:{ label: "この試合でLPを失った回数", u: "1回", val: (st, s) => P(st, s).lostTotal || 0 },
+  handAtk:  { label: "手札のアタック", u: "1枚", val: (st, s) => P(st, s).hand.filter(id => isAttackCard(card(id))).length },
+  atkNow:   { label: "このターン使ったアタック", u: "1枚", val: (st, s) => P(st, s).atkNow || 0 }
+};
+const PER_OK = { dmg: true, block: true, manaNow: true, heal: true, draw: true };
+const perVal = (st, s, c, fx, t, ctx) => PER_DEFS[fx.per] ? PER_DEFS[fx.per].val(st, s, c, t, ctx) : 0;
+const perText = m => !m.per || !PER_DEFS[m.per] ? "" : m.hits ? `（${PER_DEFS[m.per].label}${PER_DEFS[m.per].u}につき、もう1回）` : `（${PER_DEFS[m.per].label}${PER_DEFS[m.per].u}につき+${m.pm ?? 1}）`;
+const isNumCond = k => !!(COND_DEFS[k] && COND_DEFS[k].val);
+function condPhrase(x){
+  if (x.k === "card"){ const cnt = +(x.cnt ?? 1), op = x.op === "le" ? "le" : "ge"; return `${x.match === "tag" ? `タグ「${x.name || "？"}」のカード` : x.match === "part" ? `名前に「${x.name || "？"}」が入ったカード` : `「${x.name || "？"}」`}が自分の${WHERE[x.where] || WHERE.field}に${cnt === 1 && op === "ge" ? "ある" : `${cnt}枚${OPS[op]}ある`}`; }
+  if (x.k === "ask") return `「${x.text || "？"}」に「はい」`;
+  if (x.k === "costDeck") return "自分がコストデッキを使っている";
+  const d = COND_DEFS[x.k]; return `${d.who}${x.n ?? 0}${d.unit}${OPS[x.op] || OPS.ge}`;
+}
+const condsText = b => b.conds && b.conds.length ? b.conds.map(condPhrase).join(b.join === "or" ? "か、" : "、かつ") + "なら、" : "";
+function condMet(st, s, c, x, ctx){
+  if (x.k === "costDeck") return !!P(st, s).mana;
+  if (x.k === "card"){ if (!x.name) return false; const v = comboCount(st, s, { name: x.name, where: WHERE[x.where] ? x.where : "field", match: x.match === "part" || x.match === "tag" ? x.match : "exact" }, ctx || {}), n = Math.max(0, +(x.cnt ?? 1)); return x.op === "le" ? v <= n : v >= n; }
+  const d = COND_DEFS[x.k]; if (!d || !d.val) return true;
+  const v = d.val(st, s, c, ctx), n = +x.n || 0;
+  return x.op === "le" ? v <= n : v >= n;
+}
+function normTrig(c, trig){
+  if (c && c.relicView) return RELIC_TRIGS.includes(trig) ? trig : "gain";
+  const t = cardType(c);
+  if (t === "monster"){ const k = OLD_TRIG[trig] || trig; return MON_TRIGS.includes(k) ? k : "summon"; }
+  if (t === "equip") return EQ_TRIGS.includes(trig) ? trig : "attach";
+  if (isPersist(c)) return PERSIST_TRIGS.includes(trig) ? trig : "use";
+  return "use";
+}
+const cleanEff = e => e && KINDS[e.kind] && e.kind !== "none" ? { kind: e.kind, ...(e.n != null ? { n: e.n } : {}), ...(e.to && e.to !== "one" ? { to: e.to } : {}), ...(KINDS[e.kind].name && e.into ? { into: String(e.into).slice(0, 40) } : {}), ...(e.times > 1 ? { times: Math.min(20, Math.round(e.times)) } : {}), ...(e.per && PER_DEFS[e.per] && PER_OK[e.kind] ? { per: e.per, pm: e.pm ?? 1, ...(e.hits && e.kind === "dmg" ? { hits: true } : {}) } : {}) } : null;
+const LEGACY_COND = { lp: { k: "lp", op: "le" }, grave: { k: "grave", op: "ge" }, hand: { k: "sameHand", op: "ge" } };
+function blocksOf(c){
+  if (!c) return [];
+  if (Array.isArray(c.blocks)) return c.blocks.filter(b => b && typeof b === "object").map(b => ({
+    trig: normTrig(c, b.trig), join: b.join === "or" ? "or" : "and",
+    conds: (Array.isArray(b.conds) ? b.conds : []).filter(x => x && COND_DEFS[x.k]),
+    then: (Array.isArray(b.then) ? b.then : []).map(cleanEff).filter(Boolean),
+    else: (Array.isArray(b.else) ? b.else : []).map(cleanEff).filter(Boolean)
+  })).filter(b => b.then.length || b.else.length);
+  const out = [], fx = normFx0(c), cb = normCombo(c);
+  if (fx){
+    const conds = [];
+    if (fx.ask) conds.push({ k: "ask", text: fx.ask });
+    if (fx.kind === "win" && LEGACY_COND[fx.cond]) conds.push({ ...LEGACY_COND[fx.cond], n: fx.cn });
+    out.push({ trig: fx.trig, join: "and", conds, then: [fx, ...moreFx(fx)].map(cleanEff).filter(Boolean), else: [] });
+  }
+  if (cb) out.push({ trig: cb.trig, join: "and", conds: [{ k: "card", name: cb.name, where: cb.where, match: cb.match }], then: [cleanEff(cb)].filter(Boolean), else: [] });
+  return out;
+}
+const hasTrig = (c, trig) => blocksOf(c).some(b => b.trig === trig);
+// the words for a list of effects (the same rules the single effect had: 同じ相手, 装備したモンスター, スパイア風の狙い先)
+function effsText(c, effs){
+  const spire = c.frame === "spire" || !!c.potionView, t = cardType(c), one = x => !x.to || x.to === "one", aim = x => ["dmg", "bash", "vuln", "weak"].includes(x.kind) && one(x);
+  // the same effect several times in a row reads as 「…を4回」
+  const G2 = [];
+  effs.forEach(m => { const cnt = m.times > 1 ? m.times : 1, key = JSON.stringify({ ...m, times: 1 }), last = G2[G2.length - 1]; if (last && last.key === key) last.cnt += cnt; else G2.push({ m, key, cnt }); });
+  let out = G2.map((g, k) => {
+    const m = g.m;
+    // base 0 + 「○1つにつき」 reads as 「○1つにつき100ダメージ」
+    const pz = m.per && !m.hits && !m.n && PER_DEFS[m.per], nn = pz ? `${PER_DEFS[m.per].label}${PER_DEFS[m.per].u}につき${m.pm ?? 1}` : m.n;
+    let tx = (m.to && TARGETABLE[m.kind] ? toText(m.kind, nn, m.to, spire) : KINDS[m.kind].text(nn, m.into)) + (pz ? "" : perText(m));
+    if (spire && k > 0 && aim(m) && G2.slice(0, k).some(x => aim(x.m))) tx = tx.replace(/^相手(に|を)/, "同じ相手$1");
+    if (g.cnt > 1) tx += /ダメージ$/.test(tx) ? `を${g.cnt}回` : `（${g.cnt}回）`;
+    return tx;
+  }).join("、");
+  if (t === "equip") out = out.replace(/このモンスター/g, "装備したモンスター");
+  if (spire) out = out.replace(/(?<!同じ)相手に([^、。]+?)ダメージ/g, "相手のモンスター1体（いなければ相手）に$1ダメージ").replace(/(?<!同じ)相手を弱体/g, "相手のモンスター1体（いなければ相手）を弱体").replace(/(?<!同じ)相手を脱力/g, "相手のモンスター1体（いなければ相手）を脱力");
+  return out;
+}
+function blockText(c, b){
+  const t = cardType(c), isMon = t === "monster" || t === "equip";
+  const head = c && c.relicView ? `【${RELIC_TRIG_LABEL[b.trig] || ""}】` : isMon ? `【${trigLabel(t, b.trig)}】` : isPersist(c) && b.trig !== "use" ? `【${PERSIST_TRIG_LABEL[b.trig]}】` : "";
+  let s = head + condsText(b) + (b.then.length ? effsText(c, b.then) : "なにもしない");
+  if (b.conds.length && b.else.length) s += `。そうでなければ、${effsText(c, b.else)}`;
+  return s;
+}
+function fxText0(c){ const out = blocksOf(c).map(b => blockText(c, b)).join("。"); return c && c.costX && out ? "【X回くり返す】" + out : out; }
+

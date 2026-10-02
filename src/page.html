@@ -1,0 +1,434 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<title>カードバトルしようぜ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Oxanium:wght@600;700;800&family=Dela+Gothic+One&family=Klee+One:wght@600&family=Zen+Maru+Gothic:wght@500;700&family=Yusei+Magic&family=Hachi+Maru+Pop&family=DotGothic16&family=Kaisei+Decol:wght@700&family=Reggae+One&family=Yomogi&family=M+PLUS+Rounded+1c:wght@800&family=WDXL+Lubrifont+JP+N&display=swap">
+<style>
+{{STYLE}}</style>
+<style>html,body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
+</head>
+<body>
+
+<div id="gate" class="gate" hidden>
+  <form class="gate-box" id="gateForm">
+    <h1 class="logo" style="font-size:clamp(28px,5vw,48px)">ORIGINAL  CARD BATTLE</h1>
+    <p>メンバー専用です。合言葉を入れてね。</p>
+    <input type="password" id="gateKey" autocomplete="current-password" placeholder="合言葉" aria-label="合言葉">
+    <button class="primary" type="submit" id="gateBtn">入る</button>
+    <p class="note" id="gateMsg" role="status"></p>
+  </form>
+</div>
+<section class="home" id="home" hidden>
+  <div class="home-title"><h1 class="logo">ORIGINAL  CARD BATTLE</h1><p class="sub">みんなでカード描いてバトルしようぜの会</p></div>
+  <nav class="home-menu" aria-label="メニュー">
+    <button class="hbtn" data-go="play" aria-label="Battle（対戦）"><span class="en">Battle</span></button>
+    <button class="hbtn" data-go="make" aria-label="Card（カード工房）"><span class="en">Card</span></button>
+    <button class="hbtn" data-go="deck" aria-label="Deck（デッキ）"><span class="en">Deck</span></button>
+  </nav>
+  <div class="showcase" id="showcase" aria-live="polite"></div>
+  <div class="home-foot">
+    <button class="me-chip" data-go="me" title="マイページをひらく"><span class="av" id="meAv"></span><span class="nm" id="meName">Player</span></button>
+    <button class="guide-btn" data-go="rules" aria-label="Guide（ルール）"><span class="en">Guide</span></button>
+  </div>
+</section>
+<div class="sheet" id="sheet">
+  <header class="top">
+    <button class="logo-btn" data-go="home" title="タイトルにもどる">ORIGINAL CARD BATTLE<small>みんなでカード描いてバトルしようぜの会</small></button>
+    <nav class="tabs" role="tablist">
+      <button role="tab" data-tab="play" aria-selected="true">Battle<small>対戦</small></button>
+      <button role="tab" data-tab="make" aria-selected="false">Card<small>カード工房</small></button>
+      <button role="tab" data-tab="deck" aria-selected="false">Deck<small>デッキ</small></button>
+      <button role="tab" data-tab="trade" aria-selected="false">Trade<small>交換</small><span class="tbadge" id="tradeBadge" hidden></span></button>
+      <button role="tab" data-tab="me" aria-selected="false">My<small>マイページ</small></button>
+      <button role="tab" data-tab="rules" aria-selected="false">Guide<small>ルール</small></button>
+    </nav>
+  </header>
+
+  <!-- PLAY -->
+  <section id="tab-play">
+    <div id="lobby">
+      <div class="grid2">
+        <div class="box" style="display:flex;flex-direction:column;gap:12px">
+          <h2>対戦のじゅんび</h2>
+          <label class="f">プレイヤー名<input type="text" id="pname" maxlength="16"></label>
+          <label class="f">使うデッキ<select id="deckSel"></select></label>
+          <div id="offlineNote" class="offline" hidden>サーバーにつながっていないので、オンライン対戦とカードの共有は使えません（config.js の設定を確認してね）。いまはこのブラウザだけに保存され、CPU練習ができます。</div>
+        </div>
+        <div class="box" style="display:flex;flex-direction:column;gap:14px">
+          <h2>オンライン対戦</h2>
+          <div class="row"><button class="primary" id="btnCreate">部屋を作る</button><span class="note">部屋一覧に出るので、だれでも入れます</span></div>
+          <label class="row" style="gap:6px;font-size:13px;cursor:pointer"><input type="checkbox" id="roomPrivate"> 部屋一覧に出さない（部屋コードを知ってる人だけ）</label>
+          <div class="row"><input type="text" class="code-in" id="joinCode" maxlength="4" placeholder="ABCD" autocomplete="off"><button id="btnJoin">部屋に入る</button></div>
+          <div id="rejoin" class="row" hidden></div>
+          <div id="roomList" class="roomlist"></div>
+          <hr style="border:none;border-top:2px dashed var(--line);width:100%;margin:2px 0">
+          <div class="row"><button id="btnCpu">CPUと練習する</button><span class="note">ルールやカードのお試しに</span></div>
+          <label class="f">CPUが使うデッキ<select id="cpuDeckSel"></select></label>
+        </div>
+      </div>
+    </div>
+    <div id="waiting" class="box" hidden style="text-align:center;display:flex;flex-direction:column;gap:12px;align-items:center"></div>
+    <div id="board" hidden></div>
+  </section>
+
+  <!-- MAKE -->
+  <section id="tab-make" hidden>
+    <div class="maker">
+      <div class="mk-left"><div class="card editor" id="editCard"><div class="c-in">
+        <span class="c-cost" id="mkCostBadge" hidden></span><div class="c-name"><input type="text" id="mkName" maxlength="40" placeholder="カード名"></div>
+        <div class="c-art"><canvas id="cv" width="560" height="400" aria-label="イラストを描くところ"></canvas><div class="fl-guide" id="flGuide" hidden>ここから下は半透明の文字の欄</div><div class="c-tab" id="mkTab">モンスター</div></div>
+        <div class="c-text">
+          <div class="fxline" id="mkFxLine"></div>
+          <textarea id="mkEff" maxlength="120" placeholder="カードに書く文（なくてもいい）。書くと、自動の効果の文の代わりにカードに出る。本来の効果はカードを開くと見られる"></textarea>
+          <textarea id="mkFlv" maxlength="80" placeholder="フレーバーテキスト（なくてもいい）"></textarea>
+          <div class="c-atk" id="atkRow">ATK <input type="text" inputmode="numeric" id="mkAtk" value="300" aria-label="ATK（∞も入力できます）"></div>
+          <div class="c-atk" id="eqRow" hidden>ATK ± <input type="number" id="mkEq" step="1" value="200"></div>
+        </div>
+      </div></div>
+      <div class="row" id="mkViewRow" hidden style="justify-content:center;gap:8px"><span class="note">見ているのは：</span><div class="seg" id="mkView"><button data-v="cost" aria-pressed="false">コストデッキ版</button><button data-v="free" aria-pressed="true">コストなし版</button></div></div>
+      <p class="note" id="mkViewNote" hidden style="margin:0;max-width:340px;text-align:center">生贄召喚と攻撃の条件は、コストデッキとコストなしデッキで別々に決められます（効果のちがいは「もし：自分がコストデッキを使っている」で）</p>
+      </div>
+      <div class="tools-col">
+        <h2 id="mkTitle">カードを描く</h2>
+        <div><h3>つくるもの</h3><div class="seg" id="mkKind"><button data-k="card" aria-pressed="true">カード</button><button data-k="potion" aria-pressed="false">カード以外</button></div>
+          <div class="row" id="mkKindSub" hidden style="margin-top:8px;gap:8px;align-items:center"><span class="note">なにを：</span><div class="seg" id="mkKind2"><button data-k2="potion" aria-pressed="true">ポーション</button><button data-k2="relic" aria-pressed="false">レリック</button></div><span class="note" id="mkKindNote">選択の祭壇を使うデッキで、モンスターを倒すと手に入ることがある</span></div>
+          <label class="row" id="neowRow" hidden style="gap:6px;font-weight:700;cursor:pointer;margin-top:8px"><input type="checkbox" id="mkNeow"> ネオーレリック（試合のはじめのレリック選びに出る。ふつうの戦闘では手に入らない）</label></div>
+        <div id="mkTypeWrap"><h3>カードの種類</h3><div class="seg" id="mkType"><button data-t="monster" aria-pressed="true">モンスター</button><button data-t="magic" aria-pressed="false">魔法</button><button data-t="equip" aria-pressed="false">装備</button><button data-t="trap" aria-pressed="false">罠</button><button data-t="power" aria-pressed="false" hidden>パワー</button></div></div>
+        <label class="row" id="quickRow" hidden style="gap:6px;font-weight:700;cursor:pointer"><input type="checkbox" id="mkQuick"> 速攻魔法（相手のターンにも使える）</label>
+        <label class="row" id="persistRow" hidden style="gap:6px;font-weight:700;cursor:pointer"><input type="checkbox" id="mkPersist"> 永続（使ったあとも魔法・罠ゾーンに残って、効果が続く・最大5枚）</label>
+        <label class="row" id="exhaustRow" hidden style="gap:6px;font-weight:700;cursor:pointer"><input type="checkbox" id="mkExhaust"> 廃棄（使ったら墓地に行かず、そのゲームから消える）</label>
+        <label class="row" id="noUseRow" hidden style="gap:6px;font-weight:700;cursor:pointer"><input type="checkbox" id="mkNoUse"> 発動できない（手札からもセットしても使えない。相手の場にセットして場所をふさぐ用）</label>
+        <div class="row pro-only" id="payRow" style="gap:6px 12px;flex-wrap:wrap;align-items:center"><b>追加コスト</b><label class="row" style="gap:4px">LPを<input type="number" id="mkPayLp" min="0" step="10" value="0" style="width:84px">払う</label><label class="row" style="gap:4px">手札を<input type="number" id="mkPayDisc" min="0" max="5" step="1" value="0" style="width:64px">枚捨てる</label><label class="row" style="gap:4px;cursor:pointer"><input type="checkbox" id="mkPayDiscAll">手札を全部</label><label class="row" style="gap:4px">捨てるのはタグ<input type="text" id="mkPayDiscTag" list="tagNames" maxlength="40" placeholder="（なんでも）" style="width:130px">のカード</label><label class="row" style="gap:4px">最大マナを<input type="number" id="mkPayMax" min="0" max="5" step="1" value="0" style="width:64px">減らす</label><span class="muted" style="font-size:13px">0ならなし。払えないと使えない</span></div>
+        <div class="mk-tabs" id="mkTabs" role="tablist">
+          <button data-pane="draw" aria-pressed="true">絵</button><button data-pane="look" aria-pressed="false">見た目</button><button data-pane="fx" aria-pressed="false">効果・能力</button><button data-pane="deck" aria-pressed="false">デッキ</button>
+        </div>
+
+        <div class="mk-pane" data-pane="draw">
+          <div><h3>ペンの色</h3><div class="swatches" id="swatches"></div></div>
+          <div><h3>太さ</h3><div class="seg" id="sizes"></div></div>
+          <div class="row">
+            <button class="small" id="btnErase" aria-pressed="false">消しゴム</button>
+            <button class="small" id="btnUndo">1つ戻す</button>
+            <button class="small danger" id="btnClear">ぜんぶ消す</button>
+            <button class="small primary" id="btnBigDraw" type="button">大きく描く</button>
+            <span class="btn filebtn small" style="box-shadow:0 2px 0 var(--ink);padding:3px 10px;font-size:13px;border-radius:9px">写真を読みこむ<input type="file" id="mkFile" accept="image/*"></span>
+            <button class="small" id="phEdit" hidden>写真の位置を変える</button>
+          </div>
+          <div class="fxform" id="photoPanel" hidden>
+            <h3 style="margin:0">写真の位置を調整中</h3>
+            <p class="note" style="margin:0">絵の上をドラッグで移動。2本指で拡大・縮小と回転（PCはマウスホイールで拡大・縮小）。描いた線はそのまま残ります。</p>
+            <label class="f">大きさ<input type="range" id="phScale" min="10" max="400" value="100"></label>
+            <label class="f">回転<input type="range" id="phRot" min="-180" max="180" value="0"></label>
+            <div class="row"><button class="small" id="phFit">枠に合わせる</button><button class="small danger" id="phDel">写真を消す</button><button class="small primary" id="phDone">決定して描く</button></div>
+          </div>
+        </div>
+
+        <div class="mk-pane" data-pane="look" hidden>
+          <label class="f">カードの枠<select id="mkFrame"><option value="">ふつう</option><option value="socra">ソクラテスラ（紙っぽい・矢印の名前）</option><option value="spire">スパイア風（宝石のコスト・リボンの名前）</option></select></label>
+          <label class="f" id="rarityRow" hidden>レアリティ（リボンの色）<select id="mkRarity"><option value="common">コモン（鉄色）</option><option value="uncommon">アンコモン（青緑）</option><option value="rare">レア（金）</option></select></label>
+          <label class="row" style="gap:6px;font-weight:700;cursor:pointer"><input type="checkbox" id="mkFrameless"> 半フレームレス（絵を下の文字の欄まで広げる）</label>
+          <label class="row" id="flAlphaRow" hidden style="gap:8px;font-weight:700;font-size:13px">文字の欄の濃さ<input type="range" id="mkFlAlpha" min="0" max="100" step="5" value="68" style="flex:1;min-width:120px"><span id="flAlphaVal" style="min-width:3.5em">68%</span><button type="button" class="small ghost" id="btnFlAlpha">もとに戻す</button></label>
+          <label class="row" id="tEdgeRow" hidden style="gap:6px;font-weight:700;font-size:13px;cursor:pointer"><input type="checkbox" id="mkTEdge"> 文字に白いふちをつける（絵の上でも読みやすくする）</label>
+          <label class="f">文字のフォント<select id="mkFont" aria-label="カードのフォント"></select></label>
+          <div><h3>文字の大きさ</h3><div class="row"><label class="f" style="flex-direction:row;align-items:center;gap:6px">名前<select id="mkNameSize"></select></label><label class="f" style="flex-direction:row;align-items:center;gap:6px">効果・フレーバー<select id="mkTextSize"></select></label></div></div>
+          <div><h3>ふりがな</h3><div class="row"><button class="small" id="mkRuby" type="button">ふりがなをつける</button><span class="note">漢字をえらんで押すと ｜漢字《》 になるので、《》の中に読みを入れてね</span></div><div class="ruby-prev" id="rubyPrev" hidden></div></div>
+        </div>
+
+        <div class="mk-pane" data-pane="fx" hidden>
+          <div class="row" id="fxModeRow"><div class="seg" id="mkFxMode"><button type="button" data-m="easy" aria-pressed="true">かんたん</button><button type="button" data-m="pro" aria-pressed="false">こだわり</button></div><span class="note" id="fxModeNote"></span></div>
+          <div class="row" id="infRow" style="gap:8px"><button class="small" id="mkInf" type="button">ATKを∞にする</button><span class="note">ATKは上限なし。欄に「∞」と打ってもOK</span></div>
+          <details class="mk-sec" id="secFx" open>
+            <summary><span class="mk-st">自動で処理される効果</span><span class="mk-sum" id="sumFx"></span></summary>
+            <div id="bkUI"></div>
+            <div class="fxform" id="fxForm" hidden>
+              <div class="row">
+                <label class="f" id="trigWrap">いつ<select id="fxTrig"></select></label>
+                <label class="f">なにをする<select id="fxKind"></select></label>
+                <label class="f" id="fxNWrap">数<input type="number" id="fxN" min="1" max="9999" value="100"></label>
+              </div>
+              <div id="moreFx" class="more-fx"></div>
+              <button class="small" type="button" id="btnMoreFx">＋ 効果をもうひとつ追加（同じタイミングで続けて出る）</button>
+              <div class="row" id="condRow" hidden>
+                <label class="f">勝利の条件<select id="fxCond"></select></label>
+                <label class="f" id="fxCnWrap">数<input type="number" id="fxCn" min="1" max="9999" value="3"></label>
+              </div>
+              <label class="row" style="gap:6px;cursor:pointer"><input type="checkbox" id="fxAskOn"> 使う前に質問する（「はい」のときだけ効果が出る）</label>
+              <label class="f" id="fxAskWrap" hidden>質問<input type="text" id="fxAsk" maxlength="40" placeholder="例: 物理学実験を履修していますか？"></label>
+              <details id="cbBox" class="cbbox">
+              <summary>追加効果（特定のカードがあるとき）<span class="note" id="cbState"></span></summary>
+              <div class="cbin">
+              <div class="row">
+                <label class="f">カード名<input type="text" id="cbName" list="cardNames" placeholder="例: ガブリン" autocomplete="off"></label>
+                <label class="f">名前の判定<select id="cbMatch"><option value="exact">名前がぴったり同じ</option><option value="part">名前にこの文字が入っている</option></select></label>
+                <label class="f">どこにあれば<select id="cbWhere"></select></label>
+              </div>
+              <div class="row">
+                <label class="f">追加でなにをする<select id="cbKind"></select></label>
+                <label class="f" id="cbNWrap">数<input type="number" id="cbN" min="1" max="9999" value="100"></label>
+              </div>
+              <p class="note" style="margin:0">上の効果と同じタイミングで、そのカードがあれば追加で発動します。</p>
+              </div>
+              </details>
+              <datalist id="cardNames"></datalist><datalist id="tagNames"></datalist>
+              <p class="note" style="margin:0">カードに自由に書いた効果は、これまでどおりバトル中に手動ボタンで処理します。</p>
+            </div>
+          </details>
+          <details class="mk-sec" id="secAbs">
+            <summary><span class="mk-st" id="secAbsTitle">能力</span><span class="mk-sum" id="sumAbs"></span></summary>
+            <div class="fxform" id="absBox">
+              <h3 style="margin:0" id="absHead" hidden>能力</h3>
+              <div class="abs-list" id="mkAbs"></div>
+            </div>
+          </details>
+          <details class="mk-sec" id="secEq">
+            <summary><span class="mk-st" id="secEqTitle">装備</span><span class="mk-sum" id="sumEq"></span></summary>
+            <div class="fxform" id="eqNote" hidden>
+              <p class="note" style="margin:0">場のモンスター（相手のでもOK）にくっつきます。いつでも何枚でも付けられるけど、モンスターの「装備キャパ」をこえる分は付けられません。カードの右下の「ATK ±」に上げる量（下げるならマイナス、変えないなら0）を入れてね。</p>
+              <label class="f">装備コスト（キャパをいくつ使うか）<input type="number" id="mkEqCost" min="0" max="20" value="1"></label>
+              <select id="mkEqAb" hidden></select>
+            </div>
+            <div class="fxform" id="capRow">
+              <label class="f">装備キャパ（付けられる装備コストの合計）<input type="number" id="mkEqCap" min="0" max="99" placeholder="空欄ならATK÷100"></label>
+            </div>
+          </details>
+          <details class="mk-sec pro-only" id="secAtk">
+            <summary><span class="mk-st">攻撃の条件</span><span class="mk-sum" id="sumAtk"></span></summary>
+            <div class="fxform">
+              <div id="atkCondUI" class="bk-col"></div>
+              <button class="small bk-add" type="button" id="btnAddAtkCond">＋ 条件を足す</button>
+              <p class="note" style="margin:0">条件を満たしているときだけ攻撃できる。なにも足さなければ、いつでも攻撃できる（例：「自分のほかのモンスターの数が2体以上」）</p>
+            </div>
+          </details>
+          <details class="mk-sec pro-only" id="secSs">
+            <summary><span class="mk-st">召喚の条件（生贄・特殊召喚）</span><span class="mk-sum" id="sumSs"></span></summary>
+            <div class="fxform" id="ssBox">
+              <label class="row" style="gap:6px;font-weight:700">生贄召喚：召喚するとき自分のモンスターを<select id="mkTrib"><option value="0">0（いらない）</option><option value="1">1</option><option value="2">2</option><option value="3">3</option></select>体 墓地へ送る</label>
+              <label class="row" style="gap:6px">生贄にできるのはタグ<input type="text" id="mkTribTag" list="tagNames" maxlength="40" placeholder="（なんでも）" style="width:140px">のモンスターだけ</label>
+              <label class="row" style="gap:6px;font-weight:700;cursor:pointer"><input type="checkbox" id="ssOn"> 手札から特殊召喚できる</label>
+              <div id="ssOpts" hidden>
+                <div class="row"><label class="f">条件<select id="ssCond"></select></label><label class="f" id="ssNWrap">数<input type="number" id="ssN" min="0" max="9999" value="1"></label><label class="f" id="ssNameWrap">名前<input type="text" id="ssName" maxlength="20" placeholder="例: ガブリン"></label></div>
+                <div class="row" style="margin-top:8px"><label class="f">代わりに払うもの<select id="ssCost"></select></label><label class="f" id="ssCnWrap">数<input type="number" id="ssCn" min="1" max="9999" value="1"></label></div>
+                <label class="row" style="gap:6px;cursor:pointer;margin-top:8px"><input type="checkbox" id="ssOnly"> 普通の召喚はできない（特殊召喚でしか出せない）</label>
+                <p class="note" style="margin:6px 0 0">特殊召喚は1ターンの召喚回数を使わない（コストデッキならマナはふつうに払う）。特殊召喚で出たときは「召喚したとき」の効果は出ず、「特殊召喚したとき」の効果が出る。</p>
+              </div>
+            </div>
+          </details>
+        </div>
+
+        <div class="mk-pane" data-pane="deck" hidden>
+          <div><h3>使えるデッキ</h3><div class="seg" id="mkMode"><button data-m="normal" aria-pressed="true">ふつうのデッキ</button><button data-m="cost" aria-pressed="false">コストデッキ</button><button data-m="both" aria-pressed="false">どちらでも</button></div>
+          <label class="f" id="costRow" style="flex-direction:row;align-items:center;gap:10px;margin-top:8px" hidden>コスト<select id="mkCost"></select></label>
+          <p class="note" id="modeNote" style="margin:4px 0 0"></p></div>
+          <label class="f">タグ（スペースかカンマで区切る・8個まで）<input type="text" id="mkTags" list="tagNames" maxlength="80" placeholder="例: アイアンクラッド 炎"></label>
+          <label class="row" id="exRow" style="gap:6px;font-weight:700;cursor:pointer"><input type="checkbox" id="mkEx"> EXデッキのカード（山札には入らず、EXデッキから出す・使う）</label>
+          <label class="row pro-only" id="tokenRow" style="gap:6px;font-weight:700;cursor:pointer"><input type="checkbox" id="mkToken"> トークン（デッキには入れられない。効果で生み出されるだけのカード）</label>
+          <label class="f" style="flex-direction:row;align-items:center;gap:10px">デッキに入れられる枚数<select id="mkLimit"><option value="1">1枚まで</option><option value="2">2枚まで</option><option value="3" selected>3枚まで</option><option value="0">制限なし</option></select></label>
+        </div>
+
+        <div class="row mk-save"><button class="primary" id="btnSave">カードを保存</button><button class="ghost" id="btnNew" hidden>新しく描く</button></div>
+      </div>
+    </div>
+    <div style="margin-top:28px">
+      <div class="row" style="justify-content:space-between;margin-bottom:12px">
+        <h2 style="margin:0">カード図鑑</h2>
+        <div class="seg" id="galFilter"><button aria-pressed="true" data-f="all">みんなのカード</button><button aria-pressed="false" data-f="mine">自分のカード</button></div>
+      </div>
+      <div class="filters" id="galFilters"></div>
+      <div class="row" id="adminTagRow" hidden style="gap:8px;margin:-4px 0 12px;align-items:center"><span class="note">管理者：いま表示中のカードに</span><input type="text" id="bulkTag" list="tagNames" maxlength="40" placeholder="タグ" style="width:160px"><button class="small" id="btnBulkTag" type="button">タグを一括でつける</button><span class="note">（ヒント：検索に「スパイア」と入れるとスパイア風のカードだけになる）</span></div>
+      <div class="gallery" id="gallery"></div>
+      <div id="potWrap" hidden style="margin-top:22px"><h3 style="margin:0 0 10px">ポーション（カード以外）</h3><div class="gallery" id="potGallery"></div></div>
+      <div id="relWrap" hidden style="margin-top:22px"><h3 style="margin:0 0 10px">レリック（カード以外）</h3><div class="gallery" id="relGallery"></div></div>
+    </div>
+  </section>
+
+  <!-- DECK -->
+  <section id="tab-deck" hidden>
+    <div id="deckList"></div>
+    <div id="deckEditWrap" hidden>
+    <div class="row" style="margin-bottom:12px"><button class="small ghost" id="btnDeckBack">← デッキ一覧にもどる</button><span class="note" id="deckKeyNote"></span></div>
+    <div class="box" style="display:flex;flex-direction:column;gap:12px;margin-bottom:18px">
+      <div class="row">
+        <label class="f">編集するデッキ<select id="deckEditSel"></select></label>
+        <label class="f">デッキ名<input type="text" id="deckName" maxlength="20" placeholder="例: かわいい軍団"></label>
+        <label class="row" style="gap:6px;font-weight:700;font-size:14px;cursor:pointer"><input type="checkbox" id="deckMana"> コストデッキ（マナを使って遊ぶ）</label>
+        <label class="row" style="gap:6px;font-weight:700;font-size:14px;cursor:pointer"><input type="checkbox" id="deckSpire"> スパイアデッキ（「選択の祭壇」が最初から場にあって、山札切れで負けない）</label>
+      </div>
+      <div class="row">
+        <span class="meter" id="deckMeter">0枚</span>
+        <span class="note">20枚以上なら何枚でもOK。1枚ごとの上限はカードを作った人が決めます。</span>
+        <button class="primary" id="btnDeckSave">デッキを保存</button>
+        <button class="danger small" id="btnDeckDel" hidden>このデッキを消す</button>
+      </div>
+    </div>
+    <div class="dk-edit-grid">
+    <div class="dk-edit-main">
+    <div class="filters" id="deckFilters"></div>
+    <div class="deck-pool" id="deckPool"></div>
+    </div>
+    <details class="box dkv-box dk-side" id="deckViewBox" open><summary><b>デッキの中身</b> <span class="note" id="deckViewNote"></span></summary><div id="deckView"></div></details>
+    </div>
+    <div class="deck-float" id="deckFloat"><span id="deckFloatMeter"></span><button class="primary small" id="btnDeckSave2">デッキを保存</button></div>
+    </div>
+  </section>
+
+  <!-- TRADE -->
+  <section id="tab-trade" hidden>
+    <div id="tradeOffline" class="offline" hidden>カード交換はサーバーにつながっているときだけ使えます。</div>
+    <div class="grid2" style="margin-bottom:22px">
+      <div class="box trade-box"><h2>届いた申し込み</h2><div id="tradeIn"></div></div>
+      <div class="box trade-box"><h2>送った申し込み</h2><div id="tradeOut"></div></div>
+    </div>
+    <div class="row" style="justify-content:space-between;margin-bottom:6px">
+      <h2 style="margin:0">交換できるカード</h2>
+      <span class="note">ほかの人が描いたカードのうち、まだ持っていないもの。自分で描いたカード1枚と交換を申し込めます</span>
+    </div>
+    <div class="filters" id="tradeFilters"></div>
+    <div class="gallery" id="tradePool"></div>
+    <details class="box" style="margin-top:22px"><summary style="cursor:pointer;font-weight:700">交換の記録</summary><div id="tradeHist" style="margin-top:10px"></div></details>
+  </section>
+
+  <!-- MY PAGE -->
+  <section id="tab-me" hidden>
+    <div class="grid2" style="margin-bottom:22px">
+      <div class="box me-prof">
+        <div class="me-av" id="mpAv"></div>
+        <div style="flex:1;min-width:200px;display:flex;flex-direction:column;gap:10px">
+          <label class="f">プレイヤー名<input type="text" id="mpName" maxlength="16"></label>
+          <label class="f">アイコン<select id="mpIcon"></select></label>
+          <p class="note" style="margin:0">アイコンは自分で描いたカードの絵から選べます</p>
+        </div>
+      </div>
+      <div class="box" style="display:flex;flex-direction:column;gap:10px"><h2 style="margin:0">戦績</h2><div class="me-stats" id="mpStats"></div></div>
+    </div>
+    <div class="box" id="mpAcct" style="margin-bottom:22px"></div>
+    <div class="box" style="display:flex;flex-direction:column;gap:12px;margin-bottom:22px">
+      <div class="row" style="justify-content:space-between"><h2 style="margin:0">スリーブ（カードの裏）</h2><div class="sl-now"><span class="note">いまのスリーブ</span><span id="slNow"></span></div></div>
+      <p class="note" style="margin:0">対戦で相手に見える、自分のカードの裏がわ（相手から見た手札やセットしたカード）。描いたり写真を読みこんだりして「スリーブを保存」してね。</p>
+      <div class="sl-wrap">
+        <div class="sl-card"><canvas id="slCv" width="390" height="534" aria-label="スリーブを描くところ"></canvas></div>
+        <div class="sl-tools">
+          <div><h3>ペンの色</h3><div class="swatches" id="slSw"></div></div>
+          <div class="row"><div class="seg" id="slSize"></div><button class="small" id="slErase" aria-pressed="false">消しゴム</button><button class="small" id="slUndo">1つ戻す</button></div>
+          <div class="row"><button class="small" id="slFill">今の色を背景にする</button><button class="small danger" id="slClear">ぜんぶ消す</button><span class="btn filebtn small" style="box-shadow:0 2px 0 var(--ink);padding:3px 10px;font-size:13px;border-radius:9px">写真を読みこむ<input type="file" id="slFile" accept="image/*"></span><button class="small" id="slPhEdit" hidden>写真の位置を変える</button></div>
+          <div class="fxform" id="slPhotoPanel" hidden>
+            <h3 style="margin:0">写真の位置を調整中</h3>
+            <p class="note" style="margin:0">スリーブの上をドラッグで移動、2本指で拡大・縮小と回転（PCはマウスホイールで拡大・縮小）。描いた線はそのまま残ります。</p>
+            <label class="f">大きさ<input type="range" id="slPhScale" min="10" max="400" value="100"></label>
+            <label class="f">回転<input type="range" id="slPhRot" min="-180" max="180" value="0"></label>
+            <div class="row"><button class="small" id="slPhFit">枠に合わせる</button><button class="small danger" id="slPhDel">写真を消す</button><button class="small primary" id="slPhDone">決定して描く</button></div>
+          </div>
+          <div class="row"><button class="primary" id="slSave">スリーブを保存</button><button class="ghost small" id="slReset">いつもの青いスリーブに戻す</button></div>
+        </div>
+      </div>
+    </div>
+    <div class="row" style="justify-content:space-between;margin-bottom:10px"><h2 style="margin:0">自分のデッキ</h2><button class="small" data-go="deck">デッキを作る</button></div>
+    <div class="me-decks" id="mpDecks"></div>
+    <div class="row" style="justify-content:space-between;margin:24px 0 10px"><h2 style="margin:0">自分のカード</h2><button class="small" data-go="make">カードを描く</button></div>
+    <div class="gallery" id="mpCards"></div>
+  </section>
+
+  <!-- RULES -->
+  <section id="tab-rules" class="rules" hidden>
+    <div class="grid2">
+      <div class="box">
+        <h2>基本ルール</h2>
+        <ul>
+          <li>LPは1000、手札5枚からスタート。先攻・後攻はランダム</li>
+          <li>自分のターンのはじめに1枚引く（先攻の1ターン目は引かない）</li>
+          <li>引くカードがなくなったら負け。LPが0になっても負け</li>
+          <li>場はモンスターゾーン5枠、魔法・罠ゾーン5枠</li>
+        </ul>
+        <h3 style="margin-top:14px">自分のターンでできること</h3>
+        <ol>
+          <li>モンスターの召喚は1ターンに1回だけ</li>
+          <li>オンライン対戦で、動く番の人が3分なにもしないと、相手が「進める」を押してその番を終わらせられる。3回時間切れになると負け。</li>
+          <li>EXデッキ：カード工房で「EXデッキのカード」にしたカードは、山札には入らずEXデッキに置かれる（枚数の制限なし・デッキの20枚には数えない）。対戦中は「EX」ボタンから取り出して、手札のカードと同じように召喚・発動・セット・装備できる（召喚の条件や生贄などはそのカードの設定どおり）。使わなかったらEXデッキに戻る。</li>
+          <li>スパイアデッキ（デッキ編集でチェック）は、試合のはじめ、最初の手札を引く前にレリックを3つ（秘術の巻物・若葉・轟音のほら貝）から1つえらべる。また、「選択の祭壇」が最初から魔法・罠ゾーンに表向きで置かれる。自分のターンのはじめに、ランダムなスパイア風カード3枚から1枚えらんで墓地に加えられる。山札がなくなったら墓地をシャッフルして山札に戻すので、山札切れで負けない。スパイア風のアタック（ダメージを与えるカード）は、相手の場にモンスターがいればそのモンスター1体をえらんで当てる（いなければ相手に当たる。ランダムと全体は別）。モンスターに当てたときは、ダメージがATK以上なら破壊、与えたダメージはそのモンスターにダメージカウンターとして乗り続けて（ATKは変わらない）、カウンターの合計がATK以上になったら破壊。祭壇があると自分のマナは毎ターン3で固定。祭壇の候補（カード報酬）に出るのはタグ「アイアンクラッド」のついたスパイア風カードだけ（攻撃・防御・強打は出ない）。スパイア風カードはセットできない。コストXのカードは、使うときにあるマナを全部使って、そのぶん（X回）効果をくり返す。「次に使う○○のコストを0にする」は、次にそのタイプのスパイア風カードを使うまで続く。候補はレアリティで出やすさが変わる（コモン6：アンコモン3：レア1）。ブロックは次の自分のターンのはじめまで、受けるダメージを先に引き受けてくれる（残った分だけLPが減る）。弱体になったプレイヤーやモンスターは受けるダメージが1.5倍（持ち主のターンのはじめに1へって、0でとける）。祭壇があるあいだは、自分のターンのはじめに手札が5枚になるまで引いて、ターンのおわりに手札をすべて墓地に捨てる。デッキの枚数は自由で、モンスターが入っていなくてもOK。</li>
+          <li>筋力：カードで与えるダメージが1回ごとに+筋力（マイナスなら減る）。自分のモンスターがプレイヤーに与える戦闘ダメージにも足される。脱力：カードで与えるダメージと、そのモンスターの戦闘ダメージが0.75倍。自分のターンの終わりに1減る。</li>
+          <li>「永続」の魔法・罠（スパイア風ではパワー）は、使ったあとも魔法・罠ゾーンに表向きで残って、書いてあるタイミング（ターンのはじめ、召喚するたび など）で何度も効果が出る。ゾーンは5つまでなので、置けるのも5枚まで。</li>
+          <li>「廃棄」がついた魔法・罠は、使ったあと墓地に行かず、そのゲームからなくなる（墓地から戻す効果でも戻せない）。</li>
+          <li>「特殊召喚」できるモンスターは、カードに書いた条件を満たせば手札から出せる（1ターンの召喚回数は使わない）。特殊召喚で出たときは「召喚したとき」の効果は出ず、「特殊召喚したとき」の効果が出る。墓地から場に出す効果も特殊召喚。手札からの特殊召喚は、普通の召喚と同じく相手が打ち消しで無効にできる（払ったものは戻らない）</li>
+          <li>魔法は手札から発動するか、セットしてあとで発動</li>
+          <li>装備は、場のモンスター（相手のでもOK）にいつでもくっつけられる。ATKを上げ下げしたり、能力や効果を付けたりする。モンスターごとに「装備キャパ」があって、付いている装備コストの合計がキャパまでしか付けられない（キャパの指定がなければATK÷100）。装備は左から並んでいて、「左どなりに効く」装備もある。モンスターが場を離れると装備も持ち主の墓地へ</li>
+          <li>罠はセットする。次の相手ターン以降に発動できる</li>
+          <li>モンスターの召喚も、相手が「打ち消し」を持っていればチェーンできる。打ち消されたモンスターは墓地へ（召喚の権利・マナは戻らない）</li>
+          <li>魔法・罠が発動されたら、相手は罠か速攻魔法で「チェーン」できる。チェーンは交互に何回でも続けられて、あとから発動したものから順に処理する</li>
+          <li>速攻魔法は自分のターンなら普通の魔法と同じ。相手のターンでも「攻撃されたとき」と「相手がターンを終えるとき」に、手札かセットから使える</li>
+          <li>場のモンスターはそれぞれ1回攻撃できる（先攻の1ターン目は攻撃できない）。出したターンは召喚酔いで攻撃できず、次の自分のターンから攻撃できる（「速攻」の能力があれば出たターンから攻撃できる）</li>
+          <li>終わったら「ターン終了」</li>
+        </ol>
+      </div>
+      <div class="box">
+        <h2>バトル</h2>
+        <ul>
+          <li>表示形式はなし。全部ATKだけで戦う</li>
+          <li>ATKが高いほうが勝ち。負けたモンスターは破壊されて、差分がそのプレイヤーのダメージ</li>
+          <li>ATKが同じなら両方破壊、ダメージなし（∞どうしも相打ち）</li>
+          <li>∞のダメージを受けるとLPは0になる</li>
+          <li>相手の場にモンスターがいなければ直接攻撃できる</li>
+          <li>攻撃されたとき、セットしてある罠を発動できる</li>
+        </ul>
+        <h2 style="margin-top:14px">自動で処理される効果</h2>
+        <ul>
+          <li>モンスター：「召喚したとき」「戦闘で相手を破壊したとき」「破壊されたとき」</li>
+          <li>魔法・罠：発動したとき</li>
+          <li>追加効果：「〇〇が自分の場（墓地・手札）にあれば」追加で発動する効果もつけられる</li>
+          <li>回復、ダメージ、ドロー、手札破壊、モンスター破壊、ATK±、墓地から手札へ／場へ、攻撃を無効、攻撃モンスターを破壊（罠）、ゲームに勝利（条件つきも可）</li>
+          <li>自由に書いた効果は、選んだカードのボタンや横の手動ボタンで処理</li>
+        </ul>
+      </div>
+      <div class="box">
+        <h2>コストデッキ</h2>
+        <ul>
+          <li>デッキ編集で「コストデッキ」にしたデッキは、マナを使って遊ぶ（使う人だけのルール）</li>
+          <li>自分のターンのはじめに最大マナが+1（最大10）されて全回復。先攻の1ターン目は1マナ</li>
+          <li>マナが足りれば、モンスターを1ターンに何体でも召喚できる</li>
+          <li>魔法・罠・装備は、使うときにコストを払う。セットするのはタダ</li>
+          <li>残したマナで、相手のターンに罠を発動できる</li>
+          <li>カードを作るときに「使えるデッキ」を選ぶ：ふつうのデッキ／コストデッキ／どちらでも。コストは左上の青い丸</li>
+          <li>コストデッキを編集するときは、コストデッキ用と「どちらでも」のカードだけが出てくる（ふつうのデッキはその逆）</li>
+          <li>「どちらでも」のカードは、ふつうのデッキで遊ぶときはコストが表示されない</li>
+        </ul>
+      </div>
+      <div class="box">
+        <h2>デッキ</h2>
+        <ul>
+          <li>20枚以上なら上限なし。モンスターは最低1枚</li>
+          <li>同じカードを何枚入れられるかは、カードを作った人が決める</li>
+          <li>デッキに入れられるのは「持っているカード」だけ：スターター、自分で描いたカード、交換でもらったカード</li>
+          <li>交換は Trade タブから。自分で描いたカード1枚と、相手のカード1枚をお互いにコピーで渡し合う（渡しても自分の手元からは減らない）</li>
+          <li>ATKは0以上なら上限なし（1きざみ）。「∞」にもできる</li>
+          <li>効果とは別に「フレーバーテキスト」も書ける（ゲームには影響しない）。文字の大きさも名前・効果ごとに変えられる</li>
+          <li>「半フレームレス」にすると、絵が下の文字の欄まで広がって、文字の欄が半透明になる（全身を見せたいときに）</li>
+          <li>マイページで「スリーブ」（カードの裏）を自分で描ける。対戦中、相手には自分のカードの裏がそのスリーブで見える</li>
+          <li>ふりがなは ｜漢字《かんじ》 と書く（漢字のすぐ後なら 漢字《かんじ》 だけでもOK）</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+</div>
+<div id="overlay" class="overlay" hidden></div>
+<div id="drawModal" class="draw-modal" hidden role="dialog" aria-label="絵を描く"><div class="dm-box"><div class="dm-head"><b>絵を描く</b><span class="note">ここで描けば、文字入力（手書き変換）が出てきません</span><button class="primary" id="dmDone" type="button">できた</button></div><div class="dm-canvas"></div><div class="dm-tools"></div></div></div>
+<div id="potTray" hidden></div>
+<div id="cardView" class="overlay" hidden></div>
+<div id="tradeDlg" class="overlay" hidden></div>
+<div id="detailPop" class="pop" role="dialog" aria-label="カード詳細" hidden></div>
+<div id="toast" hidden></div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="config.js"></script>
+<script>
+(() => {
+"use strict";
+{{SCRIPT}}})();
+</script>
+
+</body>
+</html>
