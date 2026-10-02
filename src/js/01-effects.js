@@ -268,15 +268,26 @@ const TO_ALL = { dmg: "dmgAll", vuln: "vulnAll", weak: "weakAll", atkDown: "atkD
 const TO_LEGACY = { dmgRand: ["dmg", "random"], dmgAll: ["dmg", "all"], vulnAll: ["vuln", "all"], weakAll: ["weak", "all"], atkDownAll: ["atkDown", "all"], charmAll: ["charm", "all"], destroyAll: ["destroy", "all"] };
 const hitsPlayer = k => k === "dmg" || k === "vuln" || k === "weak";
 // the words for who gets it: 相手 / 相手のモンスター …
-function toPhrase(kind, to, spire){
+const SIDED_KINDS = new Set(["dmg", "dmgAll", "dmgRand", "bash", "vuln", "vulnAll", "weak", "weakAll", "atkDown", "atkDownAll", "charm", "charmAll", "destroy", "destroyAll"]);
+// 「自分／相手」の「○体・全体・ランダムに○回」
+function toPhrase(kind, to, spire, tn, side){
+  const w = toPhrase0(kind, to, spire, tn);
+  return side === "me" ? w.replace(/ランダムな敵（相手か相手のモンスター）/g, "ランダムに自分か自分のモンスター").replace(/相手/g, "自分") : w;
+}
+function toPhrase0(kind, to, spire, tn){
   const pl = hitsPlayer(kind);
+  if (to === "n" && tn > 1) return pl ? `相手のモンスターちがう${tn}体（足りなければ相手も）` : `相手のモンスター${tn}体`;
   if (to === "all") return pl ? "相手と相手のモンスターすべて" : "相手のモンスターすべて";
   if (to === "random") return pl ? "ランダムな敵（相手か相手のモンスター）" : "ランダムな相手のモンスター1体";
   if (to === "two") return pl ? "相手のモンスターちがう2体（足りなければ相手も）" : "相手のモンスター2体";
   return pl ? (spire ? "相手のモンスター1体（いなければ相手）" : "相手") : "相手のモンスター1体";
 }
-function toText(kind, n, to, spire){
-  const w = toPhrase(kind, to, spire);
+function toText(kind, n, to, spire, tn, side){
+  const r = to === "random" && tn > 1 ? tn : 0, base = toText0(kind, n, to, spire, tn, side);
+  return r ? (kind === "dmg" ? `${base}を${r}回` : `${base}（${r}回）`) : base;
+}
+function toText0(kind, n, to, spire, tn, side){
+  const w = toPhrase(kind, to, spire, tn, side);
   if (kind === "dmg") return `${w}に${n}ダメージ`;
   if (kind === "vuln") return `${w}を弱体${n}にする`;
   if (kind === "weak") return `${w}を脱力${n}にする`;
@@ -290,8 +301,10 @@ function expandFx(f){
   const to = f.to, k = f.kind;
   if (!to || to === "one" || !TARGETABLE[k]) return [f];
   if (to === "all") return [{ ...f, kind: TO_ALL[k], to: null }];
-  if (to === "random") return [{ ...f, rand: true }];
+  const tn = Math.max(1, Math.min(10, Math.round(+f.tn || 1)));
+  if (to === "random") return Array.from({ length: tn }, () => ({ ...f, rand: true }));
   if (to === "two") return [{ ...f, distinct: true }, { ...f, distinct: true, ask: "" }];
+  if (to === "n") return tn > 1 ? Array.from({ length: tn }, (_, i) => ({ ...f, distinct: true, ...(i ? { ask: "" } : {}) })) : [{ ...f, to: "one" }];
   return [f];
 }
 // 追加コスト: LPを払う / 手札を捨てる / 最大マナを減らす（払えないと使えない）
@@ -370,14 +383,22 @@ function normTrig(c, trig){
   return "use";
 }
 // カードを書きかえる: だれの・どこの・どのカードを（mt）、なにを足す／上書きする（gk・gn）、新しい名前（nm）
-const MOD_TARGETS = { myHandPick: "自分の手札から1枚えらんで", myHandAll: "自分の手札すべて", myDeckAll: "自分の山札すべて", myDeckRand: "自分の山札からランダムに○枚", myNamed: "自分の手札と山札の「名前」のカードすべて", opHandAll: "相手の手札すべて", opHandRand: "相手の手札からランダムに○枚", opDeckAll: "相手の山札すべて", opDeckRand: "相手の山札からランダムに○枚", opNamed: "相手の手札と山札の「名前」のカードすべて" };
 const GRANT_KINDS = ["draw", "dmg", "heal", "block", "vuln", "weak", "discard", "manaNow", "str", "atkUp", "atkAll", "destroy", "oppDraw", "loseLp", "noDraw", "exhaustRand"];
+// どのカードを: だれの（自分／相手）・どこの（手札／山札／両方）・どう（1枚えらぶ／すべて／ランダムに○枚／名前を指定）
+const MOD_LEGACY = { myHandPick: ["me", "hand", "pick"], myHandAll: ["me", "hand", "all"], myDeckAll: ["me", "deck", "all"], myDeckRand: ["me", "deck", "rand"], myNamed: ["me", "both", "named"], opHandAll: ["op", "hand", "all"], opHandRand: ["op", "hand", "rand"], opDeckAll: ["op", "deck", "all"], opDeckRand: ["op", "deck", "rand"], opNamed: ["op", "both", "named"] };
+function modT(e){
+  const lg = e && !e.ms && MOD_LEGACY[e.mt];
+  const side = lg ? lg[0] : e && e.ms === "op" ? "op" : "me", place = lg ? lg[1] : e && ["hand", "deck", "both"].includes(e.mpl) ? e.mpl : "hand";
+  let scope = lg ? lg[2] : e && ["pick", "all", "rand", "named"].includes(e.mc) ? e.mc : "pick";
+  if (scope === "pick" && !(side === "me" && place === "hand")) scope = "rand";
+  return { side, place, scope };
+}
 function modTargetText(e){
-  const mt = (e && e.mt) || "myHandPick", n = (e && e.mn) || 1, nm = (e && e.into) || "？";
-  return { myHandPick: "自分の手札のカード1枚", myHandAll: "自分の手札のカードすべて", myDeckAll: "自分の山札のカードすべて", myDeckRand: `自分の山札のランダムなカード${n}枚`, myNamed: `自分の手札と山札の「${nm}」すべて`, opHandAll: "相手の手札のカードすべて", opHandRand: `相手の手札のランダムなカード${n}枚`, opDeckAll: "相手の山札のカードすべて", opDeckRand: `相手の山札のランダムなカード${n}枚`, opNamed: `相手の手札と山札の「${nm}」すべて` }[mt] || "カード";
+  const T = modT(e), n = (e && e.mn) || 1, nm = (e && e.into) || "？", who = T.side === "me" ? "自分" : "相手", where = { hand: "手札", deck: "山札", both: "手札と山札" }[T.place];
+  return T.scope === "pick" ? `${who}の手札のカード1枚` : T.scope === "all" ? `${who}の${where}のカードすべて` : T.scope === "rand" ? `${who}の${where}のランダムなカード${n}枚` : `${who}の${where}の「${nm}」すべて`;
 }
 function grantText(e){ const k = e && e.gk && KINDS[e.gk] && !KINDS[e.gk].mod ? e.gk : "draw"; return KINDS[k].text(e && e.gn || (smallN(k) ? 1 : 100)); }
-const cleanEff = e => e && KINDS[e.kind] && e.kind !== "none" ? { kind: e.kind, ...(e.n != null ? { n: e.n } : {}), ...(e.to && e.to !== "one" ? { to: e.to } : {}), ...(KINDS[e.kind].name && e.into ? { into: String(e.into).slice(0, 40) } : {}), ...(KINDS[e.kind].name && e.into && e.intoId && pickCardKind(e.kind) ? { intoId: String(e.intoId).slice(0, 80) } : {}), ...(e.times > 1 ? { times: Math.min(20, Math.round(e.times)) } : {}), ...(KINDS[e.kind].mod ? { mt: MOD_TARGETS[e.mt] ? e.mt : "myHandPick", ...(e.mn > 1 ? { mn: Math.min(40, Math.round(+e.mn)) } : {}), ...(e.gk && KINDS[e.gk] && !KINDS[e.gk].mod ? { gk: e.gk, gn: Math.max(1, Math.round(+e.gn || 1)) } : {}), ...(e.nm ? { nm: String(e.nm).slice(0, 20) } : {}), ...(/Named$/.test(e.mt || "") && e.into ? { into: String(e.into).slice(0, 40) } : {}) } : {}), ...(e.per && PER_DEFS[e.per] && PER_OK[e.kind] ? { per: e.per, pm: e.pm ?? 1, ...(e.hits && e.kind === "dmg" ? { hits: true } : {}) } : {}) } : null;
+const cleanEff = e => e && KINDS[e.kind] && e.kind !== "none" ? { kind: e.kind, ...(e.n != null ? { n: e.n } : {}), ...(e.to && e.to !== "one" && TARGETABLE[e.kind] ? { to: e.to } : {}), ...(TARGETABLE[e.kind] && e.side === "me" ? { side: "me" } : {}), ...(TARGETABLE[e.kind] && (e.to === "n" || e.to === "random") && e.tn > 1 ? { tn: Math.min(10, Math.round(+e.tn)) } : {}), ...(KINDS[e.kind].name && e.into ? { into: String(e.into).slice(0, 40) } : {}), ...(KINDS[e.kind].name && e.into && e.intoId && pickCardKind(e.kind) ? { intoId: String(e.intoId).slice(0, 80) } : {}), ...(e.times > 1 ? { times: Math.min(20, Math.round(e.times)) } : {}), ...(KINDS[e.kind].mod ? { ms: modT(e).side, mpl: modT(e).place, mc: modT(e).scope, ...(e.mn > 1 ? { mn: Math.min(40, Math.round(+e.mn)) } : {}), ...(e.gk && KINDS[e.gk] && !KINDS[e.gk].mod ? { gk: e.gk, gn: Math.max(1, Math.round(+e.gn || 1)) } : {}), ...(e.nm ? { nm: String(e.nm).slice(0, 20) } : {}), ...(modT(e).scope === "named" && e.into ? { into: String(e.into).slice(0, 40) } : {}) } : {}), ...(e.per && PER_DEFS[e.per] && PER_OK[e.kind] ? { per: e.per, pm: e.pm ?? 1, ...(e.hits && e.kind === "dmg" ? { hits: true } : {}) } : {}) } : null;
 const LEGACY_COND = { lp: { k: "lp", op: "le" }, grave: { k: "grave", op: "ge" }, hand: { k: "sameHand", op: "ge" } };
 function blocksOf(c){
   if (!c) return [];
@@ -408,7 +429,7 @@ function effsText(c, effs){
     const m = g.m;
     // base 0 + 「○1つにつき」 reads as 「○1つにつき100ダメージ」
     const pz = m.per && !m.hits && !m.n && PER_DEFS[m.per], nn = pz ? `${PER_DEFS[m.per].label}${PER_DEFS[m.per].u}につき${m.pm ?? 1}` : m.n;
-    let tx = (m.to && TARGETABLE[m.kind] ? toText(m.kind, nn, m.to, spire) : KINDS[m.kind].text(nn, m.into, m)) + (pz ? "" : perText(m));
+    let tx = ((m.to || m.side === "me") && TARGETABLE[m.kind] ? toText(m.kind, nn, m.to || "one", spire, m.tn, m.side) : KINDS[m.kind].text(nn, m.into, m)) + (pz ? "" : perText(m));
     if (spire && k > 0 && aim(m) && G2.slice(0, k).some(x => aim(x.m))) tx = tx.replace(/^相手(に|を)/, "同じ相手$1");
     if (g.cnt > 1) tx += /ダメージ$/.test(tx) ? `を${g.cnt}回` : `（${g.cnt}回）`;
     return tx;

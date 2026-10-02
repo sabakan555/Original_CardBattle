@@ -1549,15 +1549,26 @@ const TO_ALL = { dmg: "dmgAll", vuln: "vulnAll", weak: "weakAll", atkDown: "atkD
 const TO_LEGACY = { dmgRand: ["dmg", "random"], dmgAll: ["dmg", "all"], vulnAll: ["vuln", "all"], weakAll: ["weak", "all"], atkDownAll: ["atkDown", "all"], charmAll: ["charm", "all"], destroyAll: ["destroy", "all"] };
 const hitsPlayer = k => k === "dmg" || k === "vuln" || k === "weak";
 // the words for who gets it: 相手 / 相手のモンスター …
-function toPhrase(kind, to, spire){
+const SIDED_KINDS = new Set(["dmg", "dmgAll", "dmgRand", "bash", "vuln", "vulnAll", "weak", "weakAll", "atkDown", "atkDownAll", "charm", "charmAll", "destroy", "destroyAll"]);
+// 「自分／相手」の「○体・全体・ランダムに○回」
+function toPhrase(kind, to, spire, tn, side){
+  const w = toPhrase0(kind, to, spire, tn);
+  return side === "me" ? w.replace(/ランダムな敵（相手か相手のモンスター）/g, "ランダムに自分か自分のモンスター").replace(/相手/g, "自分") : w;
+}
+function toPhrase0(kind, to, spire, tn){
   const pl = hitsPlayer(kind);
+  if (to === "n" && tn > 1) return pl ? `相手のモンスターちがう${tn}体（足りなければ相手も）` : `相手のモンスター${tn}体`;
   if (to === "all") return pl ? "相手と相手のモンスターすべて" : "相手のモンスターすべて";
   if (to === "random") return pl ? "ランダムな敵（相手か相手のモンスター）" : "ランダムな相手のモンスター1体";
   if (to === "two") return pl ? "相手のモンスターちがう2体（足りなければ相手も）" : "相手のモンスター2体";
   return pl ? (spire ? "相手のモンスター1体（いなければ相手）" : "相手") : "相手のモンスター1体";
 }
-function toText(kind, n, to, spire){
-  const w = toPhrase(kind, to, spire);
+function toText(kind, n, to, spire, tn, side){
+  const r = to === "random" && tn > 1 ? tn : 0, base = toText0(kind, n, to, spire, tn, side);
+  return r ? (kind === "dmg" ? `${base}を${r}回` : `${base}（${r}回）`) : base;
+}
+function toText0(kind, n, to, spire, tn, side){
+  const w = toPhrase(kind, to, spire, tn, side);
   if (kind === "dmg") return `${w}に${n}ダメージ`;
   if (kind === "vuln") return `${w}を弱体${n}にする`;
   if (kind === "weak") return `${w}を脱力${n}にする`;
@@ -1571,8 +1582,10 @@ function expandFx(f){
   const to = f.to, k = f.kind;
   if (!to || to === "one" || !TARGETABLE[k]) return [f];
   if (to === "all") return [{ ...f, kind: TO_ALL[k], to: null }];
-  if (to === "random") return [{ ...f, rand: true }];
+  const tn = Math.max(1, Math.min(10, Math.round(+f.tn || 1)));
+  if (to === "random") return Array.from({ length: tn }, () => ({ ...f, rand: true }));
   if (to === "two") return [{ ...f, distinct: true }, { ...f, distinct: true, ask: "" }];
+  if (to === "n") return tn > 1 ? Array.from({ length: tn }, (_, i) => ({ ...f, distinct: true, ...(i ? { ask: "" } : {}) })) : [{ ...f, to: "one" }];
   return [f];
 }
 // 追加コスト: LPを払う / 手札を捨てる / 最大マナを減らす（払えないと使えない）
@@ -1651,14 +1664,22 @@ function normTrig(c, trig){
   return "use";
 }
 // カードを書きかえる: だれの・どこの・どのカードを（mt）、なにを足す／上書きする（gk・gn）、新しい名前（nm）
-const MOD_TARGETS = { myHandPick: "自分の手札から1枚えらんで", myHandAll: "自分の手札すべて", myDeckAll: "自分の山札すべて", myDeckRand: "自分の山札からランダムに○枚", myNamed: "自分の手札と山札の「名前」のカードすべて", opHandAll: "相手の手札すべて", opHandRand: "相手の手札からランダムに○枚", opDeckAll: "相手の山札すべて", opDeckRand: "相手の山札からランダムに○枚", opNamed: "相手の手札と山札の「名前」のカードすべて" };
 const GRANT_KINDS = ["draw", "dmg", "heal", "block", "vuln", "weak", "discard", "manaNow", "str", "atkUp", "atkAll", "destroy", "oppDraw", "loseLp", "noDraw", "exhaustRand"];
+// どのカードを: だれの（自分／相手）・どこの（手札／山札／両方）・どう（1枚えらぶ／すべて／ランダムに○枚／名前を指定）
+const MOD_LEGACY = { myHandPick: ["me", "hand", "pick"], myHandAll: ["me", "hand", "all"], myDeckAll: ["me", "deck", "all"], myDeckRand: ["me", "deck", "rand"], myNamed: ["me", "both", "named"], opHandAll: ["op", "hand", "all"], opHandRand: ["op", "hand", "rand"], opDeckAll: ["op", "deck", "all"], opDeckRand: ["op", "deck", "rand"], opNamed: ["op", "both", "named"] };
+function modT(e){
+  const lg = e && !e.ms && MOD_LEGACY[e.mt];
+  const side = lg ? lg[0] : e && e.ms === "op" ? "op" : "me", place = lg ? lg[1] : e && ["hand", "deck", "both"].includes(e.mpl) ? e.mpl : "hand";
+  let scope = lg ? lg[2] : e && ["pick", "all", "rand", "named"].includes(e.mc) ? e.mc : "pick";
+  if (scope === "pick" && !(side === "me" && place === "hand")) scope = "rand";
+  return { side, place, scope };
+}
 function modTargetText(e){
-  const mt = (e && e.mt) || "myHandPick", n = (e && e.mn) || 1, nm = (e && e.into) || "？";
-  return { myHandPick: "自分の手札のカード1枚", myHandAll: "自分の手札のカードすべて", myDeckAll: "自分の山札のカードすべて", myDeckRand: `自分の山札のランダムなカード${n}枚`, myNamed: `自分の手札と山札の「${nm}」すべて`, opHandAll: "相手の手札のカードすべて", opHandRand: `相手の手札のランダムなカード${n}枚`, opDeckAll: "相手の山札のカードすべて", opDeckRand: `相手の山札のランダムなカード${n}枚`, opNamed: `相手の手札と山札の「${nm}」すべて` }[mt] || "カード";
+  const T = modT(e), n = (e && e.mn) || 1, nm = (e && e.into) || "？", who = T.side === "me" ? "自分" : "相手", where = { hand: "手札", deck: "山札", both: "手札と山札" }[T.place];
+  return T.scope === "pick" ? `${who}の手札のカード1枚` : T.scope === "all" ? `${who}の${where}のカードすべて` : T.scope === "rand" ? `${who}の${where}のランダムなカード${n}枚` : `${who}の${where}の「${nm}」すべて`;
 }
 function grantText(e){ const k = e && e.gk && KINDS[e.gk] && !KINDS[e.gk].mod ? e.gk : "draw"; return KINDS[k].text(e && e.gn || (smallN(k) ? 1 : 100)); }
-const cleanEff = e => e && KINDS[e.kind] && e.kind !== "none" ? { kind: e.kind, ...(e.n != null ? { n: e.n } : {}), ...(e.to && e.to !== "one" ? { to: e.to } : {}), ...(KINDS[e.kind].name && e.into ? { into: String(e.into).slice(0, 40) } : {}), ...(KINDS[e.kind].name && e.into && e.intoId && pickCardKind(e.kind) ? { intoId: String(e.intoId).slice(0, 80) } : {}), ...(e.times > 1 ? { times: Math.min(20, Math.round(e.times)) } : {}), ...(KINDS[e.kind].mod ? { mt: MOD_TARGETS[e.mt] ? e.mt : "myHandPick", ...(e.mn > 1 ? { mn: Math.min(40, Math.round(+e.mn)) } : {}), ...(e.gk && KINDS[e.gk] && !KINDS[e.gk].mod ? { gk: e.gk, gn: Math.max(1, Math.round(+e.gn || 1)) } : {}), ...(e.nm ? { nm: String(e.nm).slice(0, 20) } : {}), ...(/Named$/.test(e.mt || "") && e.into ? { into: String(e.into).slice(0, 40) } : {}) } : {}), ...(e.per && PER_DEFS[e.per] && PER_OK[e.kind] ? { per: e.per, pm: e.pm ?? 1, ...(e.hits && e.kind === "dmg" ? { hits: true } : {}) } : {}) } : null;
+const cleanEff = e => e && KINDS[e.kind] && e.kind !== "none" ? { kind: e.kind, ...(e.n != null ? { n: e.n } : {}), ...(e.to && e.to !== "one" && TARGETABLE[e.kind] ? { to: e.to } : {}), ...(TARGETABLE[e.kind] && e.side === "me" ? { side: "me" } : {}), ...(TARGETABLE[e.kind] && (e.to === "n" || e.to === "random") && e.tn > 1 ? { tn: Math.min(10, Math.round(+e.tn)) } : {}), ...(KINDS[e.kind].name && e.into ? { into: String(e.into).slice(0, 40) } : {}), ...(KINDS[e.kind].name && e.into && e.intoId && pickCardKind(e.kind) ? { intoId: String(e.intoId).slice(0, 80) } : {}), ...(e.times > 1 ? { times: Math.min(20, Math.round(e.times)) } : {}), ...(KINDS[e.kind].mod ? { ms: modT(e).side, mpl: modT(e).place, mc: modT(e).scope, ...(e.mn > 1 ? { mn: Math.min(40, Math.round(+e.mn)) } : {}), ...(e.gk && KINDS[e.gk] && !KINDS[e.gk].mod ? { gk: e.gk, gn: Math.max(1, Math.round(+e.gn || 1)) } : {}), ...(e.nm ? { nm: String(e.nm).slice(0, 20) } : {}), ...(modT(e).scope === "named" && e.into ? { into: String(e.into).slice(0, 40) } : {}) } : {}), ...(e.per && PER_DEFS[e.per] && PER_OK[e.kind] ? { per: e.per, pm: e.pm ?? 1, ...(e.hits && e.kind === "dmg" ? { hits: true } : {}) } : {}) } : null;
 const LEGACY_COND = { lp: { k: "lp", op: "le" }, grave: { k: "grave", op: "ge" }, hand: { k: "sameHand", op: "ge" } };
 function blocksOf(c){
   if (!c) return [];
@@ -1689,7 +1710,7 @@ function effsText(c, effs){
     const m = g.m;
     // base 0 + 「○1つにつき」 reads as 「○1つにつき100ダメージ」
     const pz = m.per && !m.hits && !m.n && PER_DEFS[m.per], nn = pz ? `${PER_DEFS[m.per].label}${PER_DEFS[m.per].u}につき${m.pm ?? 1}` : m.n;
-    let tx = (m.to && TARGETABLE[m.kind] ? toText(m.kind, nn, m.to, spire) : KINDS[m.kind].text(nn, m.into, m)) + (pz ? "" : perText(m));
+    let tx = ((m.to || m.side === "me") && TARGETABLE[m.kind] ? toText(m.kind, nn, m.to || "one", spire, m.tn, m.side) : KINDS[m.kind].text(nn, m.into, m)) + (pz ? "" : perText(m));
     if (spire && k > 0 && aim(m) && G2.slice(0, k).some(x => aim(x.m))) tx = tx.replace(/^相手(に|を)/, "同じ相手$1");
     if (g.cnt > 1) tx += /ダメージ$/.test(tx) ? `を${g.cnt}回` : `（${g.cnt}回）`;
     return tx;
@@ -2798,7 +2819,7 @@ function renderBlocksUI(){
     return `<div class="bk-row" data-part="${part}" data-i="${j}"><span class="bk-no">${j + 1}</span>`
       + `<select data-f="g" aria-label="なにをする">${gs.map(x => opt(x.g, x.label, g && g.g)).join("")}</select>`
       + (g && g.v.length > 1 ? `<select data-f="kind" aria-label="どれ">${g.v.map(([k, l]) => opt(k, l || KINDS[k].label, e.kind)).join("")}</select>` : "")
-      + (tg ? `<select data-f="to" aria-label="だれに">${tg.map(o => opt(o, o === "one" && hitsPlayer(e.kind) ? ($("#mkFrame").value === "spire" ? "相手のモンスター1体（いなければ相手）" : "相手") : TO_LABEL[o], e.to || "one")).join("")}</select>` : "")
+      + (tg ? toUI(e, opt) : "")
       + (KINDS[e.kind] && KINDS[e.kind].n ? `<input type="number" data-f="n" min="${e.per ? 0 : 1}" max="9999" value="${esc(e.n ?? defN(e.kind))}" aria-label="数">` : "")
       + (KINDS[e.kind] && KINDS[e.kind].name ? `<input type="text" data-f="into" list="${KINDS[e.kind] && KINDS[e.kind].tag ? "tagNames" : "cardNames"}" maxlength="40" value="${esc(e.into || "")}" placeholder="${KINDS[e.kind].tag ? "タグ（例: アイアンクラッド）" : KINDS[e.kind].need ? (e.kind === "autoPlay" ? "名前に入る文字（例: ストライク）" : "カード名") : "カード名（空ならランダム）"}" aria-label="カード名">` + pickHTML(e) : "") + modRowHTML(e)
       + (PER_OK[e.kind] && (!easy || e.per) ? `<select data-f="per" aria-label="ふえる">${opt("", "ふえない", e.per || "")}${Object.entries(PER_DEFS).map(([k, d]) => opt(k, d.label + d.u + "につき", e.per || "")).join("")}</select>` + (e.per ? (e.kind === "dmg" ? `<select data-f="hits" aria-label="ふえかた">${opt("", "数が＋", e.hits ? "1" : "")}${opt("1", "もう1回", e.hits ? "1" : "")}</select>` : "") + (e.hits ? "" : `<input type="number" data-f="pm" min="1" max="9999" value="${esc(e.pm ?? 1)}" aria-label="1つにつき増える数">`) : "") : "")
@@ -2839,13 +2860,25 @@ function bkSync(){ if ($("#bkUI")) renderBlocksUI(); }
 // remember which menu (group) a row was picked from — a kind can sit in two menus (e.g. 踏み倒す and 山札・墓地). Not saved.
 function setG(o, g){ if (g) Object.defineProperty(o, "_g", { value: g, writable: true, configurable: true, enumerable: false }); return o; }
 // 同じ名前のカードが何枚もあるときは「どのカード？」をえらべる（1枚だけなら自動でそれに決まる）
+// だれに: 「自分／相手」＋「○体／全体／ランダムに○回」（数は ○体・ランダム のときだけ）
+function toUI(e, opt){
+  const scope = e.to === "all" ? "all" : e.to === "random" ? "random" : "n", tn = e.tn || (e.to === "two" ? 2 : 1);
+  const pl = hitsPlayer(e.kind), sp = $("#mkFrame").value === "spire";
+  const nLabel = pl && !sp ? "えらぶ（1なら相手そのもの）" : "えらぶ";
+  return `<select data-f="side" aria-label="自分か相手か">${opt("op", "相手", e.side === "me" ? "me" : "op")}${opt("me", "自分", e.side === "me" ? "me" : "op")}</select>`
+    + `<select data-f="scope" aria-label="どのくらい">${opt("n", nLabel, scope)}${opt("all", "全体", scope)}${opt("random", "ランダムに", scope)}</select>`
+    + (scope === "all" ? "" : `<input type="number" data-f="tn" min="1" max="10" value="${esc(tn)}" aria-label="数" style="width:60px"><span class="note">${scope === "random" ? "回" : "体"}</span>`);
+}
 function modRowHTML(e){
   if (!KINDS[e.kind] || !KINDS[e.kind].mod) return "";
-  if (!MOD_TARGETS[e.mt]) e.mt = "myHandPick";
+  const T = modT(e); e.ms = T.side; e.mpl = T.place; e.mc = T.scope; delete e.mt;
   const o = (v, l, cur) => `<option value="${esc(v)}"${String(v) === String(cur) ? " selected" : ""}>${esc(l)}</option>`;
-  let h = `<select data-f="mt" aria-label="どのカードを">${Object.entries(MOD_TARGETS).map(([k, l]) => o(k, l, e.mt)).join("")}</select>`;
-  if (/Rand$/.test(e.mt)) h += `<input type="number" data-f="mn" min="1" max="40" value="${esc(e.mn || 1)}" aria-label="枚数" style="width:64px">枚`;
-  if (/Named$/.test(e.mt)) h += `<input type="text" data-f="into" list="cardNames" maxlength="40" value="${esc(e.into || "")}" placeholder="カード名" aria-label="カード名">`;
+  const canPick = T.side === "me" && T.place === "hand";
+  let h = `<select data-f="ms" aria-label="だれの">${o("me", "自分", T.side)}${o("op", "相手", T.side)}</select>`
+    + `<select data-f="mpl" aria-label="どこの">${o("hand", "手札", T.place)}${o("deck", "山札", T.place)}${o("both", "手札と山札", T.place)}</select>`
+    + `<select data-f="mc" aria-label="どのカードを">${canPick ? o("pick", "1枚えらぶ", T.scope) : ""}${o("all", "すべて", T.scope)}${o("rand", "ランダムに", T.scope)}${o("named", "名前を指定", T.scope)}</select>`;
+  if (T.scope === "rand") h += `<input type="number" data-f="mn" min="1" max="40" value="${esc(e.mn || 1)}" aria-label="枚数" style="width:60px"><span class="note">枚</span>`;
+  if (T.scope === "named") h += `<input type="text" data-f="into" list="cardNames" maxlength="40" value="${esc(e.into || "")}" placeholder="カード名" aria-label="カード名">`;
   if (e.kind === "modAdd" || e.kind === "modRep"){
     if (!e.gk || !GRANT_KINDS.includes(e.gk)) e.gk = "draw";
     if (!e.gn) e.gn = smallN(e.gk) ? 1 : 100;
@@ -2880,10 +2913,10 @@ function bkEvent(e, rerenderOnInput){
   }
   const list = b[part], x = list && list[j]; if (!x) return;
   if (f === "g"){ const g = (MK.easy && kindGroups(easyKinds()).find(q => q.g === v)) || kindGroups(mkKinds()).find(q => q.g === v); if (g){ list[j] = setG({ kind: g.v[0][0], n: defN(g.v[0][0]) }, g.g); } return renderBlocksUI(); }
-  if (f === "kind"){ list[j] = setG({ kind: v, n: x.n != null && smallN(v) === smallN(x.kind) ? x.n : defN(v), to: x.to, ...(x.times > 1 ? { times: x.times } : {}), ...(KINDS[v] && KINDS[v].name && x.into ? { into: x.into } : {}), ...(PER_OK[v] && x.per ? { per: x.per, pm: x.pm, hits: v === "dmg" && x.hits } : {}), ...(KINDS[v] && KINDS[v].mod && x.mt ? { mt: x.mt, mn: x.mn, gk: x.gk, gn: x.gn, nm: x.nm, into: x.into } : {}) }, x._g); return renderBlocksUI(); }
+  if (f === "kind"){ list[j] = setG({ kind: v, n: x.n != null && smallN(v) === smallN(x.kind) ? x.n : defN(v), to: x.to, ...(x.side ? { side: x.side } : {}), ...(x.tn ? { tn: x.tn } : {}), ...(x.times > 1 ? { times: x.times } : {}), ...(KINDS[v] && KINDS[v].name && x.into ? { into: x.into } : {}), ...(PER_OK[v] && x.per ? { per: x.per, pm: x.pm, hits: v === "dmg" && x.hits } : {}), ...(KINDS[v] && KINDS[v].mod && (x.ms || x.mt) ? { mt: x.mt, ms: x.ms, mpl: x.mpl, mc: x.mc, mn: x.mn, gk: x.gk, gn: x.gn, nm: x.nm, into: x.into } : {}) }, x._g); return renderBlocksUI(); }
   if (f === "into"){ x.into = v.trim(); x.intoId = autoPickId(x); return e.type === "change" ? renderBlocksUI() : updateBkText(); }
   if (f === "intoId"){ x.intoId = v; return updateBkText(); }
-  if (f === "mt"){ x.mt = v; return renderBlocksUI(); }
+  if (f === "ms" || f === "mpl" || f === "mc"){ x[f] = v; delete x.mt; return renderBlocksUI(); }
   if (f === "mn"){ x.mn = Math.max(1, Math.min(40, Math.round(+v || 1))); return updateBkText(); }
   if (f === "gk"){ x.gk = v; x.gn = smallN(v) ? 1 : 100; return renderBlocksUI(); }
   if (f === "gn"){ x.gn = Math.max(1, Math.round(+v || 1)); return updateBkText(); }
@@ -2893,6 +2926,9 @@ function bkEvent(e, rerenderOnInput){
   if (f === "hits"){ x.hits = v === "1"; return renderBlocksUI(); }
   if (f === "pm"){ x.pm = Math.max(1, Math.round(+v || 1)); return updateBkText(); }
   if (f === "to"){ x.to = v; return updateBkText(); }
+  if (f === "side"){ x.side = v === "me" ? "me" : undefined; return updateBkText(); }
+  if (f === "scope"){ const tn = x.tn || (x.to === "two" ? 2 : 1); x.to = v === "all" ? "all" : v === "random" ? "random" : (tn > 1 ? "n" : "one"); x.tn = v === "all" ? undefined : tn; return renderBlocksUI(); }
+  if (f === "tn"){ const tn = Math.max(1, Math.min(10, Math.round(+v || 1))); x.tn = tn; if (x.to !== "random" && x.to !== "all") x.to = tn > 1 ? "n" : "one"; return updateBkText(); }
   if (f === "n"){ x.n = Math.max(x.per ? 0 : 1, Math.round(+v || 0)); return updateBkText(); }
 }
 function initBlocksUI(){
@@ -4035,13 +4071,12 @@ function modId(st, id, ch){
   st.modn = (st.modn || 0) + 1; const nid = "mod:" + st.modn; st.mods[nid] = m; return nid;
 }
 function modApply(st, s, c, fx, target, src){
-  const me = P(st, s), op = P(st, O(s)), mt = fx.mt || "myHandPick", k = Math.max(1, fx.mn || 1), out = [];
-  const all = arr => arr.forEach((_, i) => out.push([arr, i])), rand = arr => shuffle(arr.map((_, i) => i)).slice(0, k).forEach(i => out.push([arr, i]));
-  const named = (pl) => [pl.hand, pl.deck].forEach(arr => arr.forEach((id, i) => { const x = card(id); if (x.name === fx.into || plainRuby(x.nameRuby || "") === fx.into) out.push([arr, i]); }));
-  if (mt === "myHandPick"){ if (me.hand[target] != null) out.push([me.hand, target]); }
-  else if (mt === "myHandAll") all(me.hand); else if (mt === "myDeckAll") all(me.deck); else if (mt === "myDeckRand") rand(me.deck);
-  else if (mt === "opHandAll") all(op.hand); else if (mt === "opHandRand") rand(op.hand); else if (mt === "opDeckAll") all(op.deck); else if (mt === "opDeckRand") rand(op.deck);
-  else if (mt === "myNamed") named(me); else if (mt === "opNamed") named(op);
+  const T = modT(fx), pl = P(st, T.side === "op" ? O(s) : s), k = Math.max(1, fx.mn || 1), out = [];
+  const arrs = T.place === "hand" ? [pl.hand] : T.place === "deck" ? [pl.deck] : [pl.hand, pl.deck];
+  if (T.scope === "pick"){ if (pl.hand[target] != null) out.push([pl.hand, target]); }
+  else if (T.scope === "all") arrs.forEach(arr => arr.forEach((_, i) => out.push([arr, i])));
+  else if (T.scope === "rand") shuffle(arrs.flatMap(arr => arr.map((_, i) => [arr, i]))).slice(0, k).forEach(x => out.push(x));
+  else arrs.forEach(arr => arr.forEach((id, i) => { const x = card(id); if (x.name === fx.into || plainRuby(x.nameRuby || "") === fx.into) out.push([arr, i]); }));
   if (!out.length){ log(st, s, `${src}：書きかえるカードがない`); return; }
   const gk = fx.gk && KINDS[fx.gk] && !KINDS[fx.gk].mod ? fx.gk : "draw", g = [cleanEff({ kind: gk, n: fx.gn || (smallN(gk) ? 1 : 100) })].filter(Boolean);
   const ch = fx.kind === "modAdd" ? { add: g } : fx.kind === "modRep" ? { rep: g } : fx.kind === "modClear" ? { clear: true } : { name: String(fx.nm || "").slice(0, 20) || null };
@@ -4062,9 +4097,9 @@ const modOf = m => { const b = baseAtk(card(m.c)); return isFinite(b) ? atkOf(m)
 // damage to a player: 弱体 makes it ×1.5, then ブロック soaks it up first
 // damage to a monster piles up as a damage counter (ATK stays the same); once the counter reaches its ATK it's destroyed
 // 弱体 on the opponent ("p") or one of their monsters ("m:i"): damage it takes is ×1.5; goes down by 1 at the start of its owner's turn
-function addVuln(st, s, target, n, src){ addVuln0(st, s, target, n, src); if (!st.winner) persistFire(st, s, "vulnApply", {}); }
-function addVuln0(st, s, target, n, src){
-  const op = P(st, O(s));
+function addVuln(st, s, target, n, src, ts){ addVuln0(st, s, target, n, src, ts); if (!st.winner && (ts == null || ts !== s)) persistFire(st, s, "vulnApply", {}); }
+function addVuln0(st, s, target, n, src, ts){
+  const op = P(st, ts == null ? O(s) : ts);
   if (typeof target === "string" && target.startsWith("m:")){ const m = op.mz[+target.slice(2)]; if (!m) return; m.vuln = (m.vuln || 0) + n; log(st, s, `${src}で「${card(m.c).name}」が弱体${m.vuln}になった`); return; }
   op.vuln = (op.vuln || 0) + n; log(st, s, `${src}で${op.name}が弱体${op.vuln}になった`);
 }
@@ -4082,8 +4117,8 @@ function battleHit(st, s, i, x){
   if (m && m.weak > 0) x = Math.floor(x * .75);
   return x;
 }
-function addWeak(st, s, target, n, src){
-  const op = P(st, O(s));
+function addWeak(st, s, target, n, src, ts){
+  const op = P(st, ts == null ? O(s) : ts);
   if (typeof target === "string" && target.startsWith("m:")){ const m = op.mz[+target.slice(2)]; if (!m) return; m.weak = (m.weak || 0) + n; log(st, s, `${src}で「${card(m.c).name}」が脱力${m.weak}になった`); return; }
   op.weak = (op.weak || 0) + n; log(st, s, `${src}で${op.name}が脱力${op.weak}になった`);
 }
@@ -4217,9 +4252,10 @@ const tauntIdx = (st, s) => P(st, s).mz.map((m, i) => m && hasAb(st, s, i, "taun
 function targetOptions(st, s, kind, ctx = {}){
   // スパイア attack: the opponent ("p") or one of their monsters ("m:i"); only asks when there is a monster to hit
   // 1体/2体 aim at the opponent's monsters first; the player only when there is none (ランダム can hit either)
-  if (ctx.spireAtk && (kind === "dmg" || kind === "bash" || kind === "vuln" || kind === "weak")){ const tt = tauntIdx(st, O(s)), ms = (tt.length ? tt : P(st, O(s)).mz.map((m, i) => m ? i : -1).filter(i => i >= 0)).map(i => "m:" + i); if (ctx.anyEnemy) return ms.length ? ["p", ...ms] : null; const left = ms.filter(o => !(ctx.hit && (ctx.hit.picked || []).includes(o))); return left.length ? ms : ["p"]; }
+  const TS = ctx.side === "me" ? s : O(s);
+  if (ctx.spireAtk && (kind === "dmg" || kind === "bash" || kind === "vuln" || kind === "weak")){ const tt = TS === s ? [] : tauntIdx(st, TS), ms = (tt.length ? tt : P(st, TS).mz.map((m, i) => m ? i : -1).filter(i => i >= 0)).map(i => "m:" + i); if (ctx.anyEnemy) return ms.length ? ["p", ...ms] : null; const left = ms.filter(o => !(ctx.hit && (ctx.hit.picked || []).includes(o))); return left.length ? ms : ["p"]; }
   const t = KINDS[kind] && KINDS[kind].target;
-  if (t === "opp"){ const tt = tauntIdx(st, O(s)); return tt.length ? tt : P(st, O(s)).mz.map((m, i) => m ? i : -1).filter(i => i >= 0); }
+  if (t === "opp"){ const tt = TS === s ? [] : tauntIdx(st, TS); return tt.length ? tt : P(st, TS).mz.map((m, i) => m ? i : -1).filter(i => i >= 0); }
   if (t === "any"){
     const src = ctx.mon && monAt(st, ctx.mon);
     if (kind === "moveEquips" && (!src || !eqsOf(src).some(e => e.u !== ctx.eqU))) return [];
@@ -4245,6 +4281,7 @@ function targetOptions(st, s, kind, ctx = {}){
   return null;
 }
 function autoTarget(st, s, kind, opts, fx){
+  if (fx && fx.side === "me"){ const own = P(st, s), v = o => o === "p" ? 1e9 : (m => m ? atkOf(m) : 0)(own.mz[typeof o === "string" ? +o.slice(2) : o]); return opts.slice().sort((a, b) => v(a) - v(b))[0]; }
   // CPU スパイア attack: finish the strongest monster it can destroy now, otherwise the one closest to dying
   if (opts.length && opts.every(o => typeof o === "string" && o.startsWith("m:"))){
     const op = P(st, O(s)), n = fx && kind !== "vuln" ? fx.n || 0 : 0, m = o => op.mz[+o.slice(2)], left = o => (atkOf(m(o)) - (m(o).dmg || 0)) / (m(o).vuln > 0 ? 1.5 : 1);
@@ -4429,19 +4466,19 @@ function applyEffect(st, s, c, target, ctx = {}, fx = normFx(c)){
   if (!fx) return;
   if (ctx.hit && ctx.spireAtk && typeof target === "string") ctx.hit.t = target;
   if (ctx.hit && target != null) (ctx.hit.picked = ctx.hit.picked || []).push(String(target));
-  const me = P(st, s), op = P(st, O(s)), src = `「${c.name}」`;
+  const me = P(st, s), op = P(st, O(s)), src = `「${c.name}」`, OS = fx.side === "me" && SIDED_KINDS.has(fx.kind) ? s : O(s), opT = P(st, OS);
   let n = fx.n || 0;
   if (fx.per && !fx.hits) n += (fx.pm ?? 1) * perVal(st, s, c, fx, target, ctx);
   if (["dmg", "dmgAll", "dmgRand", "bash"].includes(fx.kind)) n = hitPower(st, s, n, ctx);
   switch (fx.kind){
     case "heal": me.lp += n; log(st, s, `${src}でLPを${n}回復`); break;
-    case "dmgRand": { const L = ["p", ...op.mz.map((m, i) => m ? "m:" + i : null).filter(Boolean)], t = L[Math.floor(Math.random() * L.length)]; if (t === "p"){ log(st, s, `${src}で${op.name}に${n}ダメージ（ランダム）`); dealDmg(st, O(s), n); } else monDmg(st, O(s), +t.slice(2), n, src + "（ランダム）"); break; }
-    case "dmgAll": { op.mz.map((m, i) => m ? i : -1).filter(i => i >= 0).forEach(i => monDmg(st, O(s), i, n, src)); log(st, s, `${src}で${op.name}に${n}ダメージ`); dealDmg(st, O(s), n); break; }
+    case "dmgRand": { const L = ["p", ...opT.mz.map((m, i) => m ? "m:" + i : null).filter(Boolean)], t = L[Math.floor(Math.random() * L.length)]; if (t === "p"){ log(st, s, `${src}で${opT.name}に${n}ダメージ（ランダム）`); dealDmg(st, OS, n); } else monDmg(st, OS, +t.slice(2), n, src + "（ランダム）"); break; }
+    case "dmgAll": { opT.mz.map((m, i) => m ? i : -1).filter(i => i >= 0).forEach(i => monDmg(st, OS, i, n, src)); log(st, s, `${src}で${opT.name}に${n}ダメージ`); dealDmg(st, OS, n); break; }
     case "copyGrave": if (c && hasCard(c.id)){ me.grave.push(c.id); log(st, s, `${src}のコピーを墓地に加えた`); } break;
     case "freeAttack": case "freeSkill": case "freePower": { const k = fx.kind.slice(4).toLowerCase(); me.free = { ...(me.free || {}), [k]: ((me.free || {})[k] || 0) + 1 }; log(st, s, `${src}：次に使う${SPIRE_LABEL[k]}のコストが0になる`); break; }
     case "draft": if (target && hasCard(target)){ me.grave.push(target); log(st, s, `${src}で「${card(target).name}」を墓地に加えた`); } break;
     case "atkAll": { let k = 0; me.mz.forEach(m => { if (m){ m.mod = (m.mod || 0) + n; k++; } }); log(st, s, `${src}で自分のモンスター${k}体のATK+${n}`); break; }
-    case "dmg": if (typeof target === "string" && target.startsWith("m:")){ monDmg(st, O(s), +target.slice(2), n, src); break; } log(st, s, `${src}で${op.name}に${n}ダメージ`); dealDmg(st, O(s), n); break;
+    case "dmg": if (typeof target === "string" && target.startsWith("m:")){ monDmg(st, OS, +target.slice(2), n, src); break; } log(st, s, `${src}で${opT.name}に${n}ダメージ`); dealDmg(st, OS, n); break;
     case "block": { if (me.firstBlock2 && !me.blockedNow && !ctx.potion){ n *= 2; log(st, s, `最初のブロックなので2倍！`); } me.blockedNow = true; me.block = (me.block || 0) + n; log(st, s, `${src}でブロックを${n}得た（ブロック ${me.block}）`); if (n > 0) persistFire(st, s, "blockGain", {}); break; }
     case "barricade": me.barricade = true; log(st, s, `${src}：ブロックがターンのはじめに消えなくなった`); break;
     case "plate": me.plate = (me.plate || 0) + n; log(st, s, `${src}でプレート${n}を得た（プレート ${me.plate}）`); break;
@@ -4453,19 +4490,19 @@ function applyEffect(st, s, c, target, ctx = {}, fx = normFx(c)){
     case "dblAtk": me.dblAtk = (me.dblAtk || 0) + (n || 1); log(st, s, `${src}：次に使うアタックをもう1回プレイする`); break;
     case "copyLastAtk": if (me.lastAtk && hasCard(me.lastAtk)){ me.hand.push(me.lastAtk); log(st, s, `${src}で「${card(me.lastAtk).name}」のコピーを手札に加えた`); } else log(st, s, `${src}：コピーするアタックがない`); break;
     case "graveAtkToHand": { let k = 0; for (let r = 0; r < (n || 1); r++){ const L = me.grave.map((id, j) => j).filter(j => isAttackCard(card(me.grave[j]))); if (!L.length) break; const j = L[Math.floor(Math.random() * L.length)], id = me.grave.splice(j, 1)[0]; me.hand.push(id); k++; log(st, s, `${src}で墓地の「${card(id).name}」を手札に加えた`); } if (!k) log(st, s, `${src}：墓地にアタックがない`); break; }
-    case "vuln": addVuln(st, s, target, n, src); break;
-    case "bash": if (typeof target === "string" && target.startsWith("m:")){ const i = +target.slice(2), u = op.mz[i] && op.mz[i].u; monDmg(st, O(s), i, n, src); if (op.mz[i] && op.mz[i].u === u) addVuln(st, s, target, 2, src); } else { log(st, s, `${src}で${op.name}に${n}ダメージ`); dealDmg(st, O(s), n); addVuln(st, s, "p", 2, src); } break;
+    case "vuln": addVuln(st, s, target, n, src, OS); break;
+    case "bash": if (typeof target === "string" && target.startsWith("m:")){ const i = +target.slice(2), u = opT.mz[i] && opT.mz[i].u; monDmg(st, OS, i, n, src); if (opT.mz[i] && opT.mz[i].u === u) addVuln(st, s, target, 2, src, OS); } else { log(st, s, `${src}で${opT.name}に${n}ダメージ`); dealDmg(st, OS, n); addVuln(st, s, "p", 2, src, OS); } break;
     case "draw": drawN(st, s, n, src); break;
     case "discard": {
       let k = 0; for (let j = 0; j < n && op.hand.length; j++){ op.grave.push(op.hand.splice(Math.floor(Math.random() * op.hand.length), 1)[0]); k++; }
       log(st, s, `${src}で${op.name}の手札を${k}枚捨てさせた`); break;
     }
-    case "destroy": if (op.mz[target]) destroyMonster(st, O(s), target, src); break;
+    case "destroy": if (opT.mz[target]) destroyMonster(st, OS, target, src); break;
     case "destroyOwn": if (me.mz[target]) destroyMonster(st, s, target, src); break;
     case "modAdd": case "modRep": case "modClear": case "modName": modApply(st, s, c, fx, target, src); break;
     case "destroyThis": { const m = ctx.mon && monAt(st, ctx.mon); if (m) destroyMonster(st, ctx.mon.s, ctx.mon.i, src); else log(st, s, `${src}：破壊するモンスターがもう場にいない`); break; }
     case "destroyOwnAll": { const L = me.mz.map((m, i) => m ? i : -1).filter(i => i >= 0); if (!L.length) log(st, s, `${src}：自分のモンスターがいない`); L.forEach(i => { if (me.mz[i]) destroyMonster(st, s, i, src); }); break; }
-    case "destroyAll": { const idx = op.mz.map((m, i) => m ? i : -1).filter(i => i >= 0); log(st, s, `${src}で相手のモンスターをすべて破壊！`); idx.forEach(i => destroyMonster(st, O(s), i, src)); break; }
+    case "destroyAll": { const idx = opT.mz.map((m, i) => m ? i : -1).filter(i => i >= 0); log(st, s, `${src}で${OS === s ? "自分" : "相手"}のモンスターをすべて破壊！`); idx.forEach(i => destroyMonster(st, OS, i, src)); break; }
     case "selfAtk": {
       const m = ctx.mon ? monAt(st, ctx.mon) : ctx.zone != null ? me.mz[ctx.zone] : null;
       if (m && (ctx.mon || m.c === c.id)){ m.mod = (m.mod || 0) + n; log(st, s, `${src}で「${card(m.c).name}」のATK+${n}`); } else log(st, s, `${src}：場にいないのでATKは上がらない`);
@@ -4497,15 +4534,15 @@ function applyEffect(st, s, c, target, ctx = {}, fx = normFx(c)){
       break;
     }
     case "charm": {
-      const m = op.mz[target];
+      const m = opT.mz[target];
       if (m){ m.charm = { eu: ctx.eqU || null, mu: ctx.mon ? ctx.mon.u : null, c: c.id }; log(st, s, `${src}で「${card(m.c).name}」を魅了した（攻撃できない）`); }
       break;
     }
     case "atkUp": if (me.mz[target]){ me.mz[target].mod = (me.mz[target].mod || 0) + n; log(st, s, `${src}で「${card(me.mz[target].c).name}」のATK+${n}`); } break;
-    case "charmAll": op.mz.forEach(m => { if (m) m.charm = { eu: ctx.eqU || null, mu: ctx.mon ? ctx.mon.u : null, c: c.id }; }); log(st, s, `${src}で相手のモンスターをすべて魅了した（攻撃できない）`); break;
-    case "vulnAll": addVuln(st, s, "p", n, src); op.mz.forEach((m, i) => { if (m) addVuln(st, s, "m:" + i, n, src); }); break;
-    case "weak": addWeak(st, s, target, n, src); break;
-    case "weakAll": addWeak(st, s, "p", n, src); op.mz.forEach((m, i) => { if (m) addWeak(st, s, "m:" + i, n, src); }); break;
+    case "charmAll": opT.mz.forEach(m => { if (m) m.charm = { eu: ctx.eqU || null, mu: ctx.mon ? ctx.mon.u : null, c: c.id }; }); log(st, s, `${src}で${OS === s ? "自分" : "相手"}のモンスターをすべて魅了した（攻撃できない）`); break;
+    case "vulnAll": addVuln(st, s, "p", n, src, OS); opT.mz.forEach((m, i) => { if (m) addVuln(st, s, "m:" + i, n, src, OS); }); break;
+    case "weak": addWeak(st, s, target, n, src, OS); break;
+    case "weakAll": addWeak(st, s, "p", n, src, OS); opT.mz.forEach((m, i) => { if (m) addWeak(st, s, "m:" + i, n, src, OS); }); break;
     case "str": me.str = (me.str || 0) + n; log(st, s, `${src}で筋力${n}を得た（筋力 ${me.str}）`); break;
     case "strTemp": me.str = (me.str || 0) + n; me.strTemp = (me.strTemp || 0) + n; log(st, s, `${src}でこのターン筋力${n}を得た（筋力 ${me.str}）`); break;
     case "oppStr": op.str = (op.str || 0) + n; log(st, s, `${src}で${op.name}が筋力${n}を得た（筋力 ${op.str}）`); break;
@@ -4557,8 +4594,8 @@ function applyEffect(st, s, c, target, ctx = {}, fx = normFx(c)){
     case "genAttack0": genCards(st, s, "attack", n || 1, src, true); break;
     case "genSkill": genCards(st, s, "skill", n || 1, src); break;
     case "genPower": genCards(st, s, "power", n || 1, src); break;
-    case "atkDownAll": op.mz.forEach(m => { if (m) m.mod = (m.mod || 0) - n; }); log(st, s, `${src}で相手のモンスターすべてのATK−${n}`); break;
-    case "atkDown": if (op.mz[target]){ op.mz[target].mod = (op.mz[target].mod || 0) - n; log(st, s, `${src}で「${card(op.mz[target].c).name}」のATK−${n}`); } break;
+    case "atkDownAll": opT.mz.forEach(m => { if (m) m.mod = (m.mod || 0) - n; }); log(st, s, `${src}で${OS === s ? "自分" : "相手"}のモンスターすべてのATK−${n}`); break;
+    case "atkDown": if (opT.mz[target]){ opT.mz[target].mod = (opT.mz[target].mod || 0) - n; log(st, s, `${src}で「${card(opT.mz[target].c).name}」のATK−${n}`); } break;
     case "revive": { const gi = me.grave.indexOf(target); if (gi >= 0){ me.grave.splice(gi, 1); me.hand.push(target); log(st, s, `${src}で墓地の「${card(target).name}」を手札に戻した`); } break; }
     case "reborn": { const gi = me.grave.indexOf(target), z = freeZone(me.mz); if (gi >= 0 && z >= 0){ me.grave.splice(gi, 1); me.mz[z] = mkMon(st, target); ev(st, { type: "summon", s, z }); log(st, s, `${src}で墓地の「${card(target).name}」を場に出した（特殊召喚）`); trigger(st, s, card(target), "ssummon", { zone: z, mon: { s, i: z, u: me.mz[z].u } }); } break; }
     case "manaNow": if (me.mana){ me.mana.cur += n; log(st, s, `${src}でマナを${n}回復（${me.mana.cur}/${me.mana.max}）`); } else log(st, s, `${src}：マナを使わないデッキなので効果なし`); break;
@@ -4589,7 +4626,8 @@ function runEffect(st, s, c, ctx = {}, then, fx = normFx(c)){
   }
   if (fx.kind === "draft" && !ctx.draft) ctx = { ...ctx, draft: draftPick(fx.n) };
   if (KINDS[fx.kind] && KINDS[fx.kind].tag) ctx = { ...ctx, tagName: fx.into || "" };
-  if (KINDS[fx.kind] && KINDS[fx.kind].mod) ctx = { ...ctx, modPick: (fx.mt || "myHandPick") === "myHandPick" };
+  if (SIDED_KINDS.has(fx.kind)) ctx = { ...ctx, side: fx.side === "me" ? "me" : null };
+  if (KINDS[fx.kind] && KINDS[fx.kind].mod) ctx = { ...ctx, modPick: modT(fx).scope === "pick" };
   // 「○1つにつき、もう1回」: the hit is repeated (each one is a normal hit)
   if (fx.hits && fx.per){ const k = 1 + Math.max(0, perVal(st, s, c, fx, null, ctx)), one = { ...fx, per: null, hits: false }, go = (st2, r) => { if (r <= 0 || st2.winner){ then && then(st2); return; } runEffect(st2, s, c, ctx, st3 => go(st3, r - 1), one); }; go(st, Math.min(k, 30)); return; }
   if (fx.kind === "playHandAtk"){ const go = (st2, r) => { if (r <= 0 || st2.winner){ then && then(st2); return; } const p = P(st2, s), L = p.hand.map((id, j) => j).filter(j => isAttackCard(card(p.hand[j])) && cardType(card(p.hand[j])) === "magic"); if (!L.length){ log(st2, s, `「${c.name}」：手札にアタックがない`); then && then(st2); return; } const id = p.hand.splice(L[Math.floor(Math.random() * L.length)], 1)[0]; p.deck.unshift(id); playTopCard(st2, s, `「${c.name}」`, false, st3 => go(st3, r - 1)); }; go(st, Math.max(1, fx.n || 1)); return; }
@@ -4655,7 +4693,7 @@ function runEffects(st, s, c, effs, ctx, then){
   (effs || []).forEach(e => {
     const one = [];
     if (KINDS[e.kind] && KINDS[e.kind].each && e.n > 1){ for (let r = 0; r < e.n; r++) one.push({ kind: e.kind, n: 1, ...(e.into ? { into: e.into } : {}) }); }
-    else one.push(...expandFx({ kind: e.kind, n: e.n, to: e.to, ...(e.into ? { into: e.into } : {}), ...(e.intoId ? { intoId: e.intoId } : {}), ...(e.per ? { per: e.per, pm: e.pm, hits: e.hits } : {}), ...(KINDS[e.kind] && KINDS[e.kind].mod ? { mt: e.mt, mn: e.mn, gk: e.gk, gn: e.gn, nm: e.nm } : {}) }));
+    else one.push(...expandFx({ kind: e.kind, n: e.n, to: e.to, ...(e.into ? { into: e.into } : {}), ...(e.intoId ? { intoId: e.intoId } : {}), ...(e.per ? { per: e.per, pm: e.pm, hits: e.hits } : {}), ...(KINDS[e.kind] && KINDS[e.kind].mod ? { mt: e.mt, ms: e.ms, mpl: e.mpl, mc: e.mc, mn: e.mn, gk: e.gk, gn: e.gn, nm: e.nm } : {}), ...(e.side ? { side: e.side } : {}), ...(e.tn ? { tn: e.tn } : {}) }));
     // 「×○回」: the same effect again and again
     for (let r = 0; r < Math.max(1, Math.min(20, e.times || 1)); r++) list.push(...one);
   });
@@ -5481,16 +5519,16 @@ function renderOverlay(){
     const yesTxt = q.block ? effsText(q.c, q.block.b.then) + (q.block.b.else.length ? `／「いいえ」なら：${effsText(q.c, q.block.b.else)}` : "") : KINDS[q.fx.kind].text(q.fx.n);
     html = `<div class="box"><h2 style="margin:0">「${esc(q.c.name)}」</h2><p style="margin:0;font-size:18px;font-weight:700">${esc(q.fx.ask)}</p><p class="muted" style="margin:0">「はい」なら：${esc(yesTxt)}</p><div class="row"><button class="primary" data-ask="yes">はい</button><button data-ask="no">いいえ</button></div></div>`;
   } else if (G.chooseQ.length){
-    const q = G.chooseQ[0], opts = (targetOptions(st, q.s, q.fx.kind, q.ctx) || []).filter(o => !(q.fx.distinct && q.ctx.hit && (q.ctx.hit.picked || []).includes(String(o))));
+    const q = G.chooseQ[0], TS = q.ctx && q.ctx.side === "me" ? q.s : O(q.s), opts = (targetOptions(st, q.s, q.fx.kind, q.ctx) || []).filter(o => !(q.fx.distinct && q.ctx.hit && (q.ctx.hit.picked || []).includes(String(o))));
     const t = KINDS[q.fx.kind].target;
     const list = opts.map(o => {
       if (t === "grave" || t === "draft" || t === "graveAny" || t === "tagPick") return cardHTML(card(o), "sm pick", `data-opt="${esc(o)}" tabindex="0" role="button"`, mOpt(q.s));
       if (t === "hand") return cardHTML(card(P(st, q.s).hand[o]), "sm pick", `data-opt="${o}" tabindex="0" role="button"`, mOpt(q.s));
       if (t === "any"){ const [os, oi] = o.split(":"), m = P(st, os).mz[+oi]; return `<div class="g-item">${cardHTML(card(m.c), "sm pick", `data-opt="${o}" tabindex="0" role="button"`, { mod: modOf(m), ...mOpt(os) })}<div class="meta">${os === me ? "自分" : "相手"}</div></div>`; }
-      if (o === "p"){ const X = P(st, O(q.s)); return `<button class="pick-player" data-opt="p">${esc(X.name)}<br><small>LP ${X.lp}${X.block ? `・ブロック ${X.block}` : ""}</small></button>`; }
-      if (typeof o === "string" && o.startsWith("m:")){ const i = +o.slice(2), m = P(st, O(q.s)).mz[i]; return cardHTML(card(m.c), "sm pick", `data-opt="${o}" tabindex="0" role="button"`, { mod: modOf(m), ...mOpt(O(q.s)) }); }
-      const X = t === "opp" ? P(st, O(q.s)) : P(st, q.s);
-      return cardHTML(card(X.mz[o].c), "sm pick", `data-opt="${o}" tabindex="0" role="button"`, { mod: modOf(X.mz[o]), ...mOpt(t === "opp" ? O(q.s) : q.s) });
+      if (o === "p"){ const X = P(st, TS); return `<button class="pick-player" data-opt="p">${esc(X.name)}<br><small>LP ${X.lp}${X.block ? `・ブロック ${X.block}` : ""}</small></button>`; }
+      if (typeof o === "string" && o.startsWith("m:")){ const i = +o.slice(2), m = P(st, TS).mz[i]; return cardHTML(card(m.c), "sm pick", `data-opt="${o}" tabindex="0" role="button"`, { mod: modOf(m), ...mOpt(TS) }); }
+      const X = t === "opp" ? P(st, TS) : P(st, q.s);
+      return cardHTML(card(X.mz[o].c), "sm pick", `data-opt="${o}" tabindex="0" role="button"`, { mod: modOf(X.mz[o]), ...mOpt(t === "opp" ? TS : q.s) });
     }).join("");
     html = `<div class="box"><h2 style="margin:0">「${esc(q.c.name)}」の対象をえらぶ</h2><p class="muted" style="margin:0">${esc(q.ctx.spireAtk ? fxText0(q.c) : KINDS[q.fx.kind].text(q.fx.n))}</p><div class="gallery">${list || '<p class="muted">対象がいません</p>'}</div><div class="row"><button class="ghost" data-close="choose">使わない</button></div></div>`;
   } else if (G.costPick && !st.winner){
