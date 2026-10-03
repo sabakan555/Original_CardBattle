@@ -473,6 +473,29 @@ body.dm-lock{overflow:hidden}
 .fxi{display:block;width:80%;height:80%;background:center/contain no-repeat}
 .fxi-bomb{background-image:url("assets/fx_bomb.webp")}.fxi-cards{background-image:url("assets/fx_cards.webp")}.fxi-sword{background-image:url("assets/fx_sword.webp")}.fxi-teeth{background-image:url("assets/fx_teeth.webp")}.fxi-flag{background-image:url("assets/fx_flag.webp")}
 .fxi-synth{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cg stroke='%23000' stroke-width='7' stroke-linejoin='round' fill='%23ede5d8'%3E%3Crect x='12' y='20' width='42' height='58' rx='7' transform='rotate(-12 33 49)'/%3E%3Crect x='46' y='20' width='42' height='58' rx='7' transform='rotate(12 67 49)'/%3E%3C/g%3E%3Ccircle cx='50' cy='52' r='15' fill='%23ffd75e' stroke='%23000' stroke-width='6'/%3E%3Cpath d='M50 44v16M42 52h16' stroke='%23000' stroke-width='6' stroke-linecap='round'/%3E%3C/svg%3E")}.fxi-spark{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cpath d='M50 6l11 30 31 2-24 19 9 31-27-17-27 17 9-31L8 38l31-2z' fill='%23fff2b8' stroke='%23000' stroke-width='7' stroke-linejoin='round'/%3E%3C/svg%3E")}
+.fxi-trash{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cg stroke='%23000' stroke-width='7' stroke-linejoin='round' stroke-linecap='round' fill='%23ede5d8'%3E%3Cpath d='M40 19v-7h20v7' fill='none'/%3E%3Cpath d='M23 33h54l-5 55H28z'/%3E%3Crect x='14' y='19' width='72' height='14' rx='5'/%3E%3Cpath d='M40 46v30M60 46v30' fill='none'/%3E%3C/g%3E%3C/svg%3E")}
+/* ソクラテスラ枠＋ブロック表示: 上に小さく「PHASE-2」・大きく名前・下に線 → 絵 → 線の下に「・要求質量」とATK → 余白 → 下に効果の行 */
+.card.socra.fxrows .s-name{flex-direction:column;justify-content:center;align-items:center;gap:0;height:auto;min-height:calc(var(--w)*.15);margin-top:calc(var(--w)*.02);padding:calc(var(--w)*.01) 4% calc(var(--w)*.012);background:none;border-bottom:calc(var(--w)*.008) solid #1e2328}
+.card.socra.fxrows .s-sub{font-size:.36em;letter-spacing:.06em;line-height:1.1;font-family:var(--ui);font-weight:700}
+.card.socra.fxrows .s-main{flex:none;width:100%;line-height:1.05}
+.card.socra.fxrows .s-info{flex:none;display:flex;align-items:center;justify-content:space-between;gap:4%;min-height:calc(var(--w)*.1);margin-top:calc(var(--w)*.012);padding:calc(var(--w)*.012) 2% 0;border-top:calc(var(--w)*.008) solid #1e2328;font:700 calc(var(--w)*.045)/1.2 var(--ui)}
+.card.socra.fxrows .s-ms{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.card.socra.fxrows .s-atk{position:static;flex:none;transform:none;font:400 calc(var(--w)*.085)/1 "DotGothic16",monospace;color:#1e2328;-webkit-text-stroke:0;background:#fff;border:calc(var(--w)*.008) solid #1e2328;border-radius:calc(var(--w)*.01);padding:.04em .2em .02em;letter-spacing:.04em}
+.card.socra.fxrows .s-atk.up{color:#1f8f50}.card.socra.fxrows .s-atk.dn{color:#c2412c}
+.card.socra.fxrows .c-text{margin:0 calc(var(--w)*-.004);padding:calc(var(--w)*.02) 0 calc(var(--w)*.02);border-top:none;display:flex;flex-direction:column;justify-content:flex-end}
+.card.socra.fxrows .c-text .body{flex:none;height:auto;justify-content:flex-end}
+.card.socra.fxrows .c-text .fxr-meta{display:none}
+.card.socra.fxrows .c-art{margin:calc(var(--w)*.025) 6% 0}
+.card.socra.fxrows:not(.editor) .c-art{flex:1 1 0;min-height:calc(var(--w)*.2);aspect-ratio:auto}
+.card.socra.fxrows:not(.editor) .c-text{flex:0 0 auto;padding-top:calc(var(--w)*.05)}
+.card.socra.fxrows .fxrs{flex:none;gap:0;height:auto}
+.card.socra.fxrows .fxrs .fxr{flex:none;min-height:calc(var(--w)*.13);border-top:none;padding:calc(var(--w)*.012) calc(var(--w)*.02)}
+.card.socra.fxrows .fxrs .fxr:first-child{border-top:calc(var(--w)*.0045) solid #000}
+.card.socra.fxrows .fxr-ic{height:calc(var(--w)*.085)}
+.card.socra.fxrows .fxr-tx b{font-size:calc(var(--w)*.038)}
+.card.socra.fxrows .fxr-d{font-size:calc(var(--w)*.028)}
+.card.socra.fxrows .fxr-d>span{-webkit-line-clamp:2}
+.card.socra.fxrows .fxr-bd{font-size:calc(var(--w)*.06)}
 .fxr-tx{flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center}
 .fxr-tx b{font-size:calc(var(--w)*.028);font-weight:800;letter-spacing:-.06em;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .fxr-tx small{font-size:calc(var(--w)*.016);letter-spacing:-.04em;line-height:1.1}

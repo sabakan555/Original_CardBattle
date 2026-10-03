@@ -116,7 +116,7 @@ const SOCRA = [
 // ナナシデッキ（サバ缶のうちの子デッキ）のサンプル: 質量・合成と、効果のブロック表示
 const NB = (trig, then, extra) => ({ trig, join: "and", conds: [], then, else: [], ...(extra || {}) });
 const NANASHI = [
-  { type: "monster", name: "PHASE-2　四足", atk: 300, mass: 2, col: "#b9c4d8", blocks: [NB("turnStart", [{ kind: "draw", n: 1, dn: "発見", di: "cards", dd: "山札から1枚ドローする。" }, { kind: "selfDisc", n: 1, dn: "自己破壊", di: "cards", dd: "自分は手札を1枚選んで捨ててもよい" }], { bn: "起爆" })] },
+  { type: "monster", name: "PHASE-2　四足", atk: 300, mass: 2, col: "#b9c4d8", blocks: [NB("turnStart", [{ kind: "draw", n: 1, dn: "発見", di: "cards", dd: "山札から1枚ドローする。" }, { kind: "selfDisc", n: 1, dn: "自己破壊", di: "trash", dd: "自分は手札を1枚選んで捨ててもよい" }], { bn: "起爆" })] },
   { type: "monster", name: "PHASE-2　暴食の王", atk: 200, mass: 3, col: "#e3a6a0", blocks: [NB("while", [{ kind: "selfAtk", n: 200, dn: "攻撃力ＵＰ", di: "sword", dd: "ATK＋200" }]), NB("kill", [{ kind: "absorbKill", dn: "暴食の王", di: "teeth", dd: "バトルに勝った時、相手を質量として取り込む" }])] },
   { type: "magic", name: "PHASE-3　合成", col: "#cdb7f0", sym: "⊕", blocks: [NB("use", [{ kind: "synth", dn: "合成", di: "synth", dd: "手札を1枚選び、場のモンスターにその効果を付与する。効果1つにつき1質量必要" }])] }
 ];
@@ -207,8 +207,8 @@ document.addEventListener("click", e => {
 document.addEventListener("keydown", e => { if ((e.key === "Enter" || e.key === " ") && e.target.classList && e.target.classList.contains("kwd") && !e.target.closest(".card")){ e.preventDefault(); e.target.click(); } });
 const HEX6 = /^#[0-9a-f]{6}$/i;
 // 効果のブロック表示: 効果ごとに【名前】・アイコン・説明の行。「いつ」がある効果が2つ以上なら見出し行（「これより下の効果を発動する」）
-const FX_ICONS = { cards: "カード", sword: "剣", teeth: "牙", bomb: "爆弾", synth: "合成", spark: "星", flag: "旗" };
-const FX_ROW_DEF = { draw: ["発見", "cards"], drawUntil: ["発見", "cards"], selfDisc: ["自己破壊", "cards"], selfDiscRand: ["自己破壊", "cards"], selfDiscAll: ["自己破壊", "cards"], selfAtk: ["攻撃力ＵＰ", "sword"], atkUp: ["攻撃力ＵＰ", "sword"], absorbKill: ["暴食の王", "teeth"], synth: ["合成", "synth"] };
+const FX_ICONS = { cards: "カード", trash: "ゴミ箱", sword: "剣", teeth: "牙", bomb: "爆弾", synth: "合成", spark: "星", flag: "旗" };
+const FX_ROW_DEF = { draw: ["発見", "cards"], drawUntil: ["発見", "cards"], selfDisc: ["自己破壊", "trash"], selfDiscRand: ["自己破壊", "trash"], selfDiscAll: ["自己破壊", "trash"], selfAtk: ["攻撃力ＵＰ", "sword"], atkUp: ["攻撃力ＵＰ", "sword"], absorbKill: ["暴食の王", "teeth"], synth: ["合成", "synth"] };
 function fxRowsHTML(c){
   const t = cardType(c), rows = [];
   const row = o => `<div class="fxr${o.hdr ? " hdr" : ""}"><span class="fxr-ic"><i class="fxi fxi-${FX_ICONS[o.ic] ? o.ic : "spark"}"></i></span><div class="fxr-tx"><b>【${esc(o.name)}】</b>${o.small ? `<small>（${esc(o.small)}）</small>` : ""}<span class="fxr-d">${o.hdr ? `<i class="fxi fxi-flag"></i>` : ""}<span>${tkLink(esc(o.desc))}</span></span></div>${o.badge ? `<span class="fxr-bd">${esc(o.badge)}</span>` : ""}</div>`;
@@ -246,7 +246,7 @@ function cardHTML(c, cls = "", attrs = "", opts = {}){
   if (fr === "future" && !/<span class="c-cost"/.test(h)) h = h.replace('<div class="c-in">', '<div class="c-in"><span class="c-cost nocost" title="コストなし">‐</span>');
   if (fr === "ygo") h = h.replace(/<span class="c-cost"([^>]*)>([^<]*)<\/span>/, (m, a, v) => `<span class="c-cost"${a}>${ygoStars(v, cardType(c))}</span>`);
   if (mt) h = h.replace(/^<div class="card /, `<div class="card ${FR_CLS[fr]} `).replace(/<\/div>$/, `<span class="m-gem" aria-hidden="true"></span></div>`).replace(/<div class="c-atk">ATK /, `<div class="c-atk">`).replace(/<div class="c-name">([\s\S]*?)<\/div><div class="c-art">/, `<div class="c-name"><span class="m-nm">$1</span></div><div class="c-art">`);
-  if (c && c.fxRows && !freeText(c) && !c.potionView && !c.relicView && c.frame !== "spire") h = h.replace(/^<div class="card /, '<div class="card fxrows ').replace(/<div class="body">[\s\S]*?<\/div>(?=<div class="flv">|<span class="c-lim">|<div class="c-atk">|<\/div><\/div>)/, () => `<div class="body">${fxRowsHTML(c)}</div>`);
+  if (c && c.fxRows && !freeText(c) && !c.potionView && !c.relicView && c.frame !== "spire" && c.frame !== "socra") h = h.replace(/^<div class="card /, '<div class="card fxrows ').replace(/<div class="body">[\s\S]*?<\/div>(?=<div class="flv">|<span class="c-lim">|<div class="c-atk">|<\/div><\/div>)/, () => `<div class="body">${fxRowsHTML(c)}</div>`);
   const ho = c && HOLO[c.holo] ? c.holo : "", fo = c && FOIL[c.foil] ? c.foil : "";
   if (!ho && !fo) return h;
   return h.replace(/^<div class="card /, `<div class="card${ho ? ` holo holo-${ho}` : ""}${fo ? ` foil-${fo}` : ""} `).replace(/<\/div>$/, ho ? `<span class="holo-fx" aria-hidden="true"></span></div>` : "</div>");
@@ -284,7 +284,9 @@ function cardHTML0(c, cls = "", attrs = "", opts = {}){
 function socraHTML(c, t, cls, attrs, opts, sv, showCost){
   const raw = c.nameRuby || c.name || "";
   const m = t === "equip" ? raw.match(/^(.+?)(の|な|する)$/) : null;
-  const nameH = t === "equip" ? `<span class="s-dot">・</span><span class="s-main">${rubyHTML(m ? m[1] : raw)}</span>${m ? `<span class="s-suf">${m[2]}</span>` : ""}` : `<span class="s-main">${rubyHTML(raw)}</span>`;
+  // ブロック表示のときは手描きのカードみたいに: 名前を全角スペースで分けて上に小さく（「PHASE-2　四足」→ PHASE-2 / 四足）
+  const fx = !!(c.fxRows && !freeText(c) && !c.potionView && !c.relicView), sp = fx ? raw.match(/^([^　]+)　+(.+)$/) : null;
+  const nameH = sp ? `<span class="s-sub">${rubyHTML(sp[1])}</span><span class="s-main">${rubyHTML(sp[2])}</span>` : t === "equip" ? `<span class="s-dot">・</span><span class="s-main">${rubyHTML(m ? m[1] : raw)}</span>${m ? `<span class="s-suf">${m[2]}</span>` : ""}` : `<span class="s-main">${rubyHTML(raw)}</span>`;
   const lines = [];
   if (t === "equip" && c.eqN) lines.push(`ATK ${c.eqN > 0 ? "+" : "−"}${Math.abs(c.eqN)}`);
   absOf(c).forEach(a => lines.push(ABS[a.k].self ? abPhrase(a) : `このモンスターは${abPhrase(a)}`));
@@ -293,12 +295,18 @@ function socraHTML(c, t, cls, attrs, opts, sv, showCost){
   if (exhausts(c)) body += `<div>・廃棄</div>`;
   if (freeText(c)) body = `<div>${rubyHTML(c.effect)}</div>`;
   if (!body && !c.flavor && t === "equip") body = `<div>・効果なし</div>`;
-  const cap = t === "monster" ? `<span class="s-cap" title="装備キャパ">${eqCapOf(c)}</span>` : t === "equip" ? `<span class="s-cap" title="装備コスト">${eqCostOf(c) ? "−" + eqCostOf(c) : "0"}</span>` : "";
+  let cap = t === "monster" ? `<span class="s-cap" title="装備キャパ">${eqCapOf(c)}</span>` : t === "equip" ? `<span class="s-cap" title="装備コスト">${eqCostOf(c) ? "−" + eqCostOf(c) : "0"}</span>` : "";
   let num = "";
   if (t === "monster"){ const base = baseAtk(c), mod = opts.mod || 0; num = `<span class="s-atk s-box ${mod > 0 ? "up" : mod < 0 ? "dn" : ""}">${fmtN(Math.max(0, base + mod))}</span>`; }
   else if (t === "equip" && c.eqN) num = `<span class="s-atk">${c.eqN > 0 ? "+" : "−"}${Math.abs(c.eqN)}</span>`;
   const art = c.img ? `<img alt="" src="${c.img}">` : "";
-  return `<div class="card socra ${t}${showCost ? " costed" : ""}${c.token ? " token" : ""}${c.modded ? " modded" : ""} ${cls}" ${attrs}${sv.length ? ` style='${sv.join(";")}'` : ""}>${opts.done ? `<span class="done">${opts.done}</span>` : ""}${opts.eq ? `<span class="eqb">${esc(opts.eq)}</span>` : ""}${opts.dmg ? `<span class="dmgc" title="ダメージカウンター（ATK以上になると破壊）">ダメージ ${opts.dmg}</span>` : ""}${opts.vuln ? `<span class="vulc" title="弱体：受けるダメージが1.5倍">弱体${opts.vuln}</span>` : ""}${opts.weak ? `<span class="wkc" title="脱力：与える戦闘ダメージが0.75倍">脱力${opts.weak}</span>` : ""}<div class="c-in">${showCost ? `<span class="c-cost" title="コスト">${costLabel(c)}</span>` : ""}<div class="s-name">${nameH}</div><div class="c-art">${art}</div><div class="c-text"><div class="body">${body}</div>${c.flavor ? `<div class="flv">${rubyHTML(c.flavor)}</div>` : ""}</div>${cap}${num}</div></div>`;
+  let info = "";
+  if (fx){
+    body = fxRowsHTML(c); cap = "";
+    const ms = [massOf(c) ? `・要求質量：${massOf(c)}` : "", t === "monster" ? monAbsText(c) : t === "equip" ? eqText(c) : ""].filter(Boolean).join("　");
+    if (ms || num) info = `<div class="s-info"><span class="s-ms">${kwLink(esc(ms))}</span>${num}</div>`; num = "";
+  }
+  return `<div class="card socra${fx ? " fxrows" : ""} ${t}${showCost ? " costed" : ""}${c.token ? " token" : ""}${c.modded ? " modded" : ""} ${cls}" ${attrs}${sv.length ? ` style='${sv.join(";")}'` : ""}>${opts.done ? `<span class="done">${opts.done}</span>` : ""}${opts.eq ? `<span class="eqb">${esc(opts.eq)}</span>` : ""}${opts.dmg ? `<span class="dmgc" title="ダメージカウンター（ATK以上になると破壊）">ダメージ ${opts.dmg}</span>` : ""}${opts.vuln ? `<span class="vulc" title="弱体：受けるダメージが1.5倍">弱体${opts.vuln}</span>` : ""}${opts.weak ? `<span class="wkc" title="脱力：与える戦闘ダメージが0.75倍">脱力${opts.weak}</span>` : ""}<div class="c-in">${showCost ? `<span class="c-cost" title="コスト">${costLabel(c)}</span>` : ""}<div class="s-name">${nameH}</div><div class="c-art">${art}</div>${info}<div class="c-text"><div class="body">${body}</div>${c.flavor && !fx ? `<div class="flv">${rubyHTML(c.flavor)}</div>` : ""}</div>${cap}${num}</div></div>`;
 }
 // スパイア風 frame: gem cost at the top left, ribbon name over an arched picture, type plaque, centered text
 const exhausts = c => !!(c && c.exhaust && (cardType(c) === "magic" || cardType(c) === "trap"));
