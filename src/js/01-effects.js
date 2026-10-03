@@ -77,6 +77,12 @@ const KINDS = {
   synth:      { label: "合成（手札のカードの効果を、場のモンスターに付ける）", text: () => `手札を1枚えらび、場のモンスター1体にそのカードの効果を付ける（効果1つにつき、墓地のカード1枚を質量として重ねる）` },
   synthHand:  { label: "（合成：手札をえらぶ）", target: "hand", text: () => `効果を付けたい手札のカードをえらぶ` },
   synthTo:    { label: "（合成：付けるモンスターをえらぶ）", target: "any", text: () => `効果を付ける場のモンスターをえらぶ` },
+  millBoth:   { label: "お互いの山札の上から○枚を墓地へ", n: true, text: n => `お互いの山札の上から${n || 1}枚を墓地に送る` },
+  graveHand:  { label: "墓地のカードをえらんで手札に戻す（どのカードでも）", target: "graveAny", text: () => `自分の墓地のカード1枚を手札に戻す` },
+  matCopy:    { label: "分裂：場のモンスターの質量1枚をコピーして自分の場に出す", target: "any", text: () => `場のモンスター1体をえらび、その質量1枚をコピーして自分の場に出す` },
+  matOut:     { label: "増殖：このモンスターの質量をできるだけ場に出す（出せない分は墓地へ）", mon: true, text: () => `このモンスターの下の質量をできるだけ自分の場に出す（出せなかった分は墓地へ）` },
+  stealGrave: { label: "相手の墓地の一番上のカードを自分の墓地へ移す", n: true, text: n => `相手の墓地のカード${n || 1}枚を自分の墓地に移す` },
+  fieldOut:   { label: "このフィールドの質量の半分（切り捨て）を、このカードのコピーとして場に出す", text: () => `このカードの質量の半分（切り捨て）を、このカードのコピーとして自分の魔法・罠ゾーンに出す` },
   extraTurn:  { label: "追加ターン（このターンのあと、もう一度自分のターン）", n: true, text: n => `このターンのあと、もう${n > 1 ? n + "回" : "1回"}自分のターンをおこなう` },
   dblAtk:     { label: "次に使うアタックをもう1回プレイ", n: true, text: n => `このターン、次に使う${n > 1 ? n + "枚の" : ""}アタックをもう1回プレイする` },
   copyLastAtk:{ label: "直前に使ったアタックのコピーを手札に加える", text: () => `直前に使ったアタックのコピーを1枚手札に加える` },
@@ -316,8 +322,10 @@ const ssOf = c => c && cardType(c) === "monster" && c.ss && c.ss.on ? { cond: SS
 // 生贄召喚: a normal summon that sends this many of your own monsters to the graveyard first
 // (st, s) given: a コストデッキ player uses tribCost when the card has one
 // 要求質量: 召喚するとき、墓地のカードをこの枚数だけモンスターの下に重ねる（モンスターが破壊されたら墓地にもどる）
-const massOf = c => !c || cardType(c) !== "monster" ? 0 : Math.max(0, Math.min(40, Math.round(+c.mass || 0)));
-const massText = c => massOf(c) ? `【要求質量${massOf(c)}】墓地のカード${massOf(c)}枚を質量としてこのモンスターの下に重ねて召喚する` : "";
+const massOf = c => !c || (cardType(c) !== "monster" && !isField(c)) ? 0 : Math.max(0, Math.min(40, Math.round(+c.mass || 0)));
+const massText = c => massOf(c) ? (isField(c) ? `【要求質量${massOf(c)}】墓地のカード${massOf(c)}枚を質量としてこのカードの下に重ねて発動する` : `【要求質量${massOf(c)}】墓地のカード${massOf(c)}枚を質量としてこのモンスターの下に重ねて召喚する`) : "";
+// ナナシ: ターンのはじめに、質量が足りていれば手札・山札・墓地のどこからでも召喚できる（任意）
+const anySumText = c => c && c.anySum && cardType(c) === "monster" ? "【自分のターンのはじめ】墓地に質量が足りていれば、手札・山札・墓地のどこからでも召喚できる" : "";
 // 場のモンスターの中身: カードの効果＋合成でついた効果（m.xb）
 const monCard = m => !m ? null : (m.xb || []).length ? { ...card(m.c), blocks: [...blocksOf(card(m.c)), ...m.xb] } : card(m.c);
 function tribOf(c, st, s){
@@ -411,7 +419,7 @@ function whenText(c){ const w = whenOf(c); return w ? `【${WHEN_LABEL[w]}に発
 function fusionMatText(x){ return x.m === "any" ? "モンスター" : x.m === "tag" ? `タグ「${x.v || "？"}」のモンスター` : `「${x.v || "？"}」`; }
 function fusionText(c){ return c && cardType(c) === "monster" && Array.isArray(c.fusion) && c.fusion.length ? `【融合】${c.fusion.map(fusionMatText).join("＋")}` : ""; }
 const spOptText = c => !c || (cardType(c) !== "magic" && cardType(c) !== "trap") ? "" : [c.strig ? "《S・トリガー》" : "", c.flashback && cardType(c) === "magic" ? "《フラッシュバック》" : "", +c.kick > 0 ? `《キッカー》（${+c.kick}）` : ""].join("");
-function fxText(c){ return (c && c.token && cardType(c) !== "monster" ? "【トークン】" : "") + (c && c.ex && cardType(c) !== "monster" ? "【EX】" : "") + (c && !c.noUse ? whenText(c) : "") + [fusionText(c) ? fusionText(c) + "（「融合召喚」の効果でだけ出せる）" : "", c && c.noUse && (cardType(c) === "magic" || cardType(c) === "trap") ? "このカードは発動できない" : "", isPersist(c) ? "【永続】使ったあとも場に残る" : "", spOptText(c), isField(c) ? "【フィールド】お互いに1枚だけ場に置ける（新しいフィールドが出ると、前のフィールドは墓地へ）。効果はお互いに効く" : "", extraCostText(c), tribText(c), massText(c), atkCondText(c), ssText(c), fxText0(c)].filter(Boolean).join("。"); }
+function fxText(c){ return (c && c.token && cardType(c) !== "monster" ? "【トークン】" : "") + (c && c.ex && cardType(c) !== "monster" ? "【EX】" : "") + (c && !c.noUse ? whenText(c) : "") + [fusionText(c) ? fusionText(c) + "（「融合召喚」の効果でだけ出せる）" : "", c && c.noUse && (cardType(c) === "magic" || cardType(c) === "trap") ? "このカードは発動できない" : "", isPersist(c) ? "【永続】使ったあとも場に残る" : "", spOptText(c), isField(c) ? "【フィールド】お互いに1枚だけ場に置ける（新しいフィールドが出ると、前のフィールドは墓地へ）。効果はお互いに効く" : "", extraCostText(c), tribText(c), massText(c), anySumText(c), atkCondText(c), ssText(c), fxText0(c)].filter(Boolean).join("。"); }
 /* ================= effect blocks: いつ / もし / なにを / ちがったら =================
    c.blocks = [{ trig, conds: [{k, op, n | name, where, match | text}], join: "and"|"or", then: [{kind, n, to}], else: [...] }]
    Older cards (c.fx + c.combo) are read as blocks too, so everything below runs on blocks. */
@@ -447,6 +455,7 @@ const OPS = { ge: "以上", le: "以下", eq: "" };
 // 「○1つにつき」: what a number can grow with (ダメージ / ブロック / マナ / 回復, or the number of hits)
 const PER_DEFS = {
   myBlock:  { label: "自分のブロック", u: "1", val: (st, s) => P(st, s).block || 0 },
+  mass5:    { label: "このモンスターの質量5枚", u: "", val: (st, s, c, t, ctx) => { const m = ctx && ctx.mon && monAt(st, ctx.mon); return m ? Math.floor((m.mats || []).length / 5) : 0; } },
   mass:     { label: "このモンスターの質量", u: "1枚", val: (st, s, c, t, ctx) => { const m = ctx && ctx.mon && monAt(st, ctx.mon); return m ? (m.mats || []).length : 0; } },
   strike:   { label: "名前に「ストライク」が入った自分のカード", u: "1枚", val: (st, s) => { const p = P(st, s); return [...p.hand, ...p.deck, ...p.grave].filter(id => /ストライク/.test(card(id).name || "")).length; } },
   tgtVuln:  { label: "対象の弱体", u: "1", val: (st, s, c, t) => { const op = P(st, O(s)); if (typeof t === "string" && t.startsWith("m:")){ const m = op.mz[+t.slice(2)]; return m ? m.vuln || 0 : 0; } return op.vuln || 0; } },
@@ -536,7 +545,7 @@ function blocksOf(c){
   if (Array.isArray(c.blocks)) return c.blocks.filter(b => b && typeof b === "object").map(b => ({
     trig: normTrig(c, b.trig), join: b.join === "or" ? "or" : "and", roll: b.roll === "die" || b.roll === "coin" ? b.roll : "", faces: Math.max(2, Math.min(20, Math.round(+b.faces || 6))), delay: Math.max(0, Math.min(9, Math.round(+b.delay || 0))),
     ...(b.trig === "act" ? { ap: b.ap === "game" || b.ap === "free" ? b.ap : "turn", an: Math.max(1, Math.min(9, Math.round(+b.an || 1))) } : {}),
-    ...(b.bn ? { bn: String(b.bn).slice(0, 20) } : {}), ...(b.bic ? { bic: String(b.bic).slice(0, 12) } : {}),
+    ...(b.bn ? { bn: String(b.bn).slice(0, 20) } : {}), ...(b.bic ? { bic: String(b.bic).slice(0, 12) } : {}), ...(b.bd ? { bd: String(b.bd).slice(0, 40) } : {}), ...(b.one ? { one: true } : {}),
     // プレイヤーに付与: { to: me|op, at: turnStart|turnEnd, dur: 0=ずっと / ○回 }
     grant: b.grant && (b.grant.to === "me" || b.grant.to === "op") ? { to: b.grant.to, at: b.grant.at === "turnStart" ? "turnStart" : "turnEnd", dur: Math.max(0, Math.min(9, Math.round(+b.grant.dur || 0))) } : null,
     conds: (Array.isArray(b.conds) ? b.conds : []).filter(x => x && COND_DEFS[x.k]),
@@ -589,7 +598,7 @@ function blockText(c, b){
   const head = c && c.relicView ? `【${RELIC_TRIG_LABEL[b.trig] || ""}】` : isMon ? (b.trig === "act" ? `【起動${actLimText(b)}】` : `【${trigLabel(t, b.trig)}】`) : isField(c) && b.trig !== "use" ? `【${FIELD_TRIG_LABEL[b.trig]}】` : isPersist(c) && b.trig !== "use" ? `【${PERSIST_TRIG_LABEL[b.trig]}】` : "";
   const br = b.roll === "die" && b.dieBr && b.dieBr.length ? b.dieBr : null;
   const brText = br ? br.map(x => `${x.lo === x.hi ? x.lo : `${x.lo}〜${x.hi}`}が出たら、${effsText(c, x.then)}`).join("。") : "";
-  let s = head + delayText(b.delay) + (b.roll === "die" ? `サイコロ${b.faces && b.faces !== 6 ? `（${b.faces}面）` : ""}を振る。` : b.roll === "coin" ? "コインを投げる。" : "") + condsText(b) + (b.then.length ? effsText(c, b.then) + (br ? "。" : "") : br ? "" : "なにもしない") + brText;
+  let s = head + delayText(b.delay) + (b.roll === "die" ? `サイコロ${b.faces && b.faces !== 6 ? `（${b.faces}面）` : ""}を振る。` : b.roll === "coin" ? "コインを投げる。" : "") + condsText(b) + (b.then.length ? (b.one && b.then.length > 1 ? "次の効果から1つえらんで発動する：" + b.then.map(e => effsText(c, [e])).join("／") : effsText(c, b.then)) + (br ? "。" : "") : br ? "" : "なにもしない") + brText;
   if (b.conds.length && b.else.length) s += `。そうでなければ、${effsText(c, b.else)}`;
   if (b.grant){ const pre = head + delayText(b.delay), g = b.grant; s = pre + boonText(g) + `「自分のターンの${g.at === "turnStart" ? "はじめ" : "おわり"}に、${s.slice(pre.length)}」`; }
   if (isField(c)) s = s.replace(/(自分|相手)のモンスターすべて/g, "お互いのモンスターすべて");

@@ -343,7 +343,7 @@ function renderBoard(){
       <span class="zlabel">相手のモンスターゾーン</span>
       <div class="zones">${zoneHTML(op, "mz")}</div>
       <div class="bz">
-        ${st.field ? `<div class="fieldz" data-field title="フィールド（お互いに効く）"><span class="flbl">フィールド</span>${cardHTML(card(st.field.c), "xs pick", `data-field tabindex="0" role="button"`)}<span class="note">${esc(P(st, st.field.o).name)} が出した</span></div>` : ""}
+        ${st.field ? `<div class="fieldz" data-field title="フィールド（お互いに効く）"><span class="flbl">フィールド</span>${cardHTML(card(st.field.c), "xs pick", `data-field tabindex="0" role="button"`)}<span class="note">${esc(P(st, st.field.o).name)} が出した${(st.field.mats || []).length ? `・質量${st.field.mats.length}` : ""}</span></div>` : ""}
         <h2>バトルゾーン</h2>
         <div class="turnline">ターン${st.turnNo}・${G.spectate ? `<span class="me">${esc(P(st, st.turn).name)} のターン</span>` : myTurn ? `<span class="me">あなたのターン</span>` : `<span class="op">${esc(po.name)} のターン</span>`}${myTurn && !pm.mana && !st.summoned ? "（召喚できる）" : ""}</div>
         ${st.chain && st.chain.length ? `<div class="chainrow onboard"><span class="note">チェーン中：</span>${st.chain.map((l, k) => `<button type="button" class="link ${l.s === me ? "mine" : ""}" data-cid="${esc(l.c)}" data-where="チェーン${k + 1}">${k + 1}. ${l.summon ? (l.special ? "特殊召喚：" : "召喚：") : ""}${esc(card(l.c).name)}<small>${l.s === me ? "あなた" : esc(P(st, l.s).name)}</small></button>`).join('<span class="arr">→</span>')}</div>` : ""}
@@ -640,8 +640,8 @@ function renderOverlay(){
     peek = true;
   } else if (G.chooseQ.length && G.chooseQ[0].ask){
     const q = G.chooseQ[0];
-    const yesTxt = q.block ? effsText(q.c, q.block.b.then) + (q.block.b.else.length ? `／「いいえ」なら：${effsText(q.c, q.block.b.else)}` : "") : KINDS[q.fx.kind].text(q.fx.n);
-    html = `<div class="box"><h2 style="margin:0">${q.to ? `${esc(P(st, q.s).name)} の「${esc(q.c.name)}」からの質問` : `「${esc(q.c.name)}」`}</h2><p style="margin:0;font-size:18px;font-weight:700">${esc(q.fx.ask)}</p><p class="muted" style="margin:0">${q.to ? "相手のカードの効果" : ""}「はい」なら：${esc(yesTxt)}</p><div class="row"><button class="primary" data-ask="yes">はい</button><button data-ask="no">いいえ</button><button class="ghost" data-peek>盤面を見る</button></div></div>`; peek = true;
+    const yesTxt = q.yesTxt || (q.pick1 ? "" : q.block ? effsText(q.c, q.block.b.then) + (q.block.b.else.length ? `／「いいえ」なら：${effsText(q.c, q.block.b.else)}` : "") : KINDS[q.fx.kind].text(q.fx.n));
+    html = `<div class="box"><h2 style="margin:0">${q.to ? `${esc(P(st, q.s).name)} の「${esc(q.c.name)}」からの質問` : `「${esc(q.c.name)}」`}</h2><p style="margin:0;font-size:18px;font-weight:700">${esc(q.fx.ask)}</p>${q.pick1 ? `<div class="p1list">${q.pick1.map((o, k) => `<button type="button" class="p1" data-p1="${k}"><b>【${esc(o.name)}】</b><span>${esc(o.text)}</span></button>`).join("")}</div><div class="row">` : `<p class="muted" style="margin:0">${q.to ? "相手のカードの効果" : ""}「はい」なら：${esc(yesTxt)}</p><div class="row"><button class="primary" data-ask="yes">はい</button><button data-ask="no">いいえ</button>`}<button class="ghost" data-peek>盤面を見る</button></div></div>`; peek = true;
   } else if (G.chooseQ.length){
     const q = G.chooseQ[0], TS = q.ctx && q.ctx.side === "me" ? q.s : O(q.s), opts = (targetOptions(st, q.s, q.fx.kind, q.ctx) || []).filter(o => !(q.fx.distinct && q.ctx.hit && (q.ctx.hit.picked || []).includes(String(o))));
     const t = KINDS[q.fx.kind].target;
@@ -732,6 +732,7 @@ $("#overlay").addEventListener("click", e => {
   { const xu = e.target.closest("[data-exuse]"); if (xu && G && !G.spectate){ const k = +xu.dataset.exuse, me = G.slot; let hi = -1, id = null; if (isFusion(card(P(G.st, me).ex[k]))){ toast("融合モンスターは「融合召喚」の効果でだけ出せます"); return; } G.exView = false; act(st => { const p = P(st, me); if (!canAct(st, me) || p.ex[k] == null) return false; exReturnP(st, me); id = p.ex.splice(k, 1)[0]; p.hand.push(id); hi = p.hand.length - 1; p.exTemp = { id, i: hi }; G.sel = { z: "hand", s: "me", i: hi }; G.atkFrom = null; }); if (hi < 0) renderAll(); return; } }
   if (!G) return;
   { const aq = e.target.closest("[data-askq]"); if (aq){ const yes = aq.dataset.askq === "yes"; act(st => { if (!st.askQ || st.askQ.to !== G.slot || st.askQ.ans != null) return false; st.askQ.ans = yes; log(st, G.slot, `「${st.askQ.name}」の質問「${st.askQ.text}」に「${yes ? "はい" : "いいえ"}」と答えた`); }); return; } }
+  { const p1 = e.target.closest("[data-p1]"); if (p1 && G.chooseQ.length && G.chooseQ[0].pick1){ const q = G.chooseQ.shift(), k = +p1.dataset.p1; act(st => { q.p1go(st, k); }); return; } }
   const ak = e.target.closest("[data-ask]");
   if (ak && G.chooseQ.length && G.chooseQ[0].ask){
     const q = G.chooseQ.shift(), yes = ak.dataset.ask === "yes";

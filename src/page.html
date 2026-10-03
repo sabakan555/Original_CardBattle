@@ -106,6 +106,7 @@
         <label class="row" id="quickRow" hidden style="gap:6px;font-weight:700;cursor:pointer"><input type="checkbox" id="mkQuick"> 速攻魔法（相手のターンにも使える）</label>
         <label class="row" id="whenRow" hidden style="gap:6px;font-weight:700;flex-wrap:wrap">発動タイミング<select id="mkWhen" aria-label="発動タイミング"><option value="">いつでも</option><option value="attacked">相手が攻撃してきたとき</option><option value="oppSummon">相手がモンスターを召喚・特殊召喚したとき</option><option value="oppUse">相手がカードを発動したとき</option><option value="oppEnd">相手のターンの終わり</option></select><span class="note" style="font-weight:400">決めると、そのときにしか発動できない</span></label>
         <label class="row" id="fieldRow" hidden style="gap:6px;font-weight:700;cursor:pointer"><input type="checkbox" id="mkField"> フィールド魔法（お互いに1枚だけ。新しいフィールドが出ると前のフィールドは墓地へ。効果はお互いに効く）</label>
+        <div class="row" id="fieldOpts" hidden style="gap:6px 14px;flex-wrap:wrap;padding-left:24px"><label class="row" style="gap:6px">要求質量：発動するとき墓地のカードを<input type="number" id="mkFMass" min="0" max="40" step="1" value="0" style="width:64px">枚 このカードの下に重ねる</label><label class="row" style="gap:6px;cursor:pointer"><input type="checkbox" id="mkLand"> 横向きのカードにする<span class="note">（MTG風・近未来・遊戯王風の枠ではたて向き）</span></label></div>
         <label class="row" id="persistRow" hidden style="gap:6px;font-weight:700;cursor:pointer"><input type="checkbox" id="mkPersist"> 永続（使ったあとも魔法・罠ゾーンに残って、効果が続く・最大5枚）</label>
         <label class="row" id="exhaustRow" hidden style="gap:6px;font-weight:700;cursor:pointer"><input type="checkbox" id="mkExhaust"> 廃棄（使ったら墓地に行かず、そのゲームから消える）</label>
         <label class="row" id="noUseRow" hidden style="gap:6px;font-weight:700;cursor:pointer"><input type="checkbox" id="mkNoUse"> 発動できない（手札からもセットしても使えない。相手の場にセットして場所をふさぐ用）</label>
@@ -226,6 +227,7 @@
             <div class="fxform" id="ssBox">
               <label class="row" style="gap:6px;font-weight:700">生贄召喚：召喚するとき自分のモンスターを<select id="mkTrib"><option value="0">0（いらない）</option><option value="1">1</option><option value="2">2</option><option value="3">3</option></select>体 墓地へ送る</label>
               <label class="row" style="gap:6px;font-weight:700">要求質量：召喚するとき墓地のカードを<input type="number" id="mkMass" min="0" max="40" step="1" value="0" style="width:64px">枚 このモンスターの下に重ねる<span class="note" style="font-weight:400">（0ならなし。破壊されたら墓地にもどる）</span></label>
+              <label class="row" style="gap:6px;cursor:pointer"><input type="checkbox" id="mkAnySum"> 自分のターンのはじめ、墓地に質量が足りていれば手札・山札・墓地のどこからでも召喚できる（ナナシ）</label>
               <label class="row" style="gap:6px">生贄にできるのはタグ<input type="text" id="mkTribTag" list="tagNames" maxlength="40" placeholder="（なんでも）" style="width:140px">のモンスターだけ</label>
               <label class="row" style="gap:6px;font-weight:700;cursor:pointer"><input type="checkbox" id="ssOn"> 手札から特殊召喚できる</label>
               <div id="ssOpts" hidden>
