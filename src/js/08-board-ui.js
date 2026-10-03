@@ -567,7 +567,7 @@ function renderDetail(info, anim){
   // equips stuck on this monster, shown as cards from left to right (tap one to read it)
   const eqRow = info.eqList && info.eqList.length ? `<div class="eqrow"><div class="eqlbl">装備（左から順）　${esc(info.cap || "")}</div><div class="eqlist">${info.eqList.map((e, k) => `${k ? `<span class="eqarr">→</span>` : ""}<button class="eqi" data-eqcid="${esc(e.c)}" aria-label="「${esc(card(e.c).name)}」の詳細">${cardHTML(card(e.c), "xs", "", { mana: e.mana })}${e.mult > 1 || e.used || e.opp ? `<span class="eqtag">${[e.mult > 1 ? "×2" : "", e.used ? "使用ずみ" : "", e.opp ? "相手の" : ""].filter(Boolean).join("・")}</span>` : ""}</button>`).join("")}</div></div>` : "";
   const back = G.detailBack ? `<button class="small ghost eqback" data-detailback>← もどる</button>` : "";
-  box.innerHTML = `${CLOSE}<h3>カード詳細</h3>${back}<div class="detailcard">${cardHTML(c, "detail", "", { mod: info.mod, mana: info.mana })}</div>${eqRow}<dl class="dl">${rows.map(([k, v]) => `<dt>${k}</dt><dd>${tkLink(esc(v))}</dd>`).join("")}</dl>${actDetail(c)}`;
+  box.innerHTML = `${CLOSE}<h3>カード詳細</h3>${back}<div class="detailcard">${cardHTML(c, "detail", "", { mod: info.mod, mana: info.mana })}</div>${eqRow}<dl class="dl">${rows.map(([k, v]) => `<dt>${k}</dt><dd>${tkLink(esc(v))}</dd>`).join("")}</dl>${c.fxRows && !freeText(c) ? `<div class="fxr-big">${fxRowsHTML(c)}</div>` : ""}${actDetail(c)}`;
 }
 // 詳細: 起動効果を持つ自分の場のモンスターなら「発動する」
 function actDetail(c){
