@@ -1104,16 +1104,16 @@ div.f{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:13px}
 /* editor */
 /* 遊戯王風の枠（サバ缶デザイン・Figma Frame 44〜46 / 590×860）: モンスター・魔法（装備も）・罠で画像が変わる。星の数がコスト */
 .card.ygo{--yu:calc(var(--w)/590);aspect-ratio:590/860;padding:0;background:transparent;border:none;border-radius:calc(var(--yu)*12);box-shadow:0 calc(var(--yu)*4) calc(var(--yu)*12) rgba(0,0,0,.35);color:#30211c;isolation:isolate;font-family:var(--cf,"Shippori Mincho",serif)}
-.card.ygo::before{content:"";position:absolute;inset:0;background:url("assets/ygo_mon.webp") 0 0/100% 100% no-repeat;border-radius:inherit;z-index:0;pointer-events:none}
-.card.ygo.magic::before,.card.ygo.equip::before{background-image:url("assets/ygo_mag.webp")}
-.card.ygo.trap::before{background-image:url("assets/ygo_trap.webp")}
+.card.ygo::before{content:"";position:absolute;inset:0;background:url("assets/ygo_mon.webp?v=2") 0 0/100% 100% no-repeat;border-radius:inherit;z-index:2;pointer-events:none}
+.card.ygo.magic::before,.card.ygo.equip::before{background-image:url("assets/ygo_mag.webp?v=2")}
+.card.ygo.trap::before{background-image:url("assets/ygo_trap.webp?v=2")}
 .card.ygo .c-in{position:static;display:block;height:auto;background:none;border-radius:0;overflow:visible}
-.card.ygo .c-art{position:absolute;left:calc(var(--yu)*59);top:calc(var(--yu)*151);width:calc(var(--yu)*470);height:calc(var(--yu)*460);aspect-ratio:auto;border:none;background:#d9d9d9;overflow:hidden;z-index:1}
+.card.ygo .c-art{position:absolute;left:calc(var(--yu)*62);top:calc(var(--yu)*149);width:calc(var(--yu)*465);height:calc(var(--yu)*464);aspect-ratio:auto;border:none;background:#d9d9d9;overflow:hidden;z-index:1}
 .card.ygo .c-art>img,.card.ygo .c-art>canvas{width:100%;height:100%;object-fit:cover;display:block}
 .card.editor.ygo .c-art>canvas{width:auto;height:100%;max-width:none;position:relative;left:50%;transform:translateX(-50%)}
 .card.ygo .c-art .noart{display:grid;place-items:center;width:100%;height:100%;font-size:calc(var(--yu)*28);color:#888}
 .card.ygo .c-art .c-tab,.card.ygo .m-gem,.card.ygo .fl-guide,.card.ygo .c-bgart{display:none!important}
-.card.ygo .c-name{position:absolute;left:calc(var(--yu)*41);top:calc(var(--yu)*32);width:calc(var(--yu)*505);height:calc(var(--yu)*67);padding:0!important;border:none!important;background:none;display:flex;align-items:center;justify-content:flex-start;font-size:calc(var(--yu)*40*var(--nk,1));line-height:1!important;font-weight:700;letter-spacing:-.06em;color:#30211c;z-index:2;white-space:nowrap;overflow:hidden}
+.card.ygo .c-name{position:absolute;left:calc(var(--yu)*41);top:calc(var(--yu)*32);width:calc(var(--yu)*505);height:calc(var(--yu)*67);padding:0!important;border:none!important;background:none;display:flex;align-items:center;justify-content:flex-start;font-size:calc(var(--yu)*40*var(--nk,1));line-height:1!important;font-weight:700;letter-spacing:-.06em;color:#30211c;z-index:3;white-space:nowrap;overflow:hidden}
 .card.ygo.magic .c-name,.card.ygo.equip .c-name,.card.ygo.trap .c-name{width:calc(var(--yu)*445)}
 .card.ygo .m-nm{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
 /* コスト = 星。右から並ぶ。入りきらないときは「★×14」 */
@@ -1122,7 +1122,7 @@ div.f{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:13px}
 .card.ygo.trap .c-cost{right:calc(var(--yu)*170)}
 .card.ygo .c-cost .ys{display:block;flex:none;width:calc(var(--yu)*36);height:calc(var(--yu)*36);background:url("assets/ygo_star.webp") center/100% 100% no-repeat;filter:drop-shadow(0 calc(var(--yu)*1) calc(var(--yu)*1.5) rgba(0,0,0,.45))}
 .card.ygo .c-cost .ys-x{margin-right:calc(var(--yu)*4);text-shadow:0 0 calc(var(--yu)*3) rgba(255,255,255,.7)}
-.card.ygo .c-text{position:absolute;left:calc(var(--yu)*41);top:calc(var(--yu)*647);width:calc(var(--yu)*504);height:calc(var(--yu)*128);border:none;background:none;box-shadow:none;padding:0;font-family:var(--cf,"Shippori Mincho",serif);font-weight:700;font-size:calc(var(--yu)*22*var(--tk,1));line-height:1.32;color:#30211c;overflow:visible;min-height:0;z-index:2;display:block}
+.card.ygo .c-text{position:absolute;left:calc(var(--yu)*41);top:calc(var(--yu)*647);width:calc(var(--yu)*504);height:calc(var(--yu)*128);border:none;background:none;box-shadow:none;padding:0;font-family:var(--cf,"Shippori Mincho",serif);font-weight:700;font-size:calc(var(--yu)*22*var(--tk,1));line-height:1.32;color:#30211c;overflow:visible;min-height:0;z-index:3;display:block}
 .card.ygo.magic .c-text,.card.ygo.equip .c-text,.card.ygo.trap .c-text{height:calc(var(--yu)*160)}
 .card.ygo .c-text .body{max-height:calc(var(--yu)*22*1.32*4*var(--tk,1));-webkit-line-clamp:4}
 .card.ygo .c-text:has(.flv) .body{max-height:calc(var(--yu)*22*1.32*3*var(--tk,1));-webkit-line-clamp:3}
