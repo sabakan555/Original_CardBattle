@@ -2626,7 +2626,9 @@ $("#potTray").addEventListener("click", e => { const b = e.target.closest("[data
 /* ================= search & filters ================= */
 const kata2hira = t => t.replace(/[\u30a1-\u30f6]/g, ch => String.fromCharCode(ch.charCodeAt(0) - 0x60));
 const normQ = t => kata2hira(String(t || "").toLowerCase().normalize("NFKC"));
-S.filt = { gal: { q: "", type: "all", fx: "", sort: "new" }, deck: { q: "", type: "all", fx: "", sort: "new" }, trade: { q: "", type: "all", fx: "", sort: "new" } };
+S.filt = { gal: { q: "", type: "all", fx: "", sort: "new", dm: "", tag: "" }, deck: { q: "", type: "all", fx: "", sort: "new", dm: "", tag: "" }, trade: { q: "", type: "all", fx: "", sort: "new", dm: "", tag: "" } };
+// タグの絞り込み: 今あるカードのタグ（開くたびに作りなおす）
+function tagOptionsHTML(cur){ const L = [...new Set([...S.cards.values()].filter(c => c && !c.tut).flatMap(c => tagsOf(c)))].sort((a, b) => a.localeCompare(b, "ja")); if (cur && !L.includes(cur)) L.unshift(cur); return `<option value="">タグ：指定なし</option>` + L.map(t => `<option value="${esc(t)}"${t === cur ? " selected" : ""}>#${esc(t)}</option>`).join(""); }
 const SORTS = { new: "新しい順", atkDesc: "ATKが高い順", atkAsc: "ATKが低い順", costAsc: "コストが低い順", costDesc: "コストが高い順", name: "名前順" };
 // list is already in "new" order (user cards newest first, then starters)
 function sortCards(list, how){
@@ -2653,17 +2655,23 @@ function initFilters(key, onChange){
   box.innerHTML = `<input type="search" id="${key}Q" placeholder="カード名・効果でさがす" aria-label="カード検索">
     <div class="seg" id="${key}Type">${[["all", "すべて"], ["monster", "モンスター"], ["magic", "魔法"], ["quick", "速攻魔法"], ["equip", "装備"], ["trap", "罠"], ...(key === "gal" ? [["potion", "ポーション"], ["relic", "レリック"]] : [])].map(([v, l]) => `<button data-v="${v}" aria-pressed="${v === "all"}">${l}</button>`).join("")}</div>
     <select id="${key}Fx" aria-label="効果で絞り込み">${fxOptionsHTML()}</select>
+    <select id="${key}Dm" aria-label="使えるデッキで絞り込み"><option value="">デッキ：指定なし</option><option value="cost">コストデッキ専用</option><option value="normal">コスト以外（ふつうのデッキ専用）</option><option value="both">どちらでも</option></select>
+    <select id="${key}Tag" aria-label="タグで絞り込み">${tagOptionsHTML("")}</select>
     <select id="${key}Sort" aria-label="並べ替え">${Object.entries(SORTS).map(([k, v]) => `<option value="${k}">${v}</option>`).join("")}</select>
     <span class="count" id="${key}Count"></span>`;
   const f = S.filt[key];
   $("#" + key + "Q").addEventListener("input", e => { f.q = e.target.value; onChange(); });
   $("#" + key + "Fx").addEventListener("change", e => { f.fx = e.target.value; onChange(); });
   $("#" + key + "Sort").addEventListener("change", e => { f.sort = e.target.value; onChange(); });
+  $("#" + key + "Dm").addEventListener("change", e => { f.dm = e.target.value; onChange(); });
+  { const tg = $("#" + key + "Tag"); const fill = () => { tg.innerHTML = tagOptionsHTML(f.tag); }; tg.addEventListener("focus", fill); tg.addEventListener("mousedown", fill); tg.addEventListener("change", e => { f.tag = e.target.value; onChange(); }); }
   $("#" + key + "Type").addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return; f.type = b.dataset.v; box.querySelectorAll("#" + key + "Type button").forEach(x => x.setAttribute("aria-pressed", x === b)); onChange(); });
 }
 function matchCard(c, f){
   const t = cardType(c), nf = normFx(c);
   if (f.type === "quick" ? !isQuick(c) : (f.type !== "all" && t !== f.type)) return false;
+  if (f.dm && deckModeOf(c) !== f.dm) return false;
+  if (f.tag && !tagsOf(c).includes(f.tag)) return false;
   if (f.q){
     const hay = normQ([c.name, plainRuby(c.effect), plainRuby(c.flavor), fxText(c), tagsOf(c).join(" "), c.frame === "spire" ? "スパイア" : "", t === "equip" ? eqText(c) : monAbsText(c), TYPE_LABEL[t], c.author].join(" "));
     if (!normQ(f.q).split(/\s+/).filter(Boolean).every(w => hay.includes(w))) return false;
