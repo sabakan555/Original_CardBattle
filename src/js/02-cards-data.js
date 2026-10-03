@@ -135,7 +135,7 @@ function buildStarters(){
     id: "starter-" + i, type: s.type || "monster", name: s.name, atk: s.type ? 0 : s.atk, effect: s.effect || "",
     fx: s.fx ? { trig: s.type ? "use" : s.fx.trig, ...s.fx } : null, combo: s.combo || null, cost: s.cost ?? null, quick: !!s.quick, eqN: s.eqN || 0, eqAb: s.eqAb || "none", limit: s.limit ?? 3, author: "スターター", starter: true,
     img: s.type ? drawSymbol(s.col, s.sym, s.type === "trap") : drawMonster(1234 + i * 97, s.col)
-  })).concat(extra, SOCRA.map(socraCard), [SPIRE_ALTAR], SPIRE_BASIC, NANASHI.map((s, i) => ({ id: "nanashi-" + i, effect: "", flavor: "", eqN: 0, eqAb: "none", abs: [], cost: null, deckMode: "normal", limit: 3, author: "ナナシ（サンプル）", starter: true, frame: "ygo", fxRows: true, ...s, img: s.type === "magic" ? drawSymbol(s.col, s.sym, false) : drawMonster(4321 + i * 53, s.col) })));
+  })).concat(extra, SOCRA.map(socraCard), [SPIRE_ALTAR], SPIRE_BASIC, NANASHI.map((s, i) => ({ id: "nanashi-" + i, effect: "", flavor: "", eqN: 0, eqAb: "none", abs: [], cost: null, deckMode: "normal", limit: 3, author: "ナナシ（サンプル）", starter: true, frame: "socra", fxRows: true, ...s, img: s.type === "magic" ? drawSymbol(s.col, s.sym, false) : drawMonster(4321 + i * 53, s.col) })));
   S.starters = S.starterBase;
 }
 // スパイアデッキ: this card is face-up in the magic/trap zone from the start; every turn it offers 3 random スパイア風 cards

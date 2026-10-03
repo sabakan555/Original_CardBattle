@@ -461,7 +461,9 @@ body.dm-lock{overflow:hidden}
 .bst.tmrc{display:inline-flex;align-items:center;gap:4px}
 .bst.boon{color:#d9b8ff;border-color:rgba(190,140,255,.6)}
 /* 効果のブロック表示（Figma Frame 47〜51）: アイコンのタイル＋【名前】＋説明（＋数字のバッジ） */
-.card.fxrows .c-text .body{display:block;-webkit-line-clamp:unset;max-height:none;overflow:hidden;height:100%}
+.card.fxrows .c-text .body{display:flex;flex-direction:column;flex:1 1 auto;min-height:0;-webkit-line-clamp:unset;max-height:none;overflow:hidden;height:100%}
+.card.fxrows .fxrs{flex:1 1 auto;min-height:0;height:auto}
+.card.socra.fxrows .c-text{padding-top:calc(var(--w)*.014);margin:0 4%}
 .fxr-meta{font-size:calc(var(--w)*.024);line-height:1.3;margin-bottom:calc(var(--w)*.008);font-family:var(--ui);font-weight:700}
 .fxrs{display:flex;flex-direction:column;gap:calc(var(--w)*.005);height:100%}
 .card .fxrs .fxr{flex:1 1 0;min-height:0}

@@ -473,7 +473,9 @@ body.dm-lock{overflow:hidden}
 .bst.tmrc{display:inline-flex;align-items:center;gap:4px}
 .bst.boon{color:#d9b8ff;border-color:rgba(190,140,255,.6)}
 /* 効果のブロック表示（Figma Frame 47〜51）: アイコンのタイル＋【名前】＋説明（＋数字のバッジ） */
-.card.fxrows .c-text .body{display:block;-webkit-line-clamp:unset;max-height:none;overflow:hidden;height:100%}
+.card.fxrows .c-text .body{display:flex;flex-direction:column;flex:1 1 auto;min-height:0;-webkit-line-clamp:unset;max-height:none;overflow:hidden;height:100%}
+.card.fxrows .fxrs{flex:1 1 auto;min-height:0;height:auto}
+.card.socra.fxrows .c-text{padding-top:calc(var(--w)*.014);margin:0 4%}
 .fxr-meta{font-size:calc(var(--w)*.024);line-height:1.3;margin-bottom:calc(var(--w)*.008);font-family:var(--ui);font-weight:700}
 .fxrs{display:flex;flex-direction:column;gap:calc(var(--w)*.005);height:100%}
 .card .fxrs .fxr{flex:1 1 0;min-height:0}
@@ -2402,7 +2404,7 @@ function buildStarters(){
     id: "starter-" + i, type: s.type || "monster", name: s.name, atk: s.type ? 0 : s.atk, effect: s.effect || "",
     fx: s.fx ? { trig: s.type ? "use" : s.fx.trig, ...s.fx } : null, combo: s.combo || null, cost: s.cost ?? null, quick: !!s.quick, eqN: s.eqN || 0, eqAb: s.eqAb || "none", limit: s.limit ?? 3, author: "スターター", starter: true,
     img: s.type ? drawSymbol(s.col, s.sym, s.type === "trap") : drawMonster(1234 + i * 97, s.col)
-  })).concat(extra, SOCRA.map(socraCard), [SPIRE_ALTAR], SPIRE_BASIC, NANASHI.map((s, i) => ({ id: "nanashi-" + i, effect: "", flavor: "", eqN: 0, eqAb: "none", abs: [], cost: null, deckMode: "normal", limit: 3, author: "ナナシ（サンプル）", starter: true, frame: "ygo", fxRows: true, ...s, img: s.type === "magic" ? drawSymbol(s.col, s.sym, false) : drawMonster(4321 + i * 53, s.col) })));
+  })).concat(extra, SOCRA.map(socraCard), [SPIRE_ALTAR], SPIRE_BASIC, NANASHI.map((s, i) => ({ id: "nanashi-" + i, effect: "", flavor: "", eqN: 0, eqAb: "none", abs: [], cost: null, deckMode: "normal", limit: 3, author: "ナナシ（サンプル）", starter: true, frame: "socra", fxRows: true, ...s, img: s.type === "magic" ? drawSymbol(s.col, s.sym, false) : drawMonster(4321 + i * 53, s.col) })));
   S.starters = S.starterBase;
 }
 // スパイアデッキ: this card is face-up in the magic/trap zone from the start; every turn it offers 3 random スパイア風 cards
