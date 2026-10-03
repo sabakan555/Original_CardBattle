@@ -428,7 +428,7 @@ button.bst.pot:disabled{opacity:.55;box-shadow:none;cursor:default}
 .bk-times{display:inline-flex;align-items:center;gap:2px;font-size:13px;color:var(--muted)}.bk-times input{width:56px}
 .draw-modal{position:fixed;inset:0;z-index:40;background:rgba(14,16,36,.97);display:flex;align-items:flex-start;justify-content:center;padding:12px;overflow:auto;-webkit-user-select:none;user-select:none}
 .draw-modal[hidden]{display:none}
-.dm-box{width:min(100%,calc((100vh - 230px) * 560 / 400),980px);min-width:min(100%,320px);display:flex;flex-direction:column;gap:10px}
+.dm-box{width:min(100%,calc((100vh - 230px) * var(--cva,1.4)),980px);min-width:min(100%,320px);display:flex;flex-direction:column;gap:10px}
 .dm-head{display:flex;align-items:center;gap:10px}.dm-head b{font-size:18px}.dm-head .note{flex:1;font-size:12px}
 .dm-canvas{background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 8px 30px rgba(0,0,0,.5)}
 .draw-modal.potion .dm-canvas{background:repeating-conic-gradient(#ffffff 0 25%,#e3e6ee 0 50%) 0 0/22px 22px}

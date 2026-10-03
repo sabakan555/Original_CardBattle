@@ -440,7 +440,7 @@ button.bst.pot:disabled{opacity:.55;box-shadow:none;cursor:default}
 .bk-times{display:inline-flex;align-items:center;gap:2px;font-size:13px;color:var(--muted)}.bk-times input{width:56px}
 .draw-modal{position:fixed;inset:0;z-index:40;background:rgba(14,16,36,.97);display:flex;align-items:flex-start;justify-content:center;padding:12px;overflow:auto;-webkit-user-select:none;user-select:none}
 .draw-modal[hidden]{display:none}
-.dm-box{width:min(100%,calc((100vh - 230px) * 560 / 400),980px);min-width:min(100%,320px);display:flex;flex-direction:column;gap:10px}
+.dm-box{width:min(100%,calc((100vh - 230px) * var(--cva,1.4)),980px);min-width:min(100%,320px);display:flex;flex-direction:column;gap:10px}
 .dm-head{display:flex;align-items:center;gap:10px}.dm-head b{font-size:18px}.dm-head .note{flex:1;font-size:12px}
 .dm-canvas{background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 8px 30px rgba(0,0,0,.5)}
 .draw-modal.potion .dm-canvas{background:repeating-conic-gradient(#ffffff 0 25%,#e3e6ee 0 50%) 0 0/22px 22px}
@@ -2696,7 +2696,7 @@ function renderAll(){
   for (const t of ["play", "make", "deck", "trade", "me", "rules"]) $("#tab-" + t).hidden = S.tab !== t;
   if (S.tab === "me") renderMe();
   if (S.tab === "play") renderPlay();
-  if (S.tab === "make") renderGallery();
+  if (S.tab === "make"){ renderGallery(); if (typeof fitCanvas === "function") setTimeout(fitCanvas); }
   if (S.tab === "deck") renderDeckTab();
   if (S.tab === "trade") renderTrade();
   renderTradeBadge();
@@ -2809,18 +2809,30 @@ function composite(){
   if (MK.mode === "photo"){ cx.strokeStyle = "rgba(224,83,58,.9)"; cx.lineWidth = 6; cx.setLineDash([14, 10]); cx.strokeRect(3, 3, cv.width - 6, cv.height - 6); cx.setLineDash([]); }
 }
 MK.frameless = false;
+// キャンバスの高さを変える（横は560のまま。描いた線はそのまま、写真は入るように拡大しなおす）
+function resizeCv(H){
+  if (cv.height === H) return;
+  const keep = document.createElement("canvas"); keep.width = ink.width; keep.height = ink.height; keep.getContext("2d").drawImage(ink, 0, 0);
+  cv.height = H; ink.height = H; ik.drawImage(keep, 0, 0);
+  if (photo){ const nb = Math.max(cv.width / photo.img.width, cv.height / photo.img.height); photo.s *= nb / photo.base; photo.base = nb; }
+  undoStack = []; MK.artDirty = true;
+}
+// 枠ごとに絵の欄の縦横比がちがう（遊戯王風・近未来・MTG風…）ので、キャンバスをその比率に合わせる
+// → 「大きく描く」でも、カードに出るのと同じ形で描ける
+function fitCanvas(){
+  if (MK.kind === "potion" || MK.kind === "relic") return;
+  const a = document.querySelector("#editCard .c-art"); if (!a) return;
+  const r = a.getBoundingClientRect(); if (r.width < 20 || r.height < 20) return;
+  const H = Math.max(240, Math.min(900, Math.round(cv.width * r.height / r.width)));
+  if (Math.abs(cv.height - H) <= 2) return;
+  resizeCv(H); composite();
+}
 function setFrameless(on){
   MK.frameless = !!on; $("#mkFrameless").checked = MK.frameless;
-  const H = MK.frameless ? 680 : 400;
-  if (cv.height !== H){
-    const keep = document.createElement("canvas"); keep.width = ink.width; keep.height = ink.height; keep.getContext("2d").drawImage(ink, 0, 0);
-    cv.height = H; ink.height = H; ik.drawImage(keep, 0, 0);
-    if (photo){ const nb = Math.max(cv.width / photo.img.width, cv.height / photo.img.height); photo.s *= nb / photo.base; photo.base = nb; }
-    undoStack = []; MK.artDirty = true;
-  }
+  resizeCv(MK.frameless ? 680 : 400);
   $("#editCard").classList.toggle("frameless", MK.frameless); $("#flGuide").hidden = !MK.frameless;
   $("#flAlphaRow").hidden = !MK.frameless || $("#mkFrame").value === "future"; $("#tEdgeRow").hidden = !MK.frameless;
-  composite();
+  composite(); fitCanvas();
 }
 // 半フレームレス: how solid the text box over the picture is (0 = see-through, 100 = solid)
 const FL_ALPHA_DEF = 68;
@@ -2844,7 +2856,7 @@ $("#mkTEdge").addEventListener("change", e => setTEdge(e.target.checked));
 $("#mkFrameless").addEventListener("change", e => setFrameless(e.target.checked));
 function syncRarity(){ const sp = $("#mkFrame").value === "spire", r = $("#mkRarity").value; $("#rarityRow").hidden = !sp; ["common", "uncommon", "rare"].forEach(k => $("#editCard").classList.toggle("rar-" + k, sp && r === k)); }
 $("#mkRarity").addEventListener("change", syncRarity);
-function syncFrame(){ if (typeof updateSecs === "function") setTimeout(updateSecs); $("#editCard").classList.toggle("mtg", $("#mkFrame").value === "mtg"); $("#editCard").classList.toggle("fut", $("#mkFrame").value === "future"); $("#editCard").classList.toggle("ygo", $("#mkFrame").value === "ygo"); $("#editCard").classList.toggle("socra", $("#mkFrame").value === "socra"); $("#editCard").classList.toggle("spire", $("#mkFrame").value === "spire"); syncRarity(); $("#flAlphaRow").hidden = !MK.frameless || $("#mkFrame").value === "future"; if ($("#mkFrame").value === "spire" && MK.frameless) setFrameless(false); $("#mkFrameless").closest("label").hidden = $("#mkFrame").value === "spire"; if (typeof syncTypeNames === "function") syncTypeNames(); if (MK.deck) syncCost(); $("#capRow").hidden = MK.type !== "monster" || $("#mkFrame").value !== "socra"; }
+function syncFrame(){ if (typeof updateSecs === "function") setTimeout(updateSecs); setTimeout(fitCanvas); $("#editCard").classList.toggle("mtg", $("#mkFrame").value === "mtg"); $("#editCard").classList.toggle("fut", $("#mkFrame").value === "future"); $("#editCard").classList.toggle("ygo", $("#mkFrame").value === "ygo"); $("#editCard").classList.toggle("socra", $("#mkFrame").value === "socra"); $("#editCard").classList.toggle("spire", $("#mkFrame").value === "spire"); syncRarity(); $("#flAlphaRow").hidden = !MK.frameless || $("#mkFrame").value === "future"; if ($("#mkFrame").value === "spire" && MK.frameless) setFrameless(false); $("#mkFrameless").closest("label").hidden = $("#mkFrame").value === "spire"; if (typeof syncTypeNames === "function") syncTypeNames(); if (MK.deck) syncCost(); $("#capRow").hidden = MK.type !== "monster" || $("#mkFrame").value !== "socra"; }
 $("#mkFrame").addEventListener("change", () => { if ($("#mkFrame").value === "future" && !MK.frameless) setFrameless(true); syncFrame(); syncFont(); });
 function clearCanvas(){ ik.clearRect(0, 0, ink.width, ink.height); photo = null; setMode("draw"); composite(); }
 $("#swatches").innerHTML = COLORS.map(c => `<button class="sw" style="background:${c}" data-c="${c}" aria-label="色 ${c}" aria-pressed="${c === pen.color}"></button>`).join("");
@@ -2863,7 +2875,7 @@ $("#btnClear").addEventListener("click", () => { pushUndo(); clearCanvas(); });
 // 大きく描く: the canvas and the pen tools move into a popup (no text boxes nearby, so iPad's handwriting-to-text doesn't pop up)
 const DM = { open: false };
 function openDrawModal(){
-  if (DM.open) return; DM.open = true;
+  if (DM.open) return; fitCanvas(); DM.open = true; $("#drawModal").style.setProperty("--cva", (cv.width / cv.height).toFixed(4));
   DM.ph = document.createComment("cv"); cv.parentNode.insertBefore(DM.ph, cv); $("#drawModal .dm-canvas").appendChild(cv);
   const pane = document.querySelector('.tools-col .mk-pane[data-pane="draw"]');
   DM.pane = pane; DM.pp = pane.parentNode; DM.pn = pane.nextSibling; DM.ph2 = pane.hidden; pane.hidden = false; $("#drawModal .dm-tools").appendChild(pane);

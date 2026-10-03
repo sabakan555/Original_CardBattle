@@ -91,7 +91,7 @@ function renderAll(){
   for (const t of ["play", "make", "deck", "trade", "me", "rules"]) $("#tab-" + t).hidden = S.tab !== t;
   if (S.tab === "me") renderMe();
   if (S.tab === "play") renderPlay();
-  if (S.tab === "make") renderGallery();
+  if (S.tab === "make"){ renderGallery(); if (typeof fitCanvas === "function") setTimeout(fitCanvas); }
   if (S.tab === "deck") renderDeckTab();
   if (S.tab === "trade") renderTrade();
   renderTradeBadge();
