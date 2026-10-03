@@ -523,6 +523,8 @@ body.dm-lock{overflow:hidden}
 .fxr-bd{flex:none;font-family:"DotGothic16",monospace;font-size:calc(var(--w)*.052);font-weight:700;color:#f3f1ea;-webkit-text-stroke:calc(var(--w)*.006) #000;paint-order:stroke fill;letter-spacing:.02em;line-height:1}
 .fxr-big{--w:430px;display:flex;flex-direction:column;gap:6px;margin-top:12px}
 .fxr-big .fxrs{height:auto}
+.fxr-big+.fxr-big,.fxr-big+.dl{margin-top:10px}
+.fxr-ttl{font-weight:800;font-size:13px;color:var(--gold,#e7c35a)}
 .fxr-big .fxr{min-height:calc(var(--w)*.13)}
 .fxr-big .fxr-ic{height:calc(var(--w)*.11)}
 .fxr-big .fxr-meta{color:inherit}
@@ -2501,7 +2503,7 @@ const HEX6 = /^#[0-9a-f]{6}$/i;
 // 効果のブロック表示: 効果ごとに【名前】・アイコン・説明の行。「いつ」がある効果が2つ以上なら見出し行（「これより下の効果を発動する」）
 const FX_ICONS = { cards: "カード", trash: "ゴミ箱", sword: "剣", teeth: "牙", bomb: "爆弾", synth: "合成", spark: "星", flag: "旗" };
 const FX_ROW_DEF = { draw: ["発見", "cards"], drawUntil: ["発見", "cards"], selfDisc: ["自己破壊", "trash"], selfDiscRand: ["自己破壊", "trash"], selfDiscAll: ["自己破壊", "trash"], selfAtk: ["攻撃力ＵＰ", "sword"], atkUp: ["攻撃力ＵＰ", "sword"], absorbKill: ["暴食の王", "teeth"], synth: ["合成", "synth"] };
-function fxRowsHTML(c){
+function fxRowsHTML(c, noMeta){
   const t = cardType(c), rows = [];
   const row = o => `<div class="fxr${o.hdr ? " hdr" : ""}"><span class="fxr-ic"><i class="fxi fxi-${FX_ICONS[o.ic] ? o.ic : "spark"}"></i></span><div class="fxr-tx"><b>【${esc(o.name)}】</b>${o.small ? `<small>（${esc(o.small)}）</small>` : ""}<span class="fxr-d">${o.hdr ? `<i class="fxi fxi-flag"></i>` : ""}<span>${tkLink(esc(o.desc))}</span></span></div>${o.badge ? `<span class="fxr-bd">${esc(o.badge)}</span>` : ""}</div>`;
   const tLabel = trig => t === "monster" || t === "equip" ? (trig === "act" ? "起動" : trigLabel(t, trig)) : isField(c) ? FIELD_TRIG_LABEL[trig] || "" : isPersist(c) ? PERSIST_TRIG_LABEL[trig] || "" : "";
@@ -2516,7 +2518,7 @@ function fxRowsHTML(c){
     (b.conds.length ? b.else || [] : []).forEach(e => rows.push(row(one(e, "そうでなければ、"))));
   });
   const meta = [massOf(c) ? `要求質量 ${massOf(c)}` : "", t === "monster" ? monAbsText(c) : t === "equip" ? eqText(c) : ""].filter(Boolean).join("　");
-  return `${meta ? `<div class="fxr-meta">${kwLink(esc(meta))}</div>` : ""}<div class="fxrs">${rows.join("")}</div>`;
+  return `${meta && !noMeta ? `<div class="fxr-meta">${kwLink(esc(meta))}</div>` : ""}<div class="fxrs">${rows.join("")}</div>`;
 }
 // 画像の枠: カードの frame → クラス名
 const FR_CLS = { mtg: "mtg", future: "fut", ygo: "ygo" };
@@ -5448,7 +5450,7 @@ function applyEffect(st, s, c, target, ctx = {}, fx = normFx(c)){
     case "synthTo": { const id = ctx.hit && ctx.hit.synthId, [os, oi] = String(target).split(":"), mm = P(st, os) && P(st, os).mz[+oi];
       if (!id || !mm || !me.hand.includes(id)){ log(st, s, `${src}：合成できなかった`); break; }
       const sc = card(id), mon = cardType(sc) === "monster";
-      const bl = blocksOf(sc).map(b => ({ ...JSON.parse(JSON.stringify(b)), trig: mon && MON_TRIGS.includes(b.trig) ? b.trig : "act", ...(mon && MON_TRIGS.includes(b.trig) ? {} : { ap: "turn", an: 1 }) }));
+      const bl = blocksOf(sc).map(b => ({ ...JSON.parse(JSON.stringify(b)), ...(sc.fxRows && !freeText(sc) ? { xfr: 1 } : {}), trig: mon && MON_TRIGS.includes(b.trig) ? b.trig : "act", ...(mon && MON_TRIGS.includes(b.trig) ? {} : { ap: "turn", an: 1 }) }));
       const k = Math.min(bl.length, me.grave.length);
       if (!bl.length){ log(st, s, `${src}：「${sc.name}」には付けられる効果がない`); break; }
       const mats = me.grave.splice(0, k); (mm.mats = mm.mats || []).push(...mats);
@@ -6705,7 +6707,7 @@ function detailInfo(z, s, i){
     const es = eqsOf(slot);
     info.equips = es.map((e, k) => `「${card(e.c).name}」${eqMult(es, k) > 1 ? "（×2）" : ""}${e.o !== owner ? "（相手の）" : ""}${e.used ? "（使用ずみ）" : ""}`);
     info.cap = `${eqUsed(slot)} / ${eqCapOf(card(slot.c))}`;
-    info.mats = (slot.mats || []).map(id => card(id).name); info.xb = (slot.xb || []).map(b => blockText(monCard(slot), b));
+    info.mats = (slot.mats || []).map(id => card(id).name); info.xb = (slot.xb || []).filter(b => !b.xfr).map(b => blockText(monCard(slot), b)); info.xbFx = (slot.xb || []).filter(b => b.xfr);
     info.abs = [...new Set(monAbs(G.st, owner, i).filter(a => a.eqU).map(a => ABS[a.k].text && ABS[a.k].n ? ABS[a.k].text((a.n || 0) * a.mult, a.name || "") : ABS[a.k].label))];
     info.eqList = es.map((e, k) => ({ c: e.c, mult: eqMult(es, k), used: !!e.used, opp: e.o !== owner, mana: !!P(G.st, e.o).mana }));
     if (charmActive(G.st, slot)) info.charm = `魅了されている（「${card(slot.charm.c).name}」）`;
@@ -6749,7 +6751,6 @@ function renderDetail(info, anim){
 
   if (info.charm) rows.push(["状態", info.charm]);
   if (info.mats && info.mats.length) rows.push(["質量", `${info.mats.length}枚：${info.mats.map(n => `「${n}」`).join("")}`]);
-  if (info.xb && info.xb.length) rows.push(["合成でついた効果", info.xb.join("。")]);
   if (info.abs && info.abs.length) rows.push(["装備でついた能力", info.abs.join("／")]);
   if (ft) rows.push([freeText(c) ? "本来の効果" : "自動の効果", ft]);
   if (c.effect) rows.push([ft || monAbsText(c) || (t === "equip" && eqText(c)) ? "カードの文" : "効果", plainRuby(c.effect)]);
@@ -6763,10 +6764,14 @@ function renderDetail(info, anim){
   rows.push(["デッキ上限", lim ? `${lim}枚まで` : "制限なし"]);
   if (tagsOf(c).length) rows.push(["タグ", tagsOf(c).map(t => "#" + t).join(" ")]);
   rows.push(["作った人", c.author || "？"]);
+  // 合成でついた効果はいちばん上に（アイコンつきの効果はブロック表示で）
+  if (info.xb && info.xb.length) rows.unshift(["合成でついた効果", info.xb.join("。")]);
+  const xbFx = info.xbFx && info.xbFx.length ? `<div class="fxr-big fxr-xb"><div class="fxr-ttl">合成でついた効果</div>${fxRowsHTML({ ...c, blocks: info.xbFx }, true)}</div>` : "";
+  const ownFx = c.fxRows && !freeText(c) ? `<div class="fxr-big">${fxRowsHTML(c)}</div>` : "";
   // equips stuck on this monster, shown as cards from left to right (tap one to read it)
   const eqRow = info.eqList && info.eqList.length ? `<div class="eqrow"><div class="eqlbl">装備（左から順）　${esc(info.cap || "")}</div><div class="eqlist">${info.eqList.map((e, k) => `${k ? `<span class="eqarr">→</span>` : ""}<button class="eqi" data-eqcid="${esc(e.c)}" aria-label="「${esc(card(e.c).name)}」の詳細">${cardHTML(card(e.c), "xs", "", { mana: e.mana })}${e.mult > 1 || e.used || e.opp ? `<span class="eqtag">${[e.mult > 1 ? "×2" : "", e.used ? "使用ずみ" : "", e.opp ? "相手の" : ""].filter(Boolean).join("・")}</span>` : ""}</button>`).join("")}</div></div>` : "";
   const back = G.detailBack ? `<button class="small ghost eqback" data-detailback>← もどる</button>` : "";
-  box.innerHTML = `${CLOSE}<h3>カード詳細</h3>${back}<div class="detailcard">${cardHTML(c, "detail", "", { mod: info.mod, mana: info.mana })}</div>${eqRow}<dl class="dl">${rows.map(([k, v]) => `<dt>${k}</dt><dd>${tkLink(esc(v))}</dd>`).join("")}</dl>${c.fxRows && !freeText(c) ? `<div class="fxr-big">${fxRowsHTML(c)}</div>` : ""}${actDetail(c)}`;
+  box.innerHTML = `${CLOSE}<h3>カード詳細</h3>${back}<div class="detailcard">${cardHTML(c, "detail", "", { mod: info.mod, mana: info.mana })}</div>${eqRow}${xbFx}${ownFx}<dl class="dl">${rows.map(([k, v]) => `<dt>${k}</dt><dd>${tkLink(esc(v))}</dd>`).join("")}</dl>${actDetail(c)}`;
 }
 // 詳細: 起動効果を持つ自分の場のモンスターなら「発動する」
 function actDetail(c){

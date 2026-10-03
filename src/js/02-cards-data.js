@@ -209,7 +209,7 @@ const HEX6 = /^#[0-9a-f]{6}$/i;
 // 効果のブロック表示: 効果ごとに【名前】・アイコン・説明の行。「いつ」がある効果が2つ以上なら見出し行（「これより下の効果を発動する」）
 const FX_ICONS = { cards: "カード", trash: "ゴミ箱", sword: "剣", teeth: "牙", bomb: "爆弾", synth: "合成", spark: "星", flag: "旗" };
 const FX_ROW_DEF = { draw: ["発見", "cards"], drawUntil: ["発見", "cards"], selfDisc: ["自己破壊", "trash"], selfDiscRand: ["自己破壊", "trash"], selfDiscAll: ["自己破壊", "trash"], selfAtk: ["攻撃力ＵＰ", "sword"], atkUp: ["攻撃力ＵＰ", "sword"], absorbKill: ["暴食の王", "teeth"], synth: ["合成", "synth"] };
-function fxRowsHTML(c){
+function fxRowsHTML(c, noMeta){
   const t = cardType(c), rows = [];
   const row = o => `<div class="fxr${o.hdr ? " hdr" : ""}"><span class="fxr-ic"><i class="fxi fxi-${FX_ICONS[o.ic] ? o.ic : "spark"}"></i></span><div class="fxr-tx"><b>【${esc(o.name)}】</b>${o.small ? `<small>（${esc(o.small)}）</small>` : ""}<span class="fxr-d">${o.hdr ? `<i class="fxi fxi-flag"></i>` : ""}<span>${tkLink(esc(o.desc))}</span></span></div>${o.badge ? `<span class="fxr-bd">${esc(o.badge)}</span>` : ""}</div>`;
   const tLabel = trig => t === "monster" || t === "equip" ? (trig === "act" ? "起動" : trigLabel(t, trig)) : isField(c) ? FIELD_TRIG_LABEL[trig] || "" : isPersist(c) ? PERSIST_TRIG_LABEL[trig] || "" : "";
@@ -224,7 +224,7 @@ function fxRowsHTML(c){
     (b.conds.length ? b.else || [] : []).forEach(e => rows.push(row(one(e, "そうでなければ、"))));
   });
   const meta = [massOf(c) ? `要求質量 ${massOf(c)}` : "", t === "monster" ? monAbsText(c) : t === "equip" ? eqText(c) : ""].filter(Boolean).join("　");
-  return `${meta ? `<div class="fxr-meta">${kwLink(esc(meta))}</div>` : ""}<div class="fxrs">${rows.join("")}</div>`;
+  return `${meta && !noMeta ? `<div class="fxr-meta">${kwLink(esc(meta))}</div>` : ""}<div class="fxrs">${rows.join("")}</div>`;
 }
 // 画像の枠: カードの frame → クラス名
 const FR_CLS = { mtg: "mtg", future: "fut", ygo: "ygo" };

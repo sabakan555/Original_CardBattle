@@ -635,7 +635,7 @@ function applyEffect(st, s, c, target, ctx = {}, fx = normFx(c)){
     case "synthTo": { const id = ctx.hit && ctx.hit.synthId, [os, oi] = String(target).split(":"), mm = P(st, os) && P(st, os).mz[+oi];
       if (!id || !mm || !me.hand.includes(id)){ log(st, s, `${src}：合成できなかった`); break; }
       const sc = card(id), mon = cardType(sc) === "monster";
-      const bl = blocksOf(sc).map(b => ({ ...JSON.parse(JSON.stringify(b)), trig: mon && MON_TRIGS.includes(b.trig) ? b.trig : "act", ...(mon && MON_TRIGS.includes(b.trig) ? {} : { ap: "turn", an: 1 }) }));
+      const bl = blocksOf(sc).map(b => ({ ...JSON.parse(JSON.stringify(b)), ...(sc.fxRows && !freeText(sc) ? { xfr: 1 } : {}), trig: mon && MON_TRIGS.includes(b.trig) ? b.trig : "act", ...(mon && MON_TRIGS.includes(b.trig) ? {} : { ap: "turn", an: 1 }) }));
       const k = Math.min(bl.length, me.grave.length);
       if (!bl.length){ log(st, s, `${src}：「${sc.name}」には付けられる効果がない`); break; }
       const mats = me.grave.splice(0, k); (mm.mats = mm.mats || []).push(...mats);

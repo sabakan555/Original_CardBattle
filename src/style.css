@@ -511,6 +511,8 @@ body.dm-lock{overflow:hidden}
 .fxr-bd{flex:none;font-family:"DotGothic16",monospace;font-size:calc(var(--w)*.052);font-weight:700;color:#f3f1ea;-webkit-text-stroke:calc(var(--w)*.006) #000;paint-order:stroke fill;letter-spacing:.02em;line-height:1}
 .fxr-big{--w:430px;display:flex;flex-direction:column;gap:6px;margin-top:12px}
 .fxr-big .fxrs{height:auto}
+.fxr-big+.fxr-big,.fxr-big+.dl{margin-top:10px}
+.fxr-ttl{font-weight:800;font-size:13px;color:var(--gold,#e7c35a)}
 .fxr-big .fxr{min-height:calc(var(--w)*.13)}
 .fxr-big .fxr-ic{height:calc(var(--w)*.11)}
 .fxr-big .fxr-meta{color:inherit}
