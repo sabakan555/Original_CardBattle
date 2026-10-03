@@ -53,7 +53,7 @@ function scheduleCpu(){
     return;
   }
   if (st.turn !== c || st.pending) return;
-  G.cpuT = setTimeout(() => { if (!G) return; G.cpuT = null; act(st => cpuStep(st, c)); }, cpuDelay());
+  G.cpuT = setTimeout(() => { if (!G) return; G.cpuT = null; act(st => G.tut ? tutCpu(st) : cpuStep(st, c)); }, G.tut ? Math.max(900, cpuDelay()) : cpuDelay());
 }
 function cpuStep(st, s){
   const p = P(st, s), op = P(st, O(s));
@@ -817,4 +817,157 @@ $("#board").addEventListener("change", e => {
   const mt = e.target.closest("[data-manualtog]"); if (mt){ ls.set("cb_manual", mt.checked); renderAll(); }
 });
 $("#board").addEventListener("keydown", e => { const h = e.target.closest("[role=button]"); if (h && (e.key === "Enter" || e.key === " ")){ e.preventDefault(); h.click(); } });
+
+/* ================= チュートリアル（練習バトル・カード工房の案内） =================
+   画面を暗くして、押してほしいところだけ光らせる。吹き出しで説明。
+   練習バトルは手札・山札が決まっていて、相手は台本どおりに動く（G.tut）。 */
+const TUT = { on: false, kind: "", i: 0, steps: [], ack: -1, scrolled: -1, timer: null };
+const tutVis = q => [...document.querySelectorAll(q)].find(e => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0 && e.offsetParent !== null; }) || null;
+const tutPm = () => P(G.st, G.slot), tutPo = () => P(G.st, O(G.slot));
+const tutZone = id => G && G.st ? tutPm().mz.findIndex(m => m && m.c === id) : -1;
+const tutMon = id => { const k = tutZone(id); return k >= 0 ? tutPm().mz[k] : null; };
+const tutHandEl = id => { const k = tutPm().hand.indexOf(id); return k >= 0 ? tutVis(`#board .hand [data-z="hand"][data-i="${k}"]`) : null; };
+const tutZoneEl = (k, s = "me") => tutVis(`#board [data-z="mz"][data-s="${s}"][data-i="${k}"]`);
+const tutBtn = a => tutVis(`.hand-acts [data-act="${a}"]`) || tutVis(`[data-act="${a}"]`);
+const tutSelHand = id => !!(G.sel && G.sel.z === "hand" && tutPm().hand[G.sel.i] === id);
+// 手札のカードを選んで、ボタン（召喚・セット・発動）を押す
+const tutPlay = (id, a) => () => tutSelHand(id) ? tutBtn(a) : tutHandEl(id);
+// 場のモンスターで直接攻撃: モンスター → 「攻撃」 → 「直接攻撃！」
+const tutAtk = id => () => { const k = tutZone(id); if (k < 0) return null; if (G.atkFrom === k) return tutBtn("direct"); if (G.sel && G.sel.z === "mz" && G.sel.s === "me" && G.sel.i === k) return tutBtn("attack"); return tutZoneEl(k); };
+const tutAtked = id => { const m = tutMon(id); return !m || (m.atkCount || 0) > 0 || !!G.st.winner; };
+const TUT_ME = "starter-6", TUT_HAYATE = "tut-hayate", TUT_TRAP = "starter-17", TUT_BOOM = "starter-13", TUT_HAT = "starter-14", TUT_ORC = "tut-orc", TUT_BOSS = "tut-boss";
+function tutCards(){
+  const cp = (id, from, ch) => { const b = card(from); S.cards.set(id, { ...b, id, starter: true, token: false, tut: true, ...ch }); };
+  cp(TUT_HAYATE, "starter-5", { name: "はやてどすこい", atk: 400, abs: [{ k: "haste" }], effect: "", limit: 3 });
+  cp(TUT_ORC, "starter-5", { name: "あばれどすこい", atk: 600, abs: [{ k: "haste" }], effect: "" });
+  cp(TUT_BOSS, "starter-6", { name: "ヒトツメ大魔王", atk: 900, effect: "とにかく、もっとつよい。" });
+}
+const TUT_BATTLE = [
+  { t: "ようこそ！ここでは<b>練習バトル</b>で遊び方を覚えるよ。5分くらいで終わるので、光っているところを順番に押してね。", next: "はじめる" },
+  { t: "上が<b>相手の場</b>、下が<b>あなたの場</b>。一番下があなたの<b>手札</b>。<br>相手のLP（ライフ）を0にしたら勝ち！", next: "わかった" },
+  { t: "まずはモンスターを出そう。手札の<b>「ヒトツメ大王」</b>を押してね。", el: tutPlay(TUT_ME, "summon"), done: () => tutSelHand(TUT_ME) || tutZone(TUT_ME) >= 0 },
+  { t: "<b>「召喚する」</b>を押すと、モンスターが場に出るよ。召喚は1ターンに1回まで。", el: tutPlay(TUT_ME, "summon"), done: () => tutZone(TUT_ME) >= 0 },
+  { t: "出せた！ 出したばかりのモンスターは、そのターンは攻撃できない（召喚酔い）。それに先攻の1ターン目は、だれも攻撃できないよ。", next: "次へ" },
+  { t: "次は罠カードの<b>「おとしあな」</b>を押してね。", el: tutPlay(TUT_TRAP, "set"), done: () => tutSelHand(TUT_TRAP) || tutPm().sz.some(z => z && z.c === TUT_TRAP) },
+  { t: "<b>「セットする」</b>を押そう。罠はふせて置いておき、相手のターンに条件がそろったら使えるよ。", el: tutPlay(TUT_TRAP, "set"), done: () => tutPm().sz.some(z => z && z.c === TUT_TRAP) },
+  { t: "おとしあなは「相手が攻撃してきたとき、そのモンスターを破壊する」罠。相手の攻撃を待とう。<br><b>「ターン終了」</b>を押してね。", el: () => tutBtn("endTurn"), done: () => G.st.turn !== G.slot || G.st.turnNo > 1 },
+  { t: "相手のターン…", wait: true, done: () => !!(G.st.pending && G.st.pending.wait && G.st.pending.type === "attack" && G.st.pending.by !== G.slot) || G.st.turnNo >= 3 },
+  { t: "攻撃された！ 相手はATK600、こっちは500。このままだと負けちゃう…<br>セットしておいた<b>「おとしあな」</b>を押そう！", el: () => G.respSel ? tutVis("[data-respgo]") : tutVis('#overlay [data-resp]'), done: () => !tutPm().sz.some(z => z && z.c === TUT_TRAP) || G.st.turnNo >= 3 },
+  { t: "罠が発動！ 攻撃してきたモンスターを破壊した。相手のターンが終わるのを待とう…", wait: true, done: () => G.st.turn === G.slot && G.st.turnNo >= 3 && !G.st.pending },
+  { t: "あなたのターン。ターンのはじめに、カードを1枚引いたよ。<br>引いた<b>「はやてどすこい」</b>には《速攻》の能力がある。出たターンからすぐ攻撃できるんだ。", next: "次へ" },
+  { t: "<b>「はやてどすこい」</b>を押して、召喚しよう。", el: tutPlay(TUT_HAYATE, "summon"), done: () => tutZone(TUT_HAYATE) >= 0 },
+  { t: "相手の場にモンスターがいないので、相手に<b>直接攻撃</b>できる！<br>場の「ヒトツメ大王」→「攻撃」→「直接攻撃！」の順に押そう。", el: tutAtk(TUT_ME), done: () => tutAtked(TUT_ME) },
+  { t: "ATKのぶんダメージが入った！ 《速攻》の「はやてどすこい」でも攻撃しよう。", el: tutAtk(TUT_HAYATE), done: () => tutAtked(TUT_HAYATE) },
+  { t: "いい感じ！ <b>「ターン終了」</b>を押そう。", el: () => tutBtn("endTurn"), done: () => G.st.turnNo >= 4 },
+  { t: "相手のターン…", wait: true, done: () => G.st.turn === G.slot && G.st.turnNo >= 5 && !G.st.pending },
+  { t: "相手が<b>ATK900の「ヒトツメ大魔王」</b>を出してきた！ ATKでは勝てない…<br>そんなときは<b>魔法カード</b>の出番。", next: "次へ" },
+  { t: "<b>「ドカーン」</b>は相手のモンスター1体を破壊する魔法。押して「発動する」→ 破壊するモンスターを選ぼう。", el: () => G.chooseQ.length ? tutVis("#overlay [data-opt]") : tutPlay(TUT_BOOM, "activateHand")(), done: () => !tutPo().mz.some(m => m && m.c === TUT_BOSS) },
+  { t: "やった！ 次は<b>装備カード</b>。「ぼうし」を付けるとATKが+150されるよ。<br>手札の「ぼうし」→ 光っている「ヒトツメ大王」の順に押そう。", el: () => tutSelHand(TUT_HAT) ? tutZoneEl(tutZone(TUT_ME)) : tutHandEl(TUT_HAT), done: () => { const m = tutMon(TUT_ME); return !m || eqsOf(m).length > 0; } },
+  { t: "ATKが650になった！ さあ、とどめだ。「ヒトツメ大王」で直接攻撃！", el: tutAtk(TUT_ME), done: () => tutAtked(TUT_ME) },
+  { t: "最後に「はやてどすこい」でも攻撃！", el: tutAtk(TUT_HAYATE), done: () => !!G.st.winner },
+  { t: "🎉 <b>クリア！</b> おつかれさま！<br>これで基本はばっちり。カードの文の下線つきの言葉（《速攻》など）は、カードの詳細で押すと説明が出るよ。<br>次は<b>自分のカードを描いて</b>、デッキを作ってみよう！", end: true }
+];
+const TUT_MAKER = [
+  { t: "ここは<b>カード工房</b>。自分だけのカードを描いて、対戦で使えるよ。かんたんに案内するね。", next: "次へ" },
+  { t: "ここが絵を描くところ。指やマウスで自由に描いてね。色や太さは「絵」のタブで変えられるよ。", el: () => tutVis("#cv"), next: "次へ" },
+  { t: "カードの<b>名前</b>はここに書く。", el: () => tutVis("#mkName"), next: "次へ" },
+  { t: "カードの<b>種類</b>を選ぼう。モンスター・魔法・装備・罠があるよ。", el: () => tutVis("#mkType"), next: "次へ" },
+  { t: "<b>「効果・能力」</b>のタブで、カードの効果を選べる。文を選ぶだけで、対戦のときに自動で動くよ。", el: () => tutVis('#mkTabs [data-pane="fx"]'), next: "次へ" },
+  { t: "できたら<b>保存</b>！ 保存したカードは「Deck」でデッキに入れて、対戦で使えるよ。", el: () => tutVis("#btnSave"), next: "おわる", fin: true }
+];
+function tutEls(){
+  let root = document.getElementById("tutLayer");
+  if (!root){
+    root = document.createElement("div"); root.id = "tutLayer";
+    root.innerHTML = `<div class="tut-sh" data-k="t"></div><div class="tut-sh" data-k="b"></div><div class="tut-sh" data-k="l"></div><div class="tut-sh" data-k="r"></div><div class="tut-hole"></div><div class="tut-bub" role="dialog" aria-live="polite"></div>`;
+    document.body.appendChild(root);
+    root.addEventListener("click", e => {
+      const b = e.target.closest("[data-tutb]"); if (!b) return;
+      const k = b.dataset.tutb;
+      if (k === "next"){ const s = TUT.steps[TUT.i]; TUT.ack = TUT.i; if (s && s.fin){ tutEnd(); return; } tutTick(); }
+      else if (k === "quit") tutQuit();
+      else if (k === "maker"){ tutEnd(); leaveGame(); tutStart("maker"); }
+      else if (k === "done"){ tutEnd(); leaveGame(); S.tab = "play"; ls.set("cb_tab", "play"); renderAll(); }
+    });
+  }
+  return root;
+}
+function tutStart(kind){
+  ls.set("cb_tutSeen", true);
+  const ask = document.getElementById("tutAsk"); if (ask) ask.remove();
+  TUT.on = true; TUT.kind = kind; TUT.i = 0; TUT.ack = -1; TUT.scrolled = -1;
+  TUT.steps = kind === "maker" ? TUT_MAKER : TUT_BATTLE;
+  if (kind === "battle") tutBattle();
+  else { if (G) leaveGame(); S.tab = "make"; ls.set("cb_tab", "make"); renderAll(); if (typeof setMkPane === "function") setMkPane("draw"); window.scrollTo(0, 0); }
+  document.body.classList.add("tut-on"); tutEls().hidden = false;
+  clearInterval(TUT.timer); TUT.timer = setInterval(tutTick, 200); tutTick();
+}
+function tutEnd(){ TUT.on = false; clearInterval(TUT.timer); document.body.classList.remove("tut-on"); const r = document.getElementById("tutLayer"); if (r) r.hidden = true; }
+function tutQuit(){ const battle = TUT.kind === "battle"; tutEnd(); if (battle){ leaveGame(); S.tab = "play"; renderAll(); } }
+function tutBattle(){
+  leaveGame(); tutCards();
+  const filler = ["starter-0", "starter-1", "starter-2", "starter-3", "starter-7"];
+  const pa = newPlayer([TUT_ME, TUT_TRAP, TUT_BOOM, TUT_HAT, TUT_HAYATE, ...filler, ...filler], null, false, false);
+  pa.hand = [TUT_ME, TUT_TRAP, TUT_BOOM, TUT_HAT, "starter-1"]; pa.deck = [TUT_HAYATE, "starter-0", ...filler, ...filler];
+  const pb = newPlayer([TUT_ORC, TUT_BOSS, ...filler, ...filler], "練習あいて", false, false);
+  pb.hand = [TUT_ORC, TUT_BOSS, "starter-0", "starter-1", "starter-2"]; pb.deck = [...filler, ...filler]; pb.lp = 1900;
+  const st = startState(pa, pb); st.first = "a"; st.turn = "a"; st.turnNo = 1; st.log = [{ t: Date.now(), m: "練習バトル スタート！ あなたの先攻" }];
+  G = { mode: "cpu", tut: true, slot: "a", st, sel: null, atkFrom: null, chooseQ: [], evSeen: 0, recorded: true };
+  S.tab = "play"; renderAll(); after(false); window.scrollTo(0, 0);
+}
+// 練習あいての台本: 2ターン目は速攻モンスターで攻撃、4ターン目は大きいモンスターを出すだけ
+function tutCpu(st){
+  const s = "b", p = P(st, s), me = P(st, O(s));
+  if (st.turnNo === 2){
+    if (!st.tutA){ st.tutA = 1; const i = p.hand.indexOf(TUT_ORC); if (i >= 0 && summon(st, s, i)) return; }
+    if (st.tutA === 1){ st.tutA = 2; const z = p.mz.findIndex(m => m && m.c === TUT_ORC), t = me.mz.findIndex(Boolean); if (z >= 0 && t >= 0 && canAttack(st, s, z) && declareAttack(st, s, z, t)) return; }
+  }
+  if (st.turnNo === 4 && !st.tutB){ st.tutB = 1; const i = p.hand.indexOf(TUT_BOSS); if (i >= 0 && summon(st, s, i)) return; }
+  endTurn(st, s);
+}
+function tutTick(){
+  if (!TUT.on) return;
+  if (TUT.kind === "battle" && (!G || !G.tut)){ tutEnd(); return; }
+  let s = TUT.steps[TUT.i];
+  // 終わったステップは飛ばす（「次へ」のステップは押されたら）
+  for (let guard = 0; s && guard < 30; guard++){
+    const passed = s.next ? TUT.ack === TUT.i : s.done ? s.done() : false;
+    if (!passed) break;
+    TUT.i++; s = TUT.steps[TUT.i];
+  }
+  if (!s){ tutEnd(); return; }
+  if (TUT.kind === "battle" && G.st.winner && !s.end){ TUT.i = TUT.steps.findIndex(x => x.end); s = TUT.steps[TUT.i]; }
+  const root = tutEls(), el = s.el ? s.el() : null, bub = root.querySelector(".tut-bub"), hole = root.querySelector(".tut-hole");
+  // 押すところが変わったら、画面の外なら真ん中までスクロール
+  if (el && TUT.lastEl !== el){ TUT.lastEl = el; const r0 = el.getBoundingClientRect(); if (r0.top < 70 || r0.bottom > innerHeight - 70) el.scrollIntoView({ block: "center" }); }
+  const r = el ? el.getBoundingClientRect() : null, pad = 6, W = innerWidth, H = innerHeight;
+  const box = r ? { l: Math.max(0, r.left - pad), t: Math.max(0, r.top - pad), r: Math.min(W, r.right + pad), b: Math.min(H, r.bottom + pad) } : null;
+  const set = (k, x, y, w, h) => { const d = root.querySelector(`.tut-sh[data-k="${k}"]`); d.style.cssText = `left:${x}px;top:${y}px;width:${Math.max(0, w)}px;height:${Math.max(0, h)}px`; };
+  if (box){ set("t", 0, 0, W, box.t); set("b", 0, box.b, W, H - box.b); set("l", 0, box.t, box.l, box.b - box.t); set("r", box.r, box.t, W - box.r, box.b - box.t); hole.hidden = false; hole.style.cssText = `left:${box.l}px;top:${box.t}px;width:${box.r - box.l}px;height:${box.b - box.t}px`; }
+  else { set("t", 0, 0, W, H); set("b", 0, 0, 0, 0); set("l", 0, 0, 0, 0); set("r", 0, 0, 0, 0); hole.hidden = true; }
+  const btns = s.end ? `<button class="primary" data-tutb="maker">カードを描きに行く</button><button data-tutb="done">おわる</button>` : `${s.next ? `<button class="primary" data-tutb="next">${s.next}</button>` : ""}<button class="ghost small" data-tutb="quit">やめる</button>`;
+  const html = `<div class="tut-txt">${s.t}</div>${s.wait ? `<div class="tut-wait"><span></span><span></span><span></span></div>` : ""}<div class="row tut-btns">${btns}</div>`;
+  if (bub.dataset.step !== TUT.kind + TUT.i){ bub.dataset.step = TUT.kind + TUT.i; bub.innerHTML = html; }
+  const bw = Math.min(360, W - 24); bub.style.width = bw + "px";
+  const bh = bub.offsetHeight;
+  let top, left;
+  if (box){ left = Math.max(12, Math.min(W - bw - 12, (box.l + box.r) / 2 - bw / 2)); top = box.b + 12 + bh < H ? box.b + 12 : box.t - 12 - bh >= 0 ? box.t - 12 - bh : (box.t > H / 2 ? 12 : Math.max(12, H - bh - 12)); }
+  else { left = (W - bw) / 2; top = Math.max(12, (H - bh) / 2); }
+  bub.style.left = left + "px"; bub.style.top = top + "px";
+}
+// はじめて来た人に「練習バトルをやる？」と聞く（1回だけ）
+function tutAskFirst(){
+  if (ls.get("cb_tutSeen", false) || document.getElementById("tutAsk") || G) return;
+  const d = document.createElement("div"); d.id = "tutAsk"; d.className = "tut-ask";
+  d.innerHTML = `<b>はじめての人へ</b><p>5分くらいの練習バトルで、遊び方を覚えよう！</p><div class="row"><button class="primary" data-tut="battle">練習バトルをやる</button><button class="ghost" data-tutno>あとで</button></div><p class="note">あとからでも「Guide」から始められます</p>`;
+  document.body.appendChild(d);
+}
+document.addEventListener("click", e => {
+  const t = e.target.closest && e.target.closest("[data-tut]"); if (t){ tutStart(t.dataset.tut); return; }
+  if (e.target.closest && e.target.closest("[data-tutno]")){ ls.set("cb_tutSeen", true); const a = document.getElementById("tutAsk"); if (a) a.remove(); }
+});
+addEventListener("resize", () => { if (TUT.on) tutTick(); });
+addEventListener("scroll", () => { if (TUT.on) tutTick(); }, { passive: true });
+setTimeout(tutAskFirst, 1800);
+
 

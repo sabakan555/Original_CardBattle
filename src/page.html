@@ -34,6 +34,7 @@
   <div class="showcase" id="showcase" aria-live="polite"></div>
   <div class="home-foot">
     <button class="me-chip" data-go="me" title="マイページをひらく"><span class="av" id="meAv"></span><span class="nm" id="meName">Player</span></button>
+    <button class="tut-home" data-tut="battle">はじめての人へ ▶ 練習バトル</button>
     <button class="guide-btn" data-go="rules" aria-label="Guide（ルール）"><span class="en">Guide</span></button>
   </div>
 </section>
@@ -68,6 +69,7 @@
           <div id="rejoin" class="row" hidden></div>
           <div id="roomList" class="roomlist"></div>
           <hr style="border:none;border-top:2px dashed var(--line);width:100%;margin:2px 0">
+          <div class="row"><button data-tut="battle">練習バトル（チュートリアル）</button><span class="note">はじめての人はこちら。遊び方を順番に案内します</span></div>
           <div class="row"><button id="btnCpu">CPUと練習する</button><span class="note">ルールやカードのお試しに</span></div>
           <label class="f">CPUが使うデッキ<select id="cpuDeckSel"></select></label>
         </div>
@@ -347,6 +349,7 @@
 
   <!-- RULES -->
   <section id="tab-rules" class="rules" hidden>
+    <div class="box tut-box"><h2>チュートリアル</h2><p class="note">画面の光っているところを押しながら、遊び方を覚えられます。</p><div class="row"><button class="primary" data-tut="battle">練習バトルをやる（5分）</button><button data-tut="maker">カード工房の案内</button></div></div>
     <div class="grid2">
       <div class="box">
         <h2>基本ルール</h2>

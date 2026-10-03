@@ -460,6 +460,26 @@ body.dm-lock{overflow:hidden}
 .card.spire .clk{color:#f2e6c4}
 .bst.tmrc{display:inline-flex;align-items:center;gap:4px}
 .bst.boon{color:#d9b8ff;border-color:rgba(190,140,255,.6)}
+/* チュートリアル: 暗くして、押すところだけ光らせる */
+#tutLayer{position:fixed;inset:0;z-index:9000;pointer-events:none}
+#tutLayer[hidden]{display:none}
+.tut-sh{position:fixed;background:rgba(5,8,20,.62);pointer-events:auto}
+.tut-hole{position:fixed;border-radius:10px;pointer-events:none;box-shadow:0 0 0 3px #ffd76a,0 0 20px 6px rgba(255,215,106,.75);animation:tutPulse 1.3s ease-in-out infinite}
+.tut-hole[hidden]{display:none}
+@keyframes tutPulse{50%{box-shadow:0 0 0 3px #ffd76a,0 0 30px 12px rgba(255,215,106,.45)}}
+.tut-bub{position:fixed;pointer-events:auto;background:#fffbea;color:#1f2233;border:3px solid #ffd76a;border-radius:14px;padding:14px 16px;box-shadow:0 12px 34px rgba(0,0,0,.5);font-size:15px;line-height:1.65}
+.tut-bub b{color:#c2410c}
+.tut-bub .tut-btns{margin-top:10px;gap:8px;justify-content:flex-end;flex-wrap:wrap}
+.tut-bub .ghost{color:#555;border-color:#bbb}
+.tut-wait{display:flex;gap:6px;margin-top:8px}
+.tut-wait span{width:8px;height:8px;border-radius:50%;background:#e0a800;animation:tutDot 1s infinite}
+.tut-wait span:nth-child(2){animation-delay:.2s}.tut-wait span:nth-child(3){animation-delay:.4s}
+@keyframes tutDot{50%{opacity:.25;transform:translateY(-3px)}}
+body.tut-on #detailPop{display:none!important}
+.tut-ask{position:fixed;right:16px;bottom:16px;z-index:8500;width:min(340px,calc(100vw - 32px));background:#fffbea;color:#1f2233;border:3px solid #ffd76a;border-radius:14px;padding:14px 16px;box-shadow:0 12px 34px rgba(0,0,0,.5);line-height:1.6}
+.tut-ask p{margin:6px 0}.tut-ask .note{color:#666;font-size:12px}.tut-ask .ghost{color:#555;border-color:#bbb}
+.tut-home{position:relative;padding:10px 16px;border-radius:999px;background:#ffd76a;color:#1f2233;font-weight:800;border:none;box-shadow:0 4px 0 #b88f1d}
+.tut-box{margin-bottom:16px}
 /* キーワード能力: 下線つき。カードの外ではタップで説明 */
 .kwd{border-bottom:2px dotted currentColor;font-weight:700;cursor:help;margin-right:.45em;padding-bottom:1px}
 #detailPop .kwd,.cv-fx .kwd{color:#ffd76a}
