@@ -49,11 +49,11 @@ function scheduleCpu(){
   const st = G.st, c = "b";
   // CPU as defender
   if (st.pending && st.pending.wait && st.pending.by !== c) {
-    G.cpuT = setTimeout(() => { G.cpuT = null; act(st => { const win = chainWindow(st); const o = responseOptions(st, c, win); const top = st.chain && st.chain[st.chain.length - 1]; const pick = o.length && Math.random() < (win === "attack" ? .75 : top && top.summon ? .6 : .5) ? o[Math.floor(Math.random() * o.length)] : null; respond(st, c, pick && { from: pick.from, i: pick.i }); }); }, 900);
+    G.cpuT = setTimeout(() => { G.cpuT = null; act(st => { const win = chainWindow(st); const o = G.test && G.test.cpu === "idle" ? [] : responseOptions(st, c, win); const top = st.chain && st.chain[st.chain.length - 1]; const pick = o.length && Math.random() < (win === "attack" ? .75 : top && top.summon ? .6 : .5) ? o[Math.floor(Math.random() * o.length)] : null; respond(st, c, pick && { from: pick.from, i: pick.i }); }); }, 900);
     return;
   }
   if (st.turn !== c || st.pending) return;
-  G.cpuT = setTimeout(() => { if (!G) return; G.cpuT = null; act(st => G.tut ? tutCpu(st) : cpuStep(st, c)); }, G.tut ? Math.max(900, cpuDelay()) : cpuDelay());
+  G.cpuT = setTimeout(() => { if (!G) return; G.cpuT = null; act(st => G.tut ? tutCpu(st) : G.test && G.test.cpu === "idle" ? endTurn(st, c) : cpuStep(st, c)); }, G.tut ? Math.max(900, cpuDelay()) : cpuDelay());
 }
 function cpuStep(st, s){
   const p = P(st, s), op = P(st, O(s));
@@ -166,6 +166,55 @@ function findCardIdByName(name){
   const hit = L.find(id => card(id) && card(id).name === name); if (hit) return hit;
   const c = [...S.cards.values()].find(x => x && x.name === name); return c ? c.id : null;
 }
+// テストモード: 好きなカードを手札・場に出したり、マナやLPを戻したりできる（相手はふだん動かない）
+function testBoxHTML(st, pm){
+  const T = G.test, dis = st.winner ? "disabled" : "";
+  return `<div class="box test-box"><h3>🧪 テストモード</h3>
+    <label class="f">カード名<input type="text" list="cardNames" data-testname value="${esc(T.name || "")}" placeholder="カード名を入れて…"></label>
+    <div class="row test-row"><button class="small" data-test="hand" ${dis}>手札に加える</button><button class="small" data-test="meField" ${dis}>自分の場に置く</button><button class="small" data-test="opField" ${dis}>相手の場に置く</button><button class="small" data-test="opSet" ${dis}>相手の場にセット</button></div>
+    ${T.id ? `<div class="row test-row"><button class="small" data-test="again" ${dis}>テスト中のカードをもう1枚手札に</button></div>` : ""}
+    <div class="row test-row">${pm.mana ? `<button class="small" data-test="mana" ${dis}>マナを満タン（10）</button>` : ""}<button class="small" data-test="lp" ${dis}>お互いのLPを1000に</button><button class="small" data-test="refresh" ${dis}>召喚・攻撃・起動をもう一度できるように</button></div>
+    <label class="row" style="gap:8px">相手の動き<select data-testcpu><option value="idle"${T.cpu === "idle" ? " selected" : ""}>動かない（ターン終了だけ）</option><option value="play"${T.cpu === "play" ? " selected" : ""}>ふつうに動く</option></select></label>
+    <div class="row test-row"><button class="small" data-test="reset">最初からやり直す</button>${T.src ? `<button class="small ghost" data-test="back">カード工房にもどる</button>` : ""}</div>
+    <p class="note" style="margin:0">場に置いたカードは「召喚したとき」の効果は出ません。勝敗の記録にも残りません。</p>
+  </div>`;
+}
+function startTest(src){
+  leaveGame(); { const a = document.getElementById("tutAsk"); if (a) a.remove(); }
+  let tid = null;
+  if (src){ tid = "test-" + (src.id || "new"); S.cards.set(tid, { ...src, id: tid, test: true, tut: true }); }
+  const mana = !!(src && hasCost(src) && deckModeOf(src) !== "normal");
+  const ids = (mana ? sampleManaDeck() : starterDeck()).cards.filter(id => S.cards.has(id));
+  const pa = newPlayer(ids, null, mana, false), pb = newPlayer(ids, "テスト相手", mana, false);
+  if (tid) pa.hand.unshift(tid);
+  const st = startState(pa, pb); st.first = "a"; st.turn = "a"; st.turnNo = 2;
+  if (mana){ pa.mana = { max: 10, cur: 10 }; pb.mana = { max: 10, cur: 10 }; }
+  st.log = [{ t: Date.now(), m: src ? `テストモード：「${src.name}」を手札に入れてスタート` : "テストモード スタート" }];
+  G = { mode: "cpu", test: { id: tid, src: src || null, cpu: "idle", name: "" }, slot: "a", st, sel: null, atkFrom: null, chooseQ: [], evSeen: 0, recorded: true };
+  S.tab = "play"; ls.set("cb_tab", "play"); renderAll(); after(false); window.scrollTo(0, 0);
+}
+function testAct(k){
+  const T = G.test, me = G.slot;
+  if (k === "reset"){ startTest(T.src); return; }
+  if (k === "back"){ leaveGame(); S.tab = "make"; ls.set("cb_tab", "make"); renderAll(); window.scrollTo(0, 0); return; }
+  const named = ["hand", "meField", "opField", "opSet"].includes(k);
+  const id = k === "again" ? T.id : named ? (findCardIdByName((T.name || "").trim()) || null) : null;
+  if (named && !id){ toast(T.name ? `「${T.name}」というカードが見つかりません` : "カード名を入れてね"); return; }
+  const c = id ? card(id) : null, t = c ? cardType(c) : "";
+  if ((k === "meField" || k === "opField") && t !== "monster"){ toast("場に置けるのはモンスターだけです（魔法・罠は「相手の場にセット」）"); return; }
+  if (k === "opSet" && t !== "magic" && t !== "trap"){ toast("セットできるのは魔法・罠だけです"); return; }
+  act(st => {
+    const pm = P(st, me), po = P(st, O(me));
+    if (k === "hand" || k === "again"){ pm.hand.push(id); log(st, me, `（テスト）「${c.name}」を手札に加えた`); return; }
+    if (k === "meField" || k === "opField"){ const s = k === "meField" ? me : O(me), p = P(st, s), z = freeZone(p.mz); if (z < 0){ toast("モンスターゾーンがいっぱいです"); return false; } const m = mkMon(st, id); m.born = 0; p.mz[z] = m; log(st, me, `（テスト）「${c.name}」を${s === me ? "自分" : "相手"}の場に置いた`); return; }
+    if (k === "opSet"){ const z = freeZone(po.sz); if (z < 0){ toast("魔法・罠ゾーンがいっぱいです"); return false; } st.un = (st.un || 0) + 1; po.sz[z] = { c: id, turn: st.turnNo - 1, face: false, u: st.un }; log(st, me, `（テスト）相手の場に「${c.name}」をセットした`); return; }
+    if (k === "mana"){ if (pm.mana){ pm.mana.max = Math.max(pm.mana.max, 10); pm.mana.cur = Math.max(pm.mana.cur, 10); log(st, me, "（テスト）マナを満タンにした"); } return; }
+    if (k === "lp"){ pm.lp = po.lp = START_LP; log(st, me, "（テスト）お互いのLPを1000にもどした"); return; }
+    if (k === "refresh"){ st.summoned = false; pm.mz.forEach(m => { if (m){ m.attacked = false; m.atkCount = 0; m.actTurn = null; m.born = Math.min(m.born, st.turnNo - 1); } }); log(st, me, "（テスト）召喚・攻撃・起動効果をもう一度できるようにした"); return; }
+    return false;
+  });
+}
+document.addEventListener("click", e => { if (e.target.closest && e.target.closest("[data-testmode]")) startTest(null); });
 const ACT_ICON = `<svg viewBox="0 0 40 40" aria-hidden="true"><path d="M20 3l3.6 9.2 9.4-3.3-4.3 9 8.3 5.6-9.7 1.6.6 9.9L20 30.4 12.1 35l.6-9.9-9.7-1.6 8.3-5.6-4.3-9 9.4 3.3z" fill="#fde7c9" stroke="#e08a00" stroke-width="1.5" stroke-linejoin="round"/></svg>`;
 function renderBoard(){
   recordResult();
@@ -323,6 +372,7 @@ function renderBoard(){
         ${G.mode === "online" ? `<div class="note">部屋 ${esc(G.code)}</div>` : ""}
         ${G.mode === "cpu" ? `<label class="row cpuspd" style="gap:8px">CPUの速さ<select data-cpuspd aria-label="CPUの速さ">${Object.entries(CPU_SPD).map(([k, v]) => `<option value="${k}"${cpuSpd() === k ? " selected" : ""}>${v[1]}</option>`).join("")}</select></label>` : ""}
       </div>
+      ${G.test ? testBoxHTML(st, pm) : ""}
       <div class="box">
         <h3>手動で効果を処理</h3>
         <div class="adj">
@@ -743,6 +793,7 @@ $("#board").addEventListener("click", e => {
   if (e.target.closest("[data-field]") && G && G.st && G.st.field){ openCardView("field", [G.st.field.c], 0); return; }
   if (!G) return;
   const st = G.st, me = G.slot;
+  { const tb = e.target.closest("[data-test]"); if (tb){ if (G.test && !tb.disabled) testAct(tb.dataset.test); return; } }
   { const fb = e.target.closest("[data-fb]"); if (fb){ if (canAct(st, me)){ const gi = +fb.dataset.fb, id = P(st, me).grave[gi]; if (!id) return; G.sel = null; withDiscard(card(id), -1, d => act(st => activate(st, me, "grave", gi, d.length ? { disc: d } : {}))); } return; } }
   const pb = e.target.closest("[data-potion]");
   if (pb){ if (canAct(st, me)){ G.potPick = +pb.dataset.potion; renderAll(); } return; }
@@ -836,8 +887,10 @@ $("#board").addEventListener("click", e => {
 });
 $("#board").addEventListener("change", e => {
   const sp = e.target.closest("[data-cpuspd]"); if (sp){ ls.set("cb_cpuspd", sp.value); return; }
+  const tc = e.target.closest("[data-testcpu]"); if (tc && G && G.test){ G.test.cpu = tc.value; scheduleCpu(); return; }
   const mt = e.target.closest("[data-manualtog]"); if (mt){ ls.set("cb_manual", mt.checked); renderAll(); }
 });
+$("#board").addEventListener("input", e => { const n = e.target.closest("[data-testname]"); if (n && G && G.test) G.test.name = n.value; });
 $("#board").addEventListener("keydown", e => { const h = e.target.closest("[role=button]"); if (h && (e.key === "Enter" || e.key === " ")){ e.preventDefault(); h.click(); } });
 
 /* ================= チュートリアル（練習バトル・カード工房の案内） =================

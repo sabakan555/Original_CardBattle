@@ -460,6 +460,9 @@ body.dm-lock{overflow:hidden}
 .card.spire .clk{color:#f2e6c4}
 .bst.tmrc{display:inline-flex;align-items:center;gap:4px}
 .bst.boon{color:#d9b8ff;border-color:rgba(190,140,255,.6)}
+.test-box{border:2px solid #7ad3ff;display:flex;flex-direction:column;gap:8px}
+.test-box h3{margin:0;color:#9fe0ff}
+.test-box .test-row{gap:6px;flex-wrap:wrap}
 /* 起動効果: カードのまわりが光って、下にボタン */
 .card.actable{box-shadow:0 0 0 2px #ffae1f,0 0 16px 5px rgba(255,166,31,.75);animation:actGlow 1.6s ease-in-out infinite}
 .card.actable.actused{animation:none;box-shadow:0 0 0 1px rgba(255,174,31,.45)}

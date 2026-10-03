@@ -882,7 +882,8 @@ $("#mkAbs").addEventListener("change", updateSecs);
 setMkPane(["draw", "look", "fx", "deck"].includes(ls.get("cb_mkpane", "draw")) ? ls.get("cb_mkpane", "draw") : "draw");
 updateSecs();
 $("#btnNew").addEventListener("click", resetMaker);
-$("#btnSave").addEventListener("click", async () => {
+// 保存するときのカードの中身（テストモードでも使う）
+function mkBuildDoc(){
   const name = $("#mkName").value.trim();
   if (!name){ toast("カード名を書いてね"); $("#mkName").focus(); return; }
   const atkRaw = $("#mkAtk").value.trim().toLowerCase().replace(/[０-９]/g, ch => String.fromCharCode(ch.charCodeAt(0) - 0xFEE0));
@@ -898,6 +899,15 @@ $("#btnSave").addEventListener("click", async () => {
     img: prev && prev.img && !MK.artDirty ? prev.img : encodeArt(out, MK.kind === "potion" || MK.kind === "relic"), frameless: MK.frameless, textEdge: MK.frameless && $("#mkTEdge").checked || null, holo: $("#mkHolo").value || null, foil: $("#mkFoil").value || null, flAlpha: MK.frameless && MK.flAlpha != null && MK.flAlpha !== FL_ALPHA_DEF ? MK.flAlpha : null, author: S.name, ownerId: prev?.ownerId || S.uid || null, updatedAt: Date.now() };
   if (prev && prev.builtinPotion && !MK.artDirty && doc.img === potionArt(prev.potKey)) delete doc.img;
   if (MK.kind === "potion" || MK.kind === "relic") Object.assign(doc, { type: MK.kind, neow: MK.kind === "relic" && $("#mkNeow").checked || null, atk: 0, atkInf: false, eqN: 0, eqCost: null, eqCap: null, abs: [], frame: null, ss: null, quick: false, persist: false, sk: null, rarity: null, exhaust: false, payLp: null, payDisc: null, payMax: null, cost: null, costX: false, deckMode: "normal", limit: 0 });
+  return { id, prev, doc };
+}
+$("#btnTest").addEventListener("click", () => {
+  if (MK.kind === "potion" || MK.kind === "relic"){ toast("ポーション・レリックはテストモードでは試せません"); return; }
+  const B = mkBuildDoc(); if (!B) return;
+  startTest({ ...B.doc, id: B.id });
+});
+$("#btnSave").addEventListener("click", async () => {
+  const B = mkBuildDoc(); if (!B) return; const { id, prev, doc } = B;
   $("#btnSave").disabled = true;
   try{
     if (prev && prev.starter){ await saveBuiltinDoc(id, { ...doc, author: prev.author, ownerId: null }); toast("はじめからあるカードを更新しました（みんなに反映されます）"); }

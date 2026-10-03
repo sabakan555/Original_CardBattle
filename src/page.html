@@ -70,6 +70,7 @@
           <div id="roomList" class="roomlist"></div>
           <hr style="border:none;border-top:2px dashed var(--line);width:100%;margin:2px 0">
           <div class="row"><button data-tut="battle">練習バトル（チュートリアル）</button><span class="note">はじめての人はこちら。遊び方を順番に案内します</span></div>
+          <div class="row"><button data-testmode>🧪 テストモード</button><span class="note">好きなカードを手札や場に出して、効果を試せる</span></div>
           <div class="row"><button id="btnCpu">CPUと練習する</button><span class="note">ルールやカードのお試しに</span></div>
           <label class="f">CPUが使うデッキ<select id="cpuDeckSel"></select></label>
         </div>
@@ -244,7 +245,7 @@
           <label class="f" style="flex-direction:row;align-items:center;gap:10px">デッキに入れられる枚数<select id="mkLimit"><option value="1">1枚まで</option><option value="2">2枚まで</option><option value="3" selected>3枚まで</option><option value="0">制限なし</option></select></label>
         </div>
 
-        <div class="row mk-save"><button class="primary" id="btnSave">カードを保存</button><button class="ghost" id="btnNew" hidden>新しく描く</button></div>
+        <div class="row mk-save"><button class="primary" id="btnSave">カードを保存</button><button id="btnTest" title="保存しないで、対戦画面でこのカードの効果を試す">🧪 この内容でテストする</button><button class="ghost" id="btnNew" hidden>新しく描く</button></div>
       </div>
     </div>
     <div style="margin-top:28px">
