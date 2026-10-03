@@ -497,6 +497,15 @@ body.dm-lock{overflow:hidden}
 .card.socra.fxrows .fxr-d{font-size:calc(var(--w)*.028)}
 .card.socra.fxrows .fxr-d>span{-webkit-line-clamp:2}
 .card.socra.fxrows .fxr-bd{font-size:calc(var(--w)*.06)}
+.fxi-split{background-image:url("assets/fx2_split.webp")}.fxi-revive{background-image:url("assets/fx2_revive.webp")}.fxi-heart{background-image:url("assets/fx2_heal.webp")}.fxi-lock{background-image:url("assets/fx2_chain.webp")}.fxi-cocoon{background-image:url("assets/fx2_cloud.webp")}.fxi-clash{background-image:url("assets/fx2_twin.webp")}.fxi-box{background-image:url("assets/fx2_box.webp")}.fxi-synth{background-image:url("assets/fx2_synth.webp")}.fxi-ikenie{background-image:url("assets/fx2_ikenie.webp")}.fxi-jumon{background-image:url("assets/fx2_jumon.webp")}.fxi-jirai{background-image:url("assets/fx2_jirai.webp")}
+/* Figmaのアイコン（枠ごと絵になっている）: CSSの四角は使わない */
+.fxr-ic.full{border:none;background:none;box-shadow:none;border-radius:0;filter:drop-shadow(0 calc(var(--w)*.004) calc(var(--w)*.005) rgba(0,0,0,.35))}
+.fxr-ic.full .fxi{width:100%;height:100%;background-size:contain}
+.fxr.hdr .fxr-ic.full{background:none}
+.fxr-ic.shield{aspect-ratio:145/160}.fxr-ic.dia{transform:scale(1.12)}
+.fxr-ic.tall{aspect-ratio:155/300;max-height:none;height:calc(var(--w)*.112)}.fxr.tall{min-height:calc(var(--w)*.13)}
+.card.socra.fxrows .fxr-ic.tall{height:calc(var(--w)*.17)}.card.socra.fxrows .fxrs .fxr.tall{min-height:calc(var(--w)*.2)}
+.fxr-big .fxr-ic.tall{height:calc(var(--w)*.22)}.fxr-big .fxr.tall{min-height:calc(var(--w)*.25)}
 .fxr-tx{flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center}
 .fxr-tx b{font-size:calc(var(--w)*.028);font-weight:800;letter-spacing:-.06em;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .fxr-tx small{font-size:calc(var(--w)*.016);letter-spacing:-.04em;line-height:1.1}
