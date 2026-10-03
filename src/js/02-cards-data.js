@@ -199,15 +199,26 @@ document.addEventListener("click", e => {
 }, true);
 document.addEventListener("keydown", e => { if ((e.key === "Enter" || e.key === " ") && e.target.classList && e.target.classList.contains("kwd") && !e.target.closest(".card")){ e.preventDefault(); e.target.click(); } });
 const HEX6 = /^#[0-9a-f]{6}$/i;
+// 画像の枠: カードの frame → クラス名
+const FR_CLS = { mtg: "mtg", future: "fut", ygo: "ygo" };
+// 遊戯王風: コストを星で。枠に入る数（モンスター13・罠10・魔法9）をこえたら「★×14」
+const YGO_STAR_MAX = { monster: 13, trap: 10 };
+function ygoStars(v, t){
+  const s = String(v ?? "").trim(); if (s === "") return "";
+  const max = YGO_STAR_MAX[t] || 9, n = /^\d+$/.test(s) ? +s : null;
+  if (n != null && n >= 1 && n <= max) return `<i class="ys"></i>`.repeat(n);
+  return `<i class="ys"></i><span class="ys-x">×${esc(s)}</span>`;
+}
 function cardHTML(c, cls = "", attrs = "", opts = {}){
   // 画像の枠（MTG風・近未来）: ふつうの枠と同じ中身に、枠の画像と文字の位置をかぶせる
-  const fr = c && !c.potionView && !c.relicView && (c.frame === "mtg" || c.frame === "future") ? c.frame : "", mt = !!fr;
+  const fr = c && !c.potionView && !c.relicView && FR_CLS[c.frame] ? c.frame : "", mt = !!fr;
   let h = cardHTML0(mt ? { ...c, frameless: fr === "future" ? c.frameless : false } : c, cls, attrs, opts);
   // MTG風の枠（サバ缶デザイン）: ふつうの枠と同じ中身に、枠の見た目と下の宝石をかぶせる
   // MTG風: カードのフォントが標準（手書き）のままなら、Figmaのデザインのフォントを使う
   if (mt && (!c.font || c.font === "klee")) h = h.replace(/--cf:[^;']*;?/, "");
   if (fr === "future" && !/<span class="c-cost"/.test(h)) h = h.replace('<div class="c-in">', '<div class="c-in"><span class="c-cost nocost" title="コストなし">‐</span>');
-  if (mt) h = h.replace(/^<div class="card /, `<div class="card ${fr === "mtg" ? "mtg" : "fut"} `).replace(/<\/div>$/, `<span class="m-gem" aria-hidden="true"></span></div>`).replace(/<div class="c-atk">ATK /, `<div class="c-atk">`).replace(/<div class="c-name">([\s\S]*?)<\/div><div class="c-art">/, `<div class="c-name"><span class="m-nm">$1</span></div><div class="c-art">`);
+  if (fr === "ygo") h = h.replace(/<span class="c-cost"([^>]*)>([^<]*)<\/span>/, (m, a, v) => `<span class="c-cost"${a}>${ygoStars(v, cardType(c))}</span>`);
+  if (mt) h = h.replace(/^<div class="card /, `<div class="card ${FR_CLS[fr]} `).replace(/<\/div>$/, `<span class="m-gem" aria-hidden="true"></span></div>`).replace(/<div class="c-atk">ATK /, `<div class="c-atk">`).replace(/<div class="c-name">([\s\S]*?)<\/div><div class="c-art">/, `<div class="c-name"><span class="m-nm">$1</span></div><div class="c-art">`);
   const ho = c && HOLO[c.holo] ? c.holo : "", fo = c && FOIL[c.foil] ? c.foil : "";
   if (!ho && !fo) return h;
   return h.replace(/^<div class="card /, `<div class="card${ho ? ` holo holo-${ho}` : ""}${fo ? ` foil-${fo}` : ""} `).replace(/<\/div>$/, ho ? `<span class="holo-fx" aria-hidden="true"></span></div>` : "</div>");

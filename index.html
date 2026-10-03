@@ -1114,6 +1114,55 @@ div.f{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:13px}
 .card.fut.foil-rainbow .m-nm{background-image:linear-gradient(100deg,#e5367a,#f0a020,#3cc78a,#2f8de4,#9b4de0,#e5367a);background-size:200% 100%;animation:foilRun 5s linear infinite}
 .card.fut .holo-fx{z-index:4}
 /* editor */
+/* 遊戯王風の枠（サバ缶デザイン・Figma Frame 44〜46 / 590×860）: モンスター・魔法（装備も）・罠で画像が変わる。星の数がコスト */
+.card.ygo{--yu:calc(var(--w)/590);aspect-ratio:590/860;padding:0;background:transparent;border:none;border-radius:calc(var(--yu)*12);box-shadow:0 calc(var(--yu)*4) calc(var(--yu)*12) rgba(0,0,0,.35);color:#30211c;isolation:isolate;font-family:var(--cf,"Shippori Mincho",serif)}
+.card.ygo::before{content:"";position:absolute;inset:0;background:url("assets/ygo_mon.webp") 0 0/100% 100% no-repeat;border-radius:inherit;z-index:0;pointer-events:none}
+.card.ygo.magic::before,.card.ygo.equip::before{background-image:url("assets/ygo_mag.webp")}
+.card.ygo.trap::before{background-image:url("assets/ygo_trap.webp")}
+.card.ygo .c-in{position:static;display:block;height:auto;background:none;border-radius:0;overflow:visible}
+.card.ygo .c-art{position:absolute;left:calc(var(--yu)*59);top:calc(var(--yu)*151);width:calc(var(--yu)*470);height:calc(var(--yu)*460);aspect-ratio:auto;border:none;background:#d9d9d9;overflow:hidden;z-index:1}
+.card.ygo .c-art>img,.card.ygo .c-art>canvas{width:100%;height:100%;object-fit:cover;display:block}
+.card.editor.ygo .c-art>canvas{width:auto;height:100%;max-width:none;position:relative;left:50%;transform:translateX(-50%)}
+.card.ygo .c-art .noart{display:grid;place-items:center;width:100%;height:100%;font-size:calc(var(--yu)*28);color:#888}
+.card.ygo .c-art .c-tab,.card.ygo .m-gem,.card.ygo .fl-guide,.card.ygo .c-bgart{display:none!important}
+.card.ygo .c-name{position:absolute;left:calc(var(--yu)*41);top:calc(var(--yu)*32);width:calc(var(--yu)*505);height:calc(var(--yu)*67);padding:0!important;border:none!important;background:none;display:flex;align-items:center;justify-content:flex-start;font-size:calc(var(--yu)*40*var(--nk,1));line-height:1!important;font-weight:700;letter-spacing:-.06em;color:#30211c;z-index:2;white-space:nowrap;overflow:hidden}
+.card.ygo.magic .c-name,.card.ygo.equip .c-name,.card.ygo.trap .c-name{width:calc(var(--yu)*445)}
+.card.ygo .m-nm{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+/* コスト = 星。右から並ぶ。入りきらないときは「★×14」 */
+.card.ygo .c-cost{position:absolute;left:auto;right:calc(var(--yu)*61);top:calc(var(--yu)*101);width:auto;height:calc(var(--yu)*36);padding:0;border:none;border-radius:0;background:none;box-shadow:none;display:flex;flex-direction:row-reverse;align-items:center;gap:calc(var(--yu)*3);font-size:calc(var(--yu)*30);line-height:1;font-weight:700;color:#30211c;z-index:3}
+.card.ygo.magic .c-cost,.card.ygo.equip .c-cost{right:calc(var(--yu)*197)}
+.card.ygo.trap .c-cost{right:calc(var(--yu)*170)}
+.card.ygo .c-cost .ys{display:block;flex:none;width:calc(var(--yu)*36);height:calc(var(--yu)*36);background:url("assets/ygo_star.webp") center/100% 100% no-repeat;filter:drop-shadow(0 calc(var(--yu)*1) calc(var(--yu)*1.5) rgba(0,0,0,.45))}
+.card.ygo .c-cost .ys-x{margin-right:calc(var(--yu)*4);text-shadow:0 0 calc(var(--yu)*3) rgba(255,255,255,.7)}
+.card.ygo .c-text{position:absolute;left:calc(var(--yu)*41);top:calc(var(--yu)*647);width:calc(var(--yu)*504);height:calc(var(--yu)*128);border:none;background:none;box-shadow:none;padding:0;font-family:var(--cf,"Shippori Mincho",serif);font-weight:700;font-size:calc(var(--yu)*22*var(--tk,1));line-height:1.32;color:#30211c;overflow:visible;min-height:0;z-index:2;display:block}
+.card.ygo.magic .c-text,.card.ygo.equip .c-text,.card.ygo.trap .c-text{height:calc(var(--yu)*160)}
+.card.ygo .c-text .body{max-height:calc(var(--yu)*22*1.32*4*var(--tk,1));-webkit-line-clamp:4}
+.card.ygo .c-text:has(.flv) .body{max-height:calc(var(--yu)*22*1.32*3*var(--tk,1));-webkit-line-clamp:3}
+.card.ygo.magic .c-text .body,.card.ygo.equip .c-text .body,.card.ygo.trap .c-text .body{max-height:calc(var(--yu)*22*1.32*5*var(--tk,1));-webkit-line-clamp:5}
+.card.ygo.magic .c-text:has(.flv) .body,.card.ygo.equip .c-text:has(.flv) .body,.card.ygo.trap .c-text:has(.flv) .body{max-height:calc(var(--yu)*22*1.32*4*var(--tk,1));-webkit-line-clamp:4}
+.card.ygo .c-text .fx{color:#30211c}
+.card.ygo .c-text .flv{margin:calc(var(--yu)*4) 0 0;padding:0;border:none;font-style:italic;font-weight:400;font-size:calc(var(--yu)*18*var(--tk,1));line-height:1.3;color:#4a3a30;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:1;overflow:hidden}
+.card.ygo .c-atk{position:absolute;left:auto;right:0;top:calc(var(--yu)*136);bottom:auto;width:auto;height:calc(var(--yu)*26);padding:0;border:none;border-radius:0;background:none;box-shadow:none;display:flex;align-items:center;font-weight:700;font-size:calc(var(--yu)*24);line-height:1;color:#000;z-index:3;white-space:pre}
+.card.ygo .c-atk::before{content:"ATK  /"}
+.card.ygo.equip .c-atk::before{content:"ATK "}
+.card.ygo .c-lim{position:absolute;left:0;top:calc(var(--yu)*140);right:auto;bottom:auto;color:#5a4a40;font-size:calc(var(--yu)*16);font-weight:700;z-index:3}
+.card.ygo.magic .c-lim,.card.ygo.equip .c-lim,.card.ygo.trap .c-lim{top:calc(var(--yu)*146)}
+.card.ygo .c-eqc{z-index:3}
+.card.ygo[class*="foil-"] .c-name{background:none!important;color:#30211c!important;-webkit-text-fill-color:currentColor;filter:none}
+.card.ygo[class*="foil-"] .m-nm{-webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent;filter:drop-shadow(0 0 .6px rgba(0,0,0,.9))}
+.card.ygo.foil-gold .m-nm{background-image:linear-gradient(100deg,#7a5410 0%,#e9c55a 22%,#fff3b8 34%,#c9952a 48%,#f6dc7a 62%,#8a6114 80%,#e9c55a 100%)}
+.card.ygo.foil-silver .m-nm{background-image:linear-gradient(100deg,#5d6670 0%,#cfd6dd 22%,#ffffff 34%,#9aa4ae 48%,#e4e9ee 62%,#636c76 80%,#cfd6dd 100%)}
+.card.ygo.foil-bronze .m-nm{background-image:linear-gradient(100deg,#5a2e12 0%,#c27a45 22%,#f2c39a 34%,#9a5528 48%,#d99a66 62%,#5f3416 80%,#c27a45 100%)}
+.card.ygo.foil-rainbow .m-nm{background-image:linear-gradient(100deg,#e5367a,#f0a020,#3cc78a,#2f8de4,#9b4de0,#e5367a);background-size:200% 100%;animation:foilRun 5s linear infinite}
+.card.ygo .holo-fx{z-index:4}
+.card.editor.ygo{--w:min(330px,86vw)}
+.card.editor.ygo .c-in{height:auto}
+.card.editor.ygo .c-name input{text-align:left;font-size:calc(var(--yu)*38*var(--nk,1));background:transparent;border:none;box-shadow:none;outline:none;width:100%;font-family:inherit;font-weight:700;letter-spacing:-.06em;color:#30211c;padding:0}
+.card.editor.ygo .c-text{min-height:0;display:flex;flex-direction:column;gap:4px}
+.card.editor.ygo #mkEff{flex:0 0 auto;height:calc(var(--yu)*100)}
+.card.editor.ygo textarea{height:auto;flex:1;border:none!important;box-shadow:none;resize:none;background:transparent;font-size:calc(var(--yu)*20);font-family:inherit;color:#30211c}
+.card.editor.ygo .c-atk::before{content:"ATK /";font-size:calc(var(--yu)*24)}
+.card.editor.ygo .c-atk{font-size:0}.card.editor.ygo .c-atk input{font-size:calc(var(--yu)*24);width:calc(var(--yu)*100);text-align:left;background:transparent;font-family:inherit;font-weight:700;color:#000;border:none;padding:0}
 .card.editor.fut{--w:min(330px,86vw)}
 .card.editor.fut .c-in{height:auto}
 .card.editor.fut .c-name input{text-align:center;font-size:calc(var(--fu)*28*var(--nk,1));background:transparent;border:none;width:100%;font-family:inherit;font-weight:800;color:#000;padding:0}
@@ -1249,7 +1298,7 @@ div.f{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:13px}
         </div>
 
         <div class="mk-pane" data-pane="look" hidden>
-          <label class="f">カードの枠<select id="mkFrame"><option value="">ふつう</option><option value="socra">ソクラテスラ（紙っぽい・矢印の名前）</option><option value="spire">スパイア風（宝石のコスト・リボンの名前）</option><option value="mtg">MTG風（石の枠・名前とタイプの帯）</option><option value="future">近未来（白黒のメカっぽい枠）</option></select></label>
+          <label class="f">カードの枠<select id="mkFrame"><option value="">ふつう</option><option value="socra">ソクラテスラ（紙っぽい・矢印の名前）</option><option value="spire">スパイア風（宝石のコスト・リボンの名前）</option><option value="mtg">MTG風（石の枠・名前とタイプの帯）</option><option value="future">近未来（白黒のメカっぽい枠）</option><option value="ygo">遊戯王風（モンスター・魔法・罠で色が変わる・コストは星）</option></select></label>
           <label class="f" id="rarityRow" hidden>レアリティ（リボンの色）<select id="mkRarity"><option value="common">コモン（鉄色）</option><option value="uncommon">アンコモン（青緑）</option><option value="rare">レア（金）</option></select></label>
           <label class="row" style="gap:6px;font-weight:700;cursor:pointer"><input type="checkbox" id="mkFrameless"> 半フレームレス（絵を下の文字の欄まで広げる）</label>
           <label class="row" id="flAlphaRow" hidden style="gap:8px;font-weight:700;font-size:13px">文字の欄の濃さ<input type="range" id="mkFlAlpha" min="0" max="100" step="5" value="68" style="flex:1;min-width:120px"><span id="flAlphaVal" style="min-width:3.5em">68%</span><button type="button" class="small ghost" id="btnFlAlpha">もとに戻す</button></label>
@@ -2371,15 +2420,26 @@ document.addEventListener("click", e => {
 }, true);
 document.addEventListener("keydown", e => { if ((e.key === "Enter" || e.key === " ") && e.target.classList && e.target.classList.contains("kwd") && !e.target.closest(".card")){ e.preventDefault(); e.target.click(); } });
 const HEX6 = /^#[0-9a-f]{6}$/i;
+// 画像の枠: カードの frame → クラス名
+const FR_CLS = { mtg: "mtg", future: "fut", ygo: "ygo" };
+// 遊戯王風: コストを星で。枠に入る数（モンスター13・罠10・魔法9）をこえたら「★×14」
+const YGO_STAR_MAX = { monster: 13, trap: 10 };
+function ygoStars(v, t){
+  const s = String(v ?? "").trim(); if (s === "") return "";
+  const max = YGO_STAR_MAX[t] || 9, n = /^\d+$/.test(s) ? +s : null;
+  if (n != null && n >= 1 && n <= max) return `<i class="ys"></i>`.repeat(n);
+  return `<i class="ys"></i><span class="ys-x">×${esc(s)}</span>`;
+}
 function cardHTML(c, cls = "", attrs = "", opts = {}){
   // 画像の枠（MTG風・近未来）: ふつうの枠と同じ中身に、枠の画像と文字の位置をかぶせる
-  const fr = c && !c.potionView && !c.relicView && (c.frame === "mtg" || c.frame === "future") ? c.frame : "", mt = !!fr;
+  const fr = c && !c.potionView && !c.relicView && FR_CLS[c.frame] ? c.frame : "", mt = !!fr;
   let h = cardHTML0(mt ? { ...c, frameless: fr === "future" ? c.frameless : false } : c, cls, attrs, opts);
   // MTG風の枠（サバ缶デザイン）: ふつうの枠と同じ中身に、枠の見た目と下の宝石をかぶせる
   // MTG風: カードのフォントが標準（手書き）のままなら、Figmaのデザインのフォントを使う
   if (mt && (!c.font || c.font === "klee")) h = h.replace(/--cf:[^;']*;?/, "");
   if (fr === "future" && !/<span class="c-cost"/.test(h)) h = h.replace('<div class="c-in">', '<div class="c-in"><span class="c-cost nocost" title="コストなし">‐</span>');
-  if (mt) h = h.replace(/^<div class="card /, `<div class="card ${fr === "mtg" ? "mtg" : "fut"} `).replace(/<\/div>$/, `<span class="m-gem" aria-hidden="true"></span></div>`).replace(/<div class="c-atk">ATK /, `<div class="c-atk">`).replace(/<div class="c-name">([\s\S]*?)<\/div><div class="c-art">/, `<div class="c-name"><span class="m-nm">$1</span></div><div class="c-art">`);
+  if (fr === "ygo") h = h.replace(/<span class="c-cost"([^>]*)>([^<]*)<\/span>/, (m, a, v) => `<span class="c-cost"${a}>${ygoStars(v, cardType(c))}</span>`);
+  if (mt) h = h.replace(/^<div class="card /, `<div class="card ${FR_CLS[fr]} `).replace(/<\/div>$/, `<span class="m-gem" aria-hidden="true"></span></div>`).replace(/<div class="c-atk">ATK /, `<div class="c-atk">`).replace(/<div class="c-name">([\s\S]*?)<\/div><div class="c-art">/, `<div class="c-name"><span class="m-nm">$1</span></div><div class="c-art">`);
   const ho = c && HOLO[c.holo] ? c.holo : "", fo = c && FOIL[c.foil] ? c.foil : "";
   if (!ho && !fo) return h;
   return h.replace(/^<div class="card /, `<div class="card${ho ? ` holo holo-${ho}` : ""}${fo ? ` foil-${fo}` : ""} `).replace(/<\/div>$/, ho ? `<span class="holo-fx" aria-hidden="true"></span></div>` : "</div>");
@@ -2784,7 +2844,7 @@ $("#mkTEdge").addEventListener("change", e => setTEdge(e.target.checked));
 $("#mkFrameless").addEventListener("change", e => setFrameless(e.target.checked));
 function syncRarity(){ const sp = $("#mkFrame").value === "spire", r = $("#mkRarity").value; $("#rarityRow").hidden = !sp; ["common", "uncommon", "rare"].forEach(k => $("#editCard").classList.toggle("rar-" + k, sp && r === k)); }
 $("#mkRarity").addEventListener("change", syncRarity);
-function syncFrame(){ if (typeof updateSecs === "function") setTimeout(updateSecs); $("#editCard").classList.toggle("mtg", $("#mkFrame").value === "mtg"); $("#editCard").classList.toggle("fut", $("#mkFrame").value === "future"); $("#editCard").classList.toggle("socra", $("#mkFrame").value === "socra"); $("#editCard").classList.toggle("spire", $("#mkFrame").value === "spire"); syncRarity(); $("#flAlphaRow").hidden = !MK.frameless || $("#mkFrame").value === "future"; if ($("#mkFrame").value === "spire" && MK.frameless) setFrameless(false); $("#mkFrameless").closest("label").hidden = $("#mkFrame").value === "spire"; if (typeof syncTypeNames === "function") syncTypeNames(); if (MK.deck) syncCost(); $("#capRow").hidden = MK.type !== "monster" || $("#mkFrame").value !== "socra"; }
+function syncFrame(){ if (typeof updateSecs === "function") setTimeout(updateSecs); $("#editCard").classList.toggle("mtg", $("#mkFrame").value === "mtg"); $("#editCard").classList.toggle("fut", $("#mkFrame").value === "future"); $("#editCard").classList.toggle("ygo", $("#mkFrame").value === "ygo"); $("#editCard").classList.toggle("socra", $("#mkFrame").value === "socra"); $("#editCard").classList.toggle("spire", $("#mkFrame").value === "spire"); syncRarity(); $("#flAlphaRow").hidden = !MK.frameless || $("#mkFrame").value === "future"; if ($("#mkFrame").value === "spire" && MK.frameless) setFrameless(false); $("#mkFrameless").closest("label").hidden = $("#mkFrame").value === "spire"; if (typeof syncTypeNames === "function") syncTypeNames(); if (MK.deck) syncCost(); $("#capRow").hidden = MK.type !== "monster" || $("#mkFrame").value !== "socra"; }
 $("#mkFrame").addEventListener("change", () => { if ($("#mkFrame").value === "future" && !MK.frameless) setFrameless(true); syncFrame(); syncFont(); });
 function clearCanvas(){ ik.clearRect(0, 0, ink.width, ink.height); photo = null; setMode("draw"); composite(); }
 $("#swatches").innerHTML = COLORS.map(c => `<button class="sw" style="background:${c}" data-c="${c}" aria-label="色 ${c}" aria-pressed="${c === pen.color}"></button>`).join("");
@@ -2940,7 +3000,8 @@ MK.deck = "normal";
 function syncCost(){
   const v = MK.deck === "normal" ? "" : $("#mkCost").value;
   const fu = $("#mkFrame").value === "future" && MK.kind !== "potion" && MK.kind !== "relic";
-  $("#mkCostBadge").textContent = v === "" && fu ? "‐" : v; $("#mkCostBadge").hidden = v === "" && !fu; $("#editCard").classList.toggle("costed", v !== "");
+  $("#mkCostBadge").textContent = v === "" && fu ? "‐" : v; $("#mkCostBadge").hidden = v === "" && !fu;
+  if ($("#mkFrame").value === "ygo" && v !== "") $("#mkCostBadge").innerHTML = ygoStars(v, MK.type); $("#editCard").classList.toggle("costed", v !== "");
 }
 $("#mkCost").innerHTML = [...Array.from({ length: 31 }, (_, k) => k), 35, 40, 45, 50, 60, 70, 80, 90, 99].map(k => `<option value="${k}">${k}</option>`).join("") + `<option value="∞">∞（ふつうには払えない。踏み倒しでだけ使える）</option><option value="X">X（あるマナを全部使って、効果をX回くり返す）</option>`;
 $("#mkCost").value = "1";
@@ -2961,7 +3022,7 @@ function syncColor(){
 function setColor(f, b){ const on = HEX6.test(f || "") || HEX6.test(b || ""); $("#mkColOn").checked = on; $("#mkColF").value = HEX6.test(f || "") ? f : "#2b2b2b"; $("#mkColB").value = HEX6.test(b || "") ? b : "#eef3f3"; syncColor(); }
 ["#mkColOn", "#mkColF", "#mkColB"].forEach(q => $(q).addEventListener("input", syncColor));
 $("#colPresets").addEventListener("click", e => { const b = e.target.closest("[data-cf]"); if (!b) return; $("#mkColOn").checked = true; $("#mkColF").value = b.dataset.cf; $("#mkColB").value = b.dataset.cb; syncColor(); });
-function syncFont(){ const k = $("#mkFont").value; if (($("#mkFrame").value === "mtg" || $("#mkFrame").value === "future") && k === "klee") $("#editCard").style.removeProperty("--cf"); else $("#editCard").style.setProperty("--cf", FONTS[k] ? FONTS[k].css : ""); $("#mkFont").style.fontFamily = FONTS[k] ? FONTS[k].css : ""; renderFontGrid(); }
+function syncFont(){ const k = $("#mkFont").value; if (($("#mkFrame").value === "mtg" || $("#mkFrame").value === "future" || $("#mkFrame").value === "ygo") && k === "klee") $("#editCard").style.removeProperty("--cf"); else $("#editCard").style.setProperty("--cf", FONTS[k] ? FONTS[k].css : ""); $("#mkFont").style.fontFamily = FONTS[k] ? FONTS[k].css : ""; renderFontGrid(); }
 // フォント選び: 見本の文字（カード名）をそれぞれのフォントで並べる
 function renderFontGrid(){
   const box = $("#fontGrid"); if (!box) return;
@@ -3764,7 +3825,7 @@ $("#gallery").addEventListener("click", async e => {
   if (ed){
     const c = S.cards.get(ed.dataset.edit); if (!c || !(isMine(c) || (c.starter && isAdmin()))) return;
     setMkKind("card"); S.editId = c.id; setFrameless(!!c.frameless); setFlAlpha(c.flAlpha ?? FL_ALPHA_DEF); setTEdge(!!c.textEdge); setShine(c.holo, c.foil); setColor(c.colF, c.colB); MK.artDirty = false; $("#mkName").value = c.nameRuby || c.name; $("#mkEff").value = c.effect || ""; $("#mkFlv").value = c.flavor || ""; $("#mkNameSize").value = SIZES_T[c.nameSize] ? c.nameSize : "m"; $("#mkTextSize").value = SIZES_T[c.textSize] ? c.textSize : "m"; syncSizes(); $("#mkAtk").value = c.atkInf ? "∞" : (c.atk || 0); $("#mkLimit").value = String(cardLimit(c));
-    mkLoadVars(c); $("#mkFusion").checked = !!(Array.isArray(c.fusion) && c.fusion.length); MK.fusion = Array.isArray(c.fusion) && c.fusion.length ? JSON.parse(JSON.stringify(c.fusion)) : null; renderFusion(); $("#mkQuick").checked = !!c.quick; $("#mkWhen").value = WHEN_LABEL[c.when] ? c.when : ""; $("#mkExhaust").checked = !!c.exhaust; $("#mkNoUse").checked = !!c.noUse; $("#mkFlash").checked = !!c.flashback; $("#mkStrig").checked = !!c.strig; $("#mkKick").value = Math.max(0, +c.kick || 0); $("#mkToken").checked = !!c.token; $("#mkEx").checked = !!c.ex; $("#mkPayLp").value = String(payLpOf(c)); $("#mkPayDisc").value = String(payDiscOf(c)); $("#mkPayDiscTag").value = c.payDiscTag || ""; $("#mkTags").value = tagsOf(c).join(" "); $("#mkTribTag").value = c.tribTag || ""; $("#mkPayDiscAll").checked = payDiscAll(c); $("#mkPayDisc").disabled = payDiscAll(c); $("#mkPayMax").value = String(payMaxOf(c)); $("#mkPersist").checked = !!c.persist; $("#mkField").checked = !!c.field; MK.sk = c.sk || null; $("#mkRarity").value = rarityOf(c); setMkType(cardType(c)); loadFxForm(c); $("#mkFont").value = FONTS[c.font] ? c.font : "klee"; syncFont(); $("#mkCost").value = c.costX ? "X" : c.costInf && hasCost(c) ? "∞" : hasCost(c) ? String(costOf(c)) : "1"; if (!$("#mkCost").value && hasCost(c)) $("#mkCost").insertAdjacentHTML("beforeend", `<option value="${costOf(c)}">${costOf(c)}</option>`), $("#mkCost").value = String(costOf(c)); setMkDeck(deckModeOf(c)); $("#mkEq").value = c.eqN || 0; $("#mkEqAb").value = "none"; $("#mkEqCost").value = String(eqCostOf(c)); $("#mkEqCap").value = hasEqCap(c) ? String(+c.eqCap) : ""; loadAbs(absOf(c)); syncEqLine(); $("#mkFrame").value = c.frame === "socra" || c.frame === "spire" || c.frame === "mtg" || c.frame === "future" ? c.frame : ""; syncFrame(); loadSS(c);
+    mkLoadVars(c); $("#mkFusion").checked = !!(Array.isArray(c.fusion) && c.fusion.length); MK.fusion = Array.isArray(c.fusion) && c.fusion.length ? JSON.parse(JSON.stringify(c.fusion)) : null; renderFusion(); $("#mkQuick").checked = !!c.quick; $("#mkWhen").value = WHEN_LABEL[c.when] ? c.when : ""; $("#mkExhaust").checked = !!c.exhaust; $("#mkNoUse").checked = !!c.noUse; $("#mkFlash").checked = !!c.flashback; $("#mkStrig").checked = !!c.strig; $("#mkKick").value = Math.max(0, +c.kick || 0); $("#mkToken").checked = !!c.token; $("#mkEx").checked = !!c.ex; $("#mkPayLp").value = String(payLpOf(c)); $("#mkPayDisc").value = String(payDiscOf(c)); $("#mkPayDiscTag").value = c.payDiscTag || ""; $("#mkTags").value = tagsOf(c).join(" "); $("#mkTribTag").value = c.tribTag || ""; $("#mkPayDiscAll").checked = payDiscAll(c); $("#mkPayDisc").disabled = payDiscAll(c); $("#mkPayMax").value = String(payMaxOf(c)); $("#mkPersist").checked = !!c.persist; $("#mkField").checked = !!c.field; MK.sk = c.sk || null; $("#mkRarity").value = rarityOf(c); setMkType(cardType(c)); loadFxForm(c); $("#mkFont").value = FONTS[c.font] ? c.font : "klee"; syncFont(); $("#mkCost").value = c.costX ? "X" : c.costInf && hasCost(c) ? "∞" : hasCost(c) ? String(costOf(c)) : "1"; if (!$("#mkCost").value && hasCost(c)) $("#mkCost").insertAdjacentHTML("beforeend", `<option value="${costOf(c)}">${costOf(c)}</option>`), $("#mkCost").value = String(costOf(c)); setMkDeck(deckModeOf(c)); $("#mkEq").value = c.eqN || 0; $("#mkEqAb").value = "none"; $("#mkEqCost").value = String(eqCostOf(c)); $("#mkEqCap").value = hasEqCap(c) ? String(+c.eqCap) : ""; loadAbs(absOf(c)); syncEqLine(); $("#mkFrame").value = c.frame === "socra" || c.frame === "spire" || c.frame === "mtg" || c.frame === "future" || c.frame === "ygo" ? c.frame : ""; syncFrame(); loadSS(c);
     if (!c.img){ clearCanvas(); undoStack = []; MK.artDirty = false; }
     else { const im = new Image(); im.onload = () => { clearCanvas(); setPhoto(im); setMode("draw"); composite(); undoStack = []; MK.artDirty = false; }; im.src = c.img; }
     $("#mkTitle").textContent = "カードを編集中"; $("#btnNew").hidden = false; $("#btnSave").textContent = "変更を保存";

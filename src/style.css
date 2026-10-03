@@ -1102,6 +1102,55 @@ div.f{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:13px}
 .card.fut.foil-rainbow .m-nm{background-image:linear-gradient(100deg,#e5367a,#f0a020,#3cc78a,#2f8de4,#9b4de0,#e5367a);background-size:200% 100%;animation:foilRun 5s linear infinite}
 .card.fut .holo-fx{z-index:4}
 /* editor */
+/* 遊戯王風の枠（サバ缶デザイン・Figma Frame 44〜46 / 590×860）: モンスター・魔法（装備も）・罠で画像が変わる。星の数がコスト */
+.card.ygo{--yu:calc(var(--w)/590);aspect-ratio:590/860;padding:0;background:transparent;border:none;border-radius:calc(var(--yu)*12);box-shadow:0 calc(var(--yu)*4) calc(var(--yu)*12) rgba(0,0,0,.35);color:#30211c;isolation:isolate;font-family:var(--cf,"Shippori Mincho",serif)}
+.card.ygo::before{content:"";position:absolute;inset:0;background:url("assets/ygo_mon.webp") 0 0/100% 100% no-repeat;border-radius:inherit;z-index:0;pointer-events:none}
+.card.ygo.magic::before,.card.ygo.equip::before{background-image:url("assets/ygo_mag.webp")}
+.card.ygo.trap::before{background-image:url("assets/ygo_trap.webp")}
+.card.ygo .c-in{position:static;display:block;height:auto;background:none;border-radius:0;overflow:visible}
+.card.ygo .c-art{position:absolute;left:calc(var(--yu)*59);top:calc(var(--yu)*151);width:calc(var(--yu)*470);height:calc(var(--yu)*460);aspect-ratio:auto;border:none;background:#d9d9d9;overflow:hidden;z-index:1}
+.card.ygo .c-art>img,.card.ygo .c-art>canvas{width:100%;height:100%;object-fit:cover;display:block}
+.card.editor.ygo .c-art>canvas{width:auto;height:100%;max-width:none;position:relative;left:50%;transform:translateX(-50%)}
+.card.ygo .c-art .noart{display:grid;place-items:center;width:100%;height:100%;font-size:calc(var(--yu)*28);color:#888}
+.card.ygo .c-art .c-tab,.card.ygo .m-gem,.card.ygo .fl-guide,.card.ygo .c-bgart{display:none!important}
+.card.ygo .c-name{position:absolute;left:calc(var(--yu)*41);top:calc(var(--yu)*32);width:calc(var(--yu)*505);height:calc(var(--yu)*67);padding:0!important;border:none!important;background:none;display:flex;align-items:center;justify-content:flex-start;font-size:calc(var(--yu)*40*var(--nk,1));line-height:1!important;font-weight:700;letter-spacing:-.06em;color:#30211c;z-index:2;white-space:nowrap;overflow:hidden}
+.card.ygo.magic .c-name,.card.ygo.equip .c-name,.card.ygo.trap .c-name{width:calc(var(--yu)*445)}
+.card.ygo .m-nm{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+/* コスト = 星。右から並ぶ。入りきらないときは「★×14」 */
+.card.ygo .c-cost{position:absolute;left:auto;right:calc(var(--yu)*61);top:calc(var(--yu)*101);width:auto;height:calc(var(--yu)*36);padding:0;border:none;border-radius:0;background:none;box-shadow:none;display:flex;flex-direction:row-reverse;align-items:center;gap:calc(var(--yu)*3);font-size:calc(var(--yu)*30);line-height:1;font-weight:700;color:#30211c;z-index:3}
+.card.ygo.magic .c-cost,.card.ygo.equip .c-cost{right:calc(var(--yu)*197)}
+.card.ygo.trap .c-cost{right:calc(var(--yu)*170)}
+.card.ygo .c-cost .ys{display:block;flex:none;width:calc(var(--yu)*36);height:calc(var(--yu)*36);background:url("assets/ygo_star.webp") center/100% 100% no-repeat;filter:drop-shadow(0 calc(var(--yu)*1) calc(var(--yu)*1.5) rgba(0,0,0,.45))}
+.card.ygo .c-cost .ys-x{margin-right:calc(var(--yu)*4);text-shadow:0 0 calc(var(--yu)*3) rgba(255,255,255,.7)}
+.card.ygo .c-text{position:absolute;left:calc(var(--yu)*41);top:calc(var(--yu)*647);width:calc(var(--yu)*504);height:calc(var(--yu)*128);border:none;background:none;box-shadow:none;padding:0;font-family:var(--cf,"Shippori Mincho",serif);font-weight:700;font-size:calc(var(--yu)*22*var(--tk,1));line-height:1.32;color:#30211c;overflow:visible;min-height:0;z-index:2;display:block}
+.card.ygo.magic .c-text,.card.ygo.equip .c-text,.card.ygo.trap .c-text{height:calc(var(--yu)*160)}
+.card.ygo .c-text .body{max-height:calc(var(--yu)*22*1.32*4*var(--tk,1));-webkit-line-clamp:4}
+.card.ygo .c-text:has(.flv) .body{max-height:calc(var(--yu)*22*1.32*3*var(--tk,1));-webkit-line-clamp:3}
+.card.ygo.magic .c-text .body,.card.ygo.equip .c-text .body,.card.ygo.trap .c-text .body{max-height:calc(var(--yu)*22*1.32*5*var(--tk,1));-webkit-line-clamp:5}
+.card.ygo.magic .c-text:has(.flv) .body,.card.ygo.equip .c-text:has(.flv) .body,.card.ygo.trap .c-text:has(.flv) .body{max-height:calc(var(--yu)*22*1.32*4*var(--tk,1));-webkit-line-clamp:4}
+.card.ygo .c-text .fx{color:#30211c}
+.card.ygo .c-text .flv{margin:calc(var(--yu)*4) 0 0;padding:0;border:none;font-style:italic;font-weight:400;font-size:calc(var(--yu)*18*var(--tk,1));line-height:1.3;color:#4a3a30;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:1;overflow:hidden}
+.card.ygo .c-atk{position:absolute;left:auto;right:0;top:calc(var(--yu)*136);bottom:auto;width:auto;height:calc(var(--yu)*26);padding:0;border:none;border-radius:0;background:none;box-shadow:none;display:flex;align-items:center;font-weight:700;font-size:calc(var(--yu)*24);line-height:1;color:#000;z-index:3;white-space:pre}
+.card.ygo .c-atk::before{content:"ATK  /"}
+.card.ygo.equip .c-atk::before{content:"ATK "}
+.card.ygo .c-lim{position:absolute;left:0;top:calc(var(--yu)*140);right:auto;bottom:auto;color:#5a4a40;font-size:calc(var(--yu)*16);font-weight:700;z-index:3}
+.card.ygo.magic .c-lim,.card.ygo.equip .c-lim,.card.ygo.trap .c-lim{top:calc(var(--yu)*146)}
+.card.ygo .c-eqc{z-index:3}
+.card.ygo[class*="foil-"] .c-name{background:none!important;color:#30211c!important;-webkit-text-fill-color:currentColor;filter:none}
+.card.ygo[class*="foil-"] .m-nm{-webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent;filter:drop-shadow(0 0 .6px rgba(0,0,0,.9))}
+.card.ygo.foil-gold .m-nm{background-image:linear-gradient(100deg,#7a5410 0%,#e9c55a 22%,#fff3b8 34%,#c9952a 48%,#f6dc7a 62%,#8a6114 80%,#e9c55a 100%)}
+.card.ygo.foil-silver .m-nm{background-image:linear-gradient(100deg,#5d6670 0%,#cfd6dd 22%,#ffffff 34%,#9aa4ae 48%,#e4e9ee 62%,#636c76 80%,#cfd6dd 100%)}
+.card.ygo.foil-bronze .m-nm{background-image:linear-gradient(100deg,#5a2e12 0%,#c27a45 22%,#f2c39a 34%,#9a5528 48%,#d99a66 62%,#5f3416 80%,#c27a45 100%)}
+.card.ygo.foil-rainbow .m-nm{background-image:linear-gradient(100deg,#e5367a,#f0a020,#3cc78a,#2f8de4,#9b4de0,#e5367a);background-size:200% 100%;animation:foilRun 5s linear infinite}
+.card.ygo .holo-fx{z-index:4}
+.card.editor.ygo{--w:min(330px,86vw)}
+.card.editor.ygo .c-in{height:auto}
+.card.editor.ygo .c-name input{text-align:left;font-size:calc(var(--yu)*38*var(--nk,1));background:transparent;border:none;box-shadow:none;outline:none;width:100%;font-family:inherit;font-weight:700;letter-spacing:-.06em;color:#30211c;padding:0}
+.card.editor.ygo .c-text{min-height:0;display:flex;flex-direction:column;gap:4px}
+.card.editor.ygo #mkEff{flex:0 0 auto;height:calc(var(--yu)*100)}
+.card.editor.ygo textarea{height:auto;flex:1;border:none!important;box-shadow:none;resize:none;background:transparent;font-size:calc(var(--yu)*20);font-family:inherit;color:#30211c}
+.card.editor.ygo .c-atk::before{content:"ATK /";font-size:calc(var(--yu)*24)}
+.card.editor.ygo .c-atk{font-size:0}.card.editor.ygo .c-atk input{font-size:calc(var(--yu)*24);width:calc(var(--yu)*100);text-align:left;background:transparent;font-family:inherit;font-weight:700;color:#000;border:none;padding:0}
 .card.editor.fut{--w:min(330px,86vw)}
 .card.editor.fut .c-in{height:auto}
 .card.editor.fut .c-name input{text-align:center;font-size:calc(var(--fu)*28*var(--nk,1));background:transparent;border:none;width:100%;font-family:inherit;font-weight:800;color:#000;padding:0}
