@@ -149,26 +149,56 @@ const CONDS = {
 const EQ_AB = { none: "なし", twice: "1ターンに2回攻撃できる", direct: "相手の場にモンスターがいても直接攻撃できる", guard: "戦闘では破壊されない" };
 // abilities: stuck on a monster (its own, or given by an equip). only: "mon" = monster cards only, "eq" = equip cards only.
 // self: the text is about this card itself, not "the monster"
+// kw: キーワード名（カードには《速攻》のように短く出て、詳細でタップすると KW_DESC の説明が出る）
 const ABS = {
-  twice:      { label: "1ターンに2回攻撃できる" },
-  haste:      { label: "速攻（出たターンから攻撃できる）" },
-  direct:     { label: "相手の場にモンスターがいても直接攻撃できる" },
-  guard:      { label: "戦闘では破壊されない" },
-  noEffect:   { label: "効果では破壊されない" },
-  noAttack:   { label: "攻撃できない" },
-  topOnly:    { label: "相手の一番ATKが高いモンスターにしか攻撃できない（デメリット）", text: () => `相手の場の一番ATKが高いモンスターにしか攻撃できない` },
-  taunt:      { label: "相手に狙われる（ほかのモンスターは攻撃・効果の対象にされない）" },
-  dmgCut:     { label: "戦闘で受けるダメージを減らす", n: 300, text: n => `戦闘で受けるダメージが${n}減る` },
+  twice:      { label: "1ターンに2回攻撃できる", kw: "2回攻撃" },
+  haste:      { label: "速攻（出たターンから攻撃できる）", kw: "速攻" },
+  direct:     { label: "相手の場にモンスターがいても直接攻撃できる", kw: "直接攻撃" },
+  guard:      { label: "戦闘では破壊されない", kw: "戦闘耐性" },
+  noEffect:   { label: "効果では破壊されない", kw: "効果耐性" },
+  noAttack:   { label: "攻撃できない", kw: "攻撃不可" },
+  topOnly:    { label: "相手の一番ATKが高いモンスターにしか攻撃できない（デメリット）", kw: "強者狙い", text: () => `相手の場の一番ATKが高いモンスターにしか攻撃できない` },
+  taunt:      { label: "相手に狙われる（ほかのモンスターは攻撃・効果の対象にされない）", kw: "挑発" },
+  dmgCut:     { label: "戦闘で受けるダメージを減らす", n: 300, kw: "鉄壁", kwx: n => `（${n}）`, text: n => `戦闘で受けるダメージが${n}減る` },
+  pierce:     { label: "貫通（戦闘で倒したとき、ATKの差ではなくATKぶん全部のダメージ）", kw: "貫通" },
+  lifelink:   { label: "吸収（戦闘で相手に与えたダメージぶん、自分のLPを回復）", kw: "吸収" },
+  shield:     { label: "聖なる盾（1回だけ、破壊されるのを防ぐ）", kw: "聖なる盾" },
+  flying:     { label: "飛行（飛行・対空にしか攻撃されない。相手に飛行・対空がいなければ直接攻撃できる）", kw: "飛行" },
+  reach:      { label: "対空（飛行のモンスターにも攻撃できる）", kw: "対空" },
+  stealth:    { label: "隠密（自分から攻撃するまで、相手の攻撃・効果の対象にならない）", kw: "隠密" },
+  reborn:     { label: "復活（1回だけ、破壊されてもATK半分で同じ場所に戻ってくる）", kw: "復活" },
+  evoAtk:     { label: "成長：攻撃を○回したら、そのターンのおわりに指定したカードに変化", only: "mon", n: 3, name: true, ph: "変化先のカード名", kw: "成長", kwx: (n, nm) => `（攻撃${n}回→「${nm || "？"}」）` },
+  evoTurn:    { label: "成長：自分のターンのはじめを○回むかえたら、指定したカードに変化", only: "mon", n: 2, name: true, ph: "変化先のカード名", kw: "成長", kwx: (n, nm) => `（${n}ターン→「${nm || "？"}」）` },
   substitute: { label: "破壊されるとき、かわりにほかの装備を1枚墓地へ", only: "eq", self: true, text: () => `装備したモンスターが破壊されるとき、かわりにほかの装備1枚を墓地へ送る` },
   negateOnce: { label: "1回だけ、相手の発動・召喚を打ち消せる", only: "eq", self: true, text: () => `1回だけ、相手の魔法・罠の発動かモンスターの召喚を打ち消せる` },
   double:     { label: "左どなりの装備の効果を2倍にする", only: "eq", self: true, text: () => `このカードの左どなりの装備の効果は2倍になる` },
   eqBonus:    { label: "特定の名前の装備を付けているとATKアップ", only: "mon", self: true, n: 300, name: true, text: (n, nm) => `名前に「${nm || "？"}」が入った装備を付けているとき、ATK+${n}` }
 };
+const KW_DESC = {
+  "2回攻撃": "1ターンに2回攻撃できる", "速攻": "出たターンから攻撃できる（召喚酔いしない）", "直接攻撃": "相手の場にモンスターがいても、相手に直接攻撃できる",
+  "戦闘耐性": "戦闘では破壊されない", "効果耐性": "効果では破壊されない", "攻撃不可": "攻撃できない", "強者狙い": "相手の場で一番ATKが高いモンスターにしか攻撃できない",
+  "挑発": "相手はこのモンスターにしか攻撃できず、効果の対象にもこのモンスターしか選べない", "鉄壁": "戦闘で受けるダメージが（ ）の数だけ減る",
+  "貫通": "相手のモンスターを戦闘で倒したとき、ATKの差ではなく、このモンスターのATKぶん全部のダメージを相手に与える",
+  "吸収": "このモンスターが戦闘で相手に与えたダメージのぶん、自分のLPを回復する",
+  "聖なる盾": "1回だけ、破壊されるのを防ぐ（戦闘でも効果でも）。防ぐと盾ははがれる",
+  "飛行": "飛行か対空を持つモンスターにしか攻撃されない。相手の場に飛行・対空のモンスターがいなければ、相手に直接攻撃できる",
+  "対空": "飛行を持つモンスターにも攻撃できる。相手の飛行モンスターは、対空がいると直接攻撃できない",
+  "隠密": "自分から攻撃するまで、相手の攻撃や効果の対象にならない",
+  "復活": "1回だけ、破壊されたときにATKが半分になって同じ場所に戻ってくる",
+  "成長": "（ ）の条件を満たすと、そのカードに変化する。攻撃の回数はそのターンのおわりに、ターンの数は自分のターンのはじめに数える",
+  "フラッシュバック": "墓地からもう1回だけ使える（自分のターンに、手札の下に出るボタンから）。使ったあとは廃棄される",
+  "キッカー": "コストデッキで、コストに（ ）のマナを足して払うと「もし：キッカーを払った」の効果が出る",
+  "S・トリガー": "相手の攻撃で自分がダメージを受けたとき、山札の一番上がこのカードなら、コストを払わずにすぐ発動する"
+};
+const kwStr = a => `《${ABS[a.k].kw}》${ABS[a.k].kwx ? ABS[a.k].kwx(a.n || 0, a.name || "") : ""}`;
+// 《キーワード》 → 下線つきの言葉（詳細でタップすると説明）
+const kwLink = html => html ? html.replace(/《([^《》<]{1,12})》/g, (m, w) => KW_DESC[w] ? `<span class="kwd" data-kw="${w}" role="button" tabindex="0">${w}</span>` : m) : html;
 const absOf = c => !c ? [] : Array.isArray(c.abs) ? c.abs.filter(a => a && ABS[a.k]) : (c.eqAb && c.eqAb !== "none" && ABS[c.eqAb] ? [{ k: c.eqAb }] : []);
 const abPhrase = a => ABS[a.k].text ? ABS[a.k].text(a.n || 0, a.name || "") : ABS[a.k].label;
 function absText(c, who){
-  const L = absOf(c), mon = L.filter(a => !ABS[a.k].self), self = L.filter(a => ABS[a.k].self);
+  const L = absOf(c), kws = L.filter(a => !ABS[a.k].self && ABS[a.k].kw), mon = L.filter(a => !ABS[a.k].self && !ABS[a.k].kw), self = L.filter(a => ABS[a.k].self);
   const parts = [];
+  if (kws.length) parts.push(who === "このモンスター" ? kws.map(kwStr).join("") : `${who}は${kws.map(kwStr).join("")}を得る`);
   if (mon.length) parts.push(`${who}は${mon.map(abPhrase).join("、")}`);
   self.forEach(a => parts.push(abPhrase(a)));
   return parts.join("。");
@@ -371,7 +401,8 @@ function whenText(c){ const w = whenOf(c); return w ? `【${WHEN_LABEL[w]}に発
 // 融合モンスター: materials {m: "name"|"tag"|"any", v}
 function fusionMatText(x){ return x.m === "any" ? "モンスター" : x.m === "tag" ? `タグ「${x.v || "？"}」のモンスター` : `「${x.v || "？"}」`; }
 function fusionText(c){ return c && cardType(c) === "monster" && Array.isArray(c.fusion) && c.fusion.length ? `【融合】${c.fusion.map(fusionMatText).join("＋")}` : ""; }
-function fxText(c){ return (c && c.token ? "【トークン】" : "") + (c && c.ex ? "【EX】" : "") + (c && !c.noUse ? whenText(c) : "") + [fusionText(c) ? fusionText(c) + "（「融合召喚」の効果でだけ出せる）" : "", c && c.noUse && (cardType(c) === "magic" || cardType(c) === "trap") ? "このカードは発動できない" : "", isPersist(c) ? "【永続】使ったあとも場に残る" : "", isField(c) ? "【フィールド】お互いに1枚だけ場に置ける（新しいフィールドが出ると、前のフィールドは墓地へ）。効果はお互いに効く" : "", extraCostText(c), tribText(c), atkCondText(c), ssText(c), fxText0(c)].filter(Boolean).join("。"); }
+const spOptText = c => !c || (cardType(c) !== "magic" && cardType(c) !== "trap") ? "" : [c.strig ? "《S・トリガー》" : "", c.flashback && cardType(c) === "magic" ? "《フラッシュバック》" : "", +c.kick > 0 ? `《キッカー》（${+c.kick}）` : ""].join("");
+function fxText(c){ return (c && c.token ? "【トークン】" : "") + (c && c.ex ? "【EX】" : "") + (c && !c.noUse ? whenText(c) : "") + [fusionText(c) ? fusionText(c) + "（「融合召喚」の効果でだけ出せる）" : "", c && c.noUse && (cardType(c) === "magic" || cardType(c) === "trap") ? "このカードは発動できない" : "", isPersist(c) ? "【永続】使ったあとも場に残る" : "", spOptText(c), isField(c) ? "【フィールド】お互いに1枚だけ場に置ける（新しいフィールドが出ると、前のフィールドは墓地へ）。効果はお互いに効く" : "", extraCostText(c), tribText(c), atkCondText(c), ssText(c), fxText0(c)].filter(Boolean).join("。"); }
 /* ================= effect blocks: いつ / もし / なにを / ちがったら =================
    c.blocks = [{ trig, conds: [{k, op, n | name, where, match | text}], join: "and"|"or", then: [{kind, n, to}], else: [...] }]
    Older cards (c.fx + c.combo) are read as blocks too, so everything below runs on blocks. */
@@ -399,7 +430,8 @@ const COND_DEFS = {
   die:      { label: "サイコロの目（「まず」でサイコロを振ったとき）", who: "サイコロの目が", unit: "", roll: true, val: (st, s, c, ctx) => ctx && ctx.roll && ctx.roll.kind === "die" ? ctx.roll.v : 0 },
   stronger: { label: "このモンスターよりATKが高いモンスターがいる・いない" },
   coinH:    { label: "コインが表（「まず」でコインを投げたとき）", roll: true },
-  coinT:    { label: "コインが裏（「まず」でコインを投げたとき）", roll: true }
+  coinT:    { label: "コインが裏（「まず」でコインを投げたとき）", roll: true },
+  kicked:   { label: "キッカーを払った（キッカーのあるカード用）" }
 };
 const OPS = { ge: "以上", le: "以下", eq: "" };
 // 「○1つにつき」: what a number can grow with (ダメージ / ブロック / マナ / 回復, or the number of hits)
@@ -429,6 +461,7 @@ function condPhrase(x){
   if (x.k === "coinH") return "コインが表";
   if (x.k === "used") return `${{ me: "自分が", op: "相手が" }[x.who] || ""}発動したカードが${usedWhat(x)}`;
   if (x.k === "coinT") return "コインが裏";
+  if (x.k === "kicked") return "キッカーを払っていた";
   const d = COND_DEFS[x.k]; return `${d.who}${x.n ?? 0}${d.unit}${x.op in OPS ? OPS[x.op] : OPS.ge}`;
 }
 const condsText = b => b.conds && b.conds.length ? b.conds.map(condPhrase).join(b.join === "or" ? "か、" : "、かつ") + "なら、" : "";
@@ -440,6 +473,7 @@ function strongerCount(st, s, c, ctx, side){
   return n;
 }
 function condMet(st, s, c, x, ctx){
+  if (x.k === "kicked") return !!(ctx && ctx.kicked);
   if (x.k === "costDeck") return !!P(st, s).mana;
   if (x.k === "stronger"){ const n = strongerCount(st, s, c, ctx, x.side || "op"); return x.has === "no" ? n === 0 : n > 0; }
   if (x.k === "used"){

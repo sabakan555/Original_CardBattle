@@ -186,6 +186,18 @@ function rebuildCards(){
 // キラ加工（holo）と名前の箔（foil）: どの枠のカードにも上からかぶせる
 const HOLO = { rainbow: "虹ホロ", sparkle: "星くず", galaxy: "ギャラクシー" };
 const FOIL = { gold: "金", silver: "銀", bronze: "銅", rainbow: "虹" };
+// キーワードの説明: カードの外（詳細・図鑑の文）の下線つきの言葉をタップすると出る
+document.addEventListener("click", e => {
+  const k = e.target.closest && e.target.closest(".kwd"); let pop = document.getElementById("kwPop");
+  if (!k || k.closest(".card")){ if (pop && !(e.target.closest && e.target.closest("#kwPop"))) pop.hidden = true; return; }
+  e.stopPropagation(); e.preventDefault();
+  if (!pop){ pop = document.createElement("div"); pop.id = "kwPop"; pop.setAttribute("role", "tooltip"); document.body.appendChild(pop); }
+  const w = k.dataset.kw; pop.innerHTML = `<b>${esc(w)}</b>${esc(KW_DESC[w] || "")}`; pop.hidden = false;
+  const r = k.getBoundingClientRect(), pw = Math.min(300, innerWidth - 24); pop.style.width = pw + "px";
+  pop.style.left = Math.max(12, Math.min(innerWidth - pw - 12, r.left + r.width / 2 - pw / 2)) + "px";
+  const ph = pop.offsetHeight; pop.style.top = (r.bottom + 8 + ph < innerHeight ? r.bottom + 8 : Math.max(8, r.top - ph - 8)) + "px";
+}, true);
+document.addEventListener("keydown", e => { if ((e.key === "Enter" || e.key === " ") && e.target.classList && e.target.classList.contains("kwd") && !e.target.closest(".card")){ e.preventDefault(); e.target.click(); } });
 function cardHTML(c, cls = "", attrs = "", opts = {}){
   // 画像の枠（MTG風・近未来）: ふつうの枠と同じ中身に、枠の画像と文字の位置をかぶせる
   const fr = c && !c.potionView && !c.relicView && (c.frame === "mtg" || c.frame === "future") ? c.frame : "", mt = !!fr;
@@ -212,7 +224,7 @@ function cardHTML0(c, cls = "", attrs = "", opts = {}){
     atk = `<div class="c-atk">ATK ${mod ? `<span class="${mod > 0 ? "up" : "dn"}">${fmtN(Math.max(0, base + mod))}</span>` : fmtN(base)}</div>`;
   }
   const eqT = t === "equip" ? eqText(c) : t === "monster" ? monAbsText(c) : "";
-  const eqTxt = eqT ? `<span class="fx">${esc(eqT)}</span> ` : "";
+  const eqTxt = eqT ? `<span class="fx">${kwLink(esc(eqT))}</span> ` : "";
   const eqc = t === "monster" && hasEqCap(c) ? `<span class="c-eqc" title="装備キャパ">${eqCapOf(c)}</span>` : t === "equip" && eqCostOf(c) ? `<span class="c-eqc cost" title="装備コスト">−${eqCostOf(c)}</span>` : "";
   const fc = fontCss(c);
   const showCost = hasCost(c) && opts.mana !== false;
@@ -259,7 +271,7 @@ function tokenMap(){
   return TK_CACHE.map;
 }
 function tkLink(html){
-  html = clockMark(html);
+  html = kwLink(clockMark(html));
   const m = tokenMap(); if (!m.size || !html) return html;
   return html.replace(/「([^「」<>]{1,40})」/g, (all, nm) => { const raw = nm.replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;/g, "'"); const id = m.get(raw); return id ? `「<span class="tk-link" role="link" tabindex="0" data-tk="${esc(id)}">${nm}</span>」` : all; });
 }

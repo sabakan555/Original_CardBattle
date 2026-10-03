@@ -460,6 +460,16 @@ body.dm-lock{overflow:hidden}
 .card.spire .clk{color:#f2e6c4}
 .bst.tmrc{display:inline-flex;align-items:center;gap:4px}
 .bst.boon{color:#d9b8ff;border-color:rgba(190,140,255,.6)}
+/* キーワード能力: 下線つき。カードの外ではタップで説明 */
+.kwd{border-bottom:2px dotted currentColor;font-weight:700;cursor:help;margin-right:.45em;padding-bottom:1px}
+#detailPop .kwd,.cv-fx .kwd{color:#ffd76a}
+.card .kwd{cursor:inherit;border-bottom-width:1px;border-bottom-style:solid;margin-right:.35em;color:inherit!important}
+#kwPop{position:fixed;z-index:9999;background:#1d2236;color:#fff;border:1px solid #6b7bd6;border-radius:10px;padding:10px 12px;font-size:14px;line-height:1.55;box-shadow:0 8px 24px rgba(0,0,0,.45)}
+#kwPop b{display:block;color:#ffd76a;margin-bottom:2px}
+#kwPop[hidden]{display:none}
+/* 聖なる盾・隠密の見た目 */
+.card.shielded{box-shadow:0 0 0 2px #ffe27a,0 0 14px 3px rgba(255,214,90,.75)!important}
+.card.stealthy{opacity:.62;filter:saturate(.6)}
 .bst.boon small{margin-left:2px;opacity:.85}
 .bst.tmrc .clk{color:#f2c14e;width:1.15em;height:1.3em}
 .bk-pick{font-size:12px;max-width:16em}

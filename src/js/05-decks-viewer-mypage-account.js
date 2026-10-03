@@ -82,7 +82,7 @@ function renderCardView(){
   if (tagsOf(c).length) rows.push(["タグ", tagsOf(c).map(t => "#" + t).join(" ")]);
   rows.push(["作った人", c.author || "？"]);
   let text = "", auto = "";
-  { const et = t === "equip" ? eqText(c) : monAbsText(c); if (et) auto += `<p class="cv-fx">${esc(et)}</p>`; }
+  { const et = t === "equip" ? eqText(c) : monAbsText(c); if (et) auto += `<p class="cv-fx">${kwLink(esc(et))}</p>`; }
   if (ft) auto += `<p class="cv-fx">${tkLink(esc(ft))}</p>`;
   if (exhausts(c)) auto += `<p class="cv-fx">廃棄</p>`;
   if (freeText(c)) text = `<p>${rubyHTML(c.effect)}</p>` + (auto ? `<p class="cv-cap">本来の効果</p>${auto}` : "");
