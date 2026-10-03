@@ -461,6 +461,9 @@ body.dm-lock{overflow:hidden}
 .bst.tmrc{display:inline-flex;align-items:center;gap:4px}
 .bst.boon{color:#d9b8ff;border-color:rgba(190,140,255,.6)}
 .test-box{border:2px solid #7ad3ff;display:flex;flex-direction:column;gap:8px}
+.col-row input[type=color]{width:40px;height:30px;padding:0;border:2px solid var(--line);border-radius:6px;background:none;cursor:pointer}
+.col-presets{display:inline-flex;gap:5px;flex-wrap:wrap}
+.col-pre{width:26px;height:26px;border-radius:50%;padding:0;border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.4);cursor:pointer}
 .test-box h3{margin:0;color:#9fe0ff}
 .test-box .test-row{gap:6px;flex-wrap:wrap}
 /* 起動効果: カードのまわりが光って、下にボタン */
@@ -474,6 +477,8 @@ body.dm-lock{overflow:hidden}
 .act-ask .act-prev{display:flex;gap:14px;align-items:flex-start}
 .act-ask .act-prev .card{--w:120px;flex:none}
 .act-ask .act-prev p{margin:0;line-height:1.6}
+.act-opts{display:flex;flex-direction:column;gap:10px;flex:1}
+.act-opt{display:flex;flex-direction:column;gap:6px;align-items:flex-start;padding:8px 10px;border:1px solid rgba(255,174,31,.5);border-radius:10px}
 .act-detail{margin-top:12px;padding:10px 12px;border:2px solid #ffae1f;border-radius:12px;background:rgba(255,166,31,.08)}
 .act-detail .act-h{display:flex;align-items:center;gap:6px;color:#ffc35c}
 .act-detail .act-h svg{width:22px;height:22px}

@@ -210,7 +210,7 @@ function testAct(k){
     if (k === "opSet"){ const z = freeZone(po.sz); if (z < 0){ toast("魔法・罠ゾーンがいっぱいです"); return false; } st.un = (st.un || 0) + 1; po.sz[z] = { c: id, turn: st.turnNo - 1, face: false, u: st.un }; log(st, me, `（テスト）相手の場に「${c.name}」をセットした`); return; }
     if (k === "mana"){ if (pm.mana){ pm.mana.max = Math.max(pm.mana.max, 10); pm.mana.cur = Math.max(pm.mana.cur, 10); log(st, me, "（テスト）マナを満タンにした"); } return; }
     if (k === "lp"){ pm.lp = po.lp = START_LP; log(st, me, "（テスト）お互いのLPを1000にもどした"); return; }
-    if (k === "refresh"){ st.summoned = false; pm.mz.forEach(m => { if (m){ m.attacked = false; m.atkCount = 0; m.actTurn = null; m.born = Math.min(m.born, st.turnNo - 1); } }); log(st, me, "（テスト）召喚・攻撃・起動効果をもう一度できるようにした"); return; }
+    if (k === "refresh"){ st.summoned = false; pm.mz.forEach(m => { if (m){ m.attacked = false; m.atkCount = 0; m.actT = null; m.born = Math.min(m.born, st.turnNo - 1); } }); log(st, me, "（テスト）召喚・攻撃・起動効果をもう一度できるようにした"); return; }
     return false;
   });
 }
@@ -536,7 +536,7 @@ function renderDetail(info, anim){
   box.hidden = false; box.classList.toggle("anim", !!anim); box.classList.toggle("at-bottom", !!G.detailBottom);
   if (info.hidden){ box.innerHTML = `${CLOSE}<h3>カード詳細</h3><div class="detailcard">${backHTML("detail", "", info.sleeve)}</div><p class="note" style="margin:0">相手がセットしたカード。中身はひみつ。</p>`; return; }
   const c = card(info.id), t = cardType(c), ft = fxText(c), lim = cardLimit(c);
-  const rows = [["種類", isQuick(c) ? "速攻魔法（相手のターンにも使える）" : TYPE_LABEL[t]]];
+  const rows = [["種類", isQuick(c) ? "速攻魔法（相手のターンにも使える）" : typeLabel(c)]];
   if (hasCost(c) && info.mana !== false) rows.push(["コスト", String(costLabel(c))]);
   if (!c.starter) rows.push(["使えるデッキ", DECK_LABEL[deckModeOf(c)]]);
   if (t === "monster"){
@@ -570,13 +570,13 @@ function renderDetail(info, anim){
 function actDetail(c){
   const k = G.lastDetail; if (!hasTrig(c, "act")) return "";
   const tx = blocksOf(c).filter(b => b.trig === "act").map(b => blockText(c, b)).join("。");
-  const mineF = k && k[0] === "mz" && k[1] === "me" && !G.spectate, why = mineF ? actWhy(G.st, G.slot, +k[2]) : "";
-  return `<div class="act-detail"><div class="act-h">${ACT_ICON}<b>起動効果</b></div><p>${tkLink(esc(tx))}</p>${mineF ? `<button class="primary" data-actmon="${+k[2]}" ${why ? "disabled" : ""}>発動する${why ? `（${esc(why)}）` : ""}</button>` : `<p class="muted">場に出ているとき、自分のターンに1回だけ使える</p>`}</div>`;
+  const mineF = k && k[0] === "mz" && k[1] === "me" && !G.spectate, why = mineF ? actWhy(G.st, G.slot, +k[2]) : "", mm = mineF ? P(G.st, G.slot).mz[+k[2]] : null;
+  return `<div class="act-detail"><div class="act-h">${ACT_ICON}<b>起動効果</b></div><p>${tkLink(esc(tx))}</p>${mineF ? `${mm ? `<p class="muted">${esc(actLeftText(G.st, G.slot, mm))}</p>` : ""}<button class="primary" data-actmon="${+k[2]}" ${why ? "disabled" : ""}>発動する${why ? `（${esc(why)}）` : ""}</button>` : `<p class="muted">場に出ているとき、自分のターンに使える</p>`}</div>`;
 }
 $("#overlay").addEventListener("click", e => {
   if (!G || G.actAsk == null) return;
   if (e.target.closest("[data-actno]")){ G.actAsk = null; renderAll(); return; }
-  if (e.target.closest("[data-actgo]")){ const i = G.actAsk; G.actAsk = null; act(st => activateMon(st, G.slot, i)); }
+  const go = e.target.closest("[data-actgo]"); if (go && !go.disabled){ const i = G.actAsk, bi = go.dataset.actgo; G.actAsk = null; act(st => activateMon(st, G.slot, i, bi === "" ? null : +bi)); }
 });
 $("#detailPop").addEventListener("click", e => {
   if (!G) return;
@@ -612,8 +612,9 @@ function renderOverlay(){
   const myP = !G.spectate && st.players && st.players[me], rp = myP && !st.winner ? myP.relicPick : null;
   if (G.actAsk != null && (st.winner || G.spectate || actWhy(st, me, G.actAsk))) G.actAsk = null;
   if (G.actAsk != null){
-    const m = P(st, me).mz[G.actAsk], c = card(m.c), tx = blocksOf(c).filter(b => b.trig === "act").map(b => blockText(c, b)).join("。");
-    html = `<div class="box act-ask"><h2 style="margin:0">「${esc(c.name)}」の能力を発動しますか？</h2><div class="act-prev">${cardHTML(c, "sm", "", { mod: modOf(m), ...mOpt(me) })}<p>${tkLink(esc(tx))}</p></div><p class="muted" style="margin:0">起動効果は1ターンに1回まで使えます</p><div class="row"><button class="primary" data-actgo>発動する</button><button class="ghost" data-actno>やめる</button></div></div>`;
+    const m = P(st, me).mz[G.actAsk], c = card(m.c), L = actBlocks(st, me, m);
+    const rowsH = L.map(([b, bi]) => { const ok = actFree(st, me, m, c, bi, b); return `<div class="act-opt"><p>${tkLink(esc(blockText(c, b)))}</p><button class="primary" data-actgo="${bi}" ${ok ? "" : "disabled"}>${ok ? "発動する" : "もう使えない"}</button></div>`; }).join("");
+    html = `<div class="box act-ask"><h2 style="margin:0">「${esc(c.name)}」の能力を発動しますか？</h2><div class="act-prev">${cardHTML(c, "sm", "", { mod: modOf(m), ...mOpt(me) })}<div class="act-opts">${rowsH}</div></div><p class="muted" style="margin:0">${esc(actLeftText(st, me, m))}</p><div class="row"><button class="ghost" data-actno>やめる</button></div></div>`;
   } else if (rp === "sprout"){
     const L = [...myP.deck.map((id, i) => ["deck:" + i, id]), ...myP.hand.map((id, i) => ["hand:" + i, id])].sort((a, b) => card(a[1]).name.localeCompare(card(b[1]).name, "ja"));
     const list = L.map(([k, id]) => cardHTML(card(id), "sm pick", `data-sprout="${k}" tabindex="0" role="button"`, mOpt(me))).join("");

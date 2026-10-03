@@ -72,7 +72,7 @@ function closeCardView(){ const v = $("#cardView"); v.hidden = true; v.innerHTML
 function renderCardView(){
   const c = S.cards.get(CV.ids[CV.i]); if (!c){ closeCardView(); return; }
   const t = cardType(c), mana = CV.ctx === "deck" ? $("#deckMana").checked : undefined, ft = fxText(c), lim = cardLimit(c), rows = [];
-  rows.push(["種類", isQuick(c) ? "速攻魔法" : TYPE_LABEL[t]]);
+  rows.push(["種類", typeLabel(c)]);
   if (t === "monster") rows.push(["ATK", fmtN(baseAtk(c))]);
   if (t === "equip") rows.push(["ATK", `${(c.eqN || 0) >= 0 ? "+" : "−"}${Math.abs(c.eqN || 0)}`], ["装備コスト", String(eqCostOf(c))]);
   if (t === "monster") rows.push(["装備キャパ", String(eqCapOf(c)) + (hasEqCap(c) ? "" : "（ATK÷100）")]);

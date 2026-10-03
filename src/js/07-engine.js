@@ -449,20 +449,40 @@ function canEquipOn(st, id, ts, ti){
   return eqUsed(m) + eqCostOf(card(id)) <= eqCapOf(card(m.c));
 }
 // trigger list for monster (s,i): the monster itself, then each equip (doubled by a 化身) — equip effects belong to the equip's owner
-// 起動効果: 自分のターンに、場のモンスターのボタンから1ターンに1回使える
+// 起動効果: 自分のターンに、場のモンスターのボタンから使える（回数は効果ブロックごと: 1ターンに○回／ゲーム中に○回／何回でも）
+// 1ターンの回数はそのモンスターごと、ゲーム中の回数はプレイヤーとカードごとに数える
+function actFree(st, s, m, c, bi, b){
+  const L = actLim(b); if (L.per === "free") return true;
+  if (L.per === "turn") return (m.actT && m.actT.no === st.turnNo ? m.actT.c[bi] || 0 : 0) < L.n;
+  return ((P(st, s).actG || {})[c.id + ":" + bi] || 0) < L.n;
+}
+const actBlocks = (st, s, m) => { const c = card(m.c); return blocksOf(c).map((b, bi) => [b, bi]).filter(([b]) => b.trig === "act"); };
 function actWhy(st, s, i){
   const m = P(st, s).mz[i]; if (!m || !hasTrig(card(m.c), "act")) return "起動効果がない";
   if (st.turn !== s) return "自分のターンだけ使える";
-  if (m.actTurn === st.turnNo) return "このターンはもう使った";
+  const c = card(m.c), L = actBlocks(st, s, m);
+  if (!L.some(([b, bi]) => actFree(st, s, m, c, bi, b))) return L.every(([b]) => actLim(b).per === "game") ? "この試合ではもう使えない" : "このターンはもう使えない";
   if (!canAct(st, s)) return "いまは使えない";
   return "";
 }
-function activateMon(st, s, i){
+// bi: どの起動効果を使うか（なければ使える最初の1つ）
+function activateMon(st, s, i, bi){
   if (actWhy(st, s, i)) return false;
-  const m = P(st, s).mz[i], c = card(m.c); m.actTurn = st.turnNo;
+  const m = P(st, s).mz[i], c = card(m.c), p = P(st, s);
+  const L = actBlocks(st, s, m).filter(([b, k]) => actFree(st, s, m, c, k, b) && (bi == null || k === +bi)).slice(0, 1);
+  if (!L.length) return false;
+  if (!m.actT || m.actT.no !== st.turnNo) m.actT = { no: st.turnNo, c: {} };
+  L.forEach(([b, bi]) => { const per = actLim(b).per; if (per === "turn") m.actT.c[bi] = (m.actT.c[bi] || 0) + 1; if (per === "game"){ p.actG = p.actG || {}; p.actG[c.id + ":" + bi] = (p.actG[c.id + ":" + bi] || 0) + 1; } });
   log(st, s, `「${c.name}」の起動効果を発動！`); ev(st, { type: "spell", s, c: m.c });
-  runList(st, [{ s, c, trig: "act", ctx: { zone: i, mon: { s, i, u: m.u } } }], st2 => checkEnd(st2));
+  const ctx = { zone: i, mon: { s, i, u: m.u }, hit: {} };
+  const step = (st2, k) => { if (k >= L.length){ checkEnd(st2); return; } runBlock(st2, s, c, L[k][0], ctx, st3 => step(st3, k + 1)); };
+  step(st, 0);
   return true;
+}
+// 残りの回数の説明（詳細・確認画面用）
+function actLeftText(st, s, m){
+  const c = card(m.c);
+  return actBlocks(st, s, m).map(([b, bi]) => { const L = actLim(b); if (L.per === "free") return "何回でも使える"; const used = L.per === "turn" ? (m.actT && m.actT.no === st.turnNo ? m.actT.c[bi] || 0 : 0) : ((P(st, s).actG || {})[c.id + ":" + bi] || 0); return `${L.per === "turn" ? "このターン" : "この試合"}あと${Math.max(0, L.n - used)}回`; }).join("／");
 }
 function monTrigList(st, s, i, trig, m, extra = {}){
   m = m || P(st, s).mz[i]; if (!m) return [];

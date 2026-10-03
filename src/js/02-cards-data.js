@@ -198,6 +198,7 @@ document.addEventListener("click", e => {
   const ph = pop.offsetHeight; pop.style.top = (r.bottom + 8 + ph < innerHeight ? r.bottom + 8 : Math.max(8, r.top - ph - 8)) + "px";
 }, true);
 document.addEventListener("keydown", e => { if ((e.key === "Enter" || e.key === " ") && e.target.classList && e.target.classList.contains("kwd") && !e.target.closest(".card")){ e.preventDefault(); e.target.click(); } });
+const HEX6 = /^#[0-9a-f]{6}$/i;
 function cardHTML(c, cls = "", attrs = "", opts = {}){
   // 画像の枠（MTG風・近未来）: ふつうの枠と同じ中身に、枠の画像と文字の位置をかぶせる
   const fr = c && !c.potionView && !c.relicView && (c.frame === "mtg" || c.frame === "future") ? c.frame : "", mt = !!fr;
@@ -232,6 +233,8 @@ function cardHTML0(c, cls = "", attrs = "", opts = {}){
   const flv = c.flavor ? plainRuby(c.flavor).trim() && c.flavor : "";
   const cl = (flv ? { s: 4, m: 3, l: 2 } : { s: 6, m: 5, l: 4 })[SIZES_T[c.textSize] ? c.textSize : "m"];
   const sv = []; if (fc) sv.push(`--cf:${fc}`); if (c.nameSize && c.nameSize !== "m") sv.push(`--nk:${sizeK(c.nameSize)}`); if (c.textSize && c.textSize !== "m") sv.push(`--tk:${sizeK(c.textSize)}`); if (cl !== 5) sv.push(`--cl:${cl};--cls:${cl}`);
+  // 自分で決めた枠の色（ふつうの枠だけ）
+  if (HEX6.test(c.colF || "")) sv.push(`--cframe:${c.colF}`); if (HEX6.test(c.colB || "")) sv.push(`--cbg:${c.colB}`);
   if (fl && c.flAlpha != null && isFinite(+c.flAlpha)) sv.push(`--fla:${Math.max(0, Math.min(100, +c.flAlpha))}%`);
   if (c.frame === "socra") return socraHTML(c, t, cls, attrs, opts, sv, showCost);
   if (c.frame === "spire") return spireHTML(c, t, cls, attrs, opts, sv, showCost);
