@@ -490,6 +490,8 @@ function blocksOf(c){
   if (!c) return [];
   if (Array.isArray(c.blocks)) return c.blocks.filter(b => b && typeof b === "object").map(b => ({
     trig: normTrig(c, b.trig), join: b.join === "or" ? "or" : "and", roll: b.roll === "die" || b.roll === "coin" ? b.roll : "", faces: Math.max(2, Math.min(20, Math.round(+b.faces || 6))), delay: Math.max(0, Math.min(9, Math.round(+b.delay || 0))),
+    // プレイヤーに付与: { to: me|op, at: turnStart|turnEnd, dur: 0=ずっと / ○回 }
+    grant: b.grant && (b.grant.to === "me" || b.grant.to === "op") ? { to: b.grant.to, at: b.grant.at === "turnStart" ? "turnStart" : "turnEnd", dur: Math.max(0, Math.min(9, Math.round(+b.grant.dur || 0))) } : null,
     conds: (Array.isArray(b.conds) ? b.conds : []).filter(x => x && COND_DEFS[x.k]),
     then: (Array.isArray(b.then) ? b.then : []).map(cleanEff).filter(Boolean),
     else: (Array.isArray(b.else) ? b.else : []).map(cleanEff).filter(Boolean),
@@ -531,6 +533,7 @@ function effsText(c, effs){
 const delayText = d => d > 0 ? (d === 1 ? "【次の自分のターンのはじめ】" : `【${d}ターン後の自分のターンのはじめ】`) : "";
 function clockSVG(n, cls){ return `<svg class="clk${cls ? " " + cls : ""}" viewBox="0 0 40 46" aria-hidden="true"><rect x="13" y="0" width="14" height="9" rx="4" fill="currentColor"/><circle cx="20" cy="26" r="18" fill="currentColor"/><circle cx="20" cy="26" r="11.5" fill="#fff"/><text x="20" y="31.5" text-anchor="middle" font-size="15" font-weight="800" font-family="sans-serif" fill="#111">${n}</text></svg>`; }
 function clockMark(html){ return html ? html.replace(/【次の自分のターンのはじめ】/g, () => `<span class="clkm" title="次の自分のターンのはじめに出る">${clockSVG(1)}</span>`).replace(/【(\d)ターン後の自分のターンのはじめ】/g, (_, d) => `<span class="clkm" title="${d}ターン後の自分のターンのはじめに出る">${clockSVG(d)}</span>`) : html; }
+const boonText = g => `${g.to === "op" ? "相手" : "自分"}に効果を付与する${g.dur ? `（${g.dur}回）` : "（ずっと）"}：`;
 function blockText(c, b){
   const t = cardType(c), isMon = t === "monster" || t === "equip";
   const head = c && c.relicView ? `【${RELIC_TRIG_LABEL[b.trig] || ""}】` : isMon ? `【${trigLabel(t, b.trig)}】` : isField(c) && b.trig !== "use" ? `【${FIELD_TRIG_LABEL[b.trig]}】` : isPersist(c) && b.trig !== "use" ? `【${PERSIST_TRIG_LABEL[b.trig]}】` : "";
@@ -538,6 +541,7 @@ function blockText(c, b){
   const brText = br ? br.map(x => `${x.lo === x.hi ? x.lo : `${x.lo}〜${x.hi}`}が出たら、${effsText(c, x.then)}`).join("。") : "";
   let s = head + delayText(b.delay) + (b.roll === "die" ? `サイコロ${b.faces && b.faces !== 6 ? `（${b.faces}面）` : ""}を振る。` : b.roll === "coin" ? "コインを投げる。" : "") + condsText(b) + (b.then.length ? effsText(c, b.then) + (br ? "。" : "") : br ? "" : "なにもしない") + brText;
   if (b.conds.length && b.else.length) s += `。そうでなければ、${effsText(c, b.else)}`;
+  if (b.grant){ const pre = head + delayText(b.delay), g = b.grant; s = pre + boonText(g) + `「自分のターンの${g.at === "turnStart" ? "はじめ" : "おわり"}に、${s.slice(pre.length)}」`; }
   if (isField(c)) s = s.replace(/(自分|相手)のモンスターすべて/g, "お互いのモンスターすべて");
   return s;
 }

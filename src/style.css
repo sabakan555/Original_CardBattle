@@ -459,6 +459,8 @@ body.dm-lock{overflow:hidden}
 .clkm{display:inline-block;margin-right:.15em}
 .card.spire .clk{color:#f2e6c4}
 .bst.tmrc{display:inline-flex;align-items:center;gap:4px}
+.bst.boon{color:#d9b8ff;border-color:rgba(190,140,255,.6)}
+.bst.boon small{margin-left:2px;opacity:.85}
 .bst.tmrc .clk{color:#f2c14e;width:1.15em;height:1.3em}
 .bk-pick{font-size:12px;max-width:16em}
 .turn-timer{font-size:13px;min-height:0}
