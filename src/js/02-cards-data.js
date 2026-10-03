@@ -224,7 +224,7 @@ const fxAbsText = c => monAbsText({ ...c, abs: absOf(c).filter(a => !a.dn) });
 const FX_FULL = { trash: "sq", split: "sq", revive: "sq", heart: "sq", lock: "sq", cocoon: "sq", clash: "sq", box: "sq", jirai: "sq", synth: "tall", ikenie: "shield", jumon: "dia" };
 function fxRowsHTML(c, noMeta, noIc){
   const t = cardType(c), rows = [];
-  const row = o => { const k = FX_ICONS[o.ic] ? o.ic : "spark", fl = noIc ? "" : FX_FULL[k] || ""; return `<div class="fxr${o.hdr ? " hdr" : ""}${noIc ? " noic" : ""}${fl === "tall" ? " tall" : ""}">${noIc ? "" : `<span class="fxr-ic${fl ? " full " + fl : ""}"><i class="fxi fxi-${k}"></i></span>`}<div class="fxr-tx"><b>【${esc(o.name)}】</b>${o.small ? `<small>（${esc(o.small)}）</small>` : ""}<span class="fxr-d">${o.hdr ? `<i class="fxi fxi-flag"></i>` : ""}<span>${tkLink(esc(o.desc))}</span></span></div>${o.badge ? `<span class="fxr-bd">${esc(o.badge)}</span>` : ""}</div>`; };
+  const row = o => { const k = FX_ICONS[o.ic] ? o.ic : "spark", fl = noIc ? "" : FX_FULL[k] || ""; return `<div class="fxr${o.hdr ? " hdr" : ""}${noIc ? " noic" : ""}${fl === "tall" ? " tall" : ""}">${noIc ? "" : `<span class="fxr-ic${fl ? " full " + fl : ""}"><i class="fxi fxi-${k}"></i></span>`}<div class="fxr-tx"><b>【${esc(o.name)}】</b>${o.small ? `<small>（${esc(o.small)}）</small>` : ""}<span class="fxr-d">${o.mk ? `<i class="fxi fxi-${o.mk}"></i>` : ""}<span>${tkLink(esc(o.desc))}</span></span></div>${o.badge ? `<span class="fxr-bd">${esc(o.badge)}</span>` : ""}</div>`; };
   const tLabel = trig => t === "monster" || t === "equip" ? (trig === "act" ? "起動" : trigLabel(t, trig)) : isField(c) ? FIELD_TRIG_LABEL[trig] || "" : isPersist(c) ? PERSIST_TRIG_LABEL[trig] || "" : "";
   const one = (e, pre) => { const d = FX_ROW_DEF[e.kind] || [String((KINDS[e.kind] || {}).label || "効果").replace(/（.*$/, "").slice(0, 10), "spark"];
     const badge = (e.kind === "selfAtk" || e.kind === "atkUp" || e.kind === "heal") && e.n ? `+${e.n}` : e.kind === "dmg" && e.n ? String(e.n) : "";
@@ -234,8 +234,10 @@ function fxRowsHTML(c, noMeta, noIc){
   blocksOf(c).forEach(b => {
     const effs = b.then || [], timed = !["use", "while"].includes(b.trig) || b.delay > 0, tl = tLabel(b.trig), cond = condsText(b);
     const p1 = b.one && effs.length > 1, hdr = (timed && (effs.length >= 2 || b.bn)) || p1 || !!b.bn;
-    if (hdr) rows.push(row({ hdr: true, name: b.bn || tl || "1つえらぶ", ic: b.bic || "bomb", small: b.bn ? tl : "", desc: cond + (b.bd || (p1 ? "これより下の効果から1つえらんで発動する。" : "これより下の効果を発動する。")) }));
-    effs.forEach((e, k) => rows.push(row(one(e, k === 0 ? (!hdr && timed ? `${tl}、` : "") + (!hdr ? cond : "") : ""))));
+    // 「これより下の効果を発動」の印: ふつうは旗、破壊されたときの効果はドクロ
+    const mk = b.trig === "destroyed" ? "skull" : "flag";
+    if (hdr) rows.push(row({ hdr: true, mk, name: b.bn || tl || "1つえらぶ", ic: b.bic || "bomb", small: b.bn ? tl : "", desc: cond + (b.bd || (p1 ? "これより下の効果から1つえらんで発動する。" : "これより下の効果を発動する。")) }));
+    effs.forEach((e, k) => rows.push(row({ ...one(e, k === 0 ? (!hdr && timed ? `${tl}、` : "") + (!hdr ? cond : "") : ""), ...(k === 0 && !hdr && b.trig === "destroyed" ? { mk: "skull" } : {}) })));
     (b.conds.length ? b.else || [] : []).forEach(e => rows.push(row(one(e, "そうでなければ、"))));
   });
   if (c.anySum && t === "monster") rows.push(row({ name: c.anyDn || "どこからでも", ic: "spark", desc: "ターン開始時、質量が足りていればどこからでも召喚できる（してもしなくてもいい）" }));

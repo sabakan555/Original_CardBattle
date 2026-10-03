@@ -518,7 +518,8 @@ body.dm-lock{overflow:hidden}
 .fxr-big .fxr-tx b{font-size:calc(var(--w)*.034)}
 .fxr-big .fxr-d{font-size:calc(var(--w)*.025)}
 .card.ygo.fxrows .fxr-meta{position:absolute;left:0;top:calc(var(--yu)*-544);margin:0;font-family:var(--cf,"Shippori Mincho",serif);font-size:calc(var(--yu)*22);color:#30211c;text-shadow:0 0 calc(var(--yu)*3) rgba(255,255,255,.8);white-space:nowrap}
-.fxr-d .fxi-flag{flex:none;width:calc(var(--w)*.03);height:calc(var(--w)*.032)}
+.fxr-d .fxi-flag,.fxr-d .fxi-skull{flex:none;width:calc(var(--w)*.03);height:calc(var(--w)*.032)}.fxr-d .fxi-skull{width:calc(var(--w)*.034)}
+.fxi-skull{background-image:url("assets/fx_skull.webp")}
 .fxr-bd{flex:none;font-family:"DotGothic16",monospace;font-size:calc(var(--w)*.052);font-weight:700;color:#f3f1ea;-webkit-text-stroke:calc(var(--w)*.006) #000;paint-order:stroke fill;letter-spacing:.02em;line-height:1}
 .fxr-big{--w:430px;display:flex;flex-direction:column;gap:6px;margin-top:12px}
 .fxr-big .fxrs{height:auto}
