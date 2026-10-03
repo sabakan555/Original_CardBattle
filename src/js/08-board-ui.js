@@ -506,7 +506,7 @@ function detailInfo(z, s, i){
     const es = eqsOf(slot);
     info.equips = es.map((e, k) => `「${card(e.c).name}」${eqMult(es, k) > 1 ? "（×2）" : ""}${e.o !== owner ? "（相手の）" : ""}${e.used ? "（使用ずみ）" : ""}`);
     info.cap = `${eqUsed(slot)} / ${eqCapOf(card(slot.c))}`;
-    info.mats = (slot.mats || []).map(id => card(id).name); info.xb = (slot.xb || []).filter(b => !b.xfr).map(b => blockText(monCard(slot), b)); info.xbFx = (slot.xb || []).filter(b => b.xfr);
+    info.mats = (slot.mats || []).map(id => card(id).name); info.xbFx = (slot.xb || []).filter(b => b.xfr); info.xbNo = (slot.xb || []).filter(b => !b.xfr);
     info.abs = [...new Set(monAbs(G.st, owner, i).filter(a => a.eqU).map(a => ABS[a.k].text && ABS[a.k].n ? ABS[a.k].text((a.n || 0) * a.mult, a.name || "") : ABS[a.k].label))];
     info.eqList = es.map((e, k) => ({ c: e.c, mult: eqMult(es, k), used: !!e.used, opp: e.o !== owner, mana: !!P(G.st, e.o).mana }));
     if (charmActive(G.st, slot)) info.charm = `魅了されている（「${card(slot.charm.c).name}」）`;
@@ -563,14 +563,14 @@ function renderDetail(info, anim){
   rows.push(["デッキ上限", lim ? `${lim}枚まで` : "制限なし"]);
   if (tagsOf(c).length) rows.push(["タグ", tagsOf(c).map(t => "#" + t).join(" ")]);
   rows.push(["作った人", c.author || "？"]);
-  // 合成でついた効果はいちばん上に（アイコンつきの効果はブロック表示で）
-  if (info.xb && info.xb.length) rows.unshift(["合成でついた効果", info.xb.join("。")]);
-  const xbFx = info.xbFx && info.xbFx.length ? `<div class="fxr-big fxr-xb"><div class="fxr-ttl">合成でついた効果</div>${fxRowsHTML({ ...c, blocks: info.xbFx }, true)}</div>` : "";
+  // 合成でついた効果: カードの効果の下に、同じ枠の行で（アイコンがないカードからついた効果はアイコンなしの行）
+  const xbIn = (info.xbFx && info.xbFx.length ? fxRowsHTML({ ...c, blocks: info.xbFx }, true) : "") + (info.xbNo && info.xbNo.length ? fxRowsHTML({ ...c, blocks: info.xbNo }, true, true) : "");
+  const xbFx = xbIn ? `<div class="fxr-big fxr-xb"><div class="fxr-ttl">合成でついた効果</div>${xbIn}</div>` : "";
   const ownFx = c.fxRows && !freeText(c) ? `<div class="fxr-big">${fxRowsHTML(c)}</div>` : "";
   // equips stuck on this monster, shown as cards from left to right (tap one to read it)
   const eqRow = info.eqList && info.eqList.length ? `<div class="eqrow"><div class="eqlbl">装備（左から順）　${esc(info.cap || "")}</div><div class="eqlist">${info.eqList.map((e, k) => `${k ? `<span class="eqarr">→</span>` : ""}<button class="eqi" data-eqcid="${esc(e.c)}" aria-label="「${esc(card(e.c).name)}」の詳細">${cardHTML(card(e.c), "xs", "", { mana: e.mana })}${e.mult > 1 || e.used || e.opp ? `<span class="eqtag">${[e.mult > 1 ? "×2" : "", e.used ? "使用ずみ" : "", e.opp ? "相手の" : ""].filter(Boolean).join("・")}</span>` : ""}</button>`).join("")}</div></div>` : "";
   const back = G.detailBack ? `<button class="small ghost eqback" data-detailback>← もどる</button>` : "";
-  box.innerHTML = `${CLOSE}<h3>カード詳細</h3>${back}<div class="detailcard">${cardHTML(c, "detail", "", { mod: info.mod, mana: info.mana })}</div>${eqRow}${xbFx}${ownFx}<dl class="dl">${rows.map(([k, v]) => `<dt>${k}</dt><dd>${tkLink(esc(v))}</dd>`).join("")}</dl>${actDetail(c)}`;
+  box.innerHTML = `${CLOSE}<h3>カード詳細</h3>${back}<div class="detailcard">${cardHTML(c, "detail", "", { mod: info.mod, mana: info.mana })}</div>${eqRow}${ownFx}${xbFx}<dl class="dl">${rows.map(([k, v]) => `<dt>${k}</dt><dd>${tkLink(esc(v))}</dd>`).join("")}</dl>${actDetail(c)}`;
 }
 // 詳細: 起動効果を持つ自分の場のモンスターなら「発動する」
 function actDetail(c){
