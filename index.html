@@ -1808,7 +1808,7 @@ const KINDS = {
   matCopy:    { label: "分裂：場のモンスターの質量1枚をコピーして自分の場に出す", target: "any", text: () => `場のモンスター1体をえらび、その質量1枚をコピーして自分の場に出す` },
   matOut:     { label: "増殖：このモンスターの質量をできるだけ場に出す（出せない分は墓地へ）", mon: true, text: () => `このモンスターの下の質量をできるだけ自分の場に出す（出せなかった分は墓地へ）` },
   stealGrave: { label: "相手の墓地の一番上のカードを自分の墓地へ移す", n: true, text: n => `相手の墓地のカード${n || 1}枚を自分の墓地に移す` },
-  fieldOut:   { label: "このフィールドの質量の半分（切り捨て）を、このカードのコピーとして場に出す", text: () => `このカードの質量の半分（切り捨て）を、このカードのコピーとして自分の魔法・罠ゾーンに出す` },
+  fieldOut:   { label: "このフィールドの質量の半分（切り捨て）を、このカードのコピーとして場に出す", text: () => `このカードの質量の半分（切り捨て）を、このカードのコピーとして自分の魔法・罠ゾーンの1枠にストックする（コピーの数だけ効果が出る）` },
   extraTurn:  { label: "追加ターン（このターンのあと、もう一度自分のターン）", n: true, text: n => `このターンのあと、もう${n > 1 ? n + "回" : "1回"}自分のターンをおこなう` },
   dblAtk:     { label: "次に使うアタックをもう1回プレイ", n: true, text: n => `このターン、次に使う${n > 1 ? n + "枚の" : ""}アタックをもう1回プレイする` },
   copyLastAtk:{ label: "直前に使ったアタックのコピーを手札に加える", text: () => `直前に使ったアタックのコピーを1枚手札に加える` },
@@ -5450,7 +5450,7 @@ function fireTurn(st, who, trig, then, timersDone, boonsDone){
 // face-up 永続 cards of player s whose effect fires on `trig`
 function persistList(st, s, trig, ctx){
   const L = [];
-  P(st, s).sz.forEach((z, i) => { if (!z || !z.face) return; const c = card(z.c); if ((isPersist(c) || z.fcp) && hasTrig(c, trig)) L.push({ s, c, trig, ctx: { ...ctx, pz: i } }); });
+  P(st, s).sz.forEach((z, i) => { if (!z || !z.face) return; const c = card(z.c); if ((isPersist(c) || z.fcp) && hasTrig(c, trig)) for (let r = 0; r < (z.fcp ? Math.max(1, z.stack || 1) : 1); r++) L.push({ s, c, trig, ctx: { ...ctx, pz: i } }); });
   (P(st, s).relics || []).forEach(k => { const rc = relicCard(k); if (rc && trig !== "gain" && hasTrig(rc, trig)) L.push({ s, c: rc, trig, ctx: { ...ctx } }); });
   return L;
 }
@@ -5567,9 +5567,13 @@ function applyEffect(st, s, c, target, ctx = {}, fx = normFx(c)){
       let out = 0; const rest = []; L.forEach(id => { if (putOut(st, s, id, false)) out++; else rest.push(id); }); me.grave.push(...rest);
       log(st, s, `${src}：質量${out}枚を場に出した${rest.length ? `（出せなかった${rest.length}枚は墓地へ）` : ""}`); break; }
     case "fieldOut": { const f = st.field; if (!ctx.field || !f || f.o !== s || !(f.mats || []).length) break;
-      const k = Math.floor(f.mats.length / 2); let made = 0;
-      for (let r = 0; r < k; r++){ const z = freeZone(me.sz); if (z < 0) break; st.un = (st.un || 0) + 1; me.sz[z] = { c: f.c, face: true, turn: st.turnNo, u: st.un, fcp: true, mats: [f.mats.shift()] }; made++; ev(st, { type: "spell", s, c: f.c }); }
-      log(st, s, made ? `${src}：質量${made}枚が「${card(f.c).name}」のコピーになって場に出た（のこりの質量 ${f.mats.length}枚）` : `${src}：魔法・罠ゾーンに空きがない`); break; }
+      // コピーは魔法・罠ゾーンの1枠にまとめてストックする（何枚でも1枠）
+      const k = Math.floor(f.mats.length / 2); if (!k) break;
+      let zi = me.sz.findIndex(z => z && z.fcp && z.c === f.c);
+      if (zi < 0){ zi = freeZone(me.sz); if (zi >= 0){ st.un = (st.un || 0) + 1; me.sz[zi] = { c: f.c, face: true, turn: st.turnNo, u: st.un, fcp: true, stack: 0, mats: [] }; } }
+      if (zi < 0){ log(st, s, `${src}：魔法・罠ゾーンに空きがない`); break; }
+      const z = me.sz[zi]; z.mats = (z.mats || []).concat(f.mats.splice(0, k)); z.stack = (z.stack || 0) + k; ev(st, { type: "spell", s, c: f.c });
+      log(st, s, `${src}：質量${k}枚が「${card(f.c).name}」のコピーになって、魔法・罠ゾーンにストックされた（ストック${z.stack}枚・のこりの質量 ${f.mats.length}枚）`); break; }
     case "extraTurn": me.extraTurns = (me.extraTurns || 0) + (n || 1); log(st, s, `${src}：このターンのあと、もう${(n || 1) > 1 ? (n || 1) + "回" : "1回"}自分のターン！`); break;
     case "dblAtk": me.dblAtk = (me.dblAtk || 0) + (n || 1); log(st, s, `${src}：次に使うアタックをもう1回プレイする`); break;
     case "copyLastAtk": if (me.lastAtk && hasCard(me.lastAtk)){ me.hand.push(me.lastAtk); log(st, s, `${src}で「${card(me.lastAtk).name}」のコピーを手札に加えた`); } else log(st, s, `${src}：コピーするアタックがない`); break;
@@ -6565,7 +6569,7 @@ function renderBoard(){
     const aimed = atkFrom != null && G.atkTo === i && !mine && kind === "mz";
     const cls = `pick ${selected ? "sel" : ""} ${isTarget ? "target" : ""} ${aimed ? "aim" : ""}`;
     if (kind === "sz"){
-      if (z.face) return zcap(cardHTML(card(z.c), cls, attrs, mOpt(s)), card(z.c));
+      if (z.face) return zcap(cardHTML(card(z.c), cls, attrs, { ...mOpt(s), ...(z.fcp ? { done: `ストック×${z.stack || 1}` } : {}) }), card(z.c));
       if (!mine || G.spectate) return backHTML(cls, attrs, P(st, s).sleeve);
       const sc = card(z.c), w = whenOf(sc), late = (cardType(sc) === "trap" || isQuick(sc)) && z.turn >= st.turnNo;
       return zcap(cardHTML(sc, `${cls} isset`, attrs, { ...mOpt(s), done: late ? "次ターン〜" : w ? WHEN_SHORT[w] : "" }), sc);

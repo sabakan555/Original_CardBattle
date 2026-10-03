@@ -568,7 +568,7 @@ function fireTurn(st, who, trig, then, timersDone, boonsDone){
 // face-up 永続 cards of player s whose effect fires on `trig`
 function persistList(st, s, trig, ctx){
   const L = [];
-  P(st, s).sz.forEach((z, i) => { if (!z || !z.face) return; const c = card(z.c); if ((isPersist(c) || z.fcp) && hasTrig(c, trig)) L.push({ s, c, trig, ctx: { ...ctx, pz: i } }); });
+  P(st, s).sz.forEach((z, i) => { if (!z || !z.face) return; const c = card(z.c); if ((isPersist(c) || z.fcp) && hasTrig(c, trig)) for (let r = 0; r < (z.fcp ? Math.max(1, z.stack || 1) : 1); r++) L.push({ s, c, trig, ctx: { ...ctx, pz: i } }); });
   (P(st, s).relics || []).forEach(k => { const rc = relicCard(k); if (rc && trig !== "gain" && hasTrig(rc, trig)) L.push({ s, c: rc, trig, ctx: { ...ctx } }); });
   return L;
 }
@@ -685,9 +685,13 @@ function applyEffect(st, s, c, target, ctx = {}, fx = normFx(c)){
       let out = 0; const rest = []; L.forEach(id => { if (putOut(st, s, id, false)) out++; else rest.push(id); }); me.grave.push(...rest);
       log(st, s, `${src}：質量${out}枚を場に出した${rest.length ? `（出せなかった${rest.length}枚は墓地へ）` : ""}`); break; }
     case "fieldOut": { const f = st.field; if (!ctx.field || !f || f.o !== s || !(f.mats || []).length) break;
-      const k = Math.floor(f.mats.length / 2); let made = 0;
-      for (let r = 0; r < k; r++){ const z = freeZone(me.sz); if (z < 0) break; st.un = (st.un || 0) + 1; me.sz[z] = { c: f.c, face: true, turn: st.turnNo, u: st.un, fcp: true, mats: [f.mats.shift()] }; made++; ev(st, { type: "spell", s, c: f.c }); }
-      log(st, s, made ? `${src}：質量${made}枚が「${card(f.c).name}」のコピーになって場に出た（のこりの質量 ${f.mats.length}枚）` : `${src}：魔法・罠ゾーンに空きがない`); break; }
+      // コピーは魔法・罠ゾーンの1枠にまとめてストックする（何枚でも1枠）
+      const k = Math.floor(f.mats.length / 2); if (!k) break;
+      let zi = me.sz.findIndex(z => z && z.fcp && z.c === f.c);
+      if (zi < 0){ zi = freeZone(me.sz); if (zi >= 0){ st.un = (st.un || 0) + 1; me.sz[zi] = { c: f.c, face: true, turn: st.turnNo, u: st.un, fcp: true, stack: 0, mats: [] }; } }
+      if (zi < 0){ log(st, s, `${src}：魔法・罠ゾーンに空きがない`); break; }
+      const z = me.sz[zi]; z.mats = (z.mats || []).concat(f.mats.splice(0, k)); z.stack = (z.stack || 0) + k; ev(st, { type: "spell", s, c: f.c });
+      log(st, s, `${src}：質量${k}枚が「${card(f.c).name}」のコピーになって、魔法・罠ゾーンにストックされた（ストック${z.stack}枚・のこりの質量 ${f.mats.length}枚）`); break; }
     case "extraTurn": me.extraTurns = (me.extraTurns || 0) + (n || 1); log(st, s, `${src}：このターンのあと、もう${(n || 1) > 1 ? (n || 1) + "回" : "1回"}自分のターン！`); break;
     case "dblAtk": me.dblAtk = (me.dblAtk || 0) + (n || 1); log(st, s, `${src}：次に使うアタックをもう1回プレイする`); break;
     case "copyLastAtk": if (me.lastAtk && hasCard(me.lastAtk)){ me.hand.push(me.lastAtk); log(st, s, `${src}で「${card(me.lastAtk).name}」のコピーを手札に加えた`); } else log(st, s, `${src}：コピーするアタックがない`); break;

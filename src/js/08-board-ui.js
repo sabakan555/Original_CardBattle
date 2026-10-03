@@ -241,7 +241,7 @@ function renderBoard(){
     const aimed = atkFrom != null && G.atkTo === i && !mine && kind === "mz";
     const cls = `pick ${selected ? "sel" : ""} ${isTarget ? "target" : ""} ${aimed ? "aim" : ""}`;
     if (kind === "sz"){
-      if (z.face) return zcap(cardHTML(card(z.c), cls, attrs, mOpt(s)), card(z.c));
+      if (z.face) return zcap(cardHTML(card(z.c), cls, attrs, { ...mOpt(s), ...(z.fcp ? { done: `ストック×${z.stack || 1}` } : {}) }), card(z.c));
       if (!mine || G.spectate) return backHTML(cls, attrs, P(st, s).sleeve);
       const sc = card(z.c), w = whenOf(sc), late = (cardType(sc) === "trap" || isQuick(sc)) && z.turn >= st.turnNo;
       return zcap(cardHTML(sc, `${cls} isset`, attrs, { ...mOpt(s), done: late ? "次ターン〜" : w ? WHEN_SHORT[w] : "" }), sc);
