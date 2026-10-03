@@ -97,6 +97,8 @@ function cpuStep(st, s){
       if (summon(st, s, i, null, null, picks)) return;
     }
   }
+  // 2b. 起動効果（使えるときはだいたい使う）
+  for (let i = 0; i < ZONES; i++){ if (p.mz[i] && !actWhy(st, s, i) && Math.random() < .7){ activateMon(st, s, i); return; } }
   // 3. set traps
   const ti = p.hand.findIndex(id => cardType(card(id)) === "trap");
   if (ti >= 0 && freeZone(p.sz) >= 0){ setCard(st, s, ti); return; }
@@ -164,6 +166,7 @@ function findCardIdByName(name){
   const hit = L.find(id => card(id) && card(id).name === name); if (hit) return hit;
   const c = [...S.cards.values()].find(x => x && x.name === name); return c ? c.id : null;
 }
+const ACT_ICON = `<svg viewBox="0 0 40 40" aria-hidden="true"><path d="M20 3l3.6 9.2 9.4-3.3-4.3 9 8.3 5.6-9.7 1.6.6 9.9L20 30.4 12.1 35l.6-9.9-9.7-1.6 8.3-5.6-4.3-9 9.4 3.3z" fill="#fde7c9" stroke="#e08a00" stroke-width="1.5" stroke-linejoin="round"/></svg>`;
 function renderBoard(){
   recordResult();
   exAutoReturn();
@@ -201,7 +204,8 @@ function renderBoard(){
     const stt0 = atkr ? "攻撃中！" : atkd ? "狙われている" : "";
     const stt = stt0 || z.attacked && s === st.turn ? stt0 || "攻撃済" : (z.atkCount && s === st.turn ? "あと1回" : "") || (charmActive(st, z) ? "魅了" : "") || ((z.noAtkTurn || 0) >= st.turnNo ? "攻撃できない" : "");
     const zz = sick(st, s, i) ? " sick" : "", zx = (!z.shieldGone && hasAb(st, s, i, "shield") ? " shielded" : "") + (hiddenMon(st, s, i) ? " stealthy" : "");
-    return zcap(cardHTML(card(z.c), cls + zz + zx + (atkr ? " attacking" : "") + (atkd ? " atk-tgt" : ""), attrs + (zz ? ` title="召喚酔い：次の自分のターンから攻撃できる"` : ttl), { mod: modOf(z), done: stt, eq: eqB, dmg: z.dmg || 0, vuln: z.vuln || 0, weak: z.weak || 0, ...mOpt(s) }), card(z.c), z);
+    const actH = mine && !G.spectate && hasTrig(card(z.c), "act"), actNo = actH ? actWhy(st, s, i) : "";
+    return (h => actH ? h.replace(/<\/div>$/, `<button type="button" class="actbtn" data-actmon="${i}" ${actNo ? "disabled" : ""} title="${actNo ? esc(actNo) : "能力を発動する"}" aria-label="「${esc(card(z.c).name)}」の能力を発動する">${ACT_ICON}</button></div>`) : h)(zcap(cardHTML(card(z.c), cls + zz + zx + (actH ? (actNo ? " actable actused" : " actable") : "") + (atkr ? " attacking" : "") + (atkd ? " atk-tgt" : ""), attrs + (zz ? ` title="召喚酔い：次の自分のターンから攻撃できる"` : ttl), { mod: modOf(z), done: stt, eq: eqB, dmg: z.dmg || 0, vuln: z.vuln || 0, weak: z.weak || 0, ...mOpt(s) }), card(z.c), z));
   }).join("");
 
   // action bar
@@ -510,10 +514,23 @@ function renderDetail(info, anim){
   // equips stuck on this monster, shown as cards from left to right (tap one to read it)
   const eqRow = info.eqList && info.eqList.length ? `<div class="eqrow"><div class="eqlbl">装備（左から順）　${esc(info.cap || "")}</div><div class="eqlist">${info.eqList.map((e, k) => `${k ? `<span class="eqarr">→</span>` : ""}<button class="eqi" data-eqcid="${esc(e.c)}" aria-label="「${esc(card(e.c).name)}」の詳細">${cardHTML(card(e.c), "xs", "", { mana: e.mana })}${e.mult > 1 || e.used || e.opp ? `<span class="eqtag">${[e.mult > 1 ? "×2" : "", e.used ? "使用ずみ" : "", e.opp ? "相手の" : ""].filter(Boolean).join("・")}</span>` : ""}</button>`).join("")}</div></div>` : "";
   const back = G.detailBack ? `<button class="small ghost eqback" data-detailback>← もどる</button>` : "";
-  box.innerHTML = `${CLOSE}<h3>カード詳細</h3>${back}<div class="detailcard">${cardHTML(c, "detail", "", { mod: info.mod, mana: info.mana })}</div>${eqRow}<dl class="dl">${rows.map(([k, v]) => `<dt>${k}</dt><dd>${tkLink(esc(v))}</dd>`).join("")}</dl>`;
+  box.innerHTML = `${CLOSE}<h3>カード詳細</h3>${back}<div class="detailcard">${cardHTML(c, "detail", "", { mod: info.mod, mana: info.mana })}</div>${eqRow}<dl class="dl">${rows.map(([k, v]) => `<dt>${k}</dt><dd>${tkLink(esc(v))}</dd>`).join("")}</dl>${actDetail(c)}`;
 }
+// 詳細: 起動効果を持つ自分の場のモンスターなら「発動する」
+function actDetail(c){
+  const k = G.lastDetail; if (!hasTrig(c, "act")) return "";
+  const tx = blocksOf(c).filter(b => b.trig === "act").map(b => blockText(c, b)).join("。");
+  const mineF = k && k[0] === "mz" && k[1] === "me" && !G.spectate, why = mineF ? actWhy(G.st, G.slot, +k[2]) : "";
+  return `<div class="act-detail"><div class="act-h">${ACT_ICON}<b>起動効果</b></div><p>${tkLink(esc(tx))}</p>${mineF ? `<button class="primary" data-actmon="${+k[2]}" ${why ? "disabled" : ""}>発動する${why ? `（${esc(why)}）` : ""}</button>` : `<p class="muted">場に出ているとき、自分のターンに1回だけ使える</p>`}</div>`;
+}
+$("#overlay").addEventListener("click", e => {
+  if (!G || G.actAsk == null) return;
+  if (e.target.closest("[data-actno]")){ G.actAsk = null; renderAll(); return; }
+  if (e.target.closest("[data-actgo]")){ const i = G.actAsk; G.actAsk = null; act(st => activateMon(st, G.slot, i)); }
+});
 $("#detailPop").addEventListener("click", e => {
   if (!G) return;
+  { const am = e.target.closest("[data-actmon]"); if (am){ e.stopPropagation(); G.actAsk = +am.dataset.actmon; G.detailOpen = false; renderDetail(null); renderAll(); return; } }
   if (e.target.closest("[data-popclose]")){ G.detailOpen = false; G.detailBack = null; renderDetail(null); return; }
   const q = e.target.closest("[data-eqcid]");
   if (q){ e.stopPropagation(); const prev = G.lastDetail; G.detailBack = prev; openDetail(["id", q.dataset.eqcid, "装備中（" + card(prev && prev[0] !== "id" ? (detailInfo(...prev) || {}).id : "").name + "に付いている）"], true); return; }
@@ -543,7 +560,11 @@ function renderOverlay(){
   const st = G.st, me = G.slot;
   let html = "", peek = false;
   const myP = !G.spectate && st.players && st.players[me], rp = myP && !st.winner ? myP.relicPick : null;
-  if (rp === "sprout"){
+  if (G.actAsk != null && (st.winner || G.spectate || actWhy(st, me, G.actAsk))) G.actAsk = null;
+  if (G.actAsk != null){
+    const m = P(st, me).mz[G.actAsk], c = card(m.c), tx = blocksOf(c).filter(b => b.trig === "act").map(b => blockText(c, b)).join("。");
+    html = `<div class="box act-ask"><h2 style="margin:0">「${esc(c.name)}」の能力を発動しますか？</h2><div class="act-prev">${cardHTML(c, "sm", "", { mod: modOf(m), ...mOpt(me) })}<p>${tkLink(esc(tx))}</p></div><p class="muted" style="margin:0">起動効果は1ターンに1回まで使えます</p><div class="row"><button class="primary" data-actgo>発動する</button><button class="ghost" data-actno>やめる</button></div></div>`;
+  } else if (rp === "sprout"){
     const L = [...myP.deck.map((id, i) => ["deck:" + i, id]), ...myP.hand.map((id, i) => ["hand:" + i, id])].sort((a, b) => card(a[1]).name.localeCompare(card(b[1]).name, "ja"));
     const list = L.map(([k, id]) => cardHTML(card(id), "sm pick", `data-sprout="${k}" tabindex="0" role="button"`, mOpt(me))).join("");
     html = `<div class="box"><h2 style="margin:0">若葉：変えるカードをえらぶ</h2><p class="muted" style="margin:0">デッキの${L.length}枚からえらんだ1枚が、ランダムなスパイア風カードに変わります（手札はこのあと引きます）</p><div class="gallery">${list || '<p class="muted">カードがありません</p>'}</div></div>`;
@@ -727,6 +748,7 @@ $("#board").addEventListener("click", e => {
   if (pb){ if (canAct(st, me)){ G.potPick = +pb.dataset.potion; renderAll(); } return; }
   { const ci = e.target.closest("[data-cid]"); if (ci){ G.detailBottom = ci.getBoundingClientRect().top < innerHeight / 2; openDetail(["id", ci.dataset.cid, ci.dataset.where || undefined]); return; } }
   { const cn = e.target.closest("[data-cname]"); if (cn){ const id = findCardIdByName(cn.dataset.cname); if (!id){ toast("そのカードが見つかりません"); return; } G.detailBottom = cn.getBoundingClientRect().top < innerHeight / 2; openDetail(["id", id, "ログに出たカード"]); return; } }
+  { const ab = e.target.closest("[data-actmon]"); if (ab){ if (!ab.disabled){ G.actAsk = +ab.dataset.actmon; renderAll(); } return; } }
   const zc = e.target.closest("[data-z]");
   if (zc){
     const z = zc.dataset.z, s = zc.dataset.s, i = +zc.dataset.i;

@@ -449,6 +449,21 @@ function canEquipOn(st, id, ts, ti){
   return eqUsed(m) + eqCostOf(card(id)) <= eqCapOf(card(m.c));
 }
 // trigger list for monster (s,i): the monster itself, then each equip (doubled by a 化身) — equip effects belong to the equip's owner
+// 起動効果: 自分のターンに、場のモンスターのボタンから1ターンに1回使える
+function actWhy(st, s, i){
+  const m = P(st, s).mz[i]; if (!m || !hasTrig(card(m.c), "act")) return "起動効果がない";
+  if (st.turn !== s) return "自分のターンだけ使える";
+  if (m.actTurn === st.turnNo) return "このターンはもう使った";
+  if (!canAct(st, s)) return "いまは使えない";
+  return "";
+}
+function activateMon(st, s, i){
+  if (actWhy(st, s, i)) return false;
+  const m = P(st, s).mz[i], c = card(m.c); m.actTurn = st.turnNo;
+  log(st, s, `「${c.name}」の起動効果を発動！`); ev(st, { type: "spell", s, c: m.c });
+  runList(st, [{ s, c, trig: "act", ctx: { zone: i, mon: { s, i, u: m.u } } }], st2 => checkEnd(st2));
+  return true;
+}
 function monTrigList(st, s, i, trig, m, extra = {}){
   m = m || P(st, s).mz[i]; if (!m) return [];
   const base = { zone: i, mon: { s, i, u: m.u }, ...extra };
