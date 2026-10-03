@@ -753,7 +753,7 @@ function applyEffect(st, s, c, target, ctx = {}, fx = normFx(c)){
     }
     case "charm": {
       const m = opT.mz[target];
-      if (m){ m.charm = { eu: ctx.eqU || null, mu: ctx.mon ? ctx.mon.u : null, c: c.id }; log(st, s, `${src}で「${card(m.c).name}」を魅了した（攻撃できない）`); }
+      if (m){ m.charm = { eu: ctx.eqU || null, mu: ctx.mon ? ctx.mon.u : null, c: c.id }; log(st, s, `${src}で「${card(m.c).name}」を魅了した（${src}が場にある間、攻撃できない）`); }
       break;
     }
     case "atkUp": if (me.mz[target]){ me.mz[target].mod = (me.mz[target].mod || 0) + n; log(st, s, `${src}で「${card(me.mz[target].c).name}」のATK+${n}`); } break;
