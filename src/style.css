@@ -498,6 +498,7 @@ body.dm-lock{overflow:hidden}
 .card.socra.fxrows .fxr-d>span{-webkit-line-clamp:2}
 .card.socra.fxrows .fxr-bd{font-size:calc(var(--w)*.06)}
 .fxi-split{background-image:url("assets/fx2_split.webp")}.fxi-revive{background-image:url("assets/fx2_revive.webp")}.fxi-heart{background-image:url("assets/fx2_heal.webp")}.fxi-lock{background-image:url("assets/fx2_chain.webp")}.fxi-cocoon{background-image:url("assets/fx2_cloud.webp")}.fxi-clash{background-image:url("assets/fx2_twin.webp")}.fxi-box{background-image:url("assets/fx2_box.webp")}.fxi-synth{background-image:url("assets/fx2_synth.webp")}.fxi-ikenie{background-image:url("assets/fx2_ikenie.webp")}.fxi-jumon{background-image:url("assets/fx2_jumon.webp")}.fxi-jirai{background-image:url("assets/fx2_jirai.webp")}
+.fxi-trash{background-image:url("assets/fx2_trash.webp")}
 /* Figmaのアイコン（枠ごと絵になっている）: CSSの四角は使わない */
 .fxr-ic.full{border:none;background:none;box-shadow:none;border-radius:0;filter:drop-shadow(0 calc(var(--w)*.004) calc(var(--w)*.005) rgba(0,0,0,.35))}
 .fxr-ic.full .fxi{width:100%;height:100%;background-size:contain}
