@@ -78,7 +78,7 @@ function staticAtk(m){
   staticAtk.busy = true;
   try{
     const srcs = [];
-    for (const o of ["a", "b"]){ const p = P(st, o); p.mz.forEach((x, i) => { if (x) srcs.push({ o, c: monCard(x), mon: x, ctx: { zone: i, mon: { s: o, i, u: x.u } } }); }); p.sz.forEach((z, i) => { if (z && z.face && (isPersist(card(z.c)) || z.fcp)) srcs.push({ o, c: card(z.c), mon: null, ctx: { pz: i } }); }); if (st.field) srcs.push({ o, c: card(st.field.c), mon: null, ctx: { field: true } }); }
+    for (const o of ["a", "b"]){ const p = P(st, o); p.mz.forEach((x, i) => { if (x) srcs.push({ o, c: monCard(x), mon: x, ctx: { zone: i, mon: { s: o, i, u: x.u } } }); }); p.sz.forEach((z, i) => { if (z && z.face && (isPersist(card(z.c)) || z.fcp)) srcs.push({ o, c: card(z.c), mon: null, ctx: { pz: i } }); }); if (st.field && (!card(st.field.c).fieldMine || st.field.o === o)) srcs.push({ o, c: card(st.field.c), mon: null, ctx: { field: true } }); }
     srcs.forEach(src => blocksOf(src.c).forEach(b => {
       if (b.trig !== "while") return;
       const plain = b.conds.filter(x => x.k !== "ask"), ok = !plain.length || (b.join === "or" ? plain.some(x => condMet(st, src.o, src.c, x, src.ctx)) : plain.every(x => condMet(st, src.o, src.c, x, src.ctx)));
@@ -561,7 +561,7 @@ function fireTurn(st, who, trig, then, timersDone, boonsDone){
   const L = [];
   for (const o of ["a", "b"]) P(st, o).mz.forEach((m, i) => { if (m) monTrigList(st, o, i, trig).forEach(x => { if (x.s === who && hasTrig(x.c, trig)) L.push(x); }); });
   const PL = persistList(st, who, trig, {}); PL.forEach(x => log(st, who, `${x.c.relicView ? "レリック" : "永続"}「${x.c.name}」の効果！`));
-  const fc = fieldCard(st), FL = fc && (trig === "turnStart" || trig === "turnEnd") && hasTrig(fc, trig) ? [{ s: who, c: fc, trig, ctx: { field: true } }] : [];
+  const fc = fieldCard(st), FL = fc && (trig === "turnStart" || trig === "turnEnd") && hasTrig(fc, trig) && (!fc.fieldMine || st.field.o === who) ? [{ s: who, c: fc, trig, ctx: { field: true } }] : [];
   FL.forEach(x => log(st, who, `フィールド「${x.c.name}」の効果！`));
   runList(st, L.concat(PL, FL), trig === "turnStart" ? st2 => anySumAsk(st2, who, then) : then);
 }
@@ -1209,7 +1209,7 @@ function onCardUsed(st, user, c, then){
     const p = P(st, o);
     p.mz.forEach((m, i) => { if (m && hasTrig(card(m.c), "anyUse")) L.push({ s: o, c: card(m.c), trig: "anyUse", ctx: { used, zone: i, mon: { s: o, i, u: m.u } } }); });
     persistList(st, o, "anyUse", { used }).forEach(x => L.push(x));
-    if (o === user && fieldCard(st) && hasTrig(fieldCard(st), "anyUse")) L.push({ s: user, c: fieldCard(st), trig: "anyUse", ctx: { used, field: true } });
+    if (o === user && fieldCard(st) && hasTrig(fieldCard(st), "anyUse") && (!fieldCard(st).fieldMine || st.field.o === user)) L.push({ s: user, c: fieldCard(st), trig: "anyUse", ctx: { used, field: true } });
     [...new Set(p.hand)].forEach(id => { const hc = card(id); if (cardType(hc) === "monster" && hasTrig(hc, "anyUse")) L.push({ s: o, c: hc, trig: "anyUse", ctx: { used, inHand: id } }); });
   }
   if (!L.length){ then && then(st); return; }

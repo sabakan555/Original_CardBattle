@@ -343,7 +343,7 @@ function renderBoard(){
       <span class="zlabel">相手のモンスターゾーン</span>
       <div class="zones">${zoneHTML(op, "mz")}</div>
       <div class="bz">
-        ${st.field ? `<div class="fieldz" data-field title="フィールド（お互いに効く）"><span class="flbl">フィールド</span>${cardHTML(card(st.field.c), "xs pick", `data-field tabindex="0" role="button"`)}<span class="note">${esc(P(st, st.field.o).name)} が出した${(st.field.mats || []).length ? `・質量${st.field.mats.length}` : ""}</span></div>` : ""}
+        ${st.field ? `<div class="fieldz" data-field title="フィールド（${fieldMine(card(st.field.c)) ? "出した人にだけ効く" : "お互いに効く"}）"><span class="flbl">フィールド</span>${cardHTML(card(st.field.c), "xs pick", `data-field tabindex="0" role="button"`)}<span class="note">${esc(P(st, st.field.o).name)} が出した${(st.field.mats || []).length ? `・質量${st.field.mats.length}` : ""}</span></div>` : ""}
         <h2>バトルゾーン</h2>
         <div class="turnline">ターン${st.turnNo}・${G.spectate ? `<span class="me">${esc(P(st, st.turn).name)} のターン</span>` : myTurn ? `<span class="me">あなたのターン</span>` : `<span class="op">${esc(po.name)} のターン</span>`}${myTurn && !pm.mana && !st.summoned ? "（召喚できる）" : ""}</div>
         ${st.chain && st.chain.length ? `<div class="chainrow onboard"><span class="note">チェーン中：</span>${st.chain.map((l, k) => `<button type="button" class="link ${l.s === me ? "mine" : ""}" data-cid="${esc(l.c)}" data-where="チェーン${k + 1}">${k + 1}. ${l.summon ? (l.special ? "特殊召喚：" : "召喚：") : ""}${esc(card(l.c).name)}<small>${l.s === me ? "あなた" : esc(P(st, l.s).name)}</small></button>`).join('<span class="arr">→</span>')}</div>` : ""}
