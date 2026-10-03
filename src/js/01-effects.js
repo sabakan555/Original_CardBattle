@@ -73,6 +73,10 @@ const KINDS = {
   firstBlock2:{ label: "毎ターン最初にカードで得るブロックが2倍", text: () => `毎ターン、最初にカードで得るブロックが2倍になる` },
   rageNow:    { label: "このターン、アタックを使うたびブロックを得る", n: true, text: n => `このターン、アタックを使うたびブロックを${n}得る` },
   thornsNow:  { label: "次の自分のターンまで、攻撃されるたび反撃", n: true, text: n => `次の自分のターンのはじめまで、モンスターに攻撃されるたび、そのモンスターに${n}ダメージ` },
+  absorbKill: { label: "バトルで倒した相手を、このモンスターの質量にする", text: () => `バトルで倒した相手のモンスターを、このモンスターの質量として取りこむ` },
+  synth:      { label: "合成（手札のカードの効果を、場のモンスターに付ける）", text: () => `手札を1枚えらび、場のモンスター1体にそのカードの効果を付ける（効果1つにつき、墓地のカード1枚を質量として重ねる）` },
+  synthHand:  { label: "（合成：手札をえらぶ）", target: "hand", text: () => `効果を付けたい手札のカードをえらぶ` },
+  synthTo:    { label: "（合成：付けるモンスターをえらぶ）", target: "any", text: () => `効果を付ける場のモンスターをえらぶ` },
   extraTurn:  { label: "追加ターン（このターンのあと、もう一度自分のターン）", n: true, text: n => `このターンのあと、もう${n > 1 ? n + "回" : "1回"}自分のターンをおこなう` },
   dblAtk:     { label: "次に使うアタックをもう1回プレイ", n: true, text: n => `このターン、次に使う${n > 1 ? n + "枚の" : ""}アタックをもう1回プレイする` },
   copyLastAtk:{ label: "直前に使ったアタックのコピーを手札に加える", text: () => `直前に使ったアタックのコピーを1枚手札に加える` },
@@ -311,6 +315,11 @@ const SS_COSTS = {
 const ssOf = c => c && cardType(c) === "monster" && c.ss && c.ss.on ? { cond: SS_CONDS[c.ss.cond] ? c.ss.cond : "none", n: +c.ss.n || 0, name: c.ss.name || "", cost: SS_COSTS[c.ss.cost] ? c.ss.cost : "none", cn: Math.max(1, +c.ss.cn || 1), only: !!c.ss.only } : null;
 // 生贄召喚: a normal summon that sends this many of your own monsters to the graveyard first
 // (st, s) given: a コストデッキ player uses tribCost when the card has one
+// 要求質量: 召喚するとき、墓地のカードをこの枚数だけモンスターの下に重ねる（モンスターが破壊されたら墓地にもどる）
+const massOf = c => !c || cardType(c) !== "monster" ? 0 : Math.max(0, Math.min(40, Math.round(+c.mass || 0)));
+const massText = c => massOf(c) ? `【要求質量${massOf(c)}】墓地のカード${massOf(c)}枚を質量としてこのモンスターの下に重ねて召喚する` : "";
+// 場のモンスターの中身: カードの効果＋合成でついた効果（m.xb）
+const monCard = m => !m ? null : (m.xb || []).length ? { ...card(m.c), blocks: [...blocksOf(card(m.c)), ...m.xb] } : card(m.c);
 function tribOf(c, st, s){
   if (!c || cardType(c) !== "monster") return 0;
   const v = +(st && s && P(st, s).mana && c.tribCost != null ? c.tribCost : c.trib) || 0;
@@ -402,7 +411,7 @@ function whenText(c){ const w = whenOf(c); return w ? `【${WHEN_LABEL[w]}に発
 function fusionMatText(x){ return x.m === "any" ? "モンスター" : x.m === "tag" ? `タグ「${x.v || "？"}」のモンスター` : `「${x.v || "？"}」`; }
 function fusionText(c){ return c && cardType(c) === "monster" && Array.isArray(c.fusion) && c.fusion.length ? `【融合】${c.fusion.map(fusionMatText).join("＋")}` : ""; }
 const spOptText = c => !c || (cardType(c) !== "magic" && cardType(c) !== "trap") ? "" : [c.strig ? "《S・トリガー》" : "", c.flashback && cardType(c) === "magic" ? "《フラッシュバック》" : "", +c.kick > 0 ? `《キッカー》（${+c.kick}）` : ""].join("");
-function fxText(c){ return (c && c.token && cardType(c) !== "monster" ? "【トークン】" : "") + (c && c.ex && cardType(c) !== "monster" ? "【EX】" : "") + (c && !c.noUse ? whenText(c) : "") + [fusionText(c) ? fusionText(c) + "（「融合召喚」の効果でだけ出せる）" : "", c && c.noUse && (cardType(c) === "magic" || cardType(c) === "trap") ? "このカードは発動できない" : "", isPersist(c) ? "【永続】使ったあとも場に残る" : "", spOptText(c), isField(c) ? "【フィールド】お互いに1枚だけ場に置ける（新しいフィールドが出ると、前のフィールドは墓地へ）。効果はお互いに効く" : "", extraCostText(c), tribText(c), atkCondText(c), ssText(c), fxText0(c)].filter(Boolean).join("。"); }
+function fxText(c){ return (c && c.token && cardType(c) !== "monster" ? "【トークン】" : "") + (c && c.ex && cardType(c) !== "monster" ? "【EX】" : "") + (c && !c.noUse ? whenText(c) : "") + [fusionText(c) ? fusionText(c) + "（「融合召喚」の効果でだけ出せる）" : "", c && c.noUse && (cardType(c) === "magic" || cardType(c) === "trap") ? "このカードは発動できない" : "", isPersist(c) ? "【永続】使ったあとも場に残る" : "", spOptText(c), isField(c) ? "【フィールド】お互いに1枚だけ場に置ける（新しいフィールドが出ると、前のフィールドは墓地へ）。効果はお互いに効く" : "", extraCostText(c), tribText(c), massText(c), atkCondText(c), ssText(c), fxText0(c)].filter(Boolean).join("。"); }
 /* ================= effect blocks: いつ / もし / なにを / ちがったら =================
    c.blocks = [{ trig, conds: [{k, op, n | name, where, match | text}], join: "and"|"or", then: [{kind, n, to}], else: [...] }]
    Older cards (c.fx + c.combo) are read as blocks too, so everything below runs on blocks. */
@@ -431,12 +440,14 @@ const COND_DEFS = {
   stronger: { label: "このモンスターよりATKが高いモンスターがいる・いない" },
   coinH:    { label: "コインが表（「まず」でコインを投げたとき）", roll: true },
   coinT:    { label: "コインが裏（「まず」でコインを投げたとき）", roll: true },
-  kicked:   { label: "キッカーを払った（キッカーのあるカード用）" }
+  kicked:   { label: "キッカーを払った（キッカーのあるカード用）" },
+  mass:     { label: "このモンスターの質量の数", who: "このモンスターの質量が", unit: "枚", val: (st, s, c, ctx) => { const m = ctx && ctx.mon && monAt(st, ctx.mon); return m ? (m.mats || []).length : 0; } }
 };
 const OPS = { ge: "以上", le: "以下", eq: "" };
 // 「○1つにつき」: what a number can grow with (ダメージ / ブロック / マナ / 回復, or the number of hits)
 const PER_DEFS = {
   myBlock:  { label: "自分のブロック", u: "1", val: (st, s) => P(st, s).block || 0 },
+  mass:     { label: "このモンスターの質量", u: "1枚", val: (st, s, c, t, ctx) => { const m = ctx && ctx.mon && monAt(st, ctx.mon); return m ? (m.mats || []).length : 0; } },
   strike:   { label: "名前に「ストライク」が入った自分のカード", u: "1枚", val: (st, s) => { const p = P(st, s); return [...p.hand, ...p.deck, ...p.grave].filter(id => /ストライク/.test(card(id).name || "")).length; } },
   tgtVuln:  { label: "対象の弱体", u: "1", val: (st, s, c, t) => { const op = P(st, O(s)); if (typeof t === "string" && t.startsWith("m:")){ const m = op.mz[+t.slice(2)]; return m ? m.vuln || 0 : 0; } return op.vuln || 0; } },
   exile:    { label: "廃棄札のカード", u: "1枚", val: (st, s) => (P(st, s).exile || []).length },

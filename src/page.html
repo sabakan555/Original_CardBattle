@@ -224,6 +224,7 @@
             <summary><span class="mk-st">召喚の条件（生贄・特殊召喚）</span><span class="mk-sum" id="sumSs"></span></summary>
             <div class="fxform" id="ssBox">
               <label class="row" style="gap:6px;font-weight:700">生贄召喚：召喚するとき自分のモンスターを<select id="mkTrib"><option value="0">0（いらない）</option><option value="1">1</option><option value="2">2</option><option value="3">3</option></select>体 墓地へ送る</label>
+              <label class="row" style="gap:6px;font-weight:700">要求質量：召喚するとき墓地のカードを<input type="number" id="mkMass" min="0" max="40" step="1" value="0" style="width:64px">枚 このモンスターの下に重ねる<span class="note" style="font-weight:400">（0ならなし。破壊されたら墓地にもどる）</span></label>
               <label class="row" style="gap:6px">生贄にできるのはタグ<input type="text" id="mkTribTag" list="tagNames" maxlength="40" placeholder="（なんでも）" style="width:140px">のモンスターだけ</label>
               <label class="row" style="gap:6px;font-weight:700;cursor:pointer"><input type="checkbox" id="ssOn"> 手札から特殊召喚できる</label>
               <div id="ssOpts" hidden>
