@@ -104,8 +104,7 @@ function cpuStep(st, s){
   if (ti >= 0 && freeZone(p.sz) >= 0){ setCard(st, s, ti); return; }
   // 4. attack
   if (st.turnNo > 1){
-    const order = [...Array(ZONES).keys()].sort((a, b) => cmpNum(p.mz[b] ? atkOf(p.mz[b]) : -1, p.mz[a] ? atkOf(p.mz[a]) : -1));
-    for (const i of order){
+    for (let i = 0; i < ZONES; i++){
       const m = p.mz[i]; if (!m || !canAttack(st, s, i)) continue;
       const T = atkTargets(st, s, i), opMons = T.L;
       if (T.direct){ declareAttack(st, s, i, "direct"); return; }
@@ -306,7 +305,7 @@ function renderBoard(){
     }
     if (sel && sel.z === "mz" && sel.s === "me"){
       const m = pm.mz[sel.i];
-      if (m){ const why = st.turnNo === 1 ? "" : oneAtkBlocked(st, me, sel.i) ? "（このターンはもうほかのモンスターが攻撃した）" : sick(st, me, sel.i) ? "（出たターンは攻撃できない）" : !atkCondOk(st, me, sel.i) ? "（攻撃の条件を満たしていない）" : hasAb(st, me, sel.i, "noAttack") ? "（攻撃できない）" : charmActive(st, m) ? "（魅了されている）" : ""; acts += `<button class="primary" data-act="attack" ${canAttack(st, me, sel.i) ? "" : "disabled"}>攻撃する${why}</button>`; }
+      if (m){ const why = st.turnNo === 1 ? "" : sick(st, me, sel.i) ? "（出たターンは攻撃できない）" : !atkCondOk(st, me, sel.i) ? "（攻撃の条件を満たしていない）" : hasAb(st, me, sel.i, "noAttack") ? "（攻撃できない）" : charmActive(st, m) ? "（魅了されている）" : ""; acts += `<button class="primary" data-act="attack" ${canAttack(st, me, sel.i) ? "" : "disabled"}>攻撃する${why}</button>`; }
     }
     if (sel && sel.z === "sz" && sel.s === "me"){
       const z = pm.sz[sel.i];
@@ -923,7 +922,7 @@ const tutAtked = id => { const m = tutMon(id); return !m || (m.atkCount || 0) > 
 const TUT_ME = "starter-6", TUT_HAYATE = "tut-hayate", TUT_TRAP = "starter-17", TUT_BOOM = "starter-13", TUT_HAT = "starter-14", TUT_ORC = "tut-orc", TUT_BOSS = "tut-boss";
 function tutCards(){
   const cp = (id, from, ch) => { const b = card(from); S.cards.set(id, { ...b, id, starter: true, token: false, tut: true, ...ch }); };
-  cp(TUT_HAYATE, "starter-5", { name: "はやてどすこい", atk: 400, abs: [{ k: "haste" }, { k: "rengeki" }], effect: "", limit: 3 });
+  cp(TUT_HAYATE, "starter-5", { name: "はやてどすこい", atk: 400, abs: [{ k: "haste" }], effect: "", limit: 3 });
   cp(TUT_ORC, "starter-5", { name: "あばれどすこい", atk: 600, abs: [{ k: "haste" }], effect: "" });
   cp(TUT_BOSS, "starter-6", { name: "ヒトツメ大魔王", atk: 900, effect: "とにかく、もっとつよい。" });
 }
@@ -939,17 +938,17 @@ const TUT_BATTLE = [
   { t: "相手のターン…", wait: true, done: () => !!(G.st.pending && G.st.pending.wait && G.st.pending.type === "attack" && G.st.pending.by !== G.slot) || G.st.turnNo >= 3 },
   { t: "攻撃された！ 相手はATK600、こっちは500。このままだと負けちゃう…<br>セットしておいた<b>「おとしあな」</b>を押そう！", el: () => G.respSel ? tutVis("[data-respgo]") : tutVis('#overlay [data-resp]'), done: () => !tutPm().sz.some(z => z && z.c === TUT_TRAP) || G.st.turnNo >= 3 },
   { t: "罠が発動！ 攻撃してきたモンスターを破壊した。相手のターンが終わるのを待とう…", wait: true, done: () => G.st.turn === G.slot && G.st.turnNo >= 3 && !G.st.pending },
-  { t: "あなたのターン。ターンのはじめに、カードを1枚引いたよ。<br>引いた<b>「はやてどすこい」</b>には《速攻》と《連撃》の能力がある。《速攻》は、出たターンからすぐ攻撃できる能力だよ。", next: "次へ" },
+  { t: "あなたのターン。ターンのはじめに、カードを1枚引いたよ。<br>引いた<b>「はやてどすこい」</b>には《速攻》の能力がある。出たターンからすぐ攻撃できるんだ。", next: "次へ" },
   { t: "<b>「はやてどすこい」</b>を押して、召喚しよう。", el: tutPlay(TUT_HAYATE, "summon"), done: () => tutZone(TUT_HAYATE) >= 0 },
   { t: "相手の場にモンスターがいないので、相手に<b>直接攻撃</b>できる！<br>場の「ヒトツメ大王」→「攻撃」→「直接攻撃！」の順に押そう。", el: tutAtk(TUT_ME), done: () => tutAtked(TUT_ME) },
-  { t: "ATKのぶんダメージが入った！<br>攻撃できるモンスターは<b>1ターンに1体だけ</b>。でも《連撃》をもつ「はやてどすこい」は、ほかのモンスターが攻撃したあとでも攻撃できる！ 攻撃しよう。", el: tutAtk(TUT_HAYATE), done: () => tutAtked(TUT_HAYATE) },
+  { t: "ATKのぶんダメージが入った！ 《速攻》の「はやてどすこい」でも攻撃しよう。", el: tutAtk(TUT_HAYATE), done: () => tutAtked(TUT_HAYATE) },
   { t: "いい感じ！ <b>「ターン終了」</b>を押そう。", el: () => tutBtn("endTurn"), done: () => G.st.turnNo >= 4 },
   { t: "相手のターン…", wait: true, done: () => G.st.turn === G.slot && G.st.turnNo >= 5 && !G.st.pending },
   { t: "相手が<b>ATK900の「ヒトツメ大魔王」</b>を出してきた！ ATKでは勝てない…<br>そんなときは<b>魔法カード</b>の出番。", next: "次へ" },
   { t: "<b>「ドカーン」</b>は相手のモンスター1体を破壊する魔法。押して「発動する」→ 破壊するモンスターを選ぼう。", el: () => G.chooseQ.length ? tutVis("#overlay [data-opt]") : tutPlay(TUT_BOOM, "activateHand")(), done: () => !tutPo().mz.some(m => m && m.c === TUT_BOSS) },
   { t: "やった！ 次は<b>装備カード</b>。「ぼうし」を付けるとATKが+150されるよ。<br>手札の「ぼうし」→ 光っている「ヒトツメ大王」の順に押そう。", el: () => tutSelHand(TUT_HAT) ? tutZoneEl(tutZone(TUT_ME)) : tutHandEl(TUT_HAT), done: () => { const m = tutMon(TUT_ME); return !m || eqsOf(m).length > 0; } },
   { t: "ATKが650になった！ さあ、とどめだ。「ヒトツメ大王」で直接攻撃！", el: tutAtk(TUT_ME), done: () => tutAtked(TUT_ME) },
-  { t: "最後に《連撃》の「はやてどすこい」でも攻撃！", el: tutAtk(TUT_HAYATE), done: () => !!G.st.winner },
+  { t: "最後に「はやてどすこい」でも攻撃！", el: tutAtk(TUT_HAYATE), done: () => !!G.st.winner },
   { t: "🎉 <b>クリア！</b> おつかれさま！<br>これで基本はばっちり。カードの文の下線つきの言葉（《速攻》など）は、カードの詳細で押すと説明が出るよ。<br>次は<b>自分のカードを描いて</b>、デッキを作ってみよう！", end: true }
 ];
 const TUT_MAKER = [
