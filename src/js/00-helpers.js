@@ -11,6 +11,8 @@ const shuffle = a => { for (let i = a.length - 1; i > 0; i--){ const j = Math.fl
 const clone = o => JSON.parse(JSON.stringify(o));
 
 const START_LP = 1000, MIN_DECK = 20, ZONES = 5;
+// ルール: oneAtk = 1ターンに攻撃できるモンスターは1体だけ（「連撃」をもつモンスターは別）
+const RULES = { oneAtk: true };
 // ATK has no upper limit and can be ∞ (stored as atkInf: true, since JSON can't hold Infinity)
 const INF_WORDS = ["∞", "inf", "infinity", "無限", "むげん"];
 const baseAtk = c => c && c.atkInf ? Infinity : (c && +c.atk) || 0;

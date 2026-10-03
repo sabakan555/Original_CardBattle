@@ -453,9 +453,16 @@ function useBlockedWhy(st, s, c, win){
   return "";
 }
 const atkLocked = (st, s) => (P(st, s).noAtkUntil || 0) >= st.turnNo;
+// 1ターンに1体: ほかの（連撃でない）モンスターがもう攻撃していたら攻撃できない
+function oneAtkBlocked(st, s, i){
+  if (!RULES.oneAtk) return false;
+  const p = P(st, s), m = p.mz[i]; if (!m || hasAb(st, s, i, "rengeki")) return false;
+  const A = p.atkers && p.atkers.t === st.turnNo ? p.atkers.us : [];
+  return A.some(u => u !== m.u);
+}
 function canAttack(st, s, i){
   const m = P(st, s).mz[i];
-  return !!m && !atkLocked(st, s) && !((m.noAtkTurn || 0) >= st.turnNo) && !m.attacked && st.turnNo > 1 && !sick(st, s, i) && !hasAb(st, s, i, "noAttack") && !charmActive(st, m) && atkCondOk(st, s, i);
+  return !!m && !oneAtkBlocked(st, s, i) && !atkLocked(st, s) && !((m.noAtkTurn || 0) >= st.turnNo) && !m.attacked && st.turnNo > 1 && !sick(st, s, i) && !hasAb(st, s, i, "noAttack") && !charmActive(st, m) && atkCondOk(st, s, i);
 }
 // 攻撃の条件: this monster can only attack while these hold
 function useCostVar(c, st, s){ return !!(c && st && s && P(st, s).mana && Array.isArray(c.atkCondsCost)); }
@@ -1305,6 +1312,7 @@ function declareAttack(st, s, from, to){
   const T = atkTargets(st, s, from);
   if (to === "direct" ? !T.direct : !T.L.includes(to)) return false;
   m.atkCount = (m.atkCount || 0) + 1; m.atkTotal = (m.atkTotal || 0) + 1;
+  if (!hasAb(st, s, from, "rengeki")){ const p = P(st, s); if (!p.atkers || p.atkers.t !== st.turnNo) p.atkers = { t: st.turnNo, us: [] }; if (!p.atkers.us.includes(m.u)) p.atkers.us.push(m.u); }
   m.attacked = m.atkCount >= maxAttacks(st, s, from);
   if (!m.revealed && hasAb(st, s, from, "stealth")){ m.revealed = true; log(st, s, `「${card(m.c).name}」の隠密がとけた`); }
   ev(st, { type: "attack", s, from, to, c: m.c });
