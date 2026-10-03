@@ -729,7 +729,7 @@ function applyEffect(st, s, c, target, ctx = {}, fx = normFx(c)){
     case "revive": { const gi = me.grave.indexOf(target); if (gi >= 0){ me.grave.splice(gi, 1); me.hand.push(target); log(st, s, `${src}で墓地の「${card(target).name}」を手札に戻した`); } break; }
     case "reborn": { const gi = me.grave.indexOf(target), z = freeZone(me.mz); if (gi >= 0 && z >= 0){ me.grave.splice(gi, 1); me.mz[z] = mkMon(st, target); ev(st, { type: "summon", s, z }); log(st, s, `${src}で墓地の「${card(target).name}」を場に出した（特殊召喚）`); trigger(st, s, card(target), "ssummon", { zone: z, mon: { s, i: z, u: me.mz[z].u } }); } break; }
     case "manaNow": if (me.mana){ me.mana.cur += n; log(st, s, `${src}でマナを${n}回復（${me.mana.cur}/${me.mana.max}）`); } else log(st, s, `${src}：マナを使わないデッキなので効果なし`); break;
-    case "manaMax": if (me.mana){ const add = Math.min(n, MAX_MANA - me.mana.max); me.mana.max += add; me.mana.cur += n; if (me.spire) me.maxAdj = (me.maxAdj || 0) + add; log(st, s, `${src}で最大マナ+${add}、マナ+${n}（${me.mana.cur}/${me.mana.max}）`); } else log(st, s, `${src}：マナを使わないデッキなので効果なし`); break;
+    case "manaMax": if (me.mana){ const add = Math.max(0, Math.min(n, MANA_LIMIT - me.mana.max)); me.mana.max += add; me.mana.cur += n; if (me.spire) me.maxAdj = (me.maxAdj || 0) + add; log(st, s, `${src}で最大マナ+${add}、マナ+${n}（${me.mana.cur}/${me.mana.max}）`); } else log(st, s, `${src}：マナを使わないデッキなので効果なし`); break;
     case "manaDrain": if (op.mana){ const k = Math.min(n, op.mana.cur); op.mana.cur -= k; log(st, s, `${src}で${op.name}のマナを${k}減らした`); } else log(st, s, `${src}：相手はマナを使わないデッキなので効果なし`); break;
     case "negate": if (ctx.attack){ st.pending.negated = true; log(st, s, `${src}で攻撃を無効にした`); } else log(st, s, `${src}：無効にする攻撃がない`); break;
     case "atkDownAtk": { const am = ctx.attack && P(st, ctx.attack.by).mz[ctx.attack.from]; if (am){ am.mod = (am.mod || 0) - n; log(st, s, `${src}で攻撃してきた「${card(am.c).name}」のATK−${n}`); } else log(st, s, `${src}：攻撃してきたモンスターがいない`); break; }
@@ -908,7 +908,7 @@ function summon(st, s, hi, zi, disc, trib){
   p.hand.splice(hi, 1); if (!p.mana) st.summoned = true;
   discardCost(st, s, card(id), shiftPicks(disc, hi));
   if (need){ log(st, s, `${trib.map(i => `「${card(p.mz[i].c).name}」`).join("")}を生贄にした`); trib.forEach(i => sendToGrave(st, s, i)); z = (zi != null && !p.mz[zi]) ? zi : trib.includes(z) || z < 0 ? trib[0] : z; }
-  const label = `「${card(id).name}」（ATK ${fmtN(baseAtk(card(id)))}）を召喚${p.mana ? `（コスト${costOf(card(id))}）` : ""}`;
+  const label = `「${card(id).name}」（ATK ${fmtN(baseAtk(card(id)))}）を召喚${p.mana ? `（コスト${costLabel(card(id))}）` : ""}`;
   // the opponent gets a window only if they hold something that can counter it
   if (responseOptions(st, O(s), "summon").length){
     st.chain = [{ s, c: id, summon: true, z, ctx: { zone: z } }];
@@ -1237,7 +1237,7 @@ function passTurn(st, s){
     np.mz.forEach(m => { if (m && m.vuln > 0){ m.vuln--; if (!m.vuln) log(st, st.turn, `「${card(m.c).name}」の弱体がとけた`); } });
     if (np.block && !np.barricade){ log(st, st.turn, `ブロック${np.block}が消えた`); np.block = 0; }
     np.thorns = 0; np.blockedNow = false;
-    if (np.mana){ np.mana.max = np.sz.some(z => z && z.face && z.c === "spire-altar") ? 3 : Math.min(MAX_MANA, np.mana.max + 1); np.mana.cur = np.mana.max; }
+    if (np.mana){ np.mana.max = np.sz.some(z => z && z.face && z.c === "spire-altar") ? 3 : Math.max(np.mana.max, Math.min(MAX_MANA, np.mana.max + 1)); np.mana.cur = np.mana.max; }
     log(st, st.turn, `ターン${st.turnNo}：${np.name} の${xt ? "追加" : ""}ターン${np.mana ? `（マナ ${np.mana.max}）` : ""}`);
     refill(st, st.turn);
     if (!np.deck.length && !np.spire){ st.winner = s; st.why = `${np.name} の山札がなくなった`; log(st, st.turn, "引くカードがない！"); return; }

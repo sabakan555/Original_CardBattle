@@ -234,7 +234,9 @@ const cardType = c => (c && (c.type === "magic" || c.type === "trap" || c.type =
 const MAX_MANA = 10;
 // cost is only what the card's creator set; no cost means 0
 const hasCost = c => !!c && c.cost != null && c.cost !== "" && !isNaN(+c.cost);
-function costOf(c){ return hasCost(c) ? Math.max(0, Math.min(MAX_MANA, +c.cost)) : 0; }
+// カードのコストは 0〜99 と ∞（costInf：ふつうには払えない。踏み倒しなら使える）
+const MAX_COST = 99, MANA_LIMIT = 99;
+function costOf(c){ return !hasCost(c) ? 0 : c.costInf ? Infinity : Math.max(0, Math.min(MAX_COST, +c.cost)); }
 // which decks a card can go in: normal (no mana), cost (mana decks only), both. Older cards: with a cost → both, without → normal
 const DECK_LABEL = { normal: "ふつうのデッキ", cost: "コストデッキ", both: "どちらでも" };
 const deckModeOf = c => c && DECK_LABEL[c.deckMode] ? c.deckMode : hasCost(c) ? (c && c.starter ? "cost" : "both") : "normal";
@@ -299,7 +301,7 @@ function ssText(c){
 }
 // extra effects that follow the main one (same timing), e.g. 「100ダメージを与えて、1枚引く」
 const moreFx = fx => (fx && Array.isArray(fx.more) ? fx.more : []).filter(m => m && KINDS[m.kind] && m.kind !== "none" && m.kind !== "win");
-const costLabel = c => c && c.costX ? "X" : costOf(c);
+const costLabel = c => c && c.costX ? "X" : c && c.costInf && hasCost(c) ? "∞" : costOf(c);
 
 /* ---- 「だれに」: one base effect (ダメージ / 弱体 / 魅了 / ATKダウン / 破壊) + who it goes to ---- */
 const TARGETABLE = { atkUp: ["one", "two", "random", "all"], dmg: ["one", "two", "random", "all"], vuln: ["one", "two", "random", "all"], weak: ["one", "two", "random", "all"], atkDown: ["one", "two", "random", "all"], charm: ["one", "two", "random", "all"], destroy: ["one", "two", "random", "all"] };

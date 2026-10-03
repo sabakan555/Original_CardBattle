@@ -232,7 +232,7 @@ function renderBoard(){
     if (sel && sel.z === "hand"){
       const a0 = acts.length;
       const c = card(pm.hand[sel.i]), t = cardType(c);
-      const afford = canPay(st, me, c), short = afford ? "" : costWhy(st, me, c) ? `（${costWhy(st, me, c)}）` : `（マナが${effCost(st, me, c) - pm.mana.cur}足りない）`;
+      const afford = canPay(st, me, c), short = afford ? "" : costWhy(st, me, c) ? `（${costWhy(st, me, c)}）` : (effCost(st, me, c) === Infinity ? "（コスト∞：ふつうには使えない）" : `（マナが${effCost(st, me, c) - pm.mana.cur}足りない）`);
       if (t === "monster"){
         const ss = ssOf(c);
         const tn = tribOf(c, st, me), mineN = pm.mz.filter(m => m && (!c.tribTag || hasTag(m.c, c.tribTag))).length;
