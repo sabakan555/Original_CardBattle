@@ -1253,8 +1253,10 @@ div.f{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:13px}
 /* デュエマ旧枠風（サバ缶デザイン・Figma「デュエマ旧枠」）: 石の枠を上にかぶせる。絵の窓はモンスター＝四角、魔法・罠＝アーチ。数字は「デュエマ数字」 */
 @font-face{font-family:"DMNum";src:url("fonts/DMNum.woff2") format("woff2");font-display:block;unicode-range:U+0030-0039,U+0020}
 .card.dm{--du:calc(var(--w)/630);aspect-ratio:630/880;padding:0;background:transparent;border:none;border-radius:calc(var(--du)*26);box-shadow:0 calc(var(--du)*4) calc(var(--du)*12) rgba(0,0,0,.35);color:#000;isolation:isolate;font-family:var(--cf,"LogoTypeGothic","GenJyuuGothic",sans-serif)}
-.card.dm::before{content:"";position:absolute;inset:0;background:url("assets/dm_mon.webp") 0 0/100% 100% no-repeat;border-radius:inherit;z-index:2;pointer-events:none}
-.card.dm.magic::before,.card.dm.equip::before,.card.dm.trap::before{background-image:url("assets/dm_sp.webp")}
+.card.dm{--dmf:url("assets/dm_mon.webp")}.card.dm.magic,.card.dm.equip,.card.dm.trap{--dmf:url("assets/dm_sp.webp")}
+.card.dm::before{content:"";position:absolute;inset:0;background:var(--dmf) 0 0/100% 100% no-repeat;border-radius:inherit;z-index:2;pointer-events:none}
+/* 枠の色: 石の明るさはそのまま、色だけ変える（絵の窓は枠の形で切りぬく） */
+.card.dm.mcol::before{background:linear-gradient(var(--cframe),var(--cframe)) 0 0/100% 100%,var(--dmf) 0 0/100% 100% no-repeat;background-blend-mode:color,normal;-webkit-mask:var(--dmf) 0 0/100% 100% no-repeat;mask:var(--dmf) 0 0/100% 100% no-repeat}
 .card.dm .c-in{position:static;display:block;height:auto;background:none;border-radius:0;overflow:visible}
 .card.dm .c-art{position:absolute;left:calc(var(--du)*93);top:calc(var(--du)*120);width:calc(var(--du)*512);height:calc(var(--du)*433);aspect-ratio:auto;border:none;background:#c7cdeb;overflow:visible;z-index:auto}
 .card.dm.magic .c-art,.card.dm.equip .c-art,.card.dm.trap .c-art{left:calc(var(--du)*57);top:calc(var(--du)*109);width:calc(var(--du)*513);height:calc(var(--du)*445)}
@@ -1266,7 +1268,7 @@ div.f{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:13px}
 .card.dm .c-name{position:absolute;left:calc(var(--du)*128);top:calc(var(--du)*38);width:calc(var(--du)*472);height:calc(var(--du)*72);padding:0!important;border:none!important;background:none;display:flex;align-items:center;justify-content:center;line-height:1!important;font-weight:700;letter-spacing:-.02em;color:#000;z-index:3;white-space:nowrap;overflow:hidden}
 .card.dm .c-name{font-size:calc(var(--du)*44*var(--nk,1))}
 .card.dm .m-nm{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
-.card.dm .c-cost,.card.dm .c-atk{font-family:"DMNum",var(--en,var(--ui));font-weight:400;color:#fff;text-shadow:calc(var(--du)*2) calc(var(--du)*2) 0 #000;letter-spacing:0;font-variant-numeric:normal}
+.card.dm .c-cost,.card.dm .c-atk{font-family:"DMNum",var(--en,var(--ui));font-weight:400;color:#fff;text-shadow:calc(var(--du)*2) calc(var(--du)*2) 0 #000;letter-spacing:calc(var(--du)*4);font-variant-numeric:normal}
 .card.dm .c-cost{position:absolute;left:calc(var(--du)*22);top:calc(var(--du)*30);right:auto;width:calc(var(--du)*78);height:calc(var(--du)*62);padding:0;border:none;border-radius:0;background:none;box-shadow:none;display:grid;place-items:center;font-size:calc(var(--du)*50);line-height:1;z-index:3}
 .card.dm .c-text{position:absolute;left:calc(var(--du)*70);top:calc(var(--du)*603);width:calc(var(--du)*490);height:calc(var(--du)*192);border:none;background:none;box-shadow:none;padding:0;font-family:var(--cf,"GenJyuuGothic","Zen Maru Gothic",var(--ui));font-weight:400;font-size:calc(var(--du)*21*var(--tk,1));line-height:1.38;color:#000;overflow:visible;min-height:0;z-index:3;display:block}
 .card.dm .c-text .body{max-height:calc(var(--du)*21*1.38*6*var(--tk,1));overflow:hidden}
