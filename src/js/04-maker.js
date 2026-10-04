@@ -961,11 +961,12 @@ function mkBuildDoc(){
   const out = document.createElement("canvas"); out.width = cv.width; out.height = cv.height; out.getContext("2d").drawImage(cv, 0, 0);
   MK.mode = wasMode; composite();
   const id = S.editId || uid("c");
-  const prev = S.cards.get(id) || userPotion(id) || userRelic(id) || builtinPotionCard(id);
+  const prev = S.cards.get(id) || userPotion(id) || userRelic(id) || builtinPotionCard(id) || builtinRelicCard(id);
   let eqN = Math.round(+$("#mkEq").value || 0); $("#mkEq").value = eqN;
   const doc = { type: MK.type, name, atk: MK.type === "monster" ? atk : 0, atkInf, eqN: MK.type === "equip" ? eqN : 0, eqAb: "none", eqCost: MK.type === "equip" ? Math.max(0, Math.round(+$("#mkEqCost").value || 0)) : null, eqCap: MK.type === "monster" && $("#mkFrame").value === "socra" && $("#mkEqCap").value.trim() !== "" ? Math.max(0, Math.round(+$("#mkEqCap").value || 0)) : null, abs: MK.type === "monster" || MK.type === "equip" ? readAbs() : [], frame: $("#mkFrame").value || null, ss: readSS(), tags: parseTags($("#mkTags").value), tribTag: MK.type === "monster" ? $("#mkTribTag").value.trim() || null : null, ...(MK.type === "monster" ? mkVarFields() : { trib: null, atkConds: null, atkJoin: "and", tribCost: null, atkCondsCost: null, atkJoinCost: null }), effect: $("#mkEff").value.trim(), flavor: $("#mkFlv").value.trim(), nameSize: $("#mkNameSize").value, textSize: $("#mkTextSize").value, fx: null, combo: null, blocks: readBlocks(), font: $("#mkFont").value, quick: MK.type === "magic" && $("#mkFrame").value !== "spire" && $("#mkQuick").checked, persist: (MK.type === "magic" || MK.type === "trap") && $("#mkPersist").checked && !$("#mkField").checked, field: MK.type === "magic" && $("#mkField").checked || null, sk: mkSk(), rarity: $("#mkFrame").value === "spire" ? $("#mkRarity").value : null, exhaust: (MK.type === "magic" || MK.type === "trap") && $("#mkExhaust").checked, noUse: (MK.type === "magic" || MK.type === "trap") && $("#mkNoUse").checked || null, flashback: null, strig: null, kick: null, ...mkSpOpts(), mass: mkMassVal(), fieldMine: MK.type === "magic" && $("#mkField").checked && $("#mkFieldMine").checked || null, anySum: MK.type === "monster" && $("#mkAnySum").checked || null, land: MK.type === "magic" && $("#mkField").checked && $("#mkLand").checked || null, when: mkWhenVal(), fusion: mkFusionVal(), token: $("#mkToken").checked || null, ex: $("#mkEx").checked || !!mkFusionVal() || null, ...mkPays(true), cost: MK.deck === "normal" ? null : $("#mkCost").value === "X" || $("#mkCost").value === "∞" ? 0 : +$("#mkCost").value, costX: MK.deck !== "normal" && $("#mkCost").value === "X", costInf: MK.deck !== "normal" && $("#mkCost").value === "∞" || null, deckMode: MK.deck, limit: +$("#mkLimit").value,
     img: prev && prev.img && !MK.artDirty ? prev.img : encodeArt(out, MK.kind === "potion" || MK.kind === "relic"), frameless: MK.frameless, textEdge: MK.frameless && $("#mkTEdge").checked || null, holo: $("#mkHolo").value || null, fxRows: $("#mkFxRows").checked || null, colF: $("#mkColOn").checked ? $("#mkColF").value : null, colB: $("#mkColOn").checked ? $("#mkColB").value : null, foil: $("#mkFoil").value || null, flAlpha: MK.frameless && MK.flAlpha != null && MK.flAlpha !== FL_ALPHA_DEF ? MK.flAlpha : null, author: S.name, ownerId: prev?.ownerId || S.uid || null, updatedAt: Date.now() };
   if (prev && prev.builtinPotion && !MK.artDirty && doc.img === potionArt(prev.potKey)) delete doc.img;
+  if (prev && prev.builtinRelic){ if (!MK.artDirty && !prev.img) doc.img = ""; doc.neow = true; }
   if (MK.kind === "potion" || MK.kind === "relic") Object.assign(doc, { type: MK.kind, neow: MK.kind === "relic" && $("#mkNeow").checked || null, atk: 0, atkInf: false, eqN: 0, eqCost: null, eqCap: null, abs: [], frame: null, ss: null, quick: false, persist: false, sk: null, rarity: null, exhaust: false, payLp: null, payDisc: null, payMax: null, cost: null, costX: false, deckMode: "normal", limit: 0 });
   doc.ctrs = ctrSnap(doc);
   return { id, prev, doc };
@@ -997,7 +998,7 @@ $("#btnSave").addEventListener("click", async () => {
   const B = mkBuildDoc(); if (!B) return; const { id, prev, doc } = B;
   $("#btnSave").disabled = true;
   try{
-    if (prev && prev.starter){ await saveBuiltinDoc(id, { ...doc, author: prev.author, ownerId: null }); toast("はじめからあるカードを更新しました（みんなに反映されます）"); }
+    if (prev && prev.starter){ await saveBuiltinDoc(id, { ...doc, author: prev.author, ownerId: null }); toast(`はじめからある${prev.builtinRelic ? "レリック" : prev.builtinPotion ? "ポーション" : "カード"}を更新しました（みんなに反映されます）`); }
     else { await saveCardDoc(id, doc); toast(MK.kind === "potion" || MK.kind === "relic" ? (MK.kind === "relic" ? "レリック" : "ポーション") + (S.editId ? "を更新しました" : "を保存しました！") : S.editId ? "カードを更新しました" : "カードを保存しました！"); }
     resetMaker();
   }
@@ -1020,7 +1021,7 @@ function potionList(){
 }
 const potItemHTML = c => `<div class="g-item">${potionHTML(c, "sm")}<div class="meta">${c.builtinPotion ? "はじめから" + (c.edited ? "（編集ずみ）" : "") : "by " + esc(c.author || "？")}</div>${c.builtinPotion && isAdmin() ? `<div class="row g-btns" style="gap:6px"><button class="small" data-pedit="${esc(c.id)}" title="はじめからあるポーションを編集（管理者）">編集</button>${c.edited ? `<button class="small" data-preset="${esc(c.id)}">${delArm === "pr:" + c.id ? "本当に戻す" : "元に戻す"}</button>` : ""}</div>` : ""}${!c.builtinPotion && isMine(c) ? `<div class="row" style="gap:6px"><button class="small" data-pedit="${esc(c.id)}">編集</button><button class="small danger" data-pdel="${esc(c.id)}">${delArm === c.id ? "本当に消す" : "消す"}</button></div>` : ""}</div>`;
 // レリック in the gallery (the built-in ネオーレリック are shown too)
-function builtinRelicCards(){ return Object.keys(RELICS).map(k => ({ id: "relic-" + k, name: RELICS[k].name, effect: RELICS[k].text, fx: null, blocks: null, img: "", author: "はじめから", builtinRelic: true, neow: true, relicView: true })); }
+function builtinRelicCards(){ return Object.keys(RELICS).map(k => builtinRelicCard(k)); }
 function relicList(){
   const f = S.filt.gal || {};
   let L = [...(S.userRelics || [])].sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0)).map(c => ({ ...c, relicView: true }));
@@ -1028,7 +1029,7 @@ function relicList(){
   if (f.q){ const ws = normQ(f.q).split(/\s+/).filter(Boolean); L = L.filter(c => { const hay = normQ([c.name, plainRuby(c.effect || ""), fxText0({ ...c, type: "magic" }), c.author, "レリック", c.neow ? "ネオー" : ""].join(" ")); return ws.every(w => hay.includes(w)); }); }
   return L;
 }
-const relItemHTML = c => `<div class="g-item">${potionHTML(c, "sm")}<div class="meta">${c.neow ? "ネオー・" : ""}${c.builtinRelic ? "はじめから" : "by " + esc(c.author || "？")}</div>${!c.builtinRelic && isMine(c) ? `<div class="row" style="gap:6px"><button class="small" data-pedit="${esc(c.id)}">編集</button><button class="small danger" data-pdel="${esc(c.id)}">${delArm === c.id ? "本当に消す" : "消す"}</button></div>` : ""}</div>`;
+const relItemHTML = c => `<div class="g-item">${potionHTML(c, "sm")}<div class="meta">${c.neow ? "ネオー・" : ""}${c.builtinRelic ? "はじめから" + (c.edited ? "（編集ずみ）" : "") : "by " + esc(c.author || "？")}</div>${c.builtinRelic && isAdmin() ? `<div class="row g-btns" style="gap:6px"><button class="small" data-pedit="${esc(c.id)}" title="はじめからあるレリックを編集（管理者）">編集</button>${c.edited ? `<button class="small" data-preset="${esc(c.id)}">${delArm === "pr:" + c.id ? "本当に戻す" : "元に戻す"}</button>` : ""}</div>` : ""}${!c.builtinRelic && isMine(c) ? `<div class="row" style="gap:6px"><button class="small" data-pedit="${esc(c.id)}">編集</button><button class="small danger" data-pdel="${esc(c.id)}">${delArm === c.id ? "本当に消す" : "消す"}</button></div>` : ""}</div>`;
 function renderPotGallery(){
   { const f = S.filt.gal || {}, L = relicList(); $("#relWrap").hidden = !L.length || f.type !== "all" || !!f.fx; $("#relGallery").innerHTML = L.map(relItemHTML).join(""); }
   const f = S.filt.gal || {}, L = potionList();
@@ -1042,11 +1043,11 @@ async function potGalClick(e){
     const id = rs.dataset.preset;
     if (delArm !== "pr:" + id){ delArm = "pr:" + id; renderGallery(); return true; }
     delArm = null;
-    try{ await deleteBuiltinDoc(id); toast("ポーションをはじめの状態に戻しました"); } catch(err){ writeErr(err); }
+    try{ await deleteBuiltinDoc(id); toast(/^relic-/.test(id) ? "レリックをはじめの状態に戻しました" : "ポーションをはじめの状態に戻しました"); } catch(err){ writeErr(err); }
     return true;
   }
   if (ed){
-    const c = userPotion(ed.dataset.pedit) || userRelic(ed.dataset.pedit) || (isAdmin() ? builtinPotionCard(ed.dataset.pedit) : null); if (!c || !(isMine(c) || (c.builtinPotion && isAdmin()))) return true;
+    const c = userPotion(ed.dataset.pedit) || userRelic(ed.dataset.pedit) || (isAdmin() ? builtinPotionCard(ed.dataset.pedit) || builtinRelicCard(ed.dataset.pedit) : null); if (!c || !(isMine(c) || ((c.builtinPotion || c.builtinRelic) && isAdmin()))) return true;
     resetMaker(); setMkKind(c.type === "relic" ? "relic" : "potion"); $("#mkNeow").checked = !!c.neow;
     S.editId = c.id; MK.artDirty = false; $("#mkName").value = c.nameRuby || c.name; $("#mkEff").value = c.effect || ""; $("#mkFlv").value = c.flavor || "";
     $("#mkNameSize").value = SIZES_T[c.nameSize] ? c.nameSize : "m"; $("#mkTextSize").value = SIZES_T[c.textSize] ? c.textSize : "m"; syncSizes();

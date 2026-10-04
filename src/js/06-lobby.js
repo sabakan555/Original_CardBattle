@@ -71,9 +71,16 @@ const RELICS = {
 };
 // user-made レリック (cards collection, type "relic")
 const userRelic = k => (S.userRelics || []).find(c => c && c.id === k) || null;
-const relicCard = k => { const u = userRelic(k); return u ? { ...u, type: "magic", frame: "spire", sk: "power", persist: false, relicView: true, costX: false, payLp: null, payDisc: null, payMax: null } : null; };
+// はじめからあるレリック: 管理者が名前・絵・説明を変えたり、自動の効果を足したりできる（builtin/relic-<key>）。元の効果（巻物・若葉・ほら貝）はそのまま
+const relicEdit = k => (S.builtinEdits || {})["relic-" + k] || null;
+function builtinRelicCard(id){
+  const k = String(id || "").replace(/^relic-/, ""); if (!RELICS[k]) return null;
+  const e = relicEdit(k) || {};
+  return { id: "relic-" + k, name: RELICS[k].name, effect: RELICS[k].text, flavor: "", fx: null, blocks: null, img: "", ...e, type: "relic", author: "はじめから", ownerId: null, builtinRelic: true, starter: true, neow: true, relicView: true, edited: !!relicEdit(k), relKey: k };
+}
+const relicCard = k => { const u = userRelic(k) || (RELICS[k] && relicEdit(k) ? builtinRelicCard(k) : null); return u ? { ...u, type: "magic", frame: "spire", sk: "power", persist: false, relicView: true, costX: false, payLp: null, payDisc: null, payMax: null } : null; };
 function relicDef(k){
-  if (RELICS[k]) return { name: RELICS[k].name, text: RELICS[k].text, img: "", key: k };
+  if (RELICS[k]){ const b = builtinRelicCard(k), rc = relicCard(k); return { name: b.name, text: [plainRuby(b.effect || ""), rc ? fxText0(rc) : ""].filter(Boolean).join("。") || RELICS[k].text, img: b.img || "", key: k }; }
   const c = userRelic(k); if (!c) return null;
   return { name: c.name, text: [fxText0(relicCard(k)), plainRuby(c.effect || "")].filter(Boolean).join("。") || "（効果なし）", img: c.img || "", key: k, user: true, neow: !!c.neow };
 }
@@ -103,7 +110,7 @@ function chooseRelic(st, s, key, target){
   }
   if (key === "sprout" && target == null){ p.relicPick = "sprout"; return true; }
   p.relicPick = null; p.relics = [...(p.relics || []), key];
-  const nm = `レリック「${RELICS[key].name}」`;
+  const nm = `レリック「${relicDef(key).name}」`;
   if (key === "scroll"){ const id = randSpire(true); if (id){ p.deck.splice(Math.floor(Math.random() * (p.deck.length + 1)), 0, id); log(st, s, `${nm}で「${card(id).name}」をデッキに加えた`); } else log(st, s, `${nm}：加えられるスパイア風カードがない`); }
   if (key === "sprout"){
     const [where, i] = String(target).split(":"), arr = where === "hand" ? p.hand : p.deck, id = randSpire(false);
@@ -111,7 +118,8 @@ function chooseRelic(st, s, key, target){
     else log(st, s, `${nm}：変えられるカードがない`);
   }
   if (key === "conch"){ if (p.mana){ if (st.turn === s && st.turnNo <= 1) p.mana.cur += 1; else p.conch = true; } log(st, s, `${nm}：最初のターンはマナ+1`); }
-  log(st, s, `${p.name} はレリック「${RELICS[key].name}」を選んだ`);
+  log(st, s, `${p.name} はレリック「${relicDef(key).name}」を選んだ`);
+  { const rc = relicCard(key); if (rc && hasTrig(rc, "gain")) runCard(st, s, rc, "gain", {}); }
   // now the opening hand (ほら貝: 2 more)
   if (p.openHand){ const want = p.openHand + (key === "conch" ? 2 : 0), k = Math.max(0, want - p.hand.length); p.openHand = 0; if (k) drawN(st, s, k, "最初の手札"); }
   return true;
