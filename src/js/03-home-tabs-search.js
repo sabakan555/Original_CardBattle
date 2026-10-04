@@ -172,11 +172,11 @@ function fxOptionsHTML(cur){
 function initFilters(key, onChange){
   const box = $("#" + key + "Filters");
   box.innerHTML = `<input type="search" id="${key}Q" placeholder="カード名・効果でさがす" aria-label="カード検索">
-    <div class="seg" id="${key}Type">${[["all", "すべて"], ["monster", "モンスター"], ["magic", "魔法"], ["quick", "速攻魔法"], ["equip", "装備"], ["trap", "罠"], ...(key === "gal" ? [["potion", "ポーション"], ["relic", "レリック"]] : [])].map(([v, l]) => `<button data-v="${v}" aria-pressed="${v === "all"}">${l}</button>`).join("")}</div>
+    <div class="seg" id="${key}Type">${[["all", "すべて"], ["monster", "モンスター"], ["magic", "魔法"], ["quick", "速攻魔法"], ["equip", "装備"], ["trap", "罠"], ...(key === "gal" ? [["potion", "ポーション"], ["relic", "レリック"], ["counter", "カウンター"]] : [])].map(([v, l]) => `<button data-v="${v}" aria-pressed="${v === "all"}">${l}</button>`).join("")}</div>
     <select id="${key}Fx" aria-label="効果で絞り込み">${fxOptionsHTML("")}</select>
     <select id="${key}Dm" aria-label="使えるデッキで絞り込み"><option value="">デッキ：指定なし</option><option value="cost">コストデッキ専用</option><option value="normal">コスト以外（ふつうのデッキ専用）</option><option value="both">どちらでも</option></select>
     <select id="${key}Tag" aria-label="タグで絞り込み">${tagOptionsHTML("")}</select>
-    <select id="${key}Ctr" aria-label="カウンターで絞り込み">${ctrFilterHTML("")}</select>
+    ${key === "gal" ? "" : `<select id="${key}Ctr" aria-label="カウンターで絞り込み">${ctrFilterHTML("")}</select>`}
     <select id="${key}Sort" aria-label="並べ替え">${Object.entries(SORTS).map(([k, v]) => `<option value="${k}">${v}</option>`).join("")}</select>
     <span class="count" id="${key}Count"></span>`;
   const f = S.filt[key];
@@ -185,7 +185,7 @@ function initFilters(key, onChange){
   $("#" + key + "Sort").addEventListener("change", e => { f.sort = e.target.value; onChange(); });
   $("#" + key + "Dm").addEventListener("change", e => { f.dm = e.target.value; onChange(); });
   { const tg = $("#" + key + "Tag"); const fill = () => { tg.innerHTML = tagOptionsHTML(f.tag); }; tg.addEventListener("focus", fill); tg.addEventListener("mousedown", fill); tg.addEventListener("change", e => { f.tag = e.target.value; onChange(); }); }
-  { const cs = $("#" + key + "Ctr"), fill = () => { cs.innerHTML = ctrFilterHTML(f.ctr || ""); }; cs.addEventListener("focus", fill); cs.addEventListener("mousedown", fill); cs.addEventListener("change", e => { f.ctr = e.target.value; onChange(); }); }
+  { const cs = $("#" + key + "Ctr"), fill = () => { cs.innerHTML = ctrFilterHTML(f.ctr || ""); }; if (cs) cs.addEventListener("focus", fill); if (cs) cs.addEventListener("mousedown", fill); if (cs) cs.addEventListener("change", e => { f.ctr = e.target.value; onChange(); }); }
   $("#" + key + "Type").addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return; f.type = b.dataset.v; box.querySelectorAll("#" + key + "Type button").forEach(x => x.setAttribute("aria-pressed", x === b)); onChange(); });
 }
 function matchCard(c, f){

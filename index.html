@@ -196,6 +196,9 @@ label.f{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:13p
 .ctrc img,.ctrc i{width:15px;height:15px;border-radius:50%;object-fit:cover;background:#fff;flex:none}
 .ctrc i{display:grid;place-items:center;font-style:normal;font-size:10px;line-height:1;color:var(--cc,#666)}
 .maker.ctr-mode .mk-left,.maker.ctr-mode .tools-col>:not(#mkTitle):not(.mk-kindbox){display:none!important}.maker:not(.ctr-mode) #ctrPanel,.maker.ctr-mode #neowRow,.maker.ctr-mode #mkKindNote{display:none!important}.maker.ctr-mode{grid-template-columns:1fr!important}
+.ctr-tile{display:flex;flex-direction:column;align-items:center;gap:6px;padding:14px 12px;border-radius:14px;background:rgba(255,255,255,.06);border:1px solid rgba(127,127,127,.35);text-align:center}.ctr-new{justify-content:center}
+.ctr-big{width:72px;height:72px;border-radius:50%;object-fit:cover;background:#fff;box-shadow:0 0 0 4px var(--cc,#666)}.ctr-big0{display:grid;place-items:center;font-size:34px;font-weight:700;color:var(--cc,#666)}
+.ctr-on{grid-column:1/-1;display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:6px 10px;border-radius:10px;background:rgba(255,255,255,.07)}
 .ctr-hint{margin:8px 0 0;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .cost-box{display:flex;flex-direction:column;gap:8px}.cost-line{display:flex;gap:6px 12px;flex-wrap:wrap;align-items:center}.cost-k{min-width:5.5em;font-weight:700;font-size:13px;padding:1px 8px;border-radius:99px;background:rgba(127,127,127,.18);text-align:center}.ctr-grid{display:flex;flex-wrap:wrap;gap:6px 14px;margin:6px 0}.ctr-item{display:flex;align-items:center;gap:6px}
 .ctr-form{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;padding:8px;border:1px dashed rgba(127,127,127,.6);border-radius:8px}
@@ -3063,6 +3066,14 @@ function mkPayCtrVal(){ const nEl = document.getElementById("mkPayCtrN"); if (!n
 function setPayCtr(x){ const p = payCtrOf({ payCtr: x }), sel = document.getElementById("mkPayCtr"); if (!sel) return; sel.dataset.want = p ? p.id : ""; sel.innerHTML = ctrOptsHTML(p ? p.id : ctrDefault()); $("#mkPayCtrN").value = p ? String(p.n) : "0"; $("#mkPayCtrW").value = p ? p.w : "me"; }
 ["mkPayCtr", "mkPayCtrN", "mkPayCtrW"].forEach(id => { const el = document.getElementById(id); if (el) el.addEventListener("input", () => { if (id === "mkPayCtr") el.dataset.want = el.value; if (typeof updateBkText === "function") updateBkText(); }); });
 renderCtrBox();
+/* ---- カード図鑑の「カウンター」 ---- */
+function ctrUseCount(){ const cnt = {}; S.cards.forEach(c => { if (!c || c.tut) return; cardCtrIds(c).forEach(id => { cnt[id] = (cnt[id] || 0) + 1; }); }); return cnt; }
+function ctrGalList(){ const cnt = ctrUseCount(), ids = [...new Set([...ctrList().map(d => d.id), ...Object.keys(cnt)])]; return ids.map(id => ({ ...(ctrDef(id) || { id, name: "？" }), id, uses: cnt[id] || 0 })); }
+function ctrTileHTML(d){
+  const col = HEX6.test(d.color || "") ? d.color : "#666", by = d.builtin ? "はじめから" : (S.counters || []).some(x => x.id === d.id) ? "by " + (d.author || "？") : "（消されたカウンター。カードの中にだけ残っている）";
+  return `<div class="ctr-tile" style="--cc:${col}">${d.icon ? `<img class="ctr-big" alt="" src="${esc(d.icon)}">` : `<span class="ctr-big ctr-big0">${esc([...(d.name || "？")][0])}</span>`}<b>${esc(d.name)}カウンター</b><span class="note">${esc(by)}</span><div class="row" style="gap:6px;justify-content:center"><button type="button" class="small" data-ctrcards="${esc(d.id)}"${d.uses ? "" : " disabled"}>使っているカード（${d.uses}）</button>${ctrCanEdit(d) && (S.counters || []).some(x => x.id === d.id) ? `<button type="button" class="small ghost" data-ctreditg="${esc(d.id)}">直す</button>` : ""}</div></div>`;
+}
+const ctrBanner = f => f && f.ctr ? `<div class="ctr-on">${ctrChip(f.ctr, "")}<b>${esc(ctrName(f.ctr))}</b>を使うカード<button type="button" class="small ghost" data-ctrclear aria-label="カウンターの絞り込みをやめる">× やめる</button></div>` : "";
 /* ================= crystal background & title screen ================= */
 // low-poly "crystal" texture: a Voronoi pattern drawn once at low resolution
 function crystal(w, h, cell, pick){
@@ -3237,11 +3248,11 @@ function fxOptionsHTML(cur){
 function initFilters(key, onChange){
   const box = $("#" + key + "Filters");
   box.innerHTML = `<input type="search" id="${key}Q" placeholder="カード名・効果でさがす" aria-label="カード検索">
-    <div class="seg" id="${key}Type">${[["all", "すべて"], ["monster", "モンスター"], ["magic", "魔法"], ["quick", "速攻魔法"], ["equip", "装備"], ["trap", "罠"], ...(key === "gal" ? [["potion", "ポーション"], ["relic", "レリック"]] : [])].map(([v, l]) => `<button data-v="${v}" aria-pressed="${v === "all"}">${l}</button>`).join("")}</div>
+    <div class="seg" id="${key}Type">${[["all", "すべて"], ["monster", "モンスター"], ["magic", "魔法"], ["quick", "速攻魔法"], ["equip", "装備"], ["trap", "罠"], ...(key === "gal" ? [["potion", "ポーション"], ["relic", "レリック"], ["counter", "カウンター"]] : [])].map(([v, l]) => `<button data-v="${v}" aria-pressed="${v === "all"}">${l}</button>`).join("")}</div>
     <select id="${key}Fx" aria-label="効果で絞り込み">${fxOptionsHTML("")}</select>
     <select id="${key}Dm" aria-label="使えるデッキで絞り込み"><option value="">デッキ：指定なし</option><option value="cost">コストデッキ専用</option><option value="normal">コスト以外（ふつうのデッキ専用）</option><option value="both">どちらでも</option></select>
     <select id="${key}Tag" aria-label="タグで絞り込み">${tagOptionsHTML("")}</select>
-    <select id="${key}Ctr" aria-label="カウンターで絞り込み">${ctrFilterHTML("")}</select>
+    ${key === "gal" ? "" : `<select id="${key}Ctr" aria-label="カウンターで絞り込み">${ctrFilterHTML("")}</select>`}
     <select id="${key}Sort" aria-label="並べ替え">${Object.entries(SORTS).map(([k, v]) => `<option value="${k}">${v}</option>`).join("")}</select>
     <span class="count" id="${key}Count"></span>`;
   const f = S.filt[key];
@@ -3250,7 +3261,7 @@ function initFilters(key, onChange){
   $("#" + key + "Sort").addEventListener("change", e => { f.sort = e.target.value; onChange(); });
   $("#" + key + "Dm").addEventListener("change", e => { f.dm = e.target.value; onChange(); });
   { const tg = $("#" + key + "Tag"); const fill = () => { tg.innerHTML = tagOptionsHTML(f.tag); }; tg.addEventListener("focus", fill); tg.addEventListener("mousedown", fill); tg.addEventListener("change", e => { f.tag = e.target.value; onChange(); }); }
-  { const cs = $("#" + key + "Ctr"), fill = () => { cs.innerHTML = ctrFilterHTML(f.ctr || ""); }; cs.addEventListener("focus", fill); cs.addEventListener("mousedown", fill); cs.addEventListener("change", e => { f.ctr = e.target.value; onChange(); }); }
+  { const cs = $("#" + key + "Ctr"), fill = () => { cs.innerHTML = ctrFilterHTML(f.ctr || ""); }; if (cs) cs.addEventListener("focus", fill); if (cs) cs.addEventListener("mousedown", fill); if (cs) cs.addEventListener("change", e => { f.ctr = e.target.value; onChange(); }); }
   $("#" + key + "Type").addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return; f.type = b.dataset.v; box.querySelectorAll("#" + key + "Type button").forEach(x => x.setAttribute("aria-pressed", x === b)); onChange(); });
 }
 function matchCard(c, f){
@@ -4380,11 +4391,18 @@ function renderGallery(){
     return `<div class="g-item">${cardHTML(c, "sm")}<div class="meta">by ${esc(c.author || "？")}</div>${!mine && S.db ? tradeBtnHTML(c) : ""}${mine ? `<div class="row" style="gap:6px"><button class="small" data-edit="${esc(c.id)}">編集</button><button class="small danger" data-del="${esc(c.id)}">${delArm === c.id ? "本当に消す" : "消す"}</button></div>${isAdmin() && S.starters.some(b => b.name === c.name) ? `<button class="small g-wide" data-toBuiltin="${esc(c.id)}">${delArm === "b:" + c.id ? "本当に？（このカードは消えます）" : "はじめからあるカードと入れ替え"}</button>` : ""}` : ""}</div>`;
   });
   renderPotGallery();
+  if ((S.filt.gal || {}).type === "counter"){ const L = ctrGalList(); setCount("gal", L.length, L.length); $("#gallery").innerHTML = L.map(ctrTileHTML).join("") + `<div class="ctr-tile ctr-new"><button type="button" class="primary" data-ctrnewg>＋ 新しいカウンターを作る</button><span class="note">カード工房の「カード以外 → カウンター」で作れます</span></div>`; return; }
   if ((S.filt.gal || {}).type === "relic"){ const L = relicList(); setCount("gal", L.length, L.length); $("#gallery").innerHTML = L.map(relItemHTML).join("") || `<p class="muted">レリックがありません。</p>`; return; }
   if ((S.filt.gal || {}).type === "potion"){ const L = potionList(); setCount("gal", L.length, L.length); $("#gallery").innerHTML = L.map(potItemHTML).join("") || `<p class="muted">ポーションがありません。上の「つくるもの」で「カード以外」をえらぶと作れます。</p>`; return; }
-  $("#gallery").innerHTML = items2.join("") || (total ? `<p class="muted">条件に合うカードがありません。</p>` : `<p class="muted">まだ自分のカードはありません。上で描いてみよう！</p>`);
+  $("#gallery").innerHTML = ctrBanner(S.filt.gal) + (items2.join("") || (total ? `<p class="muted">条件に合うカードがありません。</p>` : `<p class="muted">まだ自分のカードはありません。上で描いてみよう！</p>`));
 }
 $("#gallery").addEventListener("click", async e => {
+  { const f = S.filt.gal, cc = e.target.closest("[data-ctrcards]");
+    if (cc){ f.ctr = cc.dataset.ctrcards; f.type = "all"; document.querySelectorAll("#galType button").forEach(x => x.setAttribute("aria-pressed", x.dataset.v === "all")); renderGallery(); return; }
+    if (e.target.closest("[data-ctrclear]")){ f.ctr = ""; renderGallery(); return; }
+    const ce = e.target.closest("[data-ctreditg]"), cn = e.target.closest("[data-ctrnewg]");
+    if ((ce || cn) && !S.editId){ setMkKind("counter"); const d = ce ? ctrDef(ce.dataset.ctreditg) : null; S.ctrEdit = d && ctrCanEdit(d) ? { id: d.id, name: d.name, color: d.color || "#7a4fd0", icon: d.icon || "" } : { id: null, name: "", color: "#7a4fd0", icon: "" }; renderCtrBox(); const t = $("#mkTitle"); if (t) t.scrollIntoView({ block: "start", behavior: "smooth" }); return; }
+    if ((ce || cn) && S.editId){ toast("いま編集中のカードを保存するか、新しく描くを押してからね"); return; } }
   if (e.target.closest("[data-pedit],[data-pdel],[data-preset]")){ potGalClick(e); return; }
   const tb = e.target.closest("[data-trade]"); if (tb){ openTradeDlg(tb.dataset.trade); return; }
   const ed = e.target.closest("[data-edit]"), del = e.target.closest("[data-del]");

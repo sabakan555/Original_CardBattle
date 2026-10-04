@@ -210,3 +210,11 @@ function mkPayCtrVal(){ const nEl = document.getElementById("mkPayCtrN"); if (!n
 function setPayCtr(x){ const p = payCtrOf({ payCtr: x }), sel = document.getElementById("mkPayCtr"); if (!sel) return; sel.dataset.want = p ? p.id : ""; sel.innerHTML = ctrOptsHTML(p ? p.id : ctrDefault()); $("#mkPayCtrN").value = p ? String(p.n) : "0"; $("#mkPayCtrW").value = p ? p.w : "me"; }
 ["mkPayCtr", "mkPayCtrN", "mkPayCtrW"].forEach(id => { const el = document.getElementById(id); if (el) el.addEventListener("input", () => { if (id === "mkPayCtr") el.dataset.want = el.value; if (typeof updateBkText === "function") updateBkText(); }); });
 renderCtrBox();
+/* ---- カード図鑑の「カウンター」 ---- */
+function ctrUseCount(){ const cnt = {}; S.cards.forEach(c => { if (!c || c.tut) return; cardCtrIds(c).forEach(id => { cnt[id] = (cnt[id] || 0) + 1; }); }); return cnt; }
+function ctrGalList(){ const cnt = ctrUseCount(), ids = [...new Set([...ctrList().map(d => d.id), ...Object.keys(cnt)])]; return ids.map(id => ({ ...(ctrDef(id) || { id, name: "？" }), id, uses: cnt[id] || 0 })); }
+function ctrTileHTML(d){
+  const col = HEX6.test(d.color || "") ? d.color : "#666", by = d.builtin ? "はじめから" : (S.counters || []).some(x => x.id === d.id) ? "by " + (d.author || "？") : "（消されたカウンター。カードの中にだけ残っている）";
+  return `<div class="ctr-tile" style="--cc:${col}">${d.icon ? `<img class="ctr-big" alt="" src="${esc(d.icon)}">` : `<span class="ctr-big ctr-big0">${esc([...(d.name || "？")][0])}</span>`}<b>${esc(d.name)}カウンター</b><span class="note">${esc(by)}</span><div class="row" style="gap:6px;justify-content:center"><button type="button" class="small" data-ctrcards="${esc(d.id)}"${d.uses ? "" : " disabled"}>使っているカード（${d.uses}）</button>${ctrCanEdit(d) && (S.counters || []).some(x => x.id === d.id) ? `<button type="button" class="small ghost" data-ctreditg="${esc(d.id)}">直す</button>` : ""}</div></div>`;
+}
+const ctrBanner = f => f && f.ctr ? `<div class="ctr-on">${ctrChip(f.ctr, "")}<b>${esc(ctrName(f.ctr))}</b>を使うカード<button type="button" class="small ghost" data-ctrclear aria-label="カウンターの絞り込みをやめる">× やめる</button></div>` : "";

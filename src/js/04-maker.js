@@ -1103,11 +1103,18 @@ function renderGallery(){
     return `<div class="g-item">${cardHTML(c, "sm")}<div class="meta">by ${esc(c.author || "？")}</div>${!mine && S.db ? tradeBtnHTML(c) : ""}${mine ? `<div class="row" style="gap:6px"><button class="small" data-edit="${esc(c.id)}">編集</button><button class="small danger" data-del="${esc(c.id)}">${delArm === c.id ? "本当に消す" : "消す"}</button></div>${isAdmin() && S.starters.some(b => b.name === c.name) ? `<button class="small g-wide" data-toBuiltin="${esc(c.id)}">${delArm === "b:" + c.id ? "本当に？（このカードは消えます）" : "はじめからあるカードと入れ替え"}</button>` : ""}` : ""}</div>`;
   });
   renderPotGallery();
+  if ((S.filt.gal || {}).type === "counter"){ const L = ctrGalList(); setCount("gal", L.length, L.length); $("#gallery").innerHTML = L.map(ctrTileHTML).join("") + `<div class="ctr-tile ctr-new"><button type="button" class="primary" data-ctrnewg>＋ 新しいカウンターを作る</button><span class="note">カード工房の「カード以外 → カウンター」で作れます</span></div>`; return; }
   if ((S.filt.gal || {}).type === "relic"){ const L = relicList(); setCount("gal", L.length, L.length); $("#gallery").innerHTML = L.map(relItemHTML).join("") || `<p class="muted">レリックがありません。</p>`; return; }
   if ((S.filt.gal || {}).type === "potion"){ const L = potionList(); setCount("gal", L.length, L.length); $("#gallery").innerHTML = L.map(potItemHTML).join("") || `<p class="muted">ポーションがありません。上の「つくるもの」で「カード以外」をえらぶと作れます。</p>`; return; }
-  $("#gallery").innerHTML = items2.join("") || (total ? `<p class="muted">条件に合うカードがありません。</p>` : `<p class="muted">まだ自分のカードはありません。上で描いてみよう！</p>`);
+  $("#gallery").innerHTML = ctrBanner(S.filt.gal) + (items2.join("") || (total ? `<p class="muted">条件に合うカードがありません。</p>` : `<p class="muted">まだ自分のカードはありません。上で描いてみよう！</p>`));
 }
 $("#gallery").addEventListener("click", async e => {
+  { const f = S.filt.gal, cc = e.target.closest("[data-ctrcards]");
+    if (cc){ f.ctr = cc.dataset.ctrcards; f.type = "all"; document.querySelectorAll("#galType button").forEach(x => x.setAttribute("aria-pressed", x.dataset.v === "all")); renderGallery(); return; }
+    if (e.target.closest("[data-ctrclear]")){ f.ctr = ""; renderGallery(); return; }
+    const ce = e.target.closest("[data-ctreditg]"), cn = e.target.closest("[data-ctrnewg]");
+    if ((ce || cn) && !S.editId){ setMkKind("counter"); const d = ce ? ctrDef(ce.dataset.ctreditg) : null; S.ctrEdit = d && ctrCanEdit(d) ? { id: d.id, name: d.name, color: d.color || "#7a4fd0", icon: d.icon || "" } : { id: null, name: "", color: "#7a4fd0", icon: "" }; renderCtrBox(); const t = $("#mkTitle"); if (t) t.scrollIntoView({ block: "start", behavior: "smooth" }); return; }
+    if ((ce || cn) && S.editId){ toast("いま編集中のカードを保存するか、新しく描くを押してからね"); return; } }
   if (e.target.closest("[data-pedit],[data-pdel],[data-preset]")){ potGalClick(e); return; }
   const tb = e.target.closest("[data-trade]"); if (tb){ openTradeDlg(tb.dataset.trade); return; }
   const ed = e.target.closest("[data-edit]"), del = e.target.closest("[data-del]");
