@@ -143,11 +143,11 @@ function cardFxKeys(c){
   blocksOf(c).forEach(b => { if (t === "monster") out.add("t:" + b.trig); [...(b.then || []), ...(b.else || []), ...(b.dieBr || []).flatMap(x => x.then || [])].forEach(add); if (b.one) out.add("x:one"); if (b.grant) out.add("x:grant"); if (b.roll) out.add("x:roll"); if (b.delay > 0) out.add("x:delay"); });
   if (normCombo(c)) out.add("x:combo");
   absOf(c).forEach(a => out.add("a:" + a.k));
-  if (massOf(c)) out.add("x:mass"); if (Array.isArray(c.fusion) && c.fusion.length) out.add("x:fusion"); if (c.ex) out.add("x:ex"); if (c.token) out.add("x:token");
+  if (cardCtrIds(c).length) out.add("x:ctr"); if (massOf(c)) out.add("x:mass"); if (Array.isArray(c.fusion) && c.fusion.length) out.add("x:fusion"); if (c.ex) out.add("x:ex"); if (c.token) out.add("x:token");
   try { Object.defineProperty(c, "__fxk", { value: { v: c.updatedAt, s: out }, configurable: true, writable: true, enumerable: false }); } catch (e) {}
   return out;
 }
-const FX_EXTRA = { combo: "追加効果（特定のカードがあるとき）", one: "効果を1つえらんで発動", grant: "プレイヤーに効果を付与", roll: "サイコロ・コイン", delay: "時計（○ターン後に出る）", mass: "要求質量（ナナシ系）", fusion: "融合モンスター", ex: "EXデッキのカード", token: "トークン" };
+const FX_EXTRA = { ctr: "カウンターを使う", combo: "追加効果（特定のカードがあるとき）", one: "効果を1つえらんで発動", grant: "プレイヤーに効果を付与", roll: "サイコロ・コイン", delay: "時計（○ターン後に出る）", mass: "要求質量（ナナシ系）", fusion: "融合モンスター", ex: "EXデッキのカード", token: "トークン" };
 function fxOptionsHTML(cur){
   const cnt = {}; let any = 0, none = 0, free = 0;
   [...S.cards.values()].forEach(c => { if (!c || c.tut) return; const K = cardFxKeys(c); K.forEach(k => { cnt[k] = (cnt[k] || 0) + 1; });

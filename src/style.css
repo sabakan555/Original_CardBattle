@@ -178,6 +178,15 @@ label.f{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:13p
 .bk-new{border:2px dashed var(--accent,#4fd1c5);background:transparent;color:var(--accent,#4fd1c5);font-weight:700;padding:10px;border-radius:14px}
 @media (max-width:640px){.bk-grid{grid-template-columns:minmax(0,1fr)}.bk-row select{flex-basis:100%}.bk-row select[data-f=op],.bk-row select[data-f=to],.bk-row select[data-f=join],.bk-row select[data-f=kind]{flex:1 1 120px}}
 
+.card .ctrs{position:absolute;top:-8px;left:50%;transform:translateX(-50%);z-index:5;display:flex;gap:3px;white-space:nowrap}
+.card .ctrs .dmgc{position:static;transform:none}
+.ctrc{display:inline-flex;align-items:center;gap:2px;background:var(--cc,#666);color:#fff;font:700 11px/1.5 var(--ui);padding:0 7px 0 2px;border-radius:99px;box-shadow:0 1px 3px rgba(0,0,0,.4);white-space:nowrap;vertical-align:middle}
+.ctrc img,.ctrc i{width:15px;height:15px;border-radius:50%;object-fit:cover;background:#fff;flex:none}
+.ctrc i{display:grid;place-items:center;font-style:normal;font-size:10px;line-height:1;color:var(--cc,#666)}
+.ctr-box{margin-top:10px}.ctr-box>summary{cursor:pointer;font-weight:700}.ctr-grid{display:flex;flex-wrap:wrap;gap:6px 14px;margin:6px 0}.ctr-item{display:flex;align-items:center;gap:6px}
+.ctr-form{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;padding:8px;border:1px dashed rgba(127,127,127,.6);border-radius:8px}
+.ctr-ico{width:40px;height:40px;border-radius:50%;object-fit:cover;background:#fff;border:1px solid #ccc}.ctr-ico0{display:inline-grid;place-items:center;color:#555;font-weight:700}
+.btnlike{display:inline-block;padding:2px 10px;border:1px solid rgba(127,127,127,.6);border-radius:6px;cursor:pointer}
 .card .dmgc{position:absolute;top:-8px;left:50%;transform:translateX(-50%);background:#c0392b;color:#fff;font:700 11px/1.5 var(--ui);padding:0 8px;border-radius:99px;z-index:5;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,.4)}
 .card .eqb{position:absolute;top:-8px;left:-6px;background:var(--magic);color:#fff;font-family:var(--ui);font-size:11px;padding:0 7px;border-radius:99px;z-index:1}
 .c-in{height:100%;background:var(--cbg);border-radius:calc(var(--w)*.028);display:flex;flex-direction:column;overflow:hidden;position:relative}
