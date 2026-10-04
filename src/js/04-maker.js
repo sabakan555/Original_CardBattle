@@ -351,8 +351,18 @@ function potionModeUI(){
   if (pot){ $("#mkTab").textContent = what; $("#mkCostBadge").hidden = true; }
   $("#mkTitle").textContent = pot ? (S.editId ? `${what}を編集中` : `${what}を描く`) : (S.editId ? "カードを編集中" : "カードを描く");
   if (!S.editId) $("#btnSave").textContent = pot ? `${what}を保存` : "カードを保存";
+  ctrModeUI();
 }
+// カード以外 → カウンター: カードの編集はかくして、カウンターの一覧と作る欄だけ出す
+function ctrModeUI(){
+  const on = !!MK.ctrMode, mk = document.querySelector("#tab-make .maker"); if (mk) mk.classList.toggle("ctr-mode", on);
+  if (!on) return;
+  document.querySelectorAll("#mkKind2 button").forEach(b => b.setAttribute("aria-pressed", b.dataset.k2 === "counter"));
+  $("#mkTitle").textContent = "カウンターを作る"; renderCtrBox();
+}
+document.addEventListener("click", e => { if (e.target.closest && e.target.closest("[data-goctr]") && !S.editId){ setMkKind("counter"); const t = $("#mkTitle"); if (t) t.scrollIntoView({ block: "start", behavior: "smooth" }); } });
 function setMkKind(k){
+  MK.ctrMode = k === "counter"; if (MK.ctrMode) k = "potion";
   MK.kind = k === "potion" || k === "relic" ? k : "card";
   const other = MK.kind !== "card";
   document.querySelectorAll("#mkKind button").forEach(b => b.setAttribute("aria-pressed", b.dataset.k === (other ? "potion" : "card")));
@@ -588,6 +598,7 @@ MK.easy = ls.get("cb_fxmode") !== "pro";
 function easyKinds(){ const ks = mkKinds(), e = ks.filter(isEasyKind); return e.length ? e : ks; }
 function syncProOn(){
   const on = (q, v) => { const el = $(q); if (el) el.classList.toggle("pro-on", !!v); };
+  { const c = mkPreviewCard(), tx = extraCostText(c).replace(/^【コスト】/, ""), el = $("#sumCost"); if (el){ el.textContent = tx || "なし"; el.classList.toggle("on", !!tx); } }
   on("#payRow", (+$("#mkPayLp").value || 0) || (+$("#mkPayDisc").value || 0) || $("#mkPayDiscAll").checked || (+$("#mkPayMax").value || 0) || (+$("#mkPayCtrN").value || 0));
   on("#secAtk", (MK.atkConds || []).length);
   on("#secSs", (+$("#mkTrib").value || 0) || $("#ssOn").checked);

@@ -195,7 +195,9 @@ label.f{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:13p
 .ctrc{display:inline-flex;align-items:center;gap:2px;background:var(--cc,#666);color:#fff;font:700 11px/1.5 var(--ui);padding:0 7px 0 2px;border-radius:99px;box-shadow:0 1px 3px rgba(0,0,0,.4);white-space:nowrap;vertical-align:middle}
 .ctrc img,.ctrc i{width:15px;height:15px;border-radius:50%;object-fit:cover;background:#fff;flex:none}
 .ctrc i{display:grid;place-items:center;font-style:normal;font-size:10px;line-height:1;color:var(--cc,#666)}
-.ctr-box{margin-top:10px}.ctr-box>summary{cursor:pointer;font-weight:700}.ctr-grid{display:flex;flex-wrap:wrap;gap:6px 14px;margin:6px 0}.ctr-item{display:flex;align-items:center;gap:6px}
+.maker.ctr-mode .mk-left,.maker.ctr-mode .tools-col>:not(#mkTitle):not(.mk-kindbox){display:none!important}.maker:not(.ctr-mode) #ctrPanel,.maker.ctr-mode #neowRow,.maker.ctr-mode #mkKindNote{display:none!important}.maker.ctr-mode{grid-template-columns:1fr!important}
+.ctr-hint{margin:8px 0 0;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.cost-box{display:flex;flex-direction:column;gap:8px}.cost-line{display:flex;gap:6px 12px;flex-wrap:wrap;align-items:center}.cost-k{min-width:5.5em;font-weight:700;font-size:13px;padding:1px 8px;border-radius:99px;background:rgba(127,127,127,.18);text-align:center}.ctr-grid{display:flex;flex-wrap:wrap;gap:6px 14px;margin:6px 0}.ctr-item{display:flex;align-items:center;gap:6px}
 .ctr-form{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;padding:8px;border:1px dashed rgba(127,127,127,.6);border-radius:8px}
 .ctr-ico{width:40px;height:40px;border-radius:50%;object-fit:cover;background:#fff;border:1px solid #ccc}.ctr-ico0{display:inline-grid;place-items:center;color:#555;font-weight:700}
 .btnlike{display:inline-block;padding:2px 10px;border:1px solid rgba(127,127,127,.6);border-radius:6px;cursor:pointer}
@@ -1370,8 +1372,9 @@ div.f{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:13px}
       </div>
       <div class="tools-col">
         <h2 id="mkTitle">カードを描く</h2>
-        <div><h3>つくるもの</h3><div class="seg" id="mkKind"><button data-k="card" aria-pressed="true">カード</button><button data-k="potion" aria-pressed="false">カード以外</button></div>
-          <div class="row" id="mkKindSub" hidden style="margin-top:8px;gap:8px;align-items:center"><span class="note">なにを：</span><div class="seg" id="mkKind2"><button data-k2="potion" aria-pressed="true">ポーション</button><button data-k2="relic" aria-pressed="false">レリック</button></div><span class="note" id="mkKindNote">選択の祭壇を使うデッキで、モンスターを倒すと手に入ることがある</span></div>
+        <div class="mk-kindbox"><h3>つくるもの</h3><div class="seg" id="mkKind"><button data-k="card" aria-pressed="true">カード</button><button data-k="potion" aria-pressed="false">カード以外</button></div>
+          <div class="row" id="mkKindSub" hidden style="margin-top:8px;gap:8px;align-items:center"><span class="note">なにを：</span><div class="seg" id="mkKind2"><button data-k2="potion" aria-pressed="true">ポーション</button><button data-k2="relic" aria-pressed="false">レリック</button><button data-k2="counter" aria-pressed="false">カウンター</button></div><span class="note" id="mkKindNote">選択の祭壇を使うデッキで、モンスターを倒すと手に入ることがある</span></div>
+          <div id="ctrPanel"><div id="ctrList"></div></div>
           <label class="row" id="neowRow" hidden style="gap:6px;font-weight:700;cursor:pointer;margin-top:8px"><input type="checkbox" id="mkNeow"> ネオーレリック（試合のはじめのレリック選びに出る。ふつうの戦闘では手に入らない）</label></div>
         <div id="mkTypeWrap"><h3>カードの種類</h3><div class="seg" id="mkType"><button data-t="monster" aria-pressed="true">モンスター</button><button data-t="magic" aria-pressed="false">魔法</button><button data-t="equip" aria-pressed="false">装備</button><button data-t="trap" aria-pressed="false">罠</button><button data-t="power" aria-pressed="false" hidden>パワー</button></div></div>
         <label class="row" id="quickRow" hidden style="gap:6px;font-weight:700;cursor:pointer"><input type="checkbox" id="mkQuick"> 速攻魔法（相手のターンにも使える）</label>
@@ -1382,7 +1385,6 @@ div.f{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:13px}
         <label class="row" id="exhaustRow" hidden style="gap:6px;font-weight:700;cursor:pointer"><input type="checkbox" id="mkExhaust"> 廃棄（使ったら墓地に行かず、そのゲームから消える）</label>
         <label class="row" id="noUseRow" hidden style="gap:6px;font-weight:700;cursor:pointer"><input type="checkbox" id="mkNoUse"> 発動できない（手札からもセットしても使えない。相手の場にセットして場所をふさぐ用）</label>
         <div class="row" id="spOptRow" hidden style="gap:6px 16px;flex-wrap:wrap;align-items:center;font-weight:700"><label class="row" id="flashLbl" style="gap:6px;cursor:pointer"><input type="checkbox" id="mkFlash"> フラッシュバック（墓地からもう1回使える。使ったら廃棄）</label><label class="row" style="gap:6px;cursor:pointer"><input type="checkbox" id="mkStrig"> S・トリガー（相手の攻撃でダメージを受けたとき、山札の一番上にあればタダで発動）</label><label class="row" style="gap:6px">キッカー<input type="number" id="mkKick" min="0" max="99" step="1" value="0" style="width:64px">マナ<span class="muted" style="font-size:13px;font-weight:400">0ならなし。コストデッキで多く払うと「もし：キッカーを払った」が成立</span></label></div>
-        <div class="row pro-only" id="payRow" style="gap:6px 12px;flex-wrap:wrap;align-items:center"><b>追加コスト</b><label class="row" style="gap:4px">LPを<input type="number" id="mkPayLp" min="0" step="10" value="0" style="width:84px">払う</label><label class="row" style="gap:4px">手札を<input type="number" id="mkPayDisc" min="0" max="5" step="1" value="0" style="width:64px">枚捨てる</label><label class="row" style="gap:4px;cursor:pointer"><input type="checkbox" id="mkPayDiscAll">手札を全部</label><label class="row" style="gap:4px">捨てるのはタグ<input type="text" id="mkPayDiscTag" list="tagNames" maxlength="40" placeholder="（なんでも）" style="width:130px">のカード</label><label class="row" style="gap:4px">最大マナを<input type="number" id="mkPayMax" min="0" max="5" step="1" value="0" style="width:64px">減らす</label><label class="row" style="gap:4px"><select id="mkPayCtrW" aria-label="どこのカウンター"><option value="me">自分の</option><option value="field">自分のモンスターの</option></select><select id="mkPayCtr" aria-label="カウンター"></select>を<input type="number" id="mkPayCtrN" min="0" max="99" step="1" value="0" style="width:64px">個取り除く</label><span class="muted" style="font-size:13px">0ならなし。払えないと使えない</span></div>
         <div class="mk-tabs" id="mkTabs" role="tablist">
           <button data-pane="draw" aria-pressed="true">絵</button><button data-pane="look" aria-pressed="false">見た目</button><button data-pane="fx" aria-pressed="false">効果・能力</button><button data-pane="deck" aria-pressed="false">デッキ</button>
         </div>
@@ -1424,10 +1426,20 @@ div.f{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:13px}
         <div class="mk-pane" data-pane="fx" hidden>
           <div class="row" id="fxModeRow"><div class="seg" id="mkFxMode"><button type="button" data-m="easy" aria-pressed="true">かんたん</button><button type="button" data-m="pro" aria-pressed="false">こだわり</button></div><span class="note" id="fxModeNote"></span></div>
           <div class="row" id="infRow" style="gap:8px"><button class="small" id="mkInf" type="button">ATKを∞にする</button><span class="note">ATKは上限なし。欄に「∞」と打ってもOK</span></div>
+          <details class="mk-sec pro-only" id="payRow">
+            <summary><span class="mk-st">使うときのコスト（追加コスト）</span><span class="mk-sum" id="sumCost"></span></summary>
+            <div class="fxform cost-box">
+              <div class="cost-line"><span class="cost-k">LP</span><label class="row" style="gap:4px">LPを<input type="number" id="mkPayLp" min="0" step="10" value="0" style="width:84px">払う</label></div>
+              <div class="cost-line"><span class="cost-k">手札</span><label class="row" style="gap:4px">手札を<input type="number" id="mkPayDisc" min="0" max="5" step="1" value="0" style="width:64px">枚捨てる</label><label class="row" style="gap:4px;cursor:pointer"><input type="checkbox" id="mkPayDiscAll">手札を全部</label><label class="row" style="gap:4px">捨てるのはタグ<input type="text" id="mkPayDiscTag" list="tagNames" maxlength="40" placeholder="（なんでも）" style="width:130px">のカード</label></div>
+              <div class="cost-line"><span class="cost-k">マナ</span><label class="row" style="gap:4px">最大マナを<input type="number" id="mkPayMax" min="0" max="5" step="1" value="0" style="width:64px">減らす</label></div>
+              <div class="cost-line"><span class="cost-k">カウンター</span><label class="row" style="gap:4px;flex-wrap:wrap"><select id="mkPayCtrW" aria-label="どこのカウンター"><option value="me">自分の</option><option value="field">自分のモンスターの</option></select><select id="mkPayCtr" aria-label="カウンター"></select>を<input type="number" id="mkPayCtrN" min="0" max="99" step="1" value="0" style="width:64px">個取り除く</label></div>
+              <p class="note" style="margin:0">0ならなし。払えないと使えない。起動効果だけのコストは、効果ブロックの「コスト」で決められます</p>
+            </div>
+          </details>
           <details class="mk-sec" id="secFx" open>
             <summary><span class="mk-st">自動で処理される効果</span><span class="mk-sum" id="sumFx"></span></summary>
             <div id="bkUI"></div>
-            <details class="ctr-box" id="ctrBox"><summary>カウンター（みんなで作る「○○カウンター」）</summary><div id="ctrList"></div></details>
+            <p class="note ctr-hint">「○○カウンター」は、上の「つくるもの：カード以外 → カウンター」で作れます <button type="button" class="small" data-goctr>カウンターを作る</button></p>
             <div class="fxform" id="fxForm" hidden>
               <div class="row">
                 <label class="f" id="trigWrap">いつ<select id="fxTrig"></select></label>
@@ -3607,8 +3619,18 @@ function potionModeUI(){
   if (pot){ $("#mkTab").textContent = what; $("#mkCostBadge").hidden = true; }
   $("#mkTitle").textContent = pot ? (S.editId ? `${what}を編集中` : `${what}を描く`) : (S.editId ? "カードを編集中" : "カードを描く");
   if (!S.editId) $("#btnSave").textContent = pot ? `${what}を保存` : "カードを保存";
+  ctrModeUI();
 }
+// カード以外 → カウンター: カードの編集はかくして、カウンターの一覧と作る欄だけ出す
+function ctrModeUI(){
+  const on = !!MK.ctrMode, mk = document.querySelector("#tab-make .maker"); if (mk) mk.classList.toggle("ctr-mode", on);
+  if (!on) return;
+  document.querySelectorAll("#mkKind2 button").forEach(b => b.setAttribute("aria-pressed", b.dataset.k2 === "counter"));
+  $("#mkTitle").textContent = "カウンターを作る"; renderCtrBox();
+}
+document.addEventListener("click", e => { if (e.target.closest && e.target.closest("[data-goctr]") && !S.editId){ setMkKind("counter"); const t = $("#mkTitle"); if (t) t.scrollIntoView({ block: "start", behavior: "smooth" }); } });
 function setMkKind(k){
+  MK.ctrMode = k === "counter"; if (MK.ctrMode) k = "potion";
   MK.kind = k === "potion" || k === "relic" ? k : "card";
   const other = MK.kind !== "card";
   document.querySelectorAll("#mkKind button").forEach(b => b.setAttribute("aria-pressed", b.dataset.k === (other ? "potion" : "card")));
@@ -3844,6 +3866,7 @@ MK.easy = ls.get("cb_fxmode") !== "pro";
 function easyKinds(){ const ks = mkKinds(), e = ks.filter(isEasyKind); return e.length ? e : ks; }
 function syncProOn(){
   const on = (q, v) => { const el = $(q); if (el) el.classList.toggle("pro-on", !!v); };
+  { const c = mkPreviewCard(), tx = extraCostText(c).replace(/^【コスト】/, ""), el = $("#sumCost"); if (el){ el.textContent = tx || "なし"; el.classList.toggle("on", !!tx); } }
   on("#payRow", (+$("#mkPayLp").value || 0) || (+$("#mkPayDisc").value || 0) || $("#mkPayDiscAll").checked || (+$("#mkPayMax").value || 0) || (+$("#mkPayCtrN").value || 0));
   on("#secAtk", (MK.atkConds || []).length);
   on("#secSs", (+$("#mkTrib").value || 0) || $("#ssOn").checked);
