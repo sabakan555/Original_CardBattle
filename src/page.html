@@ -105,6 +105,9 @@
           <div id="ctrPanel"><div id="ctrList"></div></div>
           <label class="row" id="neowRow" hidden style="gap:6px;font-weight:700;cursor:pointer;margin-top:8px"><input type="checkbox" id="mkNeow"> ネオーレリック（試合のはじめのレリック選びに出る。ふつうの戦闘では手に入らない）</label></div>
         <div id="mkTypeWrap"><h3>カードの種類</h3><div class="seg" id="mkType"><button data-t="monster" aria-pressed="true">モンスター</button><button data-t="magic" aria-pressed="false">魔法</button><button data-t="equip" aria-pressed="false">装備</button><button data-t="trap" aria-pressed="false">罠</button><button data-t="power" aria-pressed="false" hidden>パワー</button></div></div>
+        <div id="mkCostWrap"><h3>コスト</h3><div class="row" style="gap:8px 14px;flex-wrap:wrap;align-items:center"><div class="seg" id="mkMode"><button data-m="normal" aria-pressed="true">コストなし</button><button data-m="cost" aria-pressed="false">コストあり</button><button data-m="both" aria-pressed="false">どちらでも</button></div><label class="row" id="costRow" style="gap:8px;font-weight:700" hidden>マナ<select id="mkCost"></select></label></div>
+          <p class="note" id="modeNote" style="margin:4px 0 0"></p></div>
+        <details class="mk-sec" id="secSpOpt" hidden><summary><span class="mk-st" id="secSpOptTitle">魔法の細かい設定</span><span class="mk-sum" id="sumSpOpt"></span></summary><div class="fxform sp-opts">
         <label class="row" id="quickRow" hidden style="gap:6px;font-weight:700;cursor:pointer"><input type="checkbox" id="mkQuick"> 速攻魔法（相手のターンにも使える）</label>
         <label class="row" id="whenRow" hidden style="gap:6px;font-weight:700;flex-wrap:wrap">発動タイミング<select id="mkWhen" aria-label="発動タイミング"><option value="">いつでも</option><option value="attacked">相手が攻撃してきたとき</option><option value="oppSummon">相手がモンスターを召喚・特殊召喚したとき</option><option value="oppUse">相手がカードを発動したとき</option><option value="oppEnd">相手のターンの終わり</option></select><span class="note" style="font-weight:400">決めると、そのときにしか発動できない</span></label>
         <label class="row" id="fieldRow" hidden style="gap:6px;font-weight:700;cursor:pointer"><input type="checkbox" id="mkField"> フィールド魔法（お互いに1枚だけ。新しいフィールドが出ると前のフィールドは墓地へ。効果はお互いに効く）</label>
@@ -113,6 +116,7 @@
         <label class="row" id="exhaustRow" hidden style="gap:6px;font-weight:700;cursor:pointer"><input type="checkbox" id="mkExhaust"> 廃棄（使ったら墓地に行かず、そのゲームから消える）</label>
         <label class="row" id="noUseRow" hidden style="gap:6px;font-weight:700;cursor:pointer"><input type="checkbox" id="mkNoUse"> 発動できない（手札からもセットしても使えない。相手の場にセットして場所をふさぐ用）</label>
         <div class="row" id="spOptRow" hidden style="gap:6px 16px;flex-wrap:wrap;align-items:center;font-weight:700"><label class="row" id="flashLbl" style="gap:6px;cursor:pointer"><input type="checkbox" id="mkFlash"> フラッシュバック（墓地からもう1回使える。使ったら廃棄）</label><label class="row" style="gap:6px;cursor:pointer"><input type="checkbox" id="mkStrig"> S・トリガー（相手の攻撃でダメージを受けたとき、山札の一番上にあればタダで発動）</label><label class="row" style="gap:6px">キッカー<input type="number" id="mkKick" min="0" max="99" step="1" value="0" style="width:64px">マナ<span class="muted" style="font-size:13px;font-weight:400">0ならなし。コストデッキで多く払うと「もし：キッカーを払った」が成立</span></label></div>
+        </div></details>
         <div class="mk-tabs" id="mkTabs" role="tablist">
           <button data-pane="draw" aria-pressed="true">絵</button><button data-pane="look" aria-pressed="false">見た目</button><button data-pane="fx" aria-pressed="false">効果・能力</button><button data-pane="deck" aria-pressed="false">デッキ</button>
         </div>
@@ -253,9 +257,6 @@
         </div>
 
         <div class="mk-pane" data-pane="deck" hidden>
-          <div><h3>使えるデッキ</h3><div class="seg" id="mkMode"><button data-m="normal" aria-pressed="true">ふつうのデッキ</button><button data-m="cost" aria-pressed="false">コストデッキ</button><button data-m="both" aria-pressed="false">どちらでも</button></div>
-          <label class="f" id="costRow" style="flex-direction:row;align-items:center;gap:10px;margin-top:8px" hidden>コスト<select id="mkCost"></select></label>
-          <p class="note" id="modeNote" style="margin:4px 0 0"></p></div>
           <label class="f">タグ（スペースかカンマで区切る・8個まで）<input type="text" id="mkTags" list="tagNames" maxlength="80" placeholder="例: アイアンクラッド 炎"></label>
           <label class="row" id="exRow" style="gap:6px;font-weight:700;cursor:pointer"><input type="checkbox" id="mkEx"> EXデッキのカード（山札には入らず、EXデッキから出す・使う）</label>
           <label class="row pro-only" id="tokenRow" style="gap:6px;font-weight:700;cursor:pointer"><input type="checkbox" id="mkToken"> トークン（デッキには入れられない。効果で生み出されるだけのカード）</label>

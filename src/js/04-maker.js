@@ -339,7 +339,8 @@ function potionModeUI(){
   $("#mkKindNote").textContent = rel ? "いつでも効果が続く。選択の祭壇を使うデッキで、モンスターを倒すと10%で手に入る" : "選択の祭壇を使うデッキで、モンスターを倒すと40%で手に入る";
   $("#editCard").classList.toggle("potion", pot);
   $("#mkKindSub").hidden = !pot; $("#mkTypeWrap").hidden = pot;
-  ["#quickRow", "#persistRow", "#exhaustRow", "#noUseRow", "#spOptRow", "#payRow", "#whenRow"].forEach(q => { if (pot) $(q).hidden = true; });
+  ["#quickRow", "#persistRow", "#exhaustRow", "#noUseRow", "#spOptRow", "#payRow", "#whenRow", "#mkCostWrap"].forEach(q => { if (pot) $(q).hidden = true; });
+  if (!pot) $("#mkCostWrap").hidden = false;
   if (!pot) $("#payRow").hidden = false;
   const fr = $("#mkFrame").closest("label"); if (fr) fr.hidden = pot;
   const fl = $("#mkFrameless").closest("label"); if (fl) fl.hidden = pot;
@@ -351,6 +352,7 @@ function potionModeUI(){
   if (pot){ $("#mkTab").textContent = what; $("#mkCostBadge").hidden = true; }
   $("#mkTitle").textContent = pot ? (S.editId ? `${what}を編集中` : `${what}を描く`) : (S.editId ? "カードを編集中" : "カードを描く");
   if (!S.editId) $("#btnSave").textContent = pot ? `${what}を保存` : "カードを保存";
+  setTimeout(syncSpOpt);
   ctrModeUI();
 }
 // カード以外 → カウンター: カードの編集はかくして、カウンターの一覧と作る欄だけ出す
@@ -860,6 +862,19 @@ function setMkPane(p){
 $("#mkKind").addEventListener("click", e => { const b = e.target.closest("button[data-k]"); if (b && !S.editId) setMkKind(b.dataset.k); });
 $("#mkKind2").addEventListener("click", e => { const b = e.target.closest("button[data-k2]"); if (b && !S.editId) setMkKind(b.dataset.k2); });
 $("#mkTabs").addEventListener("click", e => { const b = e.target.closest("button[data-pane]"); if (b) setMkPane(b.dataset.pane); });
+// 魔法・罠の細かい設定（速攻・永続・フィールド・廃棄…）: たたんでおいて、見出しに今の設定を出す
+function syncSpOpt(){
+  const box = $("#secSpOpt"); if (!box) return;
+  const rows = ["#quickRow", "#whenRow", "#fieldRow", "#fieldOpts", "#persistRow", "#exhaustRow", "#noUseRow", "#spOptRow"].map(q => $(q)).filter(Boolean);
+  box.hidden = MK.kind === "potion" || MK.kind === "relic" || rows.every(r => r.hidden);
+  const ck = q => { const e = $(q); return !!e && e.checked && !e.closest("[hidden]"); }, on = [];
+  [["#mkQuick", "速攻"], ["#mkField", "フィールド"], ["#mkPersist", "永続"], ["#mkExhaust", "廃棄"], ["#mkNoUse", "発動できない"], ["#mkFlash", "フラッシュバック"], ["#mkStrig", "S・トリガー"]].forEach(([q, l]) => { if (ck(q)) on.push(l); });
+  const k = +$("#mkKick").value || 0; if (k && !$("#spOptRow").hidden) on.push("キッカー" + k);
+  const w = $("#mkWhen").value; if (w && !$("#whenRow").hidden && WHEN_LABEL[w]) on.push(WHEN_LABEL[w]);
+  $("#secSpOptTitle").textContent = MK.type === "trap" ? "罠の細かい設定" : MK.type === "magic" ? "魔法の細かい設定" : "細かい設定";
+  const sm = $("#sumSpOpt"); sm.textContent = on.join("・") || "なし"; sm.classList.toggle("on", on.length > 0);
+}
+$("#secSpOpt").addEventListener("change", () => setTimeout(syncSpOpt)); $("#secSpOpt").addEventListener("input", () => setTimeout(syncSpOpt));
 function updateSecs(){
   const t = MK.type, sum = (id, txt, on) => { const el = $(id); if (!el) return; el.textContent = txt; el.classList.toggle("on", !!on); };
   const bs = typeof readBlocks === "function" ? readBlocks() : null;
@@ -874,7 +889,7 @@ function updateSecs(){
   else sum("#sumEq", $("#mkEqCap").value.trim() === "" ? "自動（ATK÷100）" : `キャパ ${$("#mkEqCap").value}`, $("#mkEqCap").value.trim() !== "");
   $("#secSs").hidden = t !== "monster";
   $("#secAtk").hidden = t !== "monster";
-  syncProOn();
+  syncProOn(); syncSpOpt();
   sum("#sumAtk", (MK.atkConds || []).length ? (MK.atkConds || []).map(condPhrase).join(MK.atkJoin === "or" ? "か、" : "、かつ") : "なし", (MK.atkConds || []).length);
   const ss = readSS();
   { const tn = +$("#mkTrib").value || 0; sum("#sumSs", [tn ? `生贄${tn}体` : "", ss ? (ss.only ? "特殊召喚のみ・" : "") + (SS_CONDS[ss.cond] ? SS_CONDS[ss.cond].label : "") : ""].filter(Boolean).join("・") || "なし", !!ss || tn > 0); }

@@ -326,6 +326,8 @@ ruby rt{font-size:.5em;line-height:1;font-style:normal}
 .mk-sec .mk-sum.on{color:var(--accent,#4fd1c5)}
 .mk-sec > .fxform{border:none;background:none;padding:2px 14px 14px;border-radius:0}
 .mk-sec .abs-list{gap:8px}
+.sp-opts{display:flex;flex-direction:column;gap:10px}
+#mkCostWrap h3{margin-bottom:6px}#costRow select{width:auto;min-width:96px}
 .mk-sec .abs-list label{padding:4px 0;border-bottom:1px dashed var(--line)}
 .mk-sec .abs-list label:last-child{border-bottom:none}
 .mk-save{padding-top:4px}
@@ -1428,6 +1430,9 @@ div.f{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:13px}
           <div id="ctrPanel"><div id="ctrList"></div></div>
           <label class="row" id="neowRow" hidden style="gap:6px;font-weight:700;cursor:pointer;margin-top:8px"><input type="checkbox" id="mkNeow"> ネオーレリック（試合のはじめのレリック選びに出る。ふつうの戦闘では手に入らない）</label></div>
         <div id="mkTypeWrap"><h3>カードの種類</h3><div class="seg" id="mkType"><button data-t="monster" aria-pressed="true">モンスター</button><button data-t="magic" aria-pressed="false">魔法</button><button data-t="equip" aria-pressed="false">装備</button><button data-t="trap" aria-pressed="false">罠</button><button data-t="power" aria-pressed="false" hidden>パワー</button></div></div>
+        <div id="mkCostWrap"><h3>コスト</h3><div class="row" style="gap:8px 14px;flex-wrap:wrap;align-items:center"><div class="seg" id="mkMode"><button data-m="normal" aria-pressed="true">コストなし</button><button data-m="cost" aria-pressed="false">コストあり</button><button data-m="both" aria-pressed="false">どちらでも</button></div><label class="row" id="costRow" style="gap:8px;font-weight:700" hidden>マナ<select id="mkCost"></select></label></div>
+          <p class="note" id="modeNote" style="margin:4px 0 0"></p></div>
+        <details class="mk-sec" id="secSpOpt" hidden><summary><span class="mk-st" id="secSpOptTitle">魔法の細かい設定</span><span class="mk-sum" id="sumSpOpt"></span></summary><div class="fxform sp-opts">
         <label class="row" id="quickRow" hidden style="gap:6px;font-weight:700;cursor:pointer"><input type="checkbox" id="mkQuick"> 速攻魔法（相手のターンにも使える）</label>
         <label class="row" id="whenRow" hidden style="gap:6px;font-weight:700;flex-wrap:wrap">発動タイミング<select id="mkWhen" aria-label="発動タイミング"><option value="">いつでも</option><option value="attacked">相手が攻撃してきたとき</option><option value="oppSummon">相手がモンスターを召喚・特殊召喚したとき</option><option value="oppUse">相手がカードを発動したとき</option><option value="oppEnd">相手のターンの終わり</option></select><span class="note" style="font-weight:400">決めると、そのときにしか発動できない</span></label>
         <label class="row" id="fieldRow" hidden style="gap:6px;font-weight:700;cursor:pointer"><input type="checkbox" id="mkField"> フィールド魔法（お互いに1枚だけ。新しいフィールドが出ると前のフィールドは墓地へ。効果はお互いに効く）</label>
@@ -1436,6 +1441,7 @@ div.f{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:13px}
         <label class="row" id="exhaustRow" hidden style="gap:6px;font-weight:700;cursor:pointer"><input type="checkbox" id="mkExhaust"> 廃棄（使ったら墓地に行かず、そのゲームから消える）</label>
         <label class="row" id="noUseRow" hidden style="gap:6px;font-weight:700;cursor:pointer"><input type="checkbox" id="mkNoUse"> 発動できない（手札からもセットしても使えない。相手の場にセットして場所をふさぐ用）</label>
         <div class="row" id="spOptRow" hidden style="gap:6px 16px;flex-wrap:wrap;align-items:center;font-weight:700"><label class="row" id="flashLbl" style="gap:6px;cursor:pointer"><input type="checkbox" id="mkFlash"> フラッシュバック（墓地からもう1回使える。使ったら廃棄）</label><label class="row" style="gap:6px;cursor:pointer"><input type="checkbox" id="mkStrig"> S・トリガー（相手の攻撃でダメージを受けたとき、山札の一番上にあればタダで発動）</label><label class="row" style="gap:6px">キッカー<input type="number" id="mkKick" min="0" max="99" step="1" value="0" style="width:64px">マナ<span class="muted" style="font-size:13px;font-weight:400">0ならなし。コストデッキで多く払うと「もし：キッカーを払った」が成立</span></label></div>
+        </div></details>
         <div class="mk-tabs" id="mkTabs" role="tablist">
           <button data-pane="draw" aria-pressed="true">絵</button><button data-pane="look" aria-pressed="false">見た目</button><button data-pane="fx" aria-pressed="false">効果・能力</button><button data-pane="deck" aria-pressed="false">デッキ</button>
         </div>
@@ -1576,9 +1582,6 @@ div.f{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:13px}
         </div>
 
         <div class="mk-pane" data-pane="deck" hidden>
-          <div><h3>使えるデッキ</h3><div class="seg" id="mkMode"><button data-m="normal" aria-pressed="true">ふつうのデッキ</button><button data-m="cost" aria-pressed="false">コストデッキ</button><button data-m="both" aria-pressed="false">どちらでも</button></div>
-          <label class="f" id="costRow" style="flex-direction:row;align-items:center;gap:10px;margin-top:8px" hidden>コスト<select id="mkCost"></select></label>
-          <p class="note" id="modeNote" style="margin:4px 0 0"></p></div>
           <label class="f">タグ（スペースかカンマで区切る・8個まで）<input type="text" id="mkTags" list="tagNames" maxlength="80" placeholder="例: アイアンクラッド 炎"></label>
           <label class="row" id="exRow" style="gap:6px;font-weight:700;cursor:pointer"><input type="checkbox" id="mkEx"> EXデッキのカード（山札には入らず、EXデッキから出す・使う）</label>
           <label class="row pro-only" id="tokenRow" style="gap:6px;font-weight:700;cursor:pointer"><input type="checkbox" id="mkToken"> トークン（デッキには入れられない。効果で生み出されるだけのカード）</label>
@@ -3675,7 +3678,8 @@ function potionModeUI(){
   $("#mkKindNote").textContent = rel ? "いつでも効果が続く。選択の祭壇を使うデッキで、モンスターを倒すと10%で手に入る" : "選択の祭壇を使うデッキで、モンスターを倒すと40%で手に入る";
   $("#editCard").classList.toggle("potion", pot);
   $("#mkKindSub").hidden = !pot; $("#mkTypeWrap").hidden = pot;
-  ["#quickRow", "#persistRow", "#exhaustRow", "#noUseRow", "#spOptRow", "#payRow", "#whenRow"].forEach(q => { if (pot) $(q).hidden = true; });
+  ["#quickRow", "#persistRow", "#exhaustRow", "#noUseRow", "#spOptRow", "#payRow", "#whenRow", "#mkCostWrap"].forEach(q => { if (pot) $(q).hidden = true; });
+  if (!pot) $("#mkCostWrap").hidden = false;
   if (!pot) $("#payRow").hidden = false;
   const fr = $("#mkFrame").closest("label"); if (fr) fr.hidden = pot;
   const fl = $("#mkFrameless").closest("label"); if (fl) fl.hidden = pot;
@@ -3687,6 +3691,7 @@ function potionModeUI(){
   if (pot){ $("#mkTab").textContent = what; $("#mkCostBadge").hidden = true; }
   $("#mkTitle").textContent = pot ? (S.editId ? `${what}を編集中` : `${what}を描く`) : (S.editId ? "カードを編集中" : "カードを描く");
   if (!S.editId) $("#btnSave").textContent = pot ? `${what}を保存` : "カードを保存";
+  setTimeout(syncSpOpt);
   ctrModeUI();
 }
 // カード以外 → カウンター: カードの編集はかくして、カウンターの一覧と作る欄だけ出す
@@ -4196,6 +4201,19 @@ function setMkPane(p){
 $("#mkKind").addEventListener("click", e => { const b = e.target.closest("button[data-k]"); if (b && !S.editId) setMkKind(b.dataset.k); });
 $("#mkKind2").addEventListener("click", e => { const b = e.target.closest("button[data-k2]"); if (b && !S.editId) setMkKind(b.dataset.k2); });
 $("#mkTabs").addEventListener("click", e => { const b = e.target.closest("button[data-pane]"); if (b) setMkPane(b.dataset.pane); });
+// 魔法・罠の細かい設定（速攻・永続・フィールド・廃棄…）: たたんでおいて、見出しに今の設定を出す
+function syncSpOpt(){
+  const box = $("#secSpOpt"); if (!box) return;
+  const rows = ["#quickRow", "#whenRow", "#fieldRow", "#fieldOpts", "#persistRow", "#exhaustRow", "#noUseRow", "#spOptRow"].map(q => $(q)).filter(Boolean);
+  box.hidden = MK.kind === "potion" || MK.kind === "relic" || rows.every(r => r.hidden);
+  const ck = q => { const e = $(q); return !!e && e.checked && !e.closest("[hidden]"); }, on = [];
+  [["#mkQuick", "速攻"], ["#mkField", "フィールド"], ["#mkPersist", "永続"], ["#mkExhaust", "廃棄"], ["#mkNoUse", "発動できない"], ["#mkFlash", "フラッシュバック"], ["#mkStrig", "S・トリガー"]].forEach(([q, l]) => { if (ck(q)) on.push(l); });
+  const k = +$("#mkKick").value || 0; if (k && !$("#spOptRow").hidden) on.push("キッカー" + k);
+  const w = $("#mkWhen").value; if (w && !$("#whenRow").hidden && WHEN_LABEL[w]) on.push(WHEN_LABEL[w]);
+  $("#secSpOptTitle").textContent = MK.type === "trap" ? "罠の細かい設定" : MK.type === "magic" ? "魔法の細かい設定" : "細かい設定";
+  const sm = $("#sumSpOpt"); sm.textContent = on.join("・") || "なし"; sm.classList.toggle("on", on.length > 0);
+}
+$("#secSpOpt").addEventListener("change", () => setTimeout(syncSpOpt)); $("#secSpOpt").addEventListener("input", () => setTimeout(syncSpOpt));
 function updateSecs(){
   const t = MK.type, sum = (id, txt, on) => { const el = $(id); if (!el) return; el.textContent = txt; el.classList.toggle("on", !!on); };
   const bs = typeof readBlocks === "function" ? readBlocks() : null;
@@ -4210,7 +4228,7 @@ function updateSecs(){
   else sum("#sumEq", $("#mkEqCap").value.trim() === "" ? "自動（ATK÷100）" : `キャパ ${$("#mkEqCap").value}`, $("#mkEqCap").value.trim() !== "");
   $("#secSs").hidden = t !== "monster";
   $("#secAtk").hidden = t !== "monster";
-  syncProOn();
+  syncProOn(); syncSpOpt();
   sum("#sumAtk", (MK.atkConds || []).length ? (MK.atkConds || []).map(condPhrase).join(MK.atkJoin === "or" ? "か、" : "、かつ") : "なし", (MK.atkConds || []).length);
   const ss = readSS();
   { const tn = +$("#mkTrib").value || 0; sum("#sumSs", [tn ? `生贄${tn}体` : "", ss ? (ss.only ? "特殊召喚のみ・" : "") + (SS_CONDS[ss.cond] ? SS_CONDS[ss.cond].label : "") : ""].filter(Boolean).join("・") || "なし", !!ss || tn > 0); }
