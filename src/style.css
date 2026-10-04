@@ -783,6 +783,8 @@ body{background:#232842 var(--bgimg,linear-gradient(90deg,#232842 0%,#2f3659 65.
   .showcase .card{--w:170px}
   .home-menu{grid-row:3}
   .home-foot{grid-row:4;flex-wrap:wrap}
+  /* 折り返してもGuideは右端にくっつける */
+  .home-foot .guide-btn{margin-left:auto}
 }
 @media (prefers-reduced-motion:reduce){.showcase .card{animation:none}.hbtn{transition:none}}
 
