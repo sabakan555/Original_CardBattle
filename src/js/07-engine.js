@@ -283,7 +283,10 @@ const boonChips = p => (p.boons || []).map(t => { const c = t.c && hasCard(t.c) 
 const statChips = p => lockChips(p) + timerChips(p) + boonChips(p) + Object.entries(p.free || {}).filter(([, v]) => v > 0).map(([k, v]) => `<span class="bst free" title="次に使うこの種類のカードはコスト0">次の${SPIRE_LABEL[k]}0コスト${v > 1 ? "×" + v : ""}</span>`).join("") + (p.relics || []).map(k => relicDef(k)).filter(Boolean).map(d => `<span class="bst rel" title="${esc(d.text)}">${d.img ? `<img alt="" src="${d.img}">` : ""}${esc(d.name)}</span>`).join("") + (p.block ? `<span class="bst blk" title="次の自分のターンのはじめまで、受けるダメージを先に引き受ける">ブロック ${p.block}</span>` : "") + (p.vuln > 0 ? `<span class="bst vul" title="受けるダメージが1.5倍">弱体 ${p.vuln}</span>` : "") + (p.str ? `<span class="bst str" title="カードで与えるダメージ（1回ごと）と、自分のモンスターがプレイヤーに与える戦闘ダメージが${p.str > 0 ? "+" : "−"}${Math.abs(p.str)}">筋力 ${p.str}</span>` : "") + (p.weak > 0 ? `<span class="bst wk" title="カードで与えるダメージが0.75倍">脱力 ${p.weak}</span>` : "")
   + [[p.barricade, "バリケード", "ブロックがターンのはじめに消えない"], [p.plate > 0, `プレート ${p.plate}`, "自分のターンのおわりにこの分ブロックを得る。LPを失うたび20減る"], [p.corrupt, "堕落", "スキルのコストが0。使うと廃棄"], [p.vulnBonus > 0, `無慈悲 +${p.vulnBonus}%`, "弱体の相手へのダメージがさらにふえる"], [p.firstBlock2, "盤石", "毎ターン最初のブロックが2倍"], [p.rage > 0, `激怒 ${p.rage}`, "このターン、アタックを使うたびブロックを得る"], [p.thorns > 0, `反撃 ${p.thorns}`, "攻撃してきたモンスターにダメージ"], [p.dblAtk > 0, `次のアタック×2`, "次に使うアタックをもう1回プレイ"], [p.extraTurns > 0, `追加ターン${p.extraTurns > 1 ? "×" + p.extraTurns : ""}`, "このターンのあと、もう一度自分のターン"], [(p.autoPlay || []).length, `自動：${(p.autoPlay || []).join("・")}`, "名前にこの文字が入ったカードを引くと自動で使う"]].filter(x => x[0]).map(x => `<span class="bst pw" title="${x[2]}">${x[1]}</span>`).join("");
 function dealDmg(st, s, n){
-  const p = P(st, s); if (n === Infinity){ p.lp = Math.min(0, p.lp); return; }
+  const p = P(st, s);
+  // ダメージを跳ね返す: このターン受けるダメージは相手へ（跳ね返されたダメージはもう跳ね返らない）
+  if (n > 0 && (p.reflectUntil || 0) >= st.turnNo && !dealDmg.busy){ log(st, s, `${p.name}は${n === Infinity ? "" : fmtN(n) + "の"}ダメージを跳ね返した！`); dealDmg.busy = true; try { dealDmg(st, O(s), n); } finally { dealDmg.busy = false; } return; }
+  if (n === Infinity){ p.lp = Math.min(0, p.lp); return; }
   if (n > 0 && p.vuln > 0){ n = Math.floor(n * (1.5 + (P(st, O(s)).vulnBonus || 0) / 100)); log(st, s, `弱体で${n}ダメージに！`); }
   let blk = 0;
   if (n > 0 && p.block > 0){ const b = Math.min(p.block, n); p.block -= b; n -= b; blk = b; log(st, s, `ブロックで${b}ダメージを防いだ（残りブロック ${p.block}）`); }
@@ -692,6 +695,7 @@ function applyEffect(st, s, c, target, ctx = {}, fx = normFx(c)){
       if (zi < 0){ log(st, s, `${src}：魔法・罠ゾーンに空きがない`); break; }
       const z = me.sz[zi]; z.mats = (z.mats || []).concat(f.mats.splice(0, k)); z.stack = (z.stack || 0) + k; ev(st, { type: "spell", s, c: f.c });
       log(st, s, `${src}：質量${k}枚が「${card(f.c).name}」のコピーになって、魔法・罠ゾーンにストックされた（ストック${z.stack}枚・のこりの質量 ${f.mats.length}枚）`); break; }
+    case "reflectDmg": me.reflectUntil = st.turnNo; log(st, s, `${src}：このターン、${me.name}が受けるダメージは相手に跳ね返る！`); break;
     case "extraTurn": me.extraTurns = (me.extraTurns || 0) + (n || 1); log(st, s, `${src}：このターンのあと、もう${(n || 1) > 1 ? (n || 1) + "回" : "1回"}自分のターン！`); break;
     case "dblAtk": me.dblAtk = (me.dblAtk || 0) + (n || 1); log(st, s, `${src}：次に使うアタックをもう1回プレイする`); break;
     case "copyLastAtk": if (me.lastAtk && hasCard(me.lastAtk)){ me.hand.push(me.lastAtk); log(st, s, `${src}で「${card(me.lastAtk).name}」のコピーを手札に加えた`); } else log(st, s, `${src}：コピーするアタックがない`); break;
@@ -1186,7 +1190,7 @@ function pushChain(st, s, id, ctx, label, extra){
   const resume = st.pending ? (st.pending.type === "chain" ? st.pending.resume : st.pending) : null;
   if (!st.chain) st.chain = [];
   const link = { s, c: id, ctx: ctx || {}, ...(extra || {}) };
-  if (link.cancel || (normFx(card(id)) || {}).kind === "cancel") link.target = st.chain.length - 1;
+  if (link.cancel || ["cancel", "reflectFx"].includes((normFx(card(id)) || {}).kind)) link.target = st.chain.length - 1;
   st.chain.push(link);
   log(st, s, st.chain.length > 1 ? `チェーン${st.chain.length}：${label}を発動！` : `${label}を発動！`);
   const other = O(s);
@@ -1233,9 +1237,17 @@ function resolveChain(st, resume){
       return;
     }
     if (link.negated){
-      log(st2, link.s, `「${c.name}」の発動は無効になった`);
+      log(st2, link.s, `「${c.name}」の発動は${link.reflect ? "跳ね返された" : "無効になった"}`);
       if (link.pz != null){ const p = P(st2, link.s), z = p.sz[link.pz]; if (z && z.u === link.pu){ p.sz[link.pz] = null; p.grave.push(z.c); } }
       if (st2.field && st2.field.c === link.c && st2.field.o === link.s){ P(st2, link.s).grave.push(st2.field.c); st2.field = null; }
+      // 跳ね返し: その効果は跳ね返した人が使ったことになる（相手をねらう効果は、もとの持ち主に向かう）
+      if (link.reflect && !st2.winner){ ev(st2, { type: "spell", s: link.reflect, c: link.c }); runCard(st2, link.reflect, c, "use", { reflected: true }, step); return; }
+      step(st2); return;
+    }
+    if ((normFx(c) || {}).kind === "reflectFx"){
+      const t = chain[link.target];
+      if (t && !t.summon && !t.negated){ t.negated = true; t.reflect = link.s; ev(st2, { type: "counter", s: link.s }); log(st2, link.s, `「${c.name}」で「${card(t.c).name}」を跳ね返す！`); }
+      else log(st2, link.s, `「${c.name}」：跳ね返すカードがない`);
       step(st2); return;
     }
     if (link.cancel || (normFx(c) || {}).kind === "cancel"){
@@ -1270,6 +1282,7 @@ function usableIn(st, s, c, win){
   if (win === "summoned" && whenOf(c) !== "oppSummon") return false;
   if (fx && (fx.kind === "negate" || fx.kind === "killAtk" || fx.kind === "atkDownAtk") && win !== "attack" && win !== "chainAttack") return false;
   if (fx && fx.kind === "cancel" && win !== "chain" && win !== "chainAttack" && win !== "summon") return false;
+  if (fx && fx.kind === "reflectFx"){ const top = st.chain && st.chain[st.chain.length - 1]; if ((win !== "chain" && win !== "chainAttack") || !top || top.summon || top.s === s || top.cancel) return false; }
   if (win === "summon" && (!fx || fx.kind !== "cancel")) return false;
   const opts = fx ? targetOptions(st, s, fx.kind, { tagName: fx.into || "" }) : null;
   return !(opts && !opts.length);
@@ -1377,7 +1390,7 @@ function resolveAttack(st){
     if (!dm){ log(st, A, "攻撃対象がいなくなった"); checkEnd(st); return; }
     const a = atkOf(am), d = atkOf(dm);
     // damage to a player is cut by the losing monster's 鉄壁-type ability
-    const hurt = (s2, i2, x) => { const cut = abN(st, s2, i2, "dmgCut"), y = x === Infinity ? x : Math.max(0, x - cut); dealDmg(st, s2, y); return [y, cut]; };
+    const hurt = (s2, i2, x) => { const cut = abN(st, s2, i2, "dmgCut"), y = x === Infinity ? x : Math.max(0, x - cut); dealDmg(st, s2, y); if (y > 0 && hasAb(st, s2, i2, "reflect")){ log(st, s2, `「${card(P(st, s2).mz[i2].c).name}」の反射！ ${nm(st, O(s2))}にも${y === Infinity ? "" : fmtN(y)}ダメージ`); dealDmg(st, O(s2), y); } return [y, cut]; };
     const losers = []; let hitD = false;
     // 貫通: 差ではなくATKぶん全部 ／ 吸収: 与えたぶん回復
     if (a > d){ const pc = hasAb(st, A, pd.from, "pierce"), [y, cut] = hurt(D, pd.to, battleHit(st, A, pd.from, pc ? a : a - d)); log(st, A, `バトル ${fmtN(a)} vs ${fmtN(d)}：${nm(st, D)} に ${fmtN(y)} ダメージ${pc ? "（貫通）" : ""}${cut ? `（${cut}へった）` : ""}`); drain(st, A, pd.from, y); hitD = y > 0; losers.push([D, pd.to, dm.u]); }
