@@ -140,11 +140,13 @@ function buildStarters(){
     author: "サンプル（コスト）", starter: true,
     img: s.type ? drawSymbol(s.col, s.sym, s.type === "trap") : drawMonster(777 + i * 131, s.col)
   }));
-  S.starterBase = STARTERS.map((s, i) => ({
-    id: "starter-" + i, type: s.type || "monster", name: s.name, atk: s.type ? 0 : s.atk, effect: s.effect || "",
+  // 前のスターター（STARTERS）は練習バトル用に裏で残すだけ（図鑑・デッキ作りには出さない）
+  S.hiddenBase = STARTERS.map((s, i) => ({
+    id: "starter-" + i, tut: true, type: s.type || "monster", name: s.name, atk: s.type ? 0 : s.atk, effect: s.effect || "",
     fx: s.fx ? { trig: s.type ? "use" : s.fx.trig, ...s.fx } : null, combo: s.combo || null, cost: s.cost ?? null, quick: !!s.quick, eqN: s.eqN || 0, eqAb: s.eqAb || "none", limit: s.limit ?? 3, author: "スターター", starter: true,
     img: s.type ? drawSymbol(s.col, s.sym, s.type === "trap") : drawMonster(1234 + i * 97, s.col)
-  })).concat(extra, SOCRA.map(socraCard), [SPIRE_ALTAR], SPIRE_BASIC, NANASHI.map(s => ({ id: "nanashi-" + s.nid, effect: "", flavor: "", eqN: 0, eqAb: "none", abs: [], cost: null, deckMode: "normal", limit: 3, author: "ナナシ（サンプル）", starter: true, frame: "socra", fxRows: true, ...s, img: s.type === "magic" ? drawSymbol(s.col, s.sym, false) : drawMonster(4321 + s.nid * 53, s.col) })));
+  }));
+  S.starterBase = STARTER_CARDS.map(c => ({ ...c })).concat(extra, SOCRA.map(socraCard), [SPIRE_ALTAR], SPIRE_BASIC, NANASHI.map(s => ({ id: "nanashi-" + s.nid, effect: "", flavor: "", eqN: 0, eqAb: "none", abs: [], cost: null, deckMode: "normal", limit: 3, author: "ナナシ（サンプル）", starter: true, frame: "socra", fxRows: true, ...s, img: s.type === "magic" ? drawSymbol(s.col, s.sym, false) : drawMonster(4321 + s.nid * 53, s.col) })));
   S.starters = S.starterBase;
 }
 // スパイアデッキ: this card is face-up in the magic/trap zone from the start; every turn it offers 3 random スパイア風 cards
@@ -166,7 +168,7 @@ function draftPick(n){
   while (out.length < n && pool.length){ let r = Math.random() * pool.reduce((a, c) => a + RARITY_W[rarityOf(c)], 0), k = 0; while (k < pool.length - 1 && (r -= RARITY_W[rarityOf(pool[k])]) > 0) k++; out.push(pool.splice(k, 1)[0].id); }
   return out;
 }
-function starterDeck(){ const ids = []; STARTERS.forEach((s, i) => { for (let k = 0; k < s.n; k++) ids.push("starter-" + i); }); return { id: "starter", name: "スターターデッキ", cards: ids, builtin: true }; }
+function starterDeck(){ return { id: "starter", name: "スターターデッキ", cards: STARTER_DECK_IDS.slice(), builtin: true, key: STARTER_DECK_KEY }; }
 function starterManaDeck(){ return { ...starterDeck(), id: "starter-mana", name: "スターターデッキ【コスト】", mana: true }; }
 // the admin's changes to built-in cards are stored in builtin/<card id> and laid over the originals
 S.builtinEdits = {};
@@ -190,7 +192,7 @@ function rebuildCards(){
   // ポーション (カード以外) live in the cards collection too, but never act as cards
   const allU = S.userCards || []; S.userPotions = allU.filter(c => c && c.type === "potion"); S.userRelics = allU.filter(c => c && c.type === "relic"); S.userCards = allU.filter(c => !(c && (c.type === "potion" || c.type === "relic")));
   S.userCards.forEach(c => { if (c && c.nameRuby == null && /《/.test(c.name || "")){ c.nameRuby = c.name; c.name = plainRuby(c.name); } });
-  S.cards = new Map([...S.starters, ...S.userCards].map(c => [c.id, c]));
+  S.cards = new Map([...S.starters, ...(S.hiddenBase || []), ...S.userCards].map(c => [c.id, c]));
   rebuildOwned();
   const dl = document.getElementById("cardNames");
   if (dl) dl.innerHTML = [...new Set([...S.cards.values()].map(c => c.name))].map(n => `<option value="${esc(n)}"></option>`).join("");
