@@ -905,6 +905,14 @@ nav.tabs button{position:relative}
 /* スマホ: デッキの中身は下から出るシート（カードを足しても上の並びがずれない） */
 .dk-sheet-x{display:none}
 #cardView{z-index:80}
+#mkPreview{z-index:85;overflow:auto}
+#mkPreview .pv-box{position:relative;display:grid;grid-template-columns:auto minmax(0,1fr);gap:22px;align-items:start;width:min(880px,100%);max-height:92vh;overflow:auto;background:var(--panel);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid var(--line);border-radius:18px;padding:22px}
+#mkPreview .pv-side{display:flex;flex-direction:column;gap:12px;min-width:0}
+#mkPreview .pv-sizes{display:flex;gap:16px;align-items:flex-end;flex-wrap:wrap}
+#mkPreview figure{margin:0;display:flex;flex-direction:column;align-items:center;gap:4px}
+#mkPreview figcaption{font-size:12px;color:var(--muted)}
+#mkPreview .card{flex:none}
+@media (max-width:640px){#mkPreview .pv-box{grid-template-columns:1fr;justify-items:center;padding:52px 16px 20px}#mkPreview .pv-side{width:100%}}
 @media (max-width:640px){
   .dk-side{position:fixed;left:0;right:0;bottom:0;z-index:70;margin:0!important;max-height:72vh;overflow:auto;border-radius:18px 18px 0 0!important;padding:10px 14px calc(18px + env(safe-area-inset-bottom,0px))!important;transform:translateY(105%);transition:transform .22s ease;box-shadow:0 -10px 30px rgba(0,0,0,.5)}
   .dk-side.sheet-open{transform:none}
@@ -1344,6 +1352,7 @@ div.f{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:13px}
           <div class="c-atk" id="eqRow" hidden>ATK ± <input type="number" id="mkEq" step="1" value="200"></div>
         </div>
       </div></div>
+      <div class="row" style="justify-content:center"><button type="button" class="small" id="btnPreview" title="保存したときに、図鑑や対戦でどう見えるかを確かめる">👀 完成を見る</button></div>
       <div class="row" id="mkViewRow" hidden style="justify-content:center;gap:8px"><span class="note">見ているのは：</span><div class="seg" id="mkView"><button data-v="cost" aria-pressed="false">コストデッキ版</button><button data-v="free" aria-pressed="true">コストなし版</button></div></div>
       <p class="note" id="mkViewNote" hidden style="margin:0;max-width:340px;text-align:center">生贄召喚と攻撃の条件は、コストデッキとコストなしデッキで別々に決められます（効果のちがいは「もし：自分がコストデッキを使っている」で）</p>
       </div>
@@ -3900,6 +3909,24 @@ function mkBuildDoc(){
   if (MK.kind === "potion" || MK.kind === "relic") Object.assign(doc, { type: MK.kind, neow: MK.kind === "relic" && $("#mkNeow").checked || null, atk: 0, atkInf: false, eqN: 0, eqCost: null, eqCap: null, abs: [], frame: null, ss: null, quick: false, persist: false, sk: null, rarity: null, exhaust: false, payLp: null, payDisc: null, payMax: null, cost: null, costX: false, deckMode: "normal", limit: 0 });
   return { id, prev, doc };
 }
+// 完成を見る: 保存したときのカード（図鑑の大きさ・対戦の小さいサイズ）を、保存しないで表示する
+function closeMkPreview(){ const v = document.getElementById("mkPreview"); if (v) v.remove(); }
+$("#btnPreview").addEventListener("click", () => {
+  const nm = $("#mkName"), empty = !nm.value.trim(); if (empty) nm.value = "（カード名）";
+  const B = mkBuildDoc(); if (empty) nm.value = ""; if (!B) return;
+  const c = { ...B.doc, id: "preview-" + B.id, author: S.name || "あなた" };
+  closeMkPreview();
+  const v = document.createElement("div"); v.id = "mkPreview"; v.className = "overlay"; v.setAttribute("role", "dialog"); v.setAttribute("aria-label", "完成を見る");
+  v.innerHTML = `<div class="pv-box"><button type="button" class="cv-x ghost" data-pvclose aria-label="とじる">×</button>
+    <div class="pv-big">${cardHTML(c, "detail", "", {}).replace('class="card ', 'style="--w:min(360px,78vw)" class="card ')}</div>
+    <div class="pv-side"><h3 style="margin:0">完成するとこう見える</h3><p class="note" style="margin:0">まだ保存していません。文字がはみ出たり、ずれたりしていないか確かめてね。</p>
+      <div class="pv-sizes"><figure>${cardHTML(c, "", "", {})}<figcaption>図鑑・デッキ</figcaption></figure><figure>${cardHTML(c, "sm", "", {})}<figcaption>手札・場</figcaption></figure></div>
+      ${c.fxRows && !freeText(c) ? `<div class="fxr-big">${fxRowsHTML(c)}</div>` : `<p style="margin:0;font-size:14px">${kwLink(esc(fxText(c) || "（効果なし）"))}</p>`}
+      <button type="button" class="primary" data-pvclose>編集にもどる</button></div></div>`;
+  v.addEventListener("click", e => { if (e.target === v || e.target.closest("[data-pvclose]")) closeMkPreview(); });
+  document.body.appendChild(v); v.querySelector("[data-pvclose]").focus();
+});
+document.addEventListener("keydown", e => { if (e.key === "Escape") closeMkPreview(); });
 $("#btnTest").addEventListener("click", () => {
   if (MK.kind === "potion" || MK.kind === "relic"){ toast("ポーション・レリックはテストモードでは試せません"); return; }
   const B = mkBuildDoc(); if (!B) return;

@@ -944,6 +944,24 @@ function mkBuildDoc(){
   if (MK.kind === "potion" || MK.kind === "relic") Object.assign(doc, { type: MK.kind, neow: MK.kind === "relic" && $("#mkNeow").checked || null, atk: 0, atkInf: false, eqN: 0, eqCost: null, eqCap: null, abs: [], frame: null, ss: null, quick: false, persist: false, sk: null, rarity: null, exhaust: false, payLp: null, payDisc: null, payMax: null, cost: null, costX: false, deckMode: "normal", limit: 0 });
   return { id, prev, doc };
 }
+// 完成を見る: 保存したときのカード（図鑑の大きさ・対戦の小さいサイズ）を、保存しないで表示する
+function closeMkPreview(){ const v = document.getElementById("mkPreview"); if (v) v.remove(); }
+$("#btnPreview").addEventListener("click", () => {
+  const nm = $("#mkName"), empty = !nm.value.trim(); if (empty) nm.value = "（カード名）";
+  const B = mkBuildDoc(); if (empty) nm.value = ""; if (!B) return;
+  const c = { ...B.doc, id: "preview-" + B.id, author: S.name || "あなた" };
+  closeMkPreview();
+  const v = document.createElement("div"); v.id = "mkPreview"; v.className = "overlay"; v.setAttribute("role", "dialog"); v.setAttribute("aria-label", "完成を見る");
+  v.innerHTML = `<div class="pv-box"><button type="button" class="cv-x ghost" data-pvclose aria-label="とじる">×</button>
+    <div class="pv-big">${cardHTML(c, "detail", "", {}).replace('class="card ', 'style="--w:min(360px,78vw)" class="card ')}</div>
+    <div class="pv-side"><h3 style="margin:0">完成するとこう見える</h3><p class="note" style="margin:0">まだ保存していません。文字がはみ出たり、ずれたりしていないか確かめてね。</p>
+      <div class="pv-sizes"><figure>${cardHTML(c, "", "", {})}<figcaption>図鑑・デッキ</figcaption></figure><figure>${cardHTML(c, "sm", "", {})}<figcaption>手札・場</figcaption></figure></div>
+      ${c.fxRows && !freeText(c) ? `<div class="fxr-big">${fxRowsHTML(c)}</div>` : `<p style="margin:0;font-size:14px">${kwLink(esc(fxText(c) || "（効果なし）"))}</p>`}
+      <button type="button" class="primary" data-pvclose>編集にもどる</button></div></div>`;
+  v.addEventListener("click", e => { if (e.target === v || e.target.closest("[data-pvclose]")) closeMkPreview(); });
+  document.body.appendChild(v); v.querySelector("[data-pvclose]").focus();
+});
+document.addEventListener("keydown", e => { if (e.key === "Escape") closeMkPreview(); });
 $("#btnTest").addEventListener("click", () => {
   if (MK.kind === "potion" || MK.kind === "relic"){ toast("ポーション・レリックはテストモードでは試せません"); return; }
   const B = mkBuildDoc(); if (!B) return;

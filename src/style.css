@@ -893,6 +893,14 @@ nav.tabs button{position:relative}
 /* スマホ: デッキの中身は下から出るシート（カードを足しても上の並びがずれない） */
 .dk-sheet-x{display:none}
 #cardView{z-index:80}
+#mkPreview{z-index:85;overflow:auto}
+#mkPreview .pv-box{position:relative;display:grid;grid-template-columns:auto minmax(0,1fr);gap:22px;align-items:start;width:min(880px,100%);max-height:92vh;overflow:auto;background:var(--panel);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid var(--line);border-radius:18px;padding:22px}
+#mkPreview .pv-side{display:flex;flex-direction:column;gap:12px;min-width:0}
+#mkPreview .pv-sizes{display:flex;gap:16px;align-items:flex-end;flex-wrap:wrap}
+#mkPreview figure{margin:0;display:flex;flex-direction:column;align-items:center;gap:4px}
+#mkPreview figcaption{font-size:12px;color:var(--muted)}
+#mkPreview .card{flex:none}
+@media (max-width:640px){#mkPreview .pv-box{grid-template-columns:1fr;justify-items:center;padding:52px 16px 20px}#mkPreview .pv-side{width:100%}}
 @media (max-width:640px){
   .dk-side{position:fixed;left:0;right:0;bottom:0;z-index:70;margin:0!important;max-height:72vh;overflow:auto;border-radius:18px 18px 0 0!important;padding:10px 14px calc(18px + env(safe-area-inset-bottom,0px))!important;transform:translateY(105%);transition:transform .22s ease;box-shadow:0 -10px 30px rgba(0,0,0,.5)}
   .dk-side.sheet-open{transform:none}
