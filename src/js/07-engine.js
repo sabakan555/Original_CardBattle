@@ -1076,7 +1076,16 @@ function trigger(st, s, c, trig, ctx){ if (cardType(c) === "monster") runCard(st
 function freeKey(st, s, c){ const f = P(st, s).free, k = c && c.frame === "spire" ? spireKind(c) : null; return k && f && f[k] > 0 ? k : null; }
 const freeId = (st, s, c) => !!(c && (P(st, s).freeIds || []).includes(c.id));
 const corrupted = (st, s, c) => !!(c && P(st, s).corrupt && c.frame === "spire" && spireKind(c) === "skill");
-function effCost(st, s, c){ return c && c.costX ? 0 : freeKey(st, s, c) || freeId(st, s, c) || corrupted(st, s, c) ? 0 : costOf(c); }
+function effCost(st, s, c){ return c && c.costX ? 0 : freeKey(st, s, c) || freeId(st, s, c) || corrupted(st, s, c) ? 0 : symCost(st, s, c, costOf(c)); }
+// シンパシー: 自分の場の「タグ／名前に○○が入る」モンスター1体につきコストが下がる（1より下にはならない。もとが0ならそのまま）
+// 手札では、シンパシーで下がったあとのコストを見せる
+const symView = (st, s, c) => { if (!P(st, s).mana || !c || !hasCost(c) || c.costX || c.costInf) return c; const b = costOf(c), e = symCost(st, s, c, b); return e < b ? { ...c, cost: e } : c; };
+function symCount(st, s, a){ const w = String(a.name || "").trim(); return P(st, s).mz.filter(m => m && (!w || tagsOf(card(m.c)).includes(w) || normQ(card(m.c).name || "").includes(normQ(w)))).length; }
+function symCost(st, s, c, base){
+  if (!c || cardType(c) !== "monster" || !isFinite(base) || base <= 1) return base;
+  const cut = absOf(c).filter(a => a.k === "sympathy").reduce((t, a) => t + Math.max(1, a.n || 1) * symCount(st, s, a), 0);
+  return cut ? Math.max(1, base - cut) : base;
+}
 // 追加コスト「LPを○払う」: LPがそれより多くないと使えない（払ってLP0にはならない）
 function canPay(st, s, c){ const p = P(st, s), m = p.mana; return (!m || m.cur >= effCost(st, s, c)) && costWhy(st, s, c) === ""; }
 // why the 追加コスト can't be paid right now ("" = it can)
