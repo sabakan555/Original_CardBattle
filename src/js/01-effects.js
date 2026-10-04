@@ -143,6 +143,8 @@ const KINDS = {
   vulnAll:    { label: "相手と相手のモンスター全部を弱体にする", n: true, text: n => `相手と相手のモンスターすべてを弱体${n}にする` },
   atkDownAll: { label: "相手のモンスター全部のATKダウン", n: true, text: n => `相手のモンスターすべてのATK−${n}` },
   atkDown:    { label: "相手のモンスターのATKダウン", n: true, target: "opp", text: n => `相手のモンスター1体のATK−${n}` },
+  atkDownTmp: { label: "相手のモンスターのATKダウン（このターンだけ）", n: true, target: "opp", text: n => `このターンの間、相手のモンスター1体のATK−${n}` },
+  atkDownTmpAll: { label: "相手のモンスター全部のATKダウン（このターンだけ）", n: true, text: n => `このターンの間、相手のモンスターすべてのATK−${n}` },
   revive:     { label: "墓地から手札に戻す", target: "grave", text: () => `墓地のモンスター1体を手札に戻す` },
   reborn:     { label: "墓地から場に出す", target: "grave", text: () => `墓地のモンスター1体を自分の場に出す` },
   cancel:     { label: "発動・召喚を無効（打ち消し）", chain: true, text: () => `魔法・罠の発動かモンスターの召喚を無効にする（打ち消し）` },
@@ -359,13 +361,13 @@ const moreFx = fx => (fx && Array.isArray(fx.more) ? fx.more : []).filter(m => m
 const costLabel = c => c && c.costX ? "X" : c && c.costInf && hasCost(c) ? "∞" : costOf(c);
 
 /* ---- 「だれに」: one base effect (ダメージ / 弱体 / 魅了 / ATKダウン / 破壊) + who it goes to ---- */
-const TARGETABLE = { atkUp: ["one", "two", "random", "all"], dmg: ["one", "two", "random", "all"], vuln: ["one", "two", "random", "all"], weak: ["one", "two", "random", "all"], atkDown: ["one", "two", "random", "all"], charm: ["one", "two", "random", "all"], destroy: ["one", "two", "random", "all"] };
+const TARGETABLE = { atkUp: ["one", "two", "random", "all"], dmg: ["one", "two", "random", "all"], vuln: ["one", "two", "random", "all"], weak: ["one", "two", "random", "all"], atkDown: ["one", "two", "random", "all"], atkDownTmp: ["one", "two", "random", "all"], charm: ["one", "two", "random", "all"], destroy: ["one", "two", "random", "all"] };
 const TO_LABEL = { one: "1体をえらぶ", two: "ちがう2体をえらぶ", random: "ランダムに1体", all: "全体" };
-const TO_ALL = { atkUp: "atkAll", dmg: "dmgAll", vuln: "vulnAll", weak: "weakAll", atkDown: "atkDownAll", charm: "charmAll", destroy: "destroyAll" };
-const TO_LEGACY = { atkAll: ["atkUp", "all"], dmgRand: ["dmg", "random"], dmgAll: ["dmg", "all"], vulnAll: ["vuln", "all"], weakAll: ["weak", "all"], atkDownAll: ["atkDown", "all"], charmAll: ["charm", "all"], destroyAll: ["destroy", "all"] };
+const TO_ALL = { atkUp: "atkAll", dmg: "dmgAll", vuln: "vulnAll", weak: "weakAll", atkDown: "atkDownAll", atkDownTmp: "atkDownTmpAll", charm: "charmAll", destroy: "destroyAll" };
+const TO_LEGACY = { atkAll: ["atkUp", "all"], dmgRand: ["dmg", "random"], dmgAll: ["dmg", "all"], vulnAll: ["vuln", "all"], weakAll: ["weak", "all"], atkDownAll: ["atkDown", "all"], atkDownTmpAll: ["atkDownTmp", "all"], charmAll: ["charm", "all"], destroyAll: ["destroy", "all"] };
 const hitsPlayer = k => k === "dmg" || k === "vuln" || k === "weak";
 // the words for who gets it: 相手 / 相手のモンスター …
-const SIDED_KINDS = new Set(["dmg", "dmgAll", "dmgRand", "bash", "vuln", "vulnAll", "weak", "weakAll", "atkDown", "atkDownAll", "charm", "charmAll", "destroy", "destroyAll"]);
+const SIDED_KINDS = new Set(["dmg", "dmgAll", "dmgRand", "bash", "vuln", "vulnAll", "weak", "weakAll", "atkDown", "atkDownAll", "atkDownTmp", "atkDownTmpAll", "charm", "charmAll", "destroy", "destroyAll"]);
 // 「自分／相手」の「○体・全体・ランダムに○回」
 const SELF_ONLY = new Set(["atkUp"]);
 function toPhrase(kind, to, spire, tn, side){
@@ -391,6 +393,7 @@ function toText0(kind, n, to, spire, tn, side){
   if (kind === "vuln") return `${w}を弱体${n}にする`;
   if (kind === "weak") return `${w}を脱力${n}にする`;
   if (kind === "atkDown") return `${w}のATK−${n}`;
+  if (kind === "atkDownTmp") return `このターンの間、${w}のATK−${n}`;
   if (kind === "atkUp") return `${w}のATK+${n}`;
   if (kind === "charm") return `${w}を魅了する（このカードが場にある間、攻撃できない）`;
   if (kind === "destroy") return `${w}を破壊`;

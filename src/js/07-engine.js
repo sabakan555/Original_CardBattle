@@ -850,6 +850,9 @@ function applyEffect(st, s, c, target, ctx = {}, fx = normFx(c)){
     case "genAttack0": genCards(st, s, "attack", n || 1, src, true); break;
     case "genSkill": genCards(st, s, "skill", n || 1, src); break;
     case "genPower": genCards(st, s, "power", n || 1, src); break;
+    // このターンだけ: m.tmp に入れて、このターンのおわりに0にもどす
+    case "atkDownTmp": { const m = opT.mz[target]; if (m){ m.tmp = (m.tmp || 0) - n; m.tmpBy = st.turn; log(st, s, `${src}で「${card(m.c).name}」のATK−${n}（このターンだけ）`); } break; }
+    case "atkDownTmpAll": opT.mz.forEach(m => { if (m){ m.tmp = (m.tmp || 0) - n; m.tmpBy = st.turn; } }); log(st, s, `${src}で${OS === s ? "自分" : "相手"}のモンスターすべてのATK−${n}（このターンだけ）`); break;
     case "atkDownAll": opT.mz.forEach(m => { if (m) m.mod = (m.mod || 0) - n; }); log(st, s, `${src}で${OS === s ? "自分" : "相手"}のモンスターすべてのATK−${n}`); break;
     case "atkDown": if (opT.mz[target]){ opT.mz[target].mod = (opT.mz[target].mod || 0) - n; log(st, s, `${src}で「${card(opT.mz[target].c).name}」のATK−${n}`); } break;
     case "revive": { const gi = me.grave.indexOf(target); if (gi >= 0){ me.grave.splice(gi, 1); me.hand.push(target); log(st, s, `${src}で墓地の「${card(target).name}」を手札に戻した`); } break; }
