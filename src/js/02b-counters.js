@@ -3,6 +3,8 @@
 // ダメージカウンターも、はじめから入っているカウンターのひとつ（モンスターの m.dmg をそのまま使う）
 // カードを保存するとき、使っているカウンターの名前・色・アイコンをカードの中（c.ctrs）にもコピーする → 交換したカードや、カウンターが消されたあとでも表示できる
 // 場での数: モンスターは m.ctr = { id: 個数 }、プレイヤーは p.ctr = { id: 個数 }
+// 場のカードを指定して除去: どちらの場の・どうする
+const RB_SIDE = { op: "相手", me: "自分", both: "お互い" }, RB_MODE = { destroy: "破壊する", bounce: "持ち主の手札に戻す", banish: "除外する" };
 const CTR_DMG = "dmg";
 const CTR_BUILTIN = { dmg: { id: "dmg", name: "ダメージ", color: "#c0392b", icon: "", builtin: true } };
 let CTR_EMB = {};
@@ -218,3 +220,17 @@ function ctrTileHTML(d){
   return `<div class="ctr-tile" style="--cc:${col}">${d.icon ? `<img class="ctr-big" alt="" src="${esc(d.icon)}">` : `<span class="ctr-big ctr-big0">${esc([...(d.name || "？")][0])}</span>`}<b>${esc(d.name)}カウンター</b><span class="note">${esc(by)}</span><div class="row" style="gap:6px;justify-content:center"><button type="button" class="small" data-ctrcards="${esc(d.id)}"${d.uses ? "" : " disabled"}>使っているカード（${d.uses}）</button>${ctrCanEdit(d) && (S.counters || []).some(x => x.id === d.id) ? `<button type="button" class="small ghost" data-ctreditg="${esc(d.id)}">直す</button>` : ""}</div></div>`;
 }
 const ctrBanner = f => f && f.ctr ? `<div class="ctr-on">${ctrChip(f.ctr, "")}<b>${esc(ctrName(f.ctr))}</b>を使うカード<button type="button" class="small ghost" data-ctrclear aria-label="カウンターの絞り込みをやめる">× やめる</button></div>` : "";
+/* ---- カード工房: スペルブースト（コスト）・G・ゼロ・探査・革命チェンジ ---- */
+function mkCostMech(save){
+  const g = id => document.getElementById(id); if (!g("mkSbCost")) return {};
+  const sb = Math.max(0, Math.min(20, Math.round(+g("mkSbCost").value || 0))), gzName = g("mkGzName").value.trim(), rvName = g("mkRevoName").value.trim();
+  return { sbCost: sb || null, gz: g("mkGz").checked && gzName ? { where: g("mkGzWhere").value, match: g("mkGzMatch").value, name: gzName.slice(0, 40), cnt: Math.max(1, Math.min(20, Math.round(+g("mkGzCnt").value || 1))) } : null, delve: g("mkDelve").checked || null, revo: g("mkRevo").checked && rvName && (typeof MK === "undefined" || MK.type === "monster") ? { match: g("mkRevoMatch").value, name: rvName.slice(0, 40) } : null };
+}
+function setCostMech(c){
+  const g = id => document.getElementById(id); if (!g("mkSbCost")) return;
+  g("mkSbCost").value = String(c && +c.sbCost > 0 ? +c.sbCost : 0);
+  const gz = c && c.gz; g("mkGz").checked = !!(gz && gz.name); g("mkGzWhere").value = gz && ["field", "grave", "hand"].includes(gz.where) ? gz.where : "field"; g("mkGzMatch").value = gz && ["tag", "part", "exact"].includes(gz.match) ? gz.match : "tag"; g("mkGzName").value = gz ? gz.name || "" : ""; g("mkGzCnt").value = String(gz ? Math.max(1, +gz.cnt || 1) : 1);
+  g("mkDelve").checked = !!(c && c.delve);
+  const rv = c && c.revo; g("mkRevo").checked = !!(rv && rv.name); g("mkRevoMatch").value = rv && ["tag", "part", "exact"].includes(rv.match) ? rv.match : "tag"; g("mkRevoName").value = rv ? rv.name || "" : "";
+}
+["mkSbCost", "mkGz", "mkGzWhere", "mkGzMatch", "mkGzName", "mkGzCnt", "mkDelve", "mkRevo", "mkRevoMatch", "mkRevoName"].forEach(id => { const el = document.getElementById(id); if (el){ el.addEventListener("input", () => { if (typeof updateBkText === "function") updateBkText(); }); el.addEventListener("change", () => { if (typeof updateBkText === "function") updateBkText(); }); } });

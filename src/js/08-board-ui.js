@@ -49,7 +49,7 @@ function scheduleCpu(){
   const st = G.st, c = "b";
   // CPU as defender
   if (st.pending && st.pending.wait && st.pending.by !== c) {
-    G.cpuT = setTimeout(() => { G.cpuT = null; act(st => { const win = chainWindow(st); const o = G.test && G.test.cpu === "idle" ? [] : responseOptions(st, c, win); const top = st.chain && st.chain[st.chain.length - 1]; const pick = o.length && Math.random() < (win === "attack" ? .75 : top && top.summon ? .6 : .5) ? o[Math.floor(Math.random() * o.length)] : null; respond(st, c, pick && { from: pick.from, i: pick.i }); }); }, 900);
+    G.cpuT = setTimeout(() => { G.cpuT = null; act(st => { const win = chainWindow(st); const o = G.test && G.test.cpu === "idle" ? [] : responseOptions(st, c, win); const top = st.chain && st.chain[st.chain.length - 1]; const nb = o.filter(x => x.from !== "blk"), pick = cpuBlock(st, c, o) || (nb.length && Math.random() < (win === "attack" ? .75 : top && top.summon ? .6 : .5) ? nb[Math.floor(Math.random() * nb.length)] : null); respond(st, c, pick && { from: pick.from, i: pick.i }); }); }, 900);
     return;
   }
   if (st.turn !== c || st.pending) return;
@@ -97,6 +97,8 @@ function cpuStep(st, s){
       if (summon(st, s, i, null, null, picks)) return;
     }
   }
+  // 2a. 進化（一番強いモンスターから）
+  { const ev2 = p.mz.map((m, i) => m && !evoWhy(st, s, i) ? i : -1).filter(i => i >= 0).sort((a, b) => cmpNum(atkOf(p.mz[b]), atkOf(p.mz[a]))); if (ev2.length && Math.random() < .8){ evolveMon(st, s, ev2[0]); return; } }
   // 2b. 起動効果（使えるときはだいたい使う）
   for (let i = 0; i < ZONES; i++){ if (p.mz[i] && !actWhy(st, s, i) && Math.random() < .7){ activateMon(st, s, i); return; } }
   // 3. set traps
@@ -254,7 +256,8 @@ function renderBoard(){
     const stt = stt0 || z.attacked && s === st.turn ? stt0 || "攻撃済" : (z.atkCount && s === st.turn ? "あと1回" : "") || (charmActive(st, z) ? "魅了" : "") || ((z.noAtkTurn || 0) >= st.turnNo ? "攻撃できない" : "");
     const zz = sick(st, s, i) ? " sick" : "", zx = (!z.shieldGone && hasAb(st, s, i, "shield") ? " shielded" : "") + (hiddenMon(st, s, i) ? " stealthy" : "");
     const actH = mine && !G.spectate && hasTrig(monCard(z), "act"), actNo = actH ? actWhy(st, s, i) : "";
-    return (h => actH ? h.replace(/<\/div>$/, `<button type="button" class="actbtn" data-actmon="${i}" ${actNo ? "disabled" : ""} title="${actNo ? esc(actNo) : "能力を発動する"}" aria-label="「${esc(card(z.c).name)}」の能力を発動する">${ACT_ICON}</button></div>`) : h)(zcap(cardHTML(card(z.c), cls + zz + zx + (actH ? (actNo ? " actable actused" : " actable") : "") + (atkr ? " attacking" : "") + (atkd ? " atk-tgt" : ""), attrs + (zz ? ` title="召喚酔い：次の自分のターンから攻撃できる"` : ttl), { mod: modOf(z), done: stt, eq: eqB, dmg: z.dmg || 0, ctr: z.ctr, vuln: z.vuln || 0, weak: z.weak || 0, ...mOpt(s) }), card(z.c), z));
+    const evH = mine && !G.spectate && hasAb(st, s, i, "evolve") && !z.evolved, evNo = evH ? evoWhy(st, s, i) : "";
+    return (h => evH ? h.replace(/<\/div>$/, `<button type="button" class="evobtn" data-evomon="${i}" ${evNo ? "disabled" : ""} title="${esc(evNo || `進化する（進化ポイント あと${EVO_MAX - (P(st, s).evoUsed || 0)}）`)}" aria-label="「${esc(card(z.c).name)}」を進化させる">進化</button></div>`) : h)((h => actH ? h.replace(/<\/div>$/, `<button type="button" class="actbtn" data-actmon="${i}" ${actNo ? "disabled" : ""} title="${actNo ? esc(actNo) : "能力を発動する"}" aria-label="「${esc(card(z.c).name)}」の能力を発動する">${ACT_ICON}</button></div>`) : h)(zcap(cardHTML(card(z.c), cls + zz + zx + (actH ? (actNo ? " actable actused" : " actable") : "") + (atkr ? " attacking" : "") + (atkd ? " atk-tgt" : ""), attrs + (zz ? ` title="召喚酔い：次の自分のターンから攻撃できる"` : ttl), { mod: modOf(z), done: stt, eq: eqB, dmg: z.dmg || 0, ctr: z.ctr, vuln: z.vuln || 0, weak: z.weak || 0, ...mOpt(s) }), card(z.c), z)));
   }).join("");
 
   // action bar
@@ -650,6 +653,13 @@ function renderOverlay(){
       if (t === "grave" || t === "draft" || t === "graveAny" || t === "tagPick" || t === "deckType" || t === "oppGrave") return cardHTML(card(o), "sm pick", `data-opt="${esc(o)}" tabindex="0" role="button"`, mOpt(q.s));
       if (t === "hand") return cardHTML(card(P(st, q.s).hand[o]), "sm pick", `data-opt="${o}" tabindex="0" role="button"`, mOpt(q.s));
       if (t === "oppHand") return cardHTML(card(P(st, O(q.s)).hand[o]), "sm pick", `data-opt="${o}" tabindex="0" role="button"`, mOpt(O(q.s)));
+      if (t === "board"){
+        if (o === "field"){ const f = st.field; return `<div class="g-item">${cardHTML(card(f.c), "sm pick", `data-opt="field" tabindex="0" role="button"`, mOpt(f.o))}<div class="meta">フィールド</div></div>`; }
+        const [os, zk, oi] = String(o).split(":"), X = P(st, os), who = os === me ? "自分" : "相手";
+        if (zk === "mz"){ const m = X.mz[+oi]; return `<div class="g-item">${cardHTML(card(m.c), "sm pick", `data-opt="${o}" tabindex="0" role="button"`, { mod: modOf(m), ...mOpt(os) })}<div class="meta">${who}のモンスター</div></div>`; }
+        const z = X.sz[+oi], vis = z.face || os === me;
+        return `<div class="g-item">${vis ? cardHTML(card(z.c), "sm pick", `data-opt="${o}" tabindex="0" role="button"`, mOpt(os)) : backHTML("sm pick", `data-opt="${o}" tabindex="0" role="button"`, X.sleeve)}<div class="meta">${who}の${z.face ? "魔法・罠" : "セット中"}</div></div>`;
+      }
       if (t === "szOpp"){ const X = P(st, O(q.s)), z = X.sz[o]; return `<div class="g-item">${z.face ? cardHTML(card(z.c), "sm pick", `data-opt="${o}" tabindex="0" role="button"`, mOpt(O(q.s))) : backHTML("sm pick", `data-opt="${o}" tabindex="0" role="button"`, X.sleeve)}<div class="meta">${z.face ? "表向き" : "セット中"}</div></div>`; }
       if (t === "any"){ const [os, oi] = o.split(":"), m = P(st, os).mz[+oi]; return `<div class="g-item">${cardHTML(card(m.c), "sm pick", `data-opt="${o}" tabindex="0" role="button"`, { mod: modOf(m), ...mOpt(os) })}<div class="meta">${os === me ? "自分" : "相手"}</div></div>`; }
       if (o === "p"){ const X = P(st, TS); return `<button class="pick-player" data-opt="p">${esc(X.name)}<br><small>LP ${X.lp}${X.block ? `・ブロック ${X.block}` : ""}</small></button>`; }
@@ -667,7 +677,7 @@ function renderOverlay(){
     const win = chainWindow(st);
     const opts = responseOptions(st, me, win);
     const rs = G.respSel ? opts.find(o => `${o.from}:${o.i}` === G.respSel) : null; if (G.respSel && !rs) G.respSel = null;
-    const list = opts.map(o => { const k = `${o.from}:${o.i}`; return `<div class="g-item">${cardHTML(o.c, "sm pick" + (G.respSel === k ? " sel" : ""), `data-resp="${k}" tabindex="0" role="button"`, mOpt(me))}<div class="meta">${o.from === "hand" ? "手札から" : o.from === "eq" ? "装備の力" : "セット中"}</div></div>`; }).join("");
+    const list = opts.map(o => { const k = `${o.from}:${o.i}`; return `<div class="g-item">${cardHTML(o.c, "sm pick" + (G.respSel === k ? " sel" : ""), `data-resp="${k}" tabindex="0" role="button"`, mOpt(me))}<div class="meta">${o.from === "hand" ? "手札から" : o.from === "eq" ? "装備の力" : o.from === "blk" ? "ブロッカー" : "セット中"}</div></div>`; }).join("");
     let head, msg, focus = null;
     if (win === "attack"){
       const am = A.mz[pd.from];
@@ -684,7 +694,7 @@ function renderOverlay(){
     }
     const fHTML = focus ? `<div class="resp-focus">${cardHTML(card(focus.id), "sm pick", `data-cid="${esc(focus.id)}" tabindex="0" role="button"`, { mod: focus.mod || 0, ...mOpt(focus.s) })}<div class="rf-txt"><span class="rf-lbl">${focus.lbl}</span><b>「${esc(card(focus.id).name)}」</b><p>${tkLink(esc(fxText(card(focus.id)) || plainRuby(card(focus.id).effect || "") || "効果なし"))}</p><span class="note">カードを押すとくわしく見られます</span></div></div>` : "";
     const chainHTML = st.chain && st.chain.length ? `<div class="chainrow">${st.chain.map((l, k) => `<button type="button" class="link ${l.s === me ? "mine" : ""}" data-cid="${esc(l.c)}" data-where="チェーン${k + 1}">${k + 1}. ${l.summon ? (l.special ? "特殊召喚：" : "召喚：") : ""}${esc(card(l.c).name)}<small>${l.s === me ? "あなた" : esc(P(st, l.s).name)}</small></button>`).join('<span class="arr">→</span>')}</div>` : "";
-    const prevHTML = rs ? `<div class="resp-prev">${cardHTML(rs.c, "sm", "", mOpt(me))}<div class="rf-txt"><b>「${esc(rs.c.name)}」を使う？</b><p>${tkLink(esc(fxText(rs.c) || plainRuby(rs.c.effect || "") || "効果なし"))}</p><div class="row"><button class="primary" data-respgo>発動する</button><button class="ghost" data-respcancel>やめる</button></div></div></div>` : opts.length ? `<p class="note" style="margin:0">使うカードを押すと効果が出ます（押しただけでは発動しません）</p>` : "";
+    const prevHTML = rs ? `<div class="resp-prev">${cardHTML(rs.c, "sm", "", mOpt(me))}<div class="rf-txt"><b>「${esc(rs.c.name)}」${rs.from === "blk" ? "でブロックする？" : "を使う？"}</b><p>${rs.from === "blk" ? "このモンスターが代わりに攻撃を受けて、バトルする" : tkLink(esc(fxText(rs.c) || plainRuby(rs.c.effect || "") || "効果なし"))}</p><div class="row"><button class="primary" data-respgo>${rs.from === "blk" ? "ブロックする" : "発動する"}</button><button class="ghost" data-respcancel>やめる</button></div></div></div>` : opts.length ? `<p class="note" style="margin:0">使うカードを押すと効果が出ます（押しただけでは発動しません）</p>` : "";
     html = `<div class="box"><h2 style="margin:0">${esc(head)}</h2>${chainHTML}${fHTML}<p style="margin:0">${esc(msg)}</p><div class="gallery">${list}</div>${prevHTML}<div class="row"><button data-close="notrap">${win === "chain" || win === "chainAttack" ? "チェーンしない" : "使わない"}</button><button class="ghost" data-peek>盤面を見る</button></div></div>`;
     peek = true;
   } else if (G.potPick != null && myP && potionDef((myP.potions || [])[G.potPick]) && canAct(st, me)){
@@ -772,7 +782,7 @@ $("#overlay").addEventListener("click", e => {
   }
   if (opt && G.chooseQ.length){
     const q = G.chooseQ.shift(); const t = KINDS[q.fx.kind].target;
-    const target = t === "grave" || t === "any" || t === "draft" || t === "graveAny" || t === "tagPick" || q.ctx.spireAtk ? opt.dataset.opt : +opt.dataset.opt;
+    const raw = opt.dataset.opt, target = t === "grave" || t === "any" || t === "draft" || t === "graveAny" || t === "tagPick" || q.ctx.spireAtk || !/^-?\d+$/.test(raw) ? raw : +raw;
     act(st => { applyEffect(st, q.s, q.c, target, q.ctx, q.fx); q.then && q.then(st); });
     return;
   }
@@ -809,6 +819,7 @@ $("#board").addEventListener("click", e => {
   if (pb){ if (canAct(st, me)){ G.potPick = +pb.dataset.potion; renderAll(); } return; }
   { const ci = e.target.closest("[data-cid]"); if (ci){ G.detailBottom = ci.getBoundingClientRect().top < innerHeight / 2; openDetail(["id", ci.dataset.cid, ci.dataset.where || undefined]); return; } }
   { const cn = e.target.closest("[data-cname]"); if (cn){ const id = findCardIdByName(cn.dataset.cname); if (!id){ toast("そのカードが見つかりません"); return; } G.detailBottom = cn.getBoundingClientRect().top < innerHeight / 2; openDetail(["id", id, "ログに出たカード"]); return; } }
+  { const eb = e.target.closest("[data-evomon]"); if (eb){ if (!eb.disabled) act(st => evolveMon(st, G.slot, +eb.dataset.evomon)); return; } }
   { const ab = e.target.closest("[data-actmon]"); if (ab){ if (!ab.disabled){ G.actAsk = +ab.dataset.actmon; renderAll(); } return; } }
   const zc = e.target.closest("[data-z]");
   if (zc){

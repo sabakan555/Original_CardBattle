@@ -561,6 +561,8 @@ body.dm-lock{overflow:hidden}
 @keyframes actGlow{50%{box-shadow:0 0 0 2px #ffae1f,0 0 26px 9px rgba(255,166,31,.5)}}
 .actbtn{position:absolute;left:50%;bottom:-9%;transform:translateX(-50%);width:44%;max-width:58px;min-width:30px;aspect-ratio:1;border-radius:50%;background:radial-gradient(circle at 40% 35%,#ffbf3d,#ff9a0e);border:3px solid #fff;box-shadow:0 3px 8px rgba(0,0,0,.45);display:grid;place-items:center;padding:0;z-index:7;cursor:pointer}
 .actbtn svg{width:70%;height:70%}
+.evobtn{position:absolute;right:-8%;top:-7%;z-index:6;padding:1px 7px;border-radius:99px;background:linear-gradient(135deg,#ffe37a,#ff9de2,#8fd3ff);border:2px solid #fff;color:#3a2a55;font:800 11px/1.5 var(--ui);box-shadow:0 2px 6px rgba(0,0,0,.4);cursor:pointer}
+.evobtn:disabled{filter:grayscale(1);opacity:.5;cursor:default}
 .actbtn:hover:not(:disabled){transform:translateX(-50%) scale(1.08)}
 .actbtn:disabled{filter:grayscale(1);opacity:.55;cursor:default}
 .act-ask .act-prev{display:flex;gap:14px;align-items:flex-start}
