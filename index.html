@@ -614,6 +614,10 @@ body.tut-on #detailPop{display:none!important}
 #kwPop b{display:block;color:#ffd76a;margin-bottom:2px}
 #kwPop[hidden]{display:none}
 /* 聖なる盾・隠密の見た目 */
+/* 除去耐性（効果耐性・護法・隠密・ジャストダイバー）: 半透明の黄色い盾を上にかぶせる */
+.rsx{position:absolute;left:50%;top:50%;width:56%;aspect-ratio:10/11;transform:translate(-50%,-50%);z-index:5;pointer-events:none;background:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%20100%20110%22%3E%3Cpath%20d%3D%22M50%204%2092%2018v32c0%2028-18%2046-42%2056C26%2096%208%2078%208%2050V18Z%22%20fill%3D%22%23ffd84a%22%20fill-opacity%3D%22.72%22%20stroke%3D%22%23fff6c2%22%20stroke-width%3D%225%22%20stroke-linejoin%3D%22round%22/%3E%3Cpath%20d%3D%22M50%2016%2080%2026v24c0%2020-12%2034-30%2042V16Z%22%20fill%3D%22%23fff3a6%22%20fill-opacity%3D%22.45%22/%3E%3C/svg%3E") center/contain no-repeat;filter:drop-shadow(0 0 6px rgba(255,214,90,.85));animation:rsxPulse 2.4s ease-in-out infinite}
+@keyframes rsxPulse{0%,100%{opacity:.8;transform:translate(-50%,-50%) scale(.96)}50%{opacity:1;transform:translate(-50%,-50%) scale(1.03)}}
+@media (prefers-reduced-motion:reduce){.rsx{animation:none;opacity:.75}}
 .card.shielded{box-shadow:0 0 0 2px #ffe27a,0 0 14px 3px rgba(255,214,90,.75)!important}
 .card.stealthy{opacity:.62;filter:saturate(.6)}
 .bst.boon small{margin-left:2px;opacity:.85}
@@ -7359,7 +7363,8 @@ function renderBoard(){
     const zz = sick(st, s, i) ? " sick" : "", zx = (!z.shieldGone && hasAb(st, s, i, "shield") ? " shielded" : "") + (hiddenMon(st, s, i) ? " stealthy" : "");
     const actH = mine && !G.spectate && hasTrig(monCard(z), "act"), actNo = actH ? actWhy(st, s, i) : "";
     const evH = mine && !G.spectate && hasAb(st, s, i, "evolve") && !z.evolved, evNo = evH ? evoWhy(st, s, i) : "";
-    return (h => evH ? h.replace(/<\/div>$/, `<button type="button" class="evobtn" data-evomon="${i}" ${evNo ? "disabled" : ""} title="${esc(evNo || `進化する（進化ポイント あと${EVO_MAX - (P(st, s).evoUsed || 0)}）`)}" aria-label="「${esc(card(z.c).name)}」を進化させる">進化</button></div>`) : h)((h => actH ? h.replace(/<\/div>$/, `<button type="button" class="actbtn" data-actmon="${i}" ${actNo ? "disabled" : ""} title="${actNo ? esc(actNo) : "能力を発動する"}" aria-label="「${esc(card(z.c).name)}」の能力を発動する">${ACT_ICON}</button></div>`) : h)(zcap(cardHTML(card(z.c), cls + zz + zx + (actH ? (actNo ? " actable actused" : " actable") : "") + (atkr ? " attacking" : "") + (atkd ? " atk-tgt" : ""), attrs + (zz ? ` title="召喚酔い：次の自分のターンから攻撃できる"` : ttl), { mod: modOf(z), done: stt, eq: eqB, dmg: z.dmg || 0, ctr: z.ctr, vuln: z.vuln || 0, weak: z.weak || 0, ...mOpt(s) }), card(z.c), z)));
+    const rsx = hasAb(st, s, i, "noEffect") || hasAb(st, s, i, "ward") || hiddenMon(st, s, i), rsxT = [hasAb(st, s, i, "noEffect") ? "効果では破壊されない" : "", hasAb(st, s, i, "ward") ? "護法" : "", jdOn(st, s, i) ? "ジャストダイバー中" : hiddenMon(st, s, i) ? "隠密中" : ""].filter(Boolean).join("・");
+    return (h => rsx ? h.replace(/<\/div>$/, `<span class="rsx" role="img" aria-label="除去耐性：${rsxT}" title="${rsxT}"></span></div>`) : h)((h => evH ? h.replace(/<\/div>$/, `<button type="button" class="evobtn" data-evomon="${i}" ${evNo ? "disabled" : ""} title="${esc(evNo || `進化する（進化ポイント あと${EVO_MAX - (P(st, s).evoUsed || 0)}）`)}" aria-label="「${esc(card(z.c).name)}」を進化させる">進化</button></div>`) : h)((h => actH ? h.replace(/<\/div>$/, `<button type="button" class="actbtn" data-actmon="${i}" ${actNo ? "disabled" : ""} title="${actNo ? esc(actNo) : "能力を発動する"}" aria-label="「${esc(card(z.c).name)}」の能力を発動する">${ACT_ICON}</button></div>`) : h)(zcap(cardHTML(card(z.c), cls + zz + zx + (actH ? (actNo ? " actable actused" : " actable") : "") + (atkr ? " attacking" : "") + (atkd ? " atk-tgt" : ""), attrs + (zz ? ` title="召喚酔い：次の自分のターンから攻撃できる"` : ttl), { mod: modOf(z), done: stt, eq: eqB, dmg: z.dmg || 0, ctr: z.ctr, vuln: z.vuln || 0, weak: z.weak || 0, ...mOpt(s) }), card(z.c), z))));
   }).join("");
 
   // action bar

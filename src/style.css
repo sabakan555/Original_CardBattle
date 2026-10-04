@@ -602,6 +602,10 @@ body.tut-on #detailPop{display:none!important}
 #kwPop b{display:block;color:#ffd76a;margin-bottom:2px}
 #kwPop[hidden]{display:none}
 /* 聖なる盾・隠密の見た目 */
+/* 除去耐性（効果耐性・護法・隠密・ジャストダイバー）: 半透明の黄色い盾を上にかぶせる */
+.rsx{position:absolute;left:50%;top:50%;width:56%;aspect-ratio:10/11;transform:translate(-50%,-50%);z-index:5;pointer-events:none;background:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%20100%20110%22%3E%3Cpath%20d%3D%22M50%204%2092%2018v32c0%2028-18%2046-42%2056C26%2096%208%2078%208%2050V18Z%22%20fill%3D%22%23ffd84a%22%20fill-opacity%3D%22.72%22%20stroke%3D%22%23fff6c2%22%20stroke-width%3D%225%22%20stroke-linejoin%3D%22round%22/%3E%3Cpath%20d%3D%22M50%2016%2080%2026v24c0%2020-12%2034-30%2042V16Z%22%20fill%3D%22%23fff3a6%22%20fill-opacity%3D%22.45%22/%3E%3C/svg%3E") center/contain no-repeat;filter:drop-shadow(0 0 6px rgba(255,214,90,.85));animation:rsxPulse 2.4s ease-in-out infinite}
+@keyframes rsxPulse{0%,100%{opacity:.8;transform:translate(-50%,-50%) scale(.96)}50%{opacity:1;transform:translate(-50%,-50%) scale(1.03)}}
+@media (prefers-reduced-motion:reduce){.rsx{animation:none;opacity:.75}}
 .card.shielded{box-shadow:0 0 0 2px #ffe27a,0 0 14px 3px rgba(255,214,90,.75)!important}
 .card.stealthy{opacity:.62;filter:saturate(.6)}
 .bst.boon small{margin-left:2px;opacity:.85}
