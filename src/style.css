@@ -1109,6 +1109,9 @@ div.f{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:13px}
 .card.mtg{--mu:calc(var(--w)/630);aspect-ratio:630/880;padding:0;background:transparent;border:none;border-radius:calc(var(--mu)*24);box-shadow:0 calc(var(--mu)*4) calc(var(--mu)*12) rgba(0,0,0,.35);color:#000;font-family:var(--cf,"Shippori Mincho","Shippori Mincho B1",serif)}
 .card.mtg::before{content:"";position:absolute;inset:0;background:url("assets/mtg_frame.webp") center/100% 100% no-repeat;border-radius:inherit;z-index:0;pointer-events:none}
 .card.mtg.magic::before{filter:hue-rotate(-60deg) saturate(1.3)}.card.mtg.trap::before{filter:hue-rotate(110deg) saturate(1.2)}.card.mtg.equip::before{filter:sepia(.45) hue-rotate(-20deg)}.card.mtg.token::before{filter:grayscale(1)}
+/* MTG枠の色（Figma Frame 43）: 背景色の四角を --cframe でぬり、その上にテクスチャ・パネルの絵をかさねる。パネルのフチは少し暗い色 */
+.card.mtg.mcol::before{background:url("assets/mtg_top.webp") 0 0/100% 100% no-repeat,linear-gradient(var(--cframe),var(--cframe)) calc(var(--mu)*7) calc(var(--mu)*8)/calc(var(--mu)*613) calc(var(--mu)*859) no-repeat;filter:none}
+.card.mtg.mcol .m-gem{display:block;position:absolute;inset:0;z-index:0;pointer-events:none;border-radius:inherit;background:color-mix(in srgb,var(--cframe) 55%,#000);-webkit-mask:url("assets/mtg_edge.webp") 0 0/100% 100% no-repeat;mask:url("assets/mtg_edge.webp") 0 0/100% 100% no-repeat}
 .card.mtg .c-in{position:static;display:block;height:auto;background:none;border-radius:0;overflow:visible}
 .card.mtg .c-name{position:absolute;left:calc(var(--mu)*57);top:calc(var(--mu)*52);width:calc(var(--mu)*472);height:calc(var(--mu)*38);padding:0!important;border:none!important;background:none;text-align:left;display:flex;align-items:center;font-size:calc(var(--mu)*32*var(--nk,1));line-height:1!important;letter-spacing:-.1em;font-weight:700;z-index:2;white-space:nowrap;overflow:hidden}
 .card.mtg.costed .c-name{padding-left:0!important}

@@ -245,6 +245,7 @@ const COL_PRESETS = [["#2b2b2b", "#eef3f3", "ふつう"], ["#8a1c1c", "#fbe3dc",
 $("#colPresets").innerHTML = COL_PRESETS.map(([f, b, n]) => `<button type="button" class="col-pre" data-cf="${f}" data-cb="${b}" title="${n}" aria-label="${n}" style="background:linear-gradient(135deg,${f} 50%,${b} 50%)"></button>`).join("");
 function syncColor(){
   const on = $("#mkColOn").checked, ec = $("#editCard");
+  ec.classList.toggle("mcol", on);
   if (on){ ec.style.setProperty("--cframe", $("#mkColF").value); ec.style.setProperty("--cbg", $("#mkColB").value); } else { ec.style.removeProperty("--cframe"); ec.style.removeProperty("--cbg"); }
 }
 function setColor(f, b){ const on = HEX6.test(f || "") || HEX6.test(b || ""); $("#mkColOn").checked = on; $("#mkColF").value = HEX6.test(f || "") ? f : "#2b2b2b"; $("#mkColB").value = HEX6.test(b || "") ? b : "#eef3f3"; syncColor(); }
