@@ -949,6 +949,8 @@ nav.tabs button{position:relative}
 @media (max-width:640px){
   /* no zoom-in when tapping a field on iPhone */
   input,select,textarea{font-size:16px!important}
+  /* デュエマ旧枠のATKは本物と同じ大きさのまま（16px以上なのでズームはしない） */
+  .card.editor.dm .c-atk input{font-size:max(16px,calc(var(--du)*50))!important}
   /* app-style tab bar at the bottom */
   body{padding-bottom:calc(84px + env(safe-area-inset-bottom,0px))}
   header.top{margin-bottom:10px}
