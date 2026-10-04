@@ -131,24 +131,50 @@ function sortCards(list, how){
   });
   return a.map(([c]) => c);
 }
-function fxOptionsHTML(){
-  const kinds = Object.entries(KINDS).filter(([k]) => k !== "none").map(([k, v]) => `<option value="k:${k}">${v.label.replace("（罠）", "")}</option>`).join("");
-  const trigs = MON_TRIGS.map(k => `<option value="t:${k}">${TRIGS[k]}</option>`).join("");
-  const abs = Object.entries(ABS).map(([k, v]) => `<option value="a:${k}">${v.label}</option>`).join("");
-  return `<option value="">効果：指定なし</option><option value="any">自動の効果・装備の効果あり</option><option value="none">効果なし</option><option value="combo">追加効果（特定のカードがあるとき）あり</option><optgroup label="効果の中身">${kinds}</optgroup><optgroup label="モンスターの発動タイミング">${trigs}</optgroup><optgroup label="能力">${abs}</optgroup>`;
+// 効果でさがす: カードが持っている効果を、メーカーと同じグループ分けで一覧にする（使われているものだけ・枚数つき）
+// 「全体」「ランダム」などの版は、元の効果にまとめる（例: 相手モンスターを全部破壊 → 破壊）
+const fxBaseKind = k => (TO_LEGACY[k] || [k])[0];
+const FX_HIDE = new Set(["none", "synthHand", "synthTo"]);
+function cardFxKeys(c){
+  if (!c) return new Set();
+  if (c.__fxk && c.__fxk.v === c.updatedAt) return c.__fxk.s;
+  const out = new Set(), t = cardType(c);
+  const add = e => { if (!e || !KINDS[e.kind]) return; out.add("k:" + fxBaseKind(e.kind)); if (e.ge) add(e.ge); };
+  blocksOf(c).forEach(b => { if (t === "monster") out.add("t:" + b.trig); [...(b.then || []), ...(b.else || []), ...(b.dieBr || []).flatMap(x => x.then || [])].forEach(add); if (b.one) out.add("x:one"); if (b.grant) out.add("x:grant"); if (b.roll) out.add("x:roll"); if (b.delay > 0) out.add("x:delay"); });
+  if (normCombo(c)) out.add("x:combo");
+  absOf(c).forEach(a => out.add("a:" + a.k));
+  if (massOf(c)) out.add("x:mass"); if (Array.isArray(c.fusion) && c.fusion.length) out.add("x:fusion"); if (c.ex) out.add("x:ex"); if (c.token) out.add("x:token");
+  try { Object.defineProperty(c, "__fxk", { value: { v: c.updatedAt, s: out }, configurable: true, writable: true, enumerable: false }); } catch (e) {}
+  return out;
+}
+const FX_EXTRA = { combo: "追加効果（特定のカードがあるとき）", one: "効果を1つえらんで発動", grant: "プレイヤーに効果を付与", roll: "サイコロ・コイン", delay: "時計（○ターン後に出る）", mass: "要求質量（ナナシ系）", fusion: "融合モンスター", ex: "EXデッキのカード", token: "トークン" };
+function fxOptionsHTML(cur){
+  const cnt = {}; let any = 0, none = 0, free = 0;
+  [...S.cards.values()].forEach(c => { if (!c || c.tut) return; const K = cardFxKeys(c); K.forEach(k => { cnt[k] = (cnt[k] || 0) + 1; });
+    const has = blocksOf(c).length || absOf(c).length || cardType(c) === "equip"; if (has) any++; else if (!c.effect) none++; if (freeText(c)) free++; });
+  const o = (v, l) => (cnt[v] || v === cur) ? `<option value="${v}"${v === cur ? " selected" : ""}>${esc(l)}（${cnt[v] || 0}）</option>` : "";
+  const grp = (label, body) => body ? `<optgroup label="${esc(label)}">${body}</optgroup>` : "";
+  const seen = new Set();
+  const groups = (typeof KIND_GROUPS !== "undefined" ? KIND_GROUPS : []).filter(g => g.g !== "none").map(g => grp(g.label, g.v.map(([k, l]) => { const b = fxBaseKind(k); if (seen.has(b) || FX_HIDE.has(b)) return ""; seen.add(b); return o("k:" + b, l || KINDS[b].label); }).join(""))).join("");
+  const rest = Object.keys(KINDS).map(fxBaseKind).filter((k, i, a) => a.indexOf(k) === i && !seen.has(k) && !FX_HIDE.has(k)).map(k => o("k:" + k, KINDS[k].label.replace("（罠）", ""))).join("");
+  const trigs = MON_TRIGS.map(k => o("t:" + k, TRIGS[k] || k)).join("");
+  const kw = Object.entries(ABS).filter(([, v]) => v.kw).map(([k, v]) => o("a:" + k, `《${v.kw}》` + v.label.replace(/^[^（]*（?/, "").replace(/）$/, ""))).join("");
+  const abs = Object.entries(ABS).filter(([, v]) => !v.kw).map(([k, v]) => o("a:" + k, v.label)).join("");
+  const ex = Object.entries(FX_EXTRA).map(([k, l]) => o("x:" + k, l)).join("");
+  return `<option value="">効果：指定なし</option><optgroup label="おおまかに"><option value="any"${cur === "any" ? " selected" : ""}>自動の効果がある（${any}）</option><option value="free"${cur === "free" ? " selected" : ""}>自分で書いた効果の文がある（${free}）</option><option value="none"${cur === "none" ? " selected" : ""}>効果なし（${none}）</option></optgroup>${groups}${grp("そのほかの効果", rest)}${grp("しくみ", ex)}${grp("キーワード能力", kw)}${grp("モンスターの能力", abs)}${grp("モンスターの効果が出るタイミング", trigs)}`;
 }
 function initFilters(key, onChange){
   const box = $("#" + key + "Filters");
   box.innerHTML = `<input type="search" id="${key}Q" placeholder="カード名・効果でさがす" aria-label="カード検索">
     <div class="seg" id="${key}Type">${[["all", "すべて"], ["monster", "モンスター"], ["magic", "魔法"], ["quick", "速攻魔法"], ["equip", "装備"], ["trap", "罠"], ...(key === "gal" ? [["potion", "ポーション"], ["relic", "レリック"]] : [])].map(([v, l]) => `<button data-v="${v}" aria-pressed="${v === "all"}">${l}</button>`).join("")}</div>
-    <select id="${key}Fx" aria-label="効果で絞り込み">${fxOptionsHTML()}</select>
+    <select id="${key}Fx" aria-label="効果で絞り込み">${fxOptionsHTML("")}</select>
     <select id="${key}Dm" aria-label="使えるデッキで絞り込み"><option value="">デッキ：指定なし</option><option value="cost">コストデッキ専用</option><option value="normal">コスト以外（ふつうのデッキ専用）</option><option value="both">どちらでも</option></select>
     <select id="${key}Tag" aria-label="タグで絞り込み">${tagOptionsHTML("")}</select>
     <select id="${key}Sort" aria-label="並べ替え">${Object.entries(SORTS).map(([k, v]) => `<option value="${k}">${v}</option>`).join("")}</select>
     <span class="count" id="${key}Count"></span>`;
   const f = S.filt[key];
   $("#" + key + "Q").addEventListener("input", e => { f.q = e.target.value; onChange(); });
-  $("#" + key + "Fx").addEventListener("change", e => { f.fx = e.target.value; onChange(); });
+  { const fs = $("#" + key + "Fx"), fill = () => { fs.innerHTML = fxOptionsHTML(f.fx || ""); }; fs.addEventListener("focus", fill); fs.addEventListener("mousedown", fill); fs.addEventListener("change", e => { f.fx = e.target.value; onChange(); }); }
   $("#" + key + "Sort").addEventListener("change", e => { f.sort = e.target.value; onChange(); });
   $("#" + key + "Dm").addEventListener("change", e => { f.dm = e.target.value; onChange(); });
   { const tg = $("#" + key + "Tag"); const fill = () => { tg.innerHTML = tagOptionsHTML(f.tag); }; tg.addEventListener("focus", fill); tg.addEventListener("mousedown", fill); tg.addEventListener("change", e => { f.tag = e.target.value; onChange(); }); }
@@ -164,14 +190,12 @@ function matchCard(c, f){
     if (!normQ(f.q).split(/\s+/).filter(Boolean).every(w => hay.includes(w))) return false;
   }
   if (f.fx){
-    const hasEq = t === "equip" || absOf(c).length > 0;
-    const nc = normCombo(c);
-    if (f.fx === "any" && !nf && !nc && !hasEq) return false;
-    if (f.fx === "none" && (nf || nc || hasEq || c.effect)) return false;
-    if (f.fx === "combo" && !nc) return false;
-    if (f.fx.startsWith("k:") && !((nf && nf.kind === f.fx.slice(2)) || (nc && nc.kind === f.fx.slice(2)))) return false;
-    if (f.fx.startsWith("t:") && (!nf || t !== "monster" || nf.trig !== f.fx.slice(2))) return false;
-    if (f.fx.startsWith("a:") && !absOf(c).some(a => a.k === f.fx.slice(2))) return false;
+    const has = blocksOf(c).length > 0 || absOf(c).length > 0 || t === "equip";
+    if (f.fx === "any" && !has) return false;
+    if (f.fx === "none" && (has || c.effect)) return false;
+    if (f.fx === "free" && !freeText(c)) return false;
+    if (f.fx === "combo" && !normCombo(c)) return false;
+    if (/^[ktax]:/.test(f.fx) && !cardFxKeys(c).has(f.fx)) return false;
   }
   return true;
 }
