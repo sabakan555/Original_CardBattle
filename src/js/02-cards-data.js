@@ -248,7 +248,7 @@ function fxRowsHTML(c, noMeta, noIc){
   return `${meta && !noMeta ? `<div class="fxr-meta">${kwLink(esc(meta))}</div>` : ""}<div class="fxrs">${rows.join("")}</div>`;
 }
 // 画像の枠: カードの frame → クラス名
-const FR_CLS = { mtg: "mtg", future: "fut", ygo: "ygo" };
+const FR_CLS = { mtg: "mtg", future: "fut", ygo: "ygo", dm: "dm" };
 // 遊戯王風: コストを星で。枠に入る数（モンスター13・罠10・魔法9）をこえたら「★×14」
 const YGO_STAR_MAX = { monster: 13, trap: 10 };
 function ygoStars(v, t){
