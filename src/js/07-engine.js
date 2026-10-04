@@ -1080,10 +1080,18 @@ function effCost(st, s, c){ return c && c.costX ? 0 : freeKey(st, s, c) || freeI
 // シンパシー: 自分の場の「タグ／名前に○○が入る」モンスター1体につきコストが下がる（1より下にはならない。もとが0ならそのまま）
 // 手札では、シンパシーで下がったあとのコストを見せる
 const symView = (st, s, c) => { if (!P(st, s).mana || !c || !hasCost(c) || c.costX || c.costInf) return c; const b = costOf(c), e = symCost(st, s, c, b); return e < b ? { ...c, cost: e } : c; };
-function symCount(st, s, a){ const w = String(a.name || "").trim(); return P(st, s).mz.filter(m => m && (!w || tagsOf(card(m.c)).includes(w) || normQ(card(m.c).name || "").includes(normQ(w)))).length; }
+function symCount(st, s, a, self){
+  const w = String(a.name || "").trim(), t = symT(a), wh = symW(a);
+  const ok = id => { const c = card(id); if (!c) return false; if (t !== "any" && cardType(c) !== t) return false; return !w || tagsOf(c).includes(w) || normQ(c.name || "").includes(normQ(w)); };
+  const fieldIds = o => { const p = P(st, o), L = []; p.mz.forEach(m => { if (m){ L.push(m.c); eqsOf(m).forEach(e => { if (e.o === o) L.push(e.c); }); } }); p.sz.forEach(z => { if (z) L.push(z.c); }); ["a", "b"].forEach(x => { if (x !== o) P(st, x).mz.forEach(m => eqsOf(m).forEach(e => { if (e.o === o) L.push(e.c); })); }); if (st.field && st.field.o === o) L.push(st.field.c); return L; };
+  const p = P(st, s);
+  let L = wh === "grave" ? p.grave : wh === "hand" ? p.hand.slice() : wh === "oppField" ? fieldIds(O(s)) : wh === "both" ? [...fieldIds(s), ...fieldIds(O(s))] : fieldIds(s);
+  if (wh === "hand" && self){ const k = L.indexOf(self); if (k >= 0) L.splice(k, 1); }
+  return L.filter(ok).length;
+}
 function symCost(st, s, c, base){
   if (!c || cardType(c) !== "monster" || !isFinite(base) || base <= 1) return base;
-  const cut = absOf(c).filter(a => a.k === "sympathy").reduce((t, a) => t + Math.max(1, a.n || 1) * symCount(st, s, a), 0);
+  const cut = absOf(c).filter(a => a.k === "sympathy").reduce((t, a) => t + Math.max(1, a.n || 1) * symCount(st, s, a, c.id), 0);
   return cut ? Math.max(1, base - cut) : base;
 }
 // 追加コスト「LPを○払う」: LPがそれより多くないと使えない（払ってLP0にはならない）

@@ -210,12 +210,14 @@ const ABS = {
   substitute: { label: "破壊されるとき、かわりにほかの装備を1枚墓地へ", only: "eq", self: true, text: () => `装備したモンスターが破壊されるとき、かわりにほかの装備1枚を墓地へ送る` },
   negateOnce: { label: "1回だけ、相手の発動・召喚を打ち消せる", only: "eq", self: true, text: () => `1回だけ、相手の魔法・罠の発動かモンスターの召喚を打ち消せる` },
   double:     { label: "左どなりの装備の効果を2倍にする", only: "eq", self: true, text: () => `このカードの左どなりの装備の効果は2倍になる` },
-  sympathy:   { label: "シンパシー：自分の場の○○1体につき、召喚するコストが下がる（コストデッキ用）", only: "mon", n: 1, name: true, ph: "タグか名前に入る文字（空ならモンスターすべて）", kw: "シンパシー", kwx: (n, nm) => `（${nm || "モンスター"}${n > 1 ? `・1体につき${n}` : ""}）` },
+  sympathy:   { label: "シンパシー：○○1枚につき、召喚するコストが下がる（コストデッキ用）", only: "mon", n: 1, name: true, ph: "タグか名前に入る文字（空ならぜんぶ）", kw: "シンパシー",
+    sel: [["where", "どこの", [["field", "自分の場"], ["grave", "自分の墓地"], ["hand", "自分の手札"], ["oppField", "相手の場"], ["both", "お互いの場"]]], ["what", "なにを", [["monster", "モンスター"], ["magic", "魔法"], ["trap", "罠"], ["equip", "装備"], ["any", "カード（なんでも）"]]]],
+    kwx: (n, nm, a) => `（${symWhat(a, nm)}${n > 1 ? `・1${symUnit(a)}につき${n}` : ""}）` },
   eqBonus:    { label: "特定の名前の装備を付けているとATKアップ", only: "mon", self: true, n: 300, name: true, text: (n, nm) => `名前に「${nm || "？"}」が入った装備を付けているとき、ATK+${n}` }
 };
 const KW_DESC = {
   "反射": "このモンスターが戦闘して自分がダメージを受けたとき、同じダメージを相手にも与える",
-  "シンパシー": "自分の場にいる（ ）のモンスター1体につき、このモンスターを召喚するコストが1（数が書いてあればその数）少なくなる。コストは1より少なくはならない。（ ）はタグか、名前に入る文字",
+  "シンパシー": "（ ）に書いてある場所の、そのカード1枚（1体）につき、このモンスターを召喚するコストが1（数が書いてあればその数）少なくなる。コストは1より少なくはならない。「 」はタグか、名前に入る文字",
   "2回攻撃": "1ターンに2回攻撃できる", "速攻": "出たターンから攻撃できる（召喚酔いしない）", "直接攻撃": "相手の場にモンスターがいても、相手に直接攻撃できる",
   "戦闘耐性": "戦闘では破壊されない", "効果耐性": "効果では破壊されない", "攻撃不可": "攻撃できない", "強者狙い": "相手の場で一番ATKが高いモンスターにしか攻撃できない",
   "挑発": "相手はこのモンスターにしか攻撃できず、効果の対象にもこのモンスターしか選べない", "鉄壁": "戦闘で受けるダメージが（ ）の数だけ減る",
@@ -231,7 +233,13 @@ const KW_DESC = {
   "キッカー": "コストデッキで、コストに（ ）のマナを足して払うと「もし：キッカーを払った」の効果が出る",
   "S・トリガー": "相手の攻撃で自分がダメージを受けたとき、山札の一番上がこのカードなら、コストを払わずにすぐ発動する"
 };
-const kwStr = a => `《${ABS[a.k].kw}》${ABS[a.k].kwx ? ABS[a.k].kwx(a.n || 0, a.name || "") : ""}`;
+const kwStr = a => `《${ABS[a.k].kw}》${ABS[a.k].kwx ? ABS[a.k].kwx(a.n || 0, a.name || "", a) : ""}`;
+// シンパシー: どこの・なにを（むかしのカードは「自分の場のモンスター」）
+const SYM_WHERE = { field: "自分の場", grave: "自分の墓地", hand: "自分の手札", oppField: "相手の場", both: "お互いの場" };
+const SYM_WHAT = { monster: "モンスター", magic: "魔法", trap: "罠", equip: "装備", any: "カード" };
+const symW = a => SYM_WHERE[a && a.where] ? a.where : "field", symT = a => SYM_WHAT[a && a.what] ? a.what : "monster";
+const symUnit = a => symT(a) === "monster" && /field|both/i.test(symW(a)) ? "体" : "枚";
+const symWhat = (a, nm) => `${SYM_WHERE[symW(a)]}の${nm ? `「${nm}」の` : ""}${SYM_WHAT[symT(a)]}`;
 // 《キーワード》 → 下線つきの言葉（詳細でタップすると説明）
 const kwLink = html => html ? html.replace(/《([^《》<]{1,12})》/g, (m, w) => KW_DESC[w] ? `<span class="kwd" data-kw="${w}" role="button" tabindex="0">${w}</span>` : m) : html;
 const absOf = c => !c ? [] : Array.isArray(c.abs) ? c.abs.filter(a => a && ABS[a.k]) : (c.eqAb && c.eqAb !== "none" && ABS[c.eqAb] ? [{ k: c.eqAb }] : []);

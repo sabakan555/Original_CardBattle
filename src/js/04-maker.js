@@ -200,7 +200,7 @@ function syncEqLine(){
 function renderAbsForm(t){
   const cur = readAbs();
   $("#mkAbs").innerHTML = Object.entries(ABS).filter(([, v]) => !v.only || v.only === (t === "equip" ? "eq" : "mon")).map(([k, v]) =>
-    `<label><input type="checkbox" data-ab="${k}"> ${v.label}${v.name ? ` ${v.ph ? "" : "名前"}<input type="text" data-abname="${k}" maxlength="40" ${v.ph ? `list="cardNames" placeholder="${v.ph}"` : `placeholder="例: ただの"`}>` : ""}${v.n ? ` 数<input type="number" data-abn="${k}" min="1" max="9999" value="${v.n}">` : ""}</label>`).join("");
+    `<label><input type="checkbox" data-ab="${k}"> ${v.label}${(v.sel || []).map(([f, l, o]) => ` <select data-absel="${k}" data-f="${f}" aria-label="${l}">${o.map(([ov, ol]) => `<option value="${ov}">${ol}</option>`).join("")}</select>`).join("")}${v.name ? ` ${v.ph ? "" : "名前"}<input type="text" data-abname="${k}" maxlength="40" ${v.ph ? `list="cardNames" placeholder="${v.ph}"` : `placeholder="例: ただの"`}>` : ""}${v.n ? ` 数<input type="number" data-abn="${k}" min="1" max="9999" value="${v.n}">` : ""}</label>`).join("");
   loadAbs(cur);
 }
 function readAbs(){
@@ -209,6 +209,7 @@ function readAbs(){
     const k = x.dataset.ab, a = { k };
     if (ABS[k].n){ const el = document.querySelector(`#mkAbs [data-abn="${k}"]`); a.n = Math.max(1, Math.round(+(el && el.value) || ABS[k].n)); }
     if (ABS[k].name){ const el = document.querySelector(`#mkAbs [data-abname="${k}"]`); a.name = (el && el.value.trim()) || ""; }
+    document.querySelectorAll(`#mkAbs [data-absel="${k}"]`).forEach(el => { a[el.dataset.f] = el.value; });
     return a;
   });
 }
@@ -218,6 +219,7 @@ function loadAbs(list){
     const x = document.querySelector(`#mkAbs [data-ab="${a.k}"]`); if (!x) return; x.checked = true;
     const n = document.querySelector(`#mkAbs [data-abn="${a.k}"]`); if (n && a.n) n.value = a.n;
     const m = document.querySelector(`#mkAbs [data-abname="${a.k}"]`); if (m && a.name) m.value = a.name;
+    document.querySelectorAll(`#mkAbs [data-absel="${a.k}"]`).forEach(el => { if (a[el.dataset.f] && [...el.options].some(o => o.value === a[el.dataset.f])) el.value = a[el.dataset.f]; });
   });
   syncEqLine();
 }

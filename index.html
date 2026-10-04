@@ -2026,12 +2026,14 @@ const ABS = {
   substitute: { label: "破壊されるとき、かわりにほかの装備を1枚墓地へ", only: "eq", self: true, text: () => `装備したモンスターが破壊されるとき、かわりにほかの装備1枚を墓地へ送る` },
   negateOnce: { label: "1回だけ、相手の発動・召喚を打ち消せる", only: "eq", self: true, text: () => `1回だけ、相手の魔法・罠の発動かモンスターの召喚を打ち消せる` },
   double:     { label: "左どなりの装備の効果を2倍にする", only: "eq", self: true, text: () => `このカードの左どなりの装備の効果は2倍になる` },
-  sympathy:   { label: "シンパシー：自分の場の○○1体につき、召喚するコストが下がる（コストデッキ用）", only: "mon", n: 1, name: true, ph: "タグか名前に入る文字（空ならモンスターすべて）", kw: "シンパシー", kwx: (n, nm) => `（${nm || "モンスター"}${n > 1 ? `・1体につき${n}` : ""}）` },
+  sympathy:   { label: "シンパシー：○○1枚につき、召喚するコストが下がる（コストデッキ用）", only: "mon", n: 1, name: true, ph: "タグか名前に入る文字（空ならぜんぶ）", kw: "シンパシー",
+    sel: [["where", "どこの", [["field", "自分の場"], ["grave", "自分の墓地"], ["hand", "自分の手札"], ["oppField", "相手の場"], ["both", "お互いの場"]]], ["what", "なにを", [["monster", "モンスター"], ["magic", "魔法"], ["trap", "罠"], ["equip", "装備"], ["any", "カード（なんでも）"]]]],
+    kwx: (n, nm, a) => `（${symWhat(a, nm)}${n > 1 ? `・1${symUnit(a)}につき${n}` : ""}）` },
   eqBonus:    { label: "特定の名前の装備を付けているとATKアップ", only: "mon", self: true, n: 300, name: true, text: (n, nm) => `名前に「${nm || "？"}」が入った装備を付けているとき、ATK+${n}` }
 };
 const KW_DESC = {
   "反射": "このモンスターが戦闘して自分がダメージを受けたとき、同じダメージを相手にも与える",
-  "シンパシー": "自分の場にいる（ ）のモンスター1体につき、このモンスターを召喚するコストが1（数が書いてあればその数）少なくなる。コストは1より少なくはならない。（ ）はタグか、名前に入る文字",
+  "シンパシー": "（ ）に書いてある場所の、そのカード1枚（1体）につき、このモンスターを召喚するコストが1（数が書いてあればその数）少なくなる。コストは1より少なくはならない。「 」はタグか、名前に入る文字",
   "2回攻撃": "1ターンに2回攻撃できる", "速攻": "出たターンから攻撃できる（召喚酔いしない）", "直接攻撃": "相手の場にモンスターがいても、相手に直接攻撃できる",
   "戦闘耐性": "戦闘では破壊されない", "効果耐性": "効果では破壊されない", "攻撃不可": "攻撃できない", "強者狙い": "相手の場で一番ATKが高いモンスターにしか攻撃できない",
   "挑発": "相手はこのモンスターにしか攻撃できず、効果の対象にもこのモンスターしか選べない", "鉄壁": "戦闘で受けるダメージが（ ）の数だけ減る",
@@ -2047,7 +2049,13 @@ const KW_DESC = {
   "キッカー": "コストデッキで、コストに（ ）のマナを足して払うと「もし：キッカーを払った」の効果が出る",
   "S・トリガー": "相手の攻撃で自分がダメージを受けたとき、山札の一番上がこのカードなら、コストを払わずにすぐ発動する"
 };
-const kwStr = a => `《${ABS[a.k].kw}》${ABS[a.k].kwx ? ABS[a.k].kwx(a.n || 0, a.name || "") : ""}`;
+const kwStr = a => `《${ABS[a.k].kw}》${ABS[a.k].kwx ? ABS[a.k].kwx(a.n || 0, a.name || "", a) : ""}`;
+// シンパシー: どこの・なにを（むかしのカードは「自分の場のモンスター」）
+const SYM_WHERE = { field: "自分の場", grave: "自分の墓地", hand: "自分の手札", oppField: "相手の場", both: "お互いの場" };
+const SYM_WHAT = { monster: "モンスター", magic: "魔法", trap: "罠", equip: "装備", any: "カード" };
+const symW = a => SYM_WHERE[a && a.where] ? a.where : "field", symT = a => SYM_WHAT[a && a.what] ? a.what : "monster";
+const symUnit = a => symT(a) === "monster" && /field|both/i.test(symW(a)) ? "体" : "枚";
+const symWhat = (a, nm) => `${SYM_WHERE[symW(a)]}の${nm ? `「${nm}」の` : ""}${SYM_WHAT[symT(a)]}`;
 // 《キーワード》 → 下線つきの言葉（詳細でタップすると説明）
 const kwLink = html => html ? html.replace(/《([^《》<]{1,12})》/g, (m, w) => KW_DESC[w] ? `<span class="kwd" data-kw="${w}" role="button" tabindex="0">${w}</span>` : m) : html;
 const absOf = c => !c ? [] : Array.isArray(c.abs) ? c.abs.filter(a => a && ABS[a.k]) : (c.eqAb && c.eqAb !== "none" && ABS[c.eqAb] ? [{ k: c.eqAb }] : []);
@@ -3543,7 +3551,7 @@ function syncEqLine(){
 function renderAbsForm(t){
   const cur = readAbs();
   $("#mkAbs").innerHTML = Object.entries(ABS).filter(([, v]) => !v.only || v.only === (t === "equip" ? "eq" : "mon")).map(([k, v]) =>
-    `<label><input type="checkbox" data-ab="${k}"> ${v.label}${v.name ? ` ${v.ph ? "" : "名前"}<input type="text" data-abname="${k}" maxlength="40" ${v.ph ? `list="cardNames" placeholder="${v.ph}"` : `placeholder="例: ただの"`}>` : ""}${v.n ? ` 数<input type="number" data-abn="${k}" min="1" max="9999" value="${v.n}">` : ""}</label>`).join("");
+    `<label><input type="checkbox" data-ab="${k}"> ${v.label}${(v.sel || []).map(([f, l, o]) => ` <select data-absel="${k}" data-f="${f}" aria-label="${l}">${o.map(([ov, ol]) => `<option value="${ov}">${ol}</option>`).join("")}</select>`).join("")}${v.name ? ` ${v.ph ? "" : "名前"}<input type="text" data-abname="${k}" maxlength="40" ${v.ph ? `list="cardNames" placeholder="${v.ph}"` : `placeholder="例: ただの"`}>` : ""}${v.n ? ` 数<input type="number" data-abn="${k}" min="1" max="9999" value="${v.n}">` : ""}</label>`).join("");
   loadAbs(cur);
 }
 function readAbs(){
@@ -3552,6 +3560,7 @@ function readAbs(){
     const k = x.dataset.ab, a = { k };
     if (ABS[k].n){ const el = document.querySelector(`#mkAbs [data-abn="${k}"]`); a.n = Math.max(1, Math.round(+(el && el.value) || ABS[k].n)); }
     if (ABS[k].name){ const el = document.querySelector(`#mkAbs [data-abname="${k}"]`); a.name = (el && el.value.trim()) || ""; }
+    document.querySelectorAll(`#mkAbs [data-absel="${k}"]`).forEach(el => { a[el.dataset.f] = el.value; });
     return a;
   });
 }
@@ -3561,6 +3570,7 @@ function loadAbs(list){
     const x = document.querySelector(`#mkAbs [data-ab="${a.k}"]`); if (!x) return; x.checked = true;
     const n = document.querySelector(`#mkAbs [data-abn="${a.k}"]`); if (n && a.n) n.value = a.n;
     const m = document.querySelector(`#mkAbs [data-abname="${a.k}"]`); if (m && a.name) m.value = a.name;
+    document.querySelectorAll(`#mkAbs [data-absel="${a.k}"]`).forEach(el => { if (a[el.dataset.f] && [...el.options].some(o => o.value === a[el.dataset.f])) el.value = a[el.dataset.f]; });
   });
   syncEqLine();
 }
@@ -6429,10 +6439,18 @@ function effCost(st, s, c){ return c && c.costX ? 0 : freeKey(st, s, c) || freeI
 // シンパシー: 自分の場の「タグ／名前に○○が入る」モンスター1体につきコストが下がる（1より下にはならない。もとが0ならそのまま）
 // 手札では、シンパシーで下がったあとのコストを見せる
 const symView = (st, s, c) => { if (!P(st, s).mana || !c || !hasCost(c) || c.costX || c.costInf) return c; const b = costOf(c), e = symCost(st, s, c, b); return e < b ? { ...c, cost: e } : c; };
-function symCount(st, s, a){ const w = String(a.name || "").trim(); return P(st, s).mz.filter(m => m && (!w || tagsOf(card(m.c)).includes(w) || normQ(card(m.c).name || "").includes(normQ(w)))).length; }
+function symCount(st, s, a, self){
+  const w = String(a.name || "").trim(), t = symT(a), wh = symW(a);
+  const ok = id => { const c = card(id); if (!c) return false; if (t !== "any" && cardType(c) !== t) return false; return !w || tagsOf(c).includes(w) || normQ(c.name || "").includes(normQ(w)); };
+  const fieldIds = o => { const p = P(st, o), L = []; p.mz.forEach(m => { if (m){ L.push(m.c); eqsOf(m).forEach(e => { if (e.o === o) L.push(e.c); }); } }); p.sz.forEach(z => { if (z) L.push(z.c); }); ["a", "b"].forEach(x => { if (x !== o) P(st, x).mz.forEach(m => eqsOf(m).forEach(e => { if (e.o === o) L.push(e.c); })); }); if (st.field && st.field.o === o) L.push(st.field.c); return L; };
+  const p = P(st, s);
+  let L = wh === "grave" ? p.grave : wh === "hand" ? p.hand.slice() : wh === "oppField" ? fieldIds(O(s)) : wh === "both" ? [...fieldIds(s), ...fieldIds(O(s))] : fieldIds(s);
+  if (wh === "hand" && self){ const k = L.indexOf(self); if (k >= 0) L.splice(k, 1); }
+  return L.filter(ok).length;
+}
 function symCost(st, s, c, base){
   if (!c || cardType(c) !== "monster" || !isFinite(base) || base <= 1) return base;
-  const cut = absOf(c).filter(a => a.k === "sympathy").reduce((t, a) => t + Math.max(1, a.n || 1) * symCount(st, s, a), 0);
+  const cut = absOf(c).filter(a => a.k === "sympathy").reduce((t, a) => t + Math.max(1, a.n || 1) * symCount(st, s, a, c.id), 0);
   return cut ? Math.max(1, base - cut) : base;
 }
 // 追加コスト「LPを○払う」: LPがそれより多くないと使えない（払ってLP0にはならない）
