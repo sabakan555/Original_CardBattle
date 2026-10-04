@@ -646,7 +646,8 @@ function renderOverlay(){
     const q = G.chooseQ[0], TS = q.ctx && q.ctx.side === "me" ? q.s : O(q.s), opts = (targetOptions(st, q.s, q.fx.kind, q.ctx) || []).filter(o => !(q.fx.distinct && q.ctx.hit && (q.ctx.hit.picked || []).includes(String(o))));
     const t = KINDS[q.fx.kind].target;
     const list = opts.map(o => {
-      if (t === "grave" || t === "draft" || t === "graveAny" || t === "tagPick") return cardHTML(card(o), "sm pick", `data-opt="${esc(o)}" tabindex="0" role="button"`, mOpt(q.s));
+      if (t === "deckTop") return cardHTML(card(P(st, q.s).deck[o]), "sm pick", `data-opt="${o}" tabindex="0" role="button"`, mOpt(q.s));
+      if (t === "grave" || t === "draft" || t === "graveAny" || t === "tagPick" || t === "deckType" || t === "oppGrave") return cardHTML(card(o), "sm pick", `data-opt="${esc(o)}" tabindex="0" role="button"`, mOpt(q.s));
       if (t === "hand") return cardHTML(card(P(st, q.s).hand[o]), "sm pick", `data-opt="${o}" tabindex="0" role="button"`, mOpt(q.s));
       if (t === "oppHand") return cardHTML(card(P(st, O(q.s)).hand[o]), "sm pick", `data-opt="${o}" tabindex="0" role="button"`, mOpt(O(q.s)));
       if (t === "szOpp"){ const X = P(st, O(q.s)), z = X.sz[o]; return `<div class="g-item">${z.face ? cardHTML(card(z.c), "sm pick", `data-opt="${o}" tabindex="0" role="button"`, mOpt(O(q.s))) : backHTML("sm pick", `data-opt="${o}" tabindex="0" role="button"`, X.sleeve)}<div class="meta">${z.face ? "表向き" : "セット中"}</div></div>`; }
@@ -656,7 +657,7 @@ function renderOverlay(){
       const X = t === "opp" ? P(st, TS) : P(st, q.s);
       return cardHTML(card(X.mz[o].c), "sm pick", `data-opt="${o}" tabindex="0" role="button"`, { mod: modOf(X.mz[o]), ...mOpt(t === "opp" ? TS : q.s) });
     }).join("");
-    html = `<div class="box"><h2 style="margin:0">「${esc(q.c.name)}」${q.fx.kind === "discardPeek" ? "：相手の手札から捨てさせるカードをえらぶ" : "の対象をえらぶ"}</h2><p class="muted" style="margin:0">${esc(q.ctx.spireAtk ? fxText0(q.c) : KINDS[q.fx.kind].text(q.fx.n))}</p><div class="gallery">${list || '<p class="muted">対象がいません</p>'}</div><div class="row"><button class="ghost" data-close="choose">使わない</button><button class="ghost" data-peek>盤面を見る</button></div></div>`; peek = true;
+    html = `<div class="box"><h2 style="margin:0">「${esc(q.c.name)}」${q.fx.kind === "discardPeek" ? "：相手の手札から捨てさせるカードをえらぶ" : q.fx.kind === "scry" ? "：山札の一番上に置くカードをえらぶ（のこりは一番下へ）" : /^search/.test(q.fx.kind) ? "：山札から手札に加えるカードをえらぶ" : "の対象をえらぶ"}</h2><p class="muted" style="margin:0">${esc(q.ctx.spireAtk ? fxText0(q.c) : KINDS[q.fx.kind].text(q.fx.n))}</p><div class="gallery">${list || '<p class="muted">対象がいません</p>'}</div><div class="row"><button class="ghost" data-close="choose">使わない</button><button class="ghost" data-peek>盤面を見る</button></div></div>`; peek = true;
   } else if (G.costPick && !st.winner){
     const cp = G.costPick, pm = P(st, me), L = pm.hand.map((id, j) => j).filter(j => j !== cp.hi && (!cp.tag || hasTag(pm.hand[j], cp.tag)));
     const list = L.map(j => { const on = cp.picked.includes(j); return cardHTML(card(pm.hand[j]), `sm pick ${on ? "sel" : ""}`, `data-cpick="${j}" tabindex="0" role="button" aria-pressed="${on}"`, mOpt(me)); }).join("");

@@ -44,6 +44,21 @@ const KINDS = {
   destroyStAll: { label: "相手の魔法・罠をすべて破壊", text: () => `相手の魔法・罠をすべて破壊` },
   destroyField: { label: "フィールド魔法を破壊", text: () => `場のフィールド魔法を破壊` },
   destroyAll: { label: "相手モンスターを全部破壊", text: () => `相手のモンスターをすべて破壊` },
+  bounce:     { label: "相手のモンスターを手札に戻す（バウンス）", target: "opp", text: () => `相手のモンスター1体を持ち主の手札に戻す` },
+  bounceAll:  { label: "相手のモンスターを全部手札に戻す", text: () => `相手のモンスターをすべて持ち主の手札に戻す` },
+  stealMon:   { label: "相手のモンスターのコントロールをうばう（ずっと）", target: "opp", text: () => `相手のモンスター1体のコントロールをうばい、自分の場に出す` },
+  stealMonTmp:{ label: "相手のモンスターのコントロールをうばう（このターンだけ）", target: "opp", text: () => `このターンの間、相手のモンスター1体のコントロールをうばう（ターンのおわりに持ち主の場に戻る）` },
+  summonNamed:{ label: "名前を指定したモンスターを自分の場に出す（トークンなど）", n: true, name: true, need: true, text: (n, into) => `「${into || "？"}」を${n > 1 ? n + "体" : ""}自分の場に出す` },
+  searchMon:  { label: "山札からモンスターを手札に加える", n: true, target: "deckType", each: true, text: n => `山札からモンスターを${n > 1 ? n + "枚" : "1枚"}えらんで手札に加える` },
+  searchMagic:{ label: "山札から魔法を手札に加える", n: true, target: "deckType", each: true, text: n => `山札から魔法を${n > 1 ? n + "枚" : "1枚"}えらんで手札に加える` },
+  searchTrap: { label: "山札から罠を手札に加える", n: true, target: "deckType", each: true, text: n => `山札から罠を${n > 1 ? n + "枚" : "1枚"}えらんで手札に加える` },
+  scry:       { label: "山札の上を見て、1枚を一番上に・のこりを一番下に置く", n: true, target: "deckTop", text: n => `山札の上から${n || 3}枚を見て、1枚を山札の一番上に、のこりを山札の一番下に置く` },
+  atkZero:    { label: "相手のモンスターのATKを0にする", target: "opp", text: () => `相手のモンスター1体のATKを0にする` },
+  atkSwap:    { label: "このモンスターと相手のモンスターのATKを入れかえる", target: "opp", mon: true, text: () => `このモンスターと相手のモンスター1体のATKを入れかえる` },
+  atkReset:   { label: "モンスターのATKを元の数字に戻す", target: "any", text: () => `場のモンスター1体のATKを、カードに書いてある数字に戻す（効果でのアップ・ダウンをなくす）` },
+  banishMon:  { label: "相手のモンスターを除外する", target: "opp", text: () => `相手のモンスター1体を除外する（墓地に行かない）` },
+  banishGrave:{ label: "相手の墓地のカードを除外する", n: true, target: "oppGrave", each: true, text: n => `相手の墓地のカードを${n > 1 ? n + "枚" : "1枚"}えらんで除外する` },
+  banishGraveAll:{ label: "相手の墓地をすべて除外する", text: () => `相手の墓地のカードをすべて除外する` },
   destroyOthers: { label: "このカード以外の、お互いの場のカードをすべて破壊", text: () => `このカード以外の、お互いの場のカードをすべて破壊` },
   selfAtk:    { label: "このモンスターのATKアップ", n: true, mon: true, text: n => `このモンスターのATK+${n}` },
   moveEquips: { label: "装備を別のモンスターに付けかえる", mon: true, target: "any", text: () => `このモンスターの装備（このカード以外）をすべて、ほかのモンスター1体（相手のでもOK）に付けかえる` },
@@ -363,13 +378,13 @@ const moreFx = fx => (fx && Array.isArray(fx.more) ? fx.more : []).filter(m => m
 const costLabel = c => c && c.costX ? "X" : c && c.costInf && hasCost(c) ? "∞" : costOf(c);
 
 /* ---- 「だれに」: one base effect (ダメージ / 弱体 / 魅了 / ATKダウン / 破壊) + who it goes to ---- */
-const TARGETABLE = { atkUp: ["one", "two", "random", "all"], dmg: ["one", "two", "random", "all"], vuln: ["one", "two", "random", "all"], weak: ["one", "two", "random", "all"], atkDown: ["one", "two", "random", "all"], atkDownTmp: ["one", "two", "random", "all"], charm: ["one", "two", "random", "all"], destroy: ["one", "two", "random", "all", "others"] };
+const TARGETABLE = { atkUp: ["one", "two", "random", "all"], dmg: ["one", "two", "random", "all"], vuln: ["one", "two", "random", "all"], weak: ["one", "two", "random", "all"], atkDown: ["one", "two", "random", "all"], atkDownTmp: ["one", "two", "random", "all"], charm: ["one", "two", "random", "all"], destroy: ["one", "two", "random", "all", "others"], bounce: ["one", "two", "random", "all"] };
 const TO_LABEL = { one: "1体をえらぶ", two: "ちがう2体をえらぶ", random: "ランダムに1体", all: "全体", others: "このカード以外すべて（お互いの場のモンスター・魔法・罠）" };
-const TO_ALL = { atkUp: "atkAll", dmg: "dmgAll", vuln: "vulnAll", weak: "weakAll", atkDown: "atkDownAll", atkDownTmp: "atkDownTmpAll", charm: "charmAll", destroy: "destroyAll" };
-const TO_LEGACY = { atkAll: ["atkUp", "all"], dmgRand: ["dmg", "random"], dmgAll: ["dmg", "all"], vulnAll: ["vuln", "all"], weakAll: ["weak", "all"], atkDownAll: ["atkDown", "all"], atkDownTmpAll: ["atkDownTmp", "all"], charmAll: ["charm", "all"], destroyAll: ["destroy", "all"], destroyOthers: ["destroy", "others"] };
+const TO_ALL = { atkUp: "atkAll", dmg: "dmgAll", vuln: "vulnAll", weak: "weakAll", atkDown: "atkDownAll", atkDownTmp: "atkDownTmpAll", charm: "charmAll", destroy: "destroyAll", bounce: "bounceAll" };
+const TO_LEGACY = { atkAll: ["atkUp", "all"], dmgRand: ["dmg", "random"], dmgAll: ["dmg", "all"], vulnAll: ["vuln", "all"], weakAll: ["weak", "all"], atkDownAll: ["atkDown", "all"], atkDownTmpAll: ["atkDownTmp", "all"], charmAll: ["charm", "all"], destroyAll: ["destroy", "all"], bounceAll: ["bounce", "all"], destroyOthers: ["destroy", "others"] };
 const hitsPlayer = k => k === "dmg" || k === "vuln" || k === "weak";
 // the words for who gets it: 相手 / 相手のモンスター …
-const SIDED_KINDS = new Set(["dmg", "dmgAll", "dmgRand", "bash", "vuln", "vulnAll", "weak", "weakAll", "atkDown", "atkDownAll", "atkDownTmp", "atkDownTmpAll", "charm", "charmAll", "destroy", "destroyAll"]);
+const SIDED_KINDS = new Set(["dmg", "dmgAll", "dmgRand", "bash", "vuln", "vulnAll", "weak", "weakAll", "atkDown", "atkDownAll", "atkDownTmp", "atkDownTmpAll", "charm", "charmAll", "destroy", "destroyAll", "bounce", "bounceAll", "stealMon", "stealMonTmp", "atkZero", "banishMon"]);
 // 「自分／相手」の「○体・全体・ランダムに○回」
 const SELF_ONLY = new Set(["atkUp"]);
 function toPhrase(kind, to, spire, tn, side){
@@ -400,6 +415,7 @@ function toText0(kind, n, to, spire, tn, side){
   if (kind === "atkUp") return `${w}のATK+${n}`;
   if (kind === "charm") return `${w}を魅了する（このカードが場にある間、攻撃できない）`;
   if (kind === "destroy") return `${w}を破壊`;
+  if (kind === "bounce") return `${w}を持ち主の手札に戻す`;
   return KINDS[kind].text(n);
 }
 // one effect → what the engine runs (全体 → the old 全体 kinds, 2体 → twice with different targets, ランダム → a random pick)

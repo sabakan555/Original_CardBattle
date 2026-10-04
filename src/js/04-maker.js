@@ -410,14 +410,16 @@ const KIND_GROUPS = [
   { g: "buff",    label: "自分を強くする（バフ）", v: [["str", "筋力を得る（与えるダメージ+○）"], ["strTemp", "筋力を得る（このターンだけ）"], ["selfAtk", "このモンスターのATKを上げる"], ["atkMul", "このモンスターのATKを○倍"], ["atkUp", "自分のモンスターのATKを上げる（えらぶ・全体・ランダム）"], ["vulnBonus", "弱体の相手へのダメージ+○%（ずっと）"]] },
   { g: "guard",   label: "守る・回復する", v: [["block", "ブロックを得る"], ["heal", "LPを回復する"], ["plate", "プレート（ターンのおわりにブロック）"], ["barricade", "ブロックが消えなくなる（ずっと）"], ["firstBlock2", "毎ターン最初のブロックが2倍（ずっと）"], ["rageNow", "このターン、アタックを使うたびブロック"], ["thornsNow", "攻撃されたら反撃（次の自分のターンまで）"]] },
   { g: "draw",    label: "カードを引く", v: [["draw", "○枚引く"], ["drawUntil", "アタック以外を引くまで引く"], ["oppDraw", "相手に○枚引かせる"]] },
-  { g: "fetch",   label: "カードを手札に持ってくる", v: [["tagSearch", "タグのカードを山札から（えらぶ）"], ["tagGraveHand", "タグのカードを墓地から（えらぶ）"], ["revive", "墓地のモンスターを手札に"], ["graveAtkToHand", "墓地のランダムなアタックを手札に"]] },
+  { g: "fetch",   label: "カードを手札に持ってくる", v: [["searchMon", "山札からモンスターを（えらぶ）"], ["searchMagic", "山札から魔法を（えらぶ）"], ["searchTrap", "山札から罠を（えらぶ）"], ["tagSearch", "タグのカードを山札から（えらぶ）"], ["tagGraveHand", "タグのカードを墓地から（えらぶ）"], ["revive", "墓地のモンスターを手札に"], ["graveAtkToHand", "墓地のランダムなアタックを手札に"]] },
   { g: "make",    label: "カードを生み出す・コピーする", v: [["copyHand", "このカードのコピーを手札に"], ["copyDeck", "このカードのコピーを山札に"], ["copyGrave", "このカードのコピーを墓地に"], ["copyLastAtk", "直前に使ったアタックのコピーを手札に"], ["genAttack", "ランダムなアタックを手札に"], ["genAttack0", "ランダムなアタックを手札に（このターンコスト0）"], ["genSkill", "ランダムなスキルを手札に"], ["genPower", "ランダムなパワーを手札に"], ["genNamed", "名前を指定したカード（トークンなど）を手札に"], ["tagGen", "タグのカードをランダムに生み出して手札に"], ["draft", "スパイア風カードを○枚から1枚えらんで墓地に"]] },
-  { g: "summon",  label: "モンスターを場に出す", v: [["reborn", "墓地のモンスターを場に"], ["tagSummonHand", "タグのモンスターを手札から"], ["tagSummonDeck", "タグのモンスターを山札から"], ["tagSummonGrave", "タグのモンスターを墓地から"], ["summonSelf", "このカードを手札から特殊召喚（手札で反応する効果用）"], ["fusion", "融合召喚（EXデッキの融合モンスター）"], ["exSummon", "EXデッキのモンスターを（えらんで）"], ["tagSummonEx", "タグのモンスターをEXデッキから"]] },
+  { g: "summon",  label: "モンスターを場に出す", v: [["summonNamed", "名前を指定したモンスターを自分の場に（トークンなど）"], ["reborn", "墓地のモンスターを場に"], ["tagSummonHand", "タグのモンスターを手札から"], ["tagSummonDeck", "タグのモンスターを山札から"], ["tagSummonGrave", "タグのモンスターを墓地から"], ["summonSelf", "このカードを手札から特殊召喚（手札で反応する効果用）"], ["fusion", "融合召喚（EXデッキの融合モンスター）"], ["exSummon", "EXデッキのモンスターを（えらんで）"], ["tagSummonEx", "タグのモンスターをEXデッキから"]] },
   { g: "free",    label: "踏み倒す（コストを払わずに使う）", v: [["playTop", "山札の一番上をプレイ（○枚）"], ["playTopEx", "山札の一番上をプレイして廃棄（○枚）"], ["playHandAtk", "手札のランダムなアタックをプレイ"], ["autoPlay", "名前に○が入ったカードを引いたら自動で使う"], ["dblAtk", "次のアタックをもう1回使う"], ["freeAttack", "次に使うアタックのコストを0に"], ["freeSkill", "次に使うスキルのコストを0に"], ["freePower", "次に使うパワーのコストを0に"], ["corrupt", "スキルがずっと0コスト（使うと廃棄）"]] },
   { g: "mass",    label: "質量（ナナシ系）", v: [["matCopy", "分裂：場のモンスターの質量1枚をコピーして出す"], ["matOut", "増殖：このモンスターの質量をできるだけ場に出す（「破壊されたとき」用）"], ["fieldOut", "このフィールドの質量の半分をコピーとして出す（フィールド魔法用）"], ["stealGrave", "相手の墓地のカードを自分の墓地へ移す"], ["millBoth", "お互いの山札の上を墓地へ"], ["graveHand", "墓地のカードを手札に戻す（どのカードでも）"], ["absorbKill", "バトルで倒した相手を質量にする（「戦闘で相手を破壊したとき」用）"], ["synth", "合成：手札の効果を場のモンスターに付ける"]] },
+  { g: "remove",  label: "場からどかす（手札に戻す・除外・うばう）", v: [["bounce", "相手のモンスターを手札に戻す（バウンス）"], ["banishMon", "相手のモンスターを除外する"], ["stealMon", "相手のモンスターをうばう（ずっと）"], ["stealMonTmp", "相手のモンスターをうばう（このターンだけ）"], ["banishGrave", "相手の墓地のカードを除外する（えらぶ）"], ["banishGraveAll", "相手の墓地をすべて除外する"]] },
+  { g: "atk",     label: "ATKをあやつる（0にする・入れかえる・元に戻す）", v: [["atkZero", "相手のモンスターのATKを0にする"], ["atkSwap", "このモンスターと相手のモンスターのATKを入れかえる"], ["atkReset", "モンスターのATKを元の数字に戻す"]] },
   { g: "turn",    label: "ターンを追加する", v: [["extraTurn", "追加ターン（このターンのあと、もう一度自分のターン）"]] },
   { g: "mana",    label: "マナ", v: [["manaNow", "マナを回復（このターン）"], ["manaMax", "最大マナを増やす"], ["manaDrain", "相手のマナを減らす"]] },
-  { g: "deck",    label: "山札・墓地をあやつる", v: [["graveToTop", "墓地のカードを山札の一番上に"], ["playTop", "山札の一番上をプレイ（○枚）"], ["playTopEx", "山札の一番上をプレイして廃棄（○枚）"], ["drawUntil", "アタック以外を引くまで引く"], ["draft", "スパイア風カードを○枚から1枚えらんで墓地に"]] },
+  { g: "deck",    label: "山札・墓地をあやつる", v: [["scry", "山札の上を見て、1枚を上に・のこりを下に"], ["graveToTop", "墓地のカードを山札の一番上に"], ["playTop", "山札の一番上をプレイ（○枚）"], ["playTopEx", "山札の一番上をプレイして廃棄（○枚）"], ["drawUntil", "アタック以外を引くまで引く"], ["draft", "スパイア風カードを○枚から1枚えらんで墓地に"]] },
   { g: "exhaust", label: "カードを廃棄する", v: [["exhaustHand", "手札から○枚えらんで"], ["exhaustRand", "手札からランダムに○枚"], ["exhaustAll", "手札をすべて"], ["exhaustNonAtk", "手札のアタック以外をすべて"]] },
   { g: "rewrite", label: "カードを書きかえる（効果の追加・上書き・名前）", v: [["modAdd", "効果を追加する"], ["modRep", "効果を上書きする"], ["modClear", "効果をなくす"], ["modName", "名前を変える"]] },
   { g: "transform", label: "カードを変化させる", v: [["transformHand", "手札から○枚えらんで"], ["transformRand", "手札からランダムに○枚"], ["transformAtk", "手札のアタックすべて"], ["transformAll", "手札すべて"], ["transformSelf", "このカード自身"]] },
@@ -429,7 +431,7 @@ const KIND_GROUPS = [
 ];
 // kinds shown only when an older card already uses them (they're now 基本の効果 + 「だれに」)
 const intoText = into => into ? `「${into}」` : "ランダムなスパイア風カード";
-const PICK_HIDDEN = ["atkAll", "bash", "dmgRand", "dmgAll", "vulnAll", "weakAll", "atkDownAll", "atkDownTmpAll", "charmAll", "destroyAll", "destroyOthers"];
+const PICK_HIDDEN = ["atkAll", "bash", "dmgRand", "dmgAll", "vulnAll", "weakAll", "atkDownAll", "atkDownTmpAll", "charmAll", "destroyAll", "destroyOthers", "bounceAll"];
 function attachKindPicker(sel){
   if (!sel) return;
   if (!sel._kp){
