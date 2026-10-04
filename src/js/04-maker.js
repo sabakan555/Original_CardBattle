@@ -429,7 +429,7 @@ const KIND_GROUPS = [
 ];
 // kinds shown only when an older card already uses them (they're now 基本の効果 + 「だれに」)
 const intoText = into => into ? `「${into}」` : "ランダムなスパイア風カード";
-const PICK_HIDDEN = ["atkAll", "bash", "dmgRand", "dmgAll", "vulnAll", "weakAll", "atkDownAll", "atkDownTmpAll", "charmAll", "destroyAll"];
+const PICK_HIDDEN = ["atkAll", "bash", "dmgRand", "dmgAll", "vulnAll", "weakAll", "atkDownAll", "atkDownTmpAll", "charmAll", "destroyAll", "destroyOthers"];
 function attachKindPicker(sel){
   if (!sel) return;
   if (!sel._kp){

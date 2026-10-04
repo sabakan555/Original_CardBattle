@@ -792,6 +792,19 @@ function applyEffect(st, s, c, target, ctx = {}, fx = normFx(c)){
     case "noDraw": me.noDraw = true; log(st, s, `${src}：このターンはもうカードを引けない`); break;
     case "drawUntil": { let k = 0, last = null; while (k < 12 && !me.noDraw){ if (!me.deck.length) refill(st, s); if (!me.deck.length) break; last = me.deck.shift(); me.hand.push(last); k++; if (!isAttackCard(card(last))) break; } log(st, s, `${src}でカードを${k}枚引いた${last && !isAttackCard(card(last)) ? `（「${card(last).name}」で止まった）` : ""}`); break; }
     case "tagSearch": case "tagGraveHand": { const src = fx.kind === "tagSearch" ? me.deck : me.grave, k = src.indexOf(target); if (k >= 0){ src.splice(k, 1); me.hand.push(target); log(st, s, `${src === me.deck ? "山札" : "墓地"}から「${card(target).name}」を手札に加えた`); if (fx.kind === "tagSearch") me.deck = shuffle(me.deck); } break; }
+    // このカード以外すべて: お互いの場のモンスター・魔法・罠・フィールドを破壊（このカード自身と、このカードが付いているモンスターはのこす）
+    case "destroyOthers": {
+      const selfMon = ctx.mon ? monAt(st, ctx.mon) : null, host = ctx.eqU ? (findEq(st, ctx.eqU) || {}) : {}, hostM = host.s ? P(st, host.s).mz[host.i] : null;
+      log(st, s, `${src}で、このカード以外の場のカードをすべて破壊！`);
+      for (const o of [s, O(s)]){
+        const X = P(st, o);
+        X.sz.forEach((z, i) => { if (!z || (o === s && ctx.pz === i)) return; X.sz[i] = null; X.grave.push(...(z.fcp || z.cp ? z.mats || [] : [z.c])); ev(st, { type: "destroy", s: o, z: i, k: "sz" }); });
+        const L = X.mz.map((m, i) => m && m !== selfMon && m !== hostM ? [i, m.u] : null).filter(Boolean);
+        L.forEach(([i, u]) => { if (X.mz[i] && X.mz[i].u === u) destroyMonster(st, o, i, src); });
+      }
+      if (st.field && !ctx.field){ const f = st.field; st.field = null; P(st, f.o).grave.push(f.c, ...(f.mats || [])); log(st, s, `フィールド「${card(f.c).name}」も破壊した`); }
+      break;
+    }
     case "destroySt": case "destroyStRand": case "destroyStAll": {
       // 魔法・罠ゾーンのカードを持ち主の墓地へ（永続ならその効果も終わる）
       const D = O(s), dp = P(st, D), all = dp.sz.map((z, i) => z ? i : -1).filter(i => i >= 0);
