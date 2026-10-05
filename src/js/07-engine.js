@@ -1119,7 +1119,11 @@ function freeKey(st, s, c){ const f = P(st, s).free, k = c && c.frame === "spire
 const freeId = (st, s, c) => !!(c && (P(st, s).freeIds || []).includes(c.id));
 const corrupted = (st, s, c) => !!(c && P(st, s).corrupt && c.frame === "spire" && spireKind(c) === "skill");
 // 払うコスト: G・ゼロなら0、シンパシー・スペルブーストで下がる。探査は墓地のぶんだけさらに下げられる
-function baseCost(st, s, c){ return c && c.costX ? 0 : freeKey(st, s, c) || freeId(st, s, c) || corrupted(st, s, c) || gzOk(st, s, c) ? 0 : sbCut(st, s, c, symCost(st, s, c, costOf(c))); }
+// 逆転劇: 相手のモンスターが自分に直接攻撃しているあいだ、手札からタダで使える（1回の攻撃に1回）。次の自分のターンのはじめにマナを払い、払えなければ負け
+function revAtk(st, s){ const pd = st && st.pending, a = !pd ? null : pd.type === "attack" ? pd : pd.type === "chain" && pd.resume && pd.resume.type === "attack" ? pd.resume : null; return a && a.by !== s && a.to === "direct" ? a : null; }
+function revOk(st, s, c){ if (!c || c.revG == null || cardType(c) !== "magic" || !P(st, s).hand.includes(c.id)) return false; const a = revAtk(st, s); return !!(a && !a.revUsed); }
+function revDue(st, s){ return (P(st, s).revDebt || []).reduce((t, d) => t + (+d.n || 0), 0); }
+function baseCost(st, s, c){ return c && c.costX ? 0 : freeKey(st, s, c) || freeId(st, s, c) || corrupted(st, s, c) || gzOk(st, s, c) || revOk(st, s, c) ? 0 : sbCut(st, s, c, symCost(st, s, c, costOf(c))); }
 function effCost(st, s, c){ const b = baseCost(st, s, c); return c && c.delve && isFinite(b) ? Math.max(0, b - P(st, s).grave.length) : b; }
 function sbCut(st, s, c, base){ const n = +(c && c.sbCost) || 0, k = c ? ((P(st, s).sb || {})[c.id] || 0) : 0; return !n || !k || !isFinite(base) ? base : Math.max(0, base - n * k); }
 function gzOk(st, s, c){ const g = c && c.gz; if (!g || !String(g.name || "").trim() || !hasCost(c)) return false; return condMet(st, s, c, { k: "card", name: g.name, where: ["field", "grave", "hand"].includes(g.where) ? g.where : "field", match: ["tag", "part", "exact"].includes(g.match) ? g.match : "tag", cnt: Math.max(1, +g.cnt || 1), op: "ge" }, {}); }
@@ -1307,7 +1311,9 @@ function activate(st, s, from, i, ctx = {}){
   const keep = isPersist(c), pz = keep ? (from === "hand" ? freeZone(p.sz) : i) : -1;
   if (keep && pz < 0) return false;
   const fms = isField(c) ? massOf(c) : 0; if (fms && p.grave.length < fms) return false;
+  const revNow = from === "hand" && revOk(st, s, c);
   if (!pay(st, s, c)) return false;
+  if (revNow){ revAtk(st, s).revUsed = true; const n = Math.max(0, +c.revG || 0); (p.revDebt = p.revDebt || []).push({ n, name: c.name }); log(st, s, `逆転劇！「${c.name}」をタダで発動（次の自分のターンのはじめにマナを${n}払う。払えなければ負け）`); }
   // キッカー: 人は「キッカーも払って発動」で、CPUは払えるときはいつも払う
   { const kk = Math.max(0, +c.kick || 0); if (kk && p.mana && (ctx.kick || (ctx.kick == null && typeof G !== "undefined" && G && G.mode === "cpu" && s !== G.slot)) && p.mana.cur >= kk){ p.mana.cur -= kk; ctx = { ...ctx, kicked: true }; log(st, s, `「${c.name}」：キッカー${kk}を払った！`); } }
   if (c.costX){ ctx = { ...ctx, x: p.lastPaid || 0 }; log(st, s, `「${c.name}」：X = ${p.lastPaid || 0}`); }
@@ -1447,7 +1453,7 @@ function eqCancelOptions(st, s, win){
 function responseOptions(st, s, win){
   const p = P(st, s), out = [];
   p.sz.forEach((z, i) => { if (!z || z.face) return; const c = card(z.c); if ((cardType(c) === "trap" || isQuick(c)) && z.turn < st.turnNo && canPay(st, s, c) && usableIn(st, s, c, win)) out.push({ from: "sz", i, c }); });
-  p.hand.forEach((id, i) => { const c = card(id); if (isQuick(c) && canPay(st, s, c) && usableIn(st, s, c, win)) out.push({ from: "hand", i, c }); });
+  p.hand.forEach((id, i) => { const c = card(id), rv = win === "attack" || win === "chainAttack" ? revOk(st, s, c) : false; if ((isQuick(c) || rv) && canPay(st, s, c) && usableIn(st, s, c, win)) out.push({ from: "hand", i, c, ...(rv ? { rev: +c.revG || 0 } : {}) }); });
   return out.concat(eqCancelOptions(st, s, win), win === "attack" ? blockOpts(st, s) : []);
 }
 function usableTraps(st, s){ return responseOptions(st, s, "attack").filter(o => o.from === "sz").map(o => o.i); }
@@ -1671,6 +1677,7 @@ function passTurn(st, s){
     np.thorns = 0; np.blockedNow = false;
     if (np.mana){ np.mana.max = np.sz.some(z => z && z.face && z.c === "spire-altar") ? 3 : Math.max(np.mana.max, Math.min(MAX_MANA, np.mana.max + 1)); np.mana.cur = np.mana.max; }
     log(st, st.turn, `ターン${st.turnNo}：${np.name} の${xt ? "追加" : ""}ターン${np.mana ? `（マナ ${np.mana.max}）` : ""}`);
+    if (np.revDebt && np.revDebt.length){ const L = np.revDebt; np.revDebt = []; for (const d of L){ const n = +d.n || 0; if (!np.mana || np.mana.cur >= n){ if (np.mana && n){ np.mana.cur -= n; } log(st, st.turn, `逆転劇「${d.name}」のコストでマナを${n}払った${np.mana ? `（${np.mana.cur}/${np.mana.max}）` : ""}`); } else { st.winner = O(st.turn); st.why = `${np.name} は逆転劇「${d.name}」のマナ${n}を払えなかった`; log(st, st.turn, `逆転劇「${d.name}」のマナ${n}を払えない…ゲームに負けた`); return; } } }
     refill(st, st.turn);
     if (!np.deck.length && !np.spire){ st.winner = s; st.why = `${np.name} の山札がなくなった`; log(st, st.turn, "引くカードがない！"); return; }
     if (np.deck.length) np.hand.push(np.deck.shift());

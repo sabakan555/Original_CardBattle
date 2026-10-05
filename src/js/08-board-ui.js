@@ -49,7 +49,7 @@ function scheduleCpu(){
   const st = G.st, c = "b";
   // CPU as defender
   if (st.pending && st.pending.wait && st.pending.by !== c) {
-    G.cpuT = setTimeout(() => { G.cpuT = null; act(st => { const win = chainWindow(st); const o = G.test && G.test.cpu === "idle" ? [] : responseOptions(st, c, win); const top = st.chain && st.chain[st.chain.length - 1]; const nb = o.filter(x => x.from !== "blk"), pick = cpuBlock(st, c, o) || (nb.length && Math.random() < (win === "attack" ? .75 : top && top.summon ? .6 : .5) ? nb[Math.floor(Math.random() * nb.length)] : null); respond(st, c, pick && { from: pick.from, i: pick.i }); }); }, 900);
+    G.cpuT = setTimeout(() => { G.cpuT = null; act(st => { const win = chainWindow(st); const o = G.test && G.test.cpu === "idle" ? [] : responseOptions(st, c, win); const top = st.chain && st.chain[st.chain.length - 1]; const nb = o.filter(x => x.from !== "blk" && !(x.rev != null && P(st, c).mana && Math.min(MAX_MANA, P(st, c).mana.max + 1) < revDue(st, c) + x.rev)), pick = cpuBlock(st, c, o) || (nb.length && Math.random() < (win === "attack" ? .75 : top && top.summon ? .6 : .5) ? nb[Math.floor(Math.random() * nb.length)] : null); respond(st, c, pick && { from: pick.from, i: pick.i }); }); }, 900);
     return;
   }
   if (st.turn !== c || st.pending) return;
