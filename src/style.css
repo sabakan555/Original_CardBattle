@@ -1231,6 +1231,13 @@ div.f{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:13px}
 .card.ygo .c-cost{position:absolute;left:auto;right:calc(var(--yu)*61);top:calc(var(--yu)*101);width:auto;height:calc(var(--yu)*36);padding:0;border:none;border-radius:0;background:none;box-shadow:none;display:flex;flex-direction:row-reverse;align-items:center;gap:calc(var(--yu)*3);font-size:calc(var(--yu)*30);line-height:1;font-weight:700;color:#30211c;z-index:3}
 .card.ygo.magic .c-cost,.card.ygo.equip .c-cost{right:calc(var(--yu)*197)}
 .card.ygo.trap .c-cost{right:calc(var(--yu)*170)}
+.card.ygo.yeq::before{background-image:url("assets/ygo_eq.webp?v=1")}
+.card.ygo.yqp::before{background-image:url("assets/ygo_qp.webp?v=1")}
+.card.ygo.yfld::before{background-image:url("assets/ygo_fld.webp?v=1")}
+.card.ygo.ycm::before{background-image:url("assets/ygo_cmag.webp?v=1")}
+.card.ygo.yct::before{background-image:url("assets/ygo_ctrap.webp?v=1")}
+.card.ygo.yeq .c-cost,.card.ygo.yqp .c-cost,.card.ygo.yfld .c-cost,.card.ygo.ycm .c-cost{right:calc(var(--yu)*227)}
+.card.ygo.yct .c-cost{right:calc(var(--yu)*199)}
 .card.ygo .c-cost .ys{display:block;flex:none;width:calc(var(--yu)*36);height:calc(var(--yu)*36);background:url("assets/ygo_star.webp") center/100% 100% no-repeat;filter:drop-shadow(0 calc(var(--yu)*1) calc(var(--yu)*1.5) rgba(0,0,0,.45))}
 .card.ygo .c-cost .ys-x{margin-right:calc(var(--yu)*4);text-shadow:0 0 calc(var(--yu)*3) rgba(255,255,255,.7)}
 .card.ygo .c-text{position:absolute;left:calc(var(--yu)*41);top:calc(var(--yu)*647);width:calc(var(--yu)*504);height:calc(var(--yu)*128);border:none;background:none;box-shadow:none;padding:0;font-family:var(--cf,"Shippori Mincho",serif);font-weight:700;font-size:calc(var(--yu)*22*var(--tk,1));line-height:1.32;color:#30211c;overflow:visible;min-height:0;z-index:3;display:block}

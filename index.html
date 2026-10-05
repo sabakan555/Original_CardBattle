@@ -1243,6 +1243,13 @@ div.f{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:13px}
 .card.ygo .c-cost{position:absolute;left:auto;right:calc(var(--yu)*61);top:calc(var(--yu)*101);width:auto;height:calc(var(--yu)*36);padding:0;border:none;border-radius:0;background:none;box-shadow:none;display:flex;flex-direction:row-reverse;align-items:center;gap:calc(var(--yu)*3);font-size:calc(var(--yu)*30);line-height:1;font-weight:700;color:#30211c;z-index:3}
 .card.ygo.magic .c-cost,.card.ygo.equip .c-cost{right:calc(var(--yu)*197)}
 .card.ygo.trap .c-cost{right:calc(var(--yu)*170)}
+.card.ygo.yeq::before{background-image:url("assets/ygo_eq.webp?v=1")}
+.card.ygo.yqp::before{background-image:url("assets/ygo_qp.webp?v=1")}
+.card.ygo.yfld::before{background-image:url("assets/ygo_fld.webp?v=1")}
+.card.ygo.ycm::before{background-image:url("assets/ygo_cmag.webp?v=1")}
+.card.ygo.yct::before{background-image:url("assets/ygo_ctrap.webp?v=1")}
+.card.ygo.yeq .c-cost,.card.ygo.yqp .c-cost,.card.ygo.yfld .c-cost,.card.ygo.ycm .c-cost{right:calc(var(--yu)*227)}
+.card.ygo.yct .c-cost{right:calc(var(--yu)*199)}
 .card.ygo .c-cost .ys{display:block;flex:none;width:calc(var(--yu)*36);height:calc(var(--yu)*36);background:url("assets/ygo_star.webp") center/100% 100% no-repeat;filter:drop-shadow(0 calc(var(--yu)*1) calc(var(--yu)*1.5) rgba(0,0,0,.45))}
 .card.ygo .c-cost .ys-x{margin-right:calc(var(--yu)*4);text-shadow:0 0 calc(var(--yu)*3) rgba(255,255,255,.7)}
 .card.ygo .c-text{position:absolute;left:calc(var(--yu)*41);top:calc(var(--yu)*647);width:calc(var(--yu)*504);height:calc(var(--yu)*128);border:none;background:none;box-shadow:none;padding:0;font-family:var(--cf,"Shippori Mincho",serif);font-weight:700;font-size:calc(var(--yu)*22*var(--tk,1));line-height:1.32;color:#30211c;overflow:visible;min-height:0;z-index:3;display:block}
@@ -2778,6 +2785,8 @@ function cardHTML(c, cls = "", attrs = "", opts = {}){
   if (mt && (!c.font || c.font === "klee")) h = h.replace(/--cf:[^;']*;?/, "");
   if (fr === "future" && !/<span class="c-cost"/.test(h)) h = h.replace('<div class="c-in">', '<div class="c-in"><span class="c-cost nocost" title="コストなし">‐</span>');
   if (fr === "ygo") h = h.replace(/<span class="c-cost"([^>]*)>([^<]*)<\/span>/, (m, a, v) => `<span class="c-cost"${a}>${ygoStars(v, cardType(c))}</span>`);
+  // 遊戯王風: 装備・速攻・フィールド・永続は、それぞれのアイコン付きの枠にする
+  if (fr === "ygo"){ const yt = cardType(c) === "equip" ? "yeq" : isQuick(c) ? "yqp" : isField(c) ? "yfld" : isPersist(c) ? (cardType(c) === "trap" ? "yct" : "ycm") : ""; if (yt) h = h.replace(/^<div class="card /, `<div class="card ${yt} `); }
   if (mt) h = h.replace(/^<div class="card /, `<div class="card ${FR_CLS[fr]}${(fr === "mtg" || fr === "dm") && HEX6.test(c.colF || "") ? " mcol" : ""} `).replace(/<\/div>$/, `<span class="m-gem" aria-hidden="true"></span></div>`).replace(/<div class="c-atk">ATK /, `<div class="c-atk">`).replace(/<div class="c-name">([\s\S]*?)<\/div><div class="c-art">/, `<div class="c-name"><span class="m-nm">$1</span></div><div class="c-art">`);
   if (c && c.fxRows && !freeText(c) && !c.potionView && !c.relicView && c.frame !== "spire" && c.frame !== "socra") h = h.replace(/^<div class="card /, '<div class="card fxrows ').replace(/<div class="body">[\s\S]*?<\/div>(?=<div class="flv">|<span class="c-lim">|<div class="c-atk">|<\/div><\/div>)/, () => `<div class="body">${fxRowsHTML(c)}</div>`);
   if (c && c.land && isField(c) && !c.potionView && !c.relicView && !FR_CLS[c.frame] && c.frame !== "spire") h = h.replace(/^<div class="card /, '<div class="card land ');
