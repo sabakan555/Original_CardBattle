@@ -968,7 +968,7 @@ function updateSecs(){
   const bs = typeof readBlocks === "function" ? readBlocks() : null;
   sum("#sumFx", bs ? fxText({ ...mkPreviewCard(), ss: null }) || "設定あり" : "なし", !!bs);
   const abs = readAbs();
-  $("#secAbs").hidden = false;
+  $("#secAbs").hidden = false; if (typeof syncCostUI === "function") syncCostUI();
   $("#secAbsTitle").textContent = "能力";
   { const cn = [["#mkInnate", "天賦"], ["#mkRetain", "保留"], ["#mkEthereal", "エセリアル"], ["#mkSly", "スライ"]].filter(([q]) => $(q).checked).map(x => x[1]), al = [...cn, ...abs.map(a => ABS[a.k] ? (ABS[a.k].kw || ABS[a.k].label) : a.k)]; sum("#sumAbs", al.length ? al.join("・") : "なし", al.length); }
   $("#secEq").hidden = $("#eqNote").hidden && $("#capRow").hidden;
