@@ -153,8 +153,8 @@ function buildStarters(){
 const SPIRE_ALTAR = { id: "spire-altar", type: "magic", frame: "spire", sk: "power", rarity: "rare", persist: true, name: "選択の祭壇", atk: 0, eqN: 0, eqAb: "none", abs: [], fx: { trig: "turnStart", kind: "draft", n: 3 }, combo: null, effect: "自分のマナは毎ターン3（増えない）。自分のターンのはじめ、手札が5枚になるまでカードを引く。自分のターンのおわり、手札をすべて墓地に捨てる。相手のモンスターを倒すたび、カード報酬（3枚から1枚）をもらい、40%でポーション、10%でレリックを手に入れる。", flavor: "スパイアデッキの始まりの一枚", cost: 0, deckMode: "both", limit: 1, author: "スターター", starter: true, img: "" };
 // 攻撃 / 防御 / 強打: the basic スパイア cards (damage and block = the original ×20)
 const SPIRE_BASIC = [
-  { id: "spire-strike", sk: "attack", name: "攻撃", cost: 1, fx: { kind: "dmg", n: 120 } },
-  { id: "spire-defend", sk: "skill", name: "防御", cost: 1, fx: { kind: "block", n: 100 } },
+  { id: "spire-strike", sk: "attack", name: "攻撃", cost: 1, fx: { kind: "dmg", n: 120 }, skins: [{ key: "silent", name: "サイレント", spc: "silent" }] },
+  { id: "spire-defend", sk: "skill", name: "防御", cost: 1, fx: { kind: "block", n: 100 }, skins: [{ key: "silent", name: "サイレント", spc: "silent" }] },
   { id: "spire-bash", sk: "attack", name: "強打", cost: 2, fx: { kind: "dmg", n: 160, more: [{ kind: "vuln", n: 2 }] } }
 ].map(x => ({ type: "magic", frame: "spire", rarity: "common", persist: false, tags: ["アイアンクラッド"], atk: 0, eqN: 0, eqAb: "none", abs: [], combo: null, effect: "", flavor: "", deckMode: "both", limit: 5, author: "スターター", starter: true, img: "", ...x, fx: { trig: "use", ...x.fx } }));
 function spireDeck(){ return { id: "spire-start", name: "スパイアデッキ（はじまり）", cards: [...Array(5).fill("spire-strike"), ...Array(4).fill("spire-defend"), "spire-bash"], builtin: true, mana: true, spire: true, key: "spire-strike" }; }
@@ -163,7 +163,7 @@ const DRAFT_TAG = "アイアンクラッド";
 const SPIRE_ALTAR_S = { ...SPIRE_ALTAR, id: "spire-altar-s", name: "選択の祭壇（サイレント）", spc: "silent" };
 const isAltar = id => id === SPIRE_ALTAR.id || id === SPIRE_ALTAR_S.id;
 const DRAFT_TAGS = { "": DRAFT_TAG, silent: "サイレント" };
-const spirePoolAll = () => [...S.cards.values()].filter(c => c && c.frame === "spire" && !c.token && !c.ex && !isAltar(c.id) && !SPIRE_BASIC.some(b => b.id === c.id));
+const spirePoolAll = () => [...S.cards.values()].filter(c => c && !c.skinOf && c.frame === "spire" && !c.token && !c.ex && !isAltar(c.id) && !SPIRE_BASIC.some(b => b.id === c.id));
 // 選択の祭壇などで出るのは、キャラのタグ（#アイアンクラッド／#サイレント）のついたカードだけ
 function draftPool(spc){ const tag = DRAFT_TAGS[spc === "silent" ? "silent" : ""]; return spirePoolAll().filter(c => tagsOf(c).includes(tag)); }
 const RARITY_W = { common: 6, uncommon: 3, rare: 1 };
@@ -191,12 +191,21 @@ async function deleteBuiltinDoc(id){
   if (!S.db || !isAdmin()) throw { code: "not-admin" };
   await S.db.doc("builtin/" + id).delete();
 }
+// スキン: 同じカードの別の見た目（絵・枠・キャラ・色など）。id は「もとのid~スキンのkey」で、効果はもとのカードと同じ
+const LOOK_KEYS = ["img", "frame", "spc", "colF", "colB", "colF2", "colB2", "colGd", "font", "holo", "foil", "frameless", "flAlpha", "textEdge"];
+const skinBase = id => String(id == null ? "" : id).split("~")[0];
+function skinVariants(list){
+  const out = [];
+  list.forEach(c => { if (c && Array.isArray(c.skins)) c.skins.forEach(s => { if (!s || !s.key) return; const v = { ...c, skins: null, skinOf: c.id, skinKey: s.key, skinName: s.name || "スキン", id: c.id + "~" + s.key }; LOOK_KEYS.forEach(k => { if (s[k] !== undefined) v[k] = s[k]; }); out.push(v); }); });
+  return out;
+}
+const skinsOf = id => { const b = S.cards.get(skinBase(id)); return b && Array.isArray(b.skins) ? b.skins.filter(s => s && s.key) : []; };
 function rebuildCards(){
   applyBuiltinEdits();
   // ポーション (カード以外) live in the cards collection too, but never act as cards
   const allU = S.userCards || []; S.userPotions = allU.filter(c => c && c.type === "potion"); S.userRelics = allU.filter(c => c && c.type === "relic"); S.userCards = allU.filter(c => !(c && (c.type === "potion" || c.type === "relic")));
   S.userCards.forEach(c => { if (c && c.nameRuby == null && /《/.test(c.name || "")){ c.nameRuby = c.name; c.name = plainRuby(c.name); } });
-  S.cards = new Map([...S.starters, ...(S.hiddenBase || []), ...S.userCards].map(c => [c.id, c]));
+  S.cards = new Map([...S.starters, ...(S.hiddenBase || []), ...S.userCards, ...skinVariants([...S.starters, ...S.userCards])].map(c => [c.id, c]));
   rebuildOwned();
   rebuildCtrEmb();
   const dl = document.getElementById("cardNames");
@@ -407,7 +416,7 @@ function rebuildOwned(){
   if (S.uid) allTrades().forEach(t => { if (t.status !== "accepted") return; if (t.from === S.uid) o.add(t.want); if (t.to === S.uid) o.add(t.give); });
   S.owned = o;
 }
-const owns = id => S.owned.has(id);
+const owns = id => S.owned.has(skinBase(id));
 
 /* ================= data layer ================= */
 const local = { cards(){ return ls.get("cb_cards", []); }, decks(){ return ls.get("cb_decks", []); } };

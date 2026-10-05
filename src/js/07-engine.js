@@ -188,11 +188,11 @@ function playTopCard(st, s, src, ex, then, extra){
 // 効果で指定するカード: カード工房でえらんだ1枚（intoId）があればそれ、なければ名前でさがす
 const PICK_OK = { oppSummon: c => cardType(c) === "monster", summonNamed: c => cardType(c) === "monster", oppSetNamed: c => cardType(c) === "magic" || cardType(c) === "trap" };
 function pickCardKind(k){ return !!(KINDS[k] && KINDS[k].name && !KINDS[k].tag && k !== "autoPlay"); }
-function nameCands(name, kind){ const ok = PICK_OK[kind]; return name ? [...S.cards.values()].filter(c => c && (c.name === name || plainRuby(c.nameRuby || "") === name) && (!ok || ok(c))) : []; }
+function nameCands(name, kind){ const ok = PICK_OK[kind]; return name ? [...S.cards.values()].filter(c => c && !c.skinOf && (c.name === name || plainRuby(c.nameRuby || "") === name) && (!ok || ok(c))) : []; }
 function fxCardId(fx, srcCard){ const ok = PICK_OK[fx.kind]; if (fx.intoId && S.cards.has(fx.intoId) && (!ok || ok(card(fx.intoId)))) return fx.intoId; return intoId(fx.into, srcCard, ok); }
 function intoId(into, srcCard, okFn){
   if (!into) return null;
-  const L = [...S.cards.values()].filter(c => c && (c.name === into || plainRuby(c.nameRuby || "") === into) && (!okFn || okFn(c)));
+  const L = [...S.cards.values()].filter(c => c && !c.skinOf && (c.name === into || plainRuby(c.nameRuby || "") === into) && (!okFn || okFn(c)));
   if (!L.length) return null;
   const owner = srcCard && srcCard.ownerId;
   const pick = (owner && L.find(c => c.ownerId === owner)) || L.find(c => c.starter || !c.ownerId) || L.find(c => c.token) || L[0];
@@ -205,7 +205,7 @@ function transformSelf(st, s, c, ctx, fx, src){
   let eq = null; if (ctx.eqU) ["a", "b"].forEach(o => P(st, o).mz.forEach(x => { if (x) eqsOf(x).forEach(e => { if (e.u === ctx.eqU) eq = e; }); }));
   const ok = m ? isMon : null;
   const id = fx.into ? fxCardId({ kind: m ? "oppSummon" : "transformHand", into: fx.into, intoId: fx.intoId }, c)
-    : (() => { const f = x => x && x.id !== c.id && !x.token && (!ok || ok(x)); let L = draftPool().filter(f); if (!L.length) L = [...S.cards.values()].filter(f); return L.length ? L[Math.floor(Math.random() * L.length)].id : null; })();
+    : (() => { const f = x => x && x.id !== c.id && !x.token && (!ok || ok(x)); let L = draftPool().filter(f); if (!L.length) L = [...S.cards.values()].filter(x => f(x) && !x.skinOf); return L.length ? L[Math.floor(Math.random() * L.length)].id : null; })();
   if (!id){ log(st, s, `${src}：${fx.into ? `「${fx.into}」という${m ? "モンスター" : "カード"}が見つからない` : "変化先のカードがない"}`); return; }
   const done = (old, where) => log(st, s, `${src}で${where}の「${card(old).name}」が「${card(id).name}」に変化した`);
   if (m){ const old = m.c; m.c = id; m.mod = 0; delete m.mul; ev(st, { type: "summon", s: ctx.mon.s, z: ctx.mon.i }); done(old, "場"); return; }
@@ -284,7 +284,7 @@ const potRow = (p, mine, noPots) => { const h = statChips(p) + (noPots ? "" : po
 const lockChips = p => { const tn = typeof G !== "undefined" && G && G.st ? G.st.turnNo : null; if (tn == null) return ""; return ((p.noAtkUntil || 0) >= tn ? `<span class="bst wk" title="効果で、このターンはモンスターが攻撃できない">攻撃できない</span>` : "") + ((p.noUseUntil || 0) >= tn ? `<span class="bst wk" title="相手の効果で、魔法・罠を発動できない">発動できない</span>` : ""); };
 const timerChips = p => (p.timers || []).map(t => { const c = t.c && hasCard(t.c) ? card(t.c) : null, tx = c ? blockText(c, { ...t.b, delay: 0 }) : ""; return `<span class="bst tmrc" title="${esc(`「${t.name}」：あと${t.left}回の自分のターンのはじめで効果が出る${tx ? "（" + tx + "）" : ""}`)}">${clockSVG(t.left)}${esc(t.name)}</span>`; }).join("");
 const boonChips = p => (p.boons || []).map(t => { const c = t.c && hasCard(t.c) ? card(t.c) : { id: t.c, name: t.name, type: "magic" }, tx = blockText(c, { ...t.b, delay: 0, grant: null }); return `<span class="bst boon" title="${esc(`付与された効果「${t.name}」：自分のターンの${t.at === "turnStart" ? "はじめ" : "おわり"}に、${tx}${t.dur ? `（あと${t.left}回）` : "（ずっと）"}`)}">✦${esc(t.name)}${t.dur ? `<small>×${t.left}</small>` : ""}</span>`; }).join("");
-const statChips = p => ctrChipsP(p) + lockChips(p) + timerChips(p) + boonChips(p) + Object.entries(p.free || {}).filter(([, v]) => v > 0).map(([k, v]) => `<span class="bst free" title="次に使うこの種類のカードはコスト0">次の${SPIRE_LABEL[k]}0コスト${v > 1 ? "×" + v : ""}</span>`).join("") + (p.relics || []).map(k => relicDef(k)).filter(Boolean).map(d => `<span class="bst rel" title="${esc(d.text)}">${d.img ? `<img alt="" src="${d.img}">` : ""}${esc(d.name)}</span>`).join("") + (p.block ? `<span class="bst blk" title="次の自分のターンのはじめまで、受けるダメージを先に引き受ける">ブロック ${p.block}</span>` : "") + (p.vuln > 0 ? `<span class="bst vul" title="受けるダメージが1.5倍">弱体 ${p.vuln}</span>` : "") + (p.str ? `<span class="bst str" title="カードで与えるダメージ（1回ごと）と、自分のモンスターがプレイヤーに与える戦闘ダメージが${p.str > 0 ? "+" : "−"}${Math.abs(p.str)}">筋力 ${p.str}</span>` : "") + (p.weak > 0 ? `<span class="bst wk" title="カードで与えるダメージが0.75倍">脱力 ${p.weak}</span>` : "")
+const statChips = p => ctrChipsP(p) + lockChips(p) + timerChips(p) + boonChips(p) + Object.entries(p.free || {}).filter(([, v]) => v > 0).map(([k, v]) => `<span class="bst free" title="次に使うこの種類のカードはコスト0">次の${SPIRE_LABEL[k]}0コスト${v > 1 ? "×" + v : ""}</span>`).join("") + (p.relics || []).map(k => relicDef(k)).filter(Boolean).map(d => `<span class="bst rel" title="${esc(d.text)}">${d.img ? `<img alt="" src="${d.img}">` : ""}${esc(d.name)}</span>`).join("") + (p.block ? `<span class="bst blk" title="次の自分のターンのはじめまで、受けるダメージを先に引き受ける">ブロック ${p.block}</span>` : "") + (p.vuln > 0 ? `<span class="bst vul" title="受けるダメージが1.5倍">弱体 ${p.vuln}</span>` : "") + (p.str ? `<span class="bst str" title="カードで与えるダメージ（1回ごと）と、自分のモンスターがプレイヤーに与える戦闘ダメージが${p.str > 0 ? "+" : "−"}${Math.abs(p.str)}">筋力 ${p.str}</span>` : "") + (p.dex ? `<span class="bst str" title="カードで得るブロックが${p.dex > 0 ? "+" : "−"}${Math.abs(p.dex)}">敏捷 ${p.dex}</span>` : "") + (p.dblNext || []).map(e => `<span class="bst pw" title="このターン、次に使うこのカードはもう1回発動する">次の${esc(usedPfText(e))}×2</span>`).join("") + (p.freeNext || []).map(e => `<span class="bst free" title="次に使うこのカードはコスト0">次の${esc(usedPfText(e))}0コスト</span>`).join("") + (p.intang > 0 ? `<span class="bst blk" title="受けるダメージが1になる（自分のターンのはじめに1減る）">霊体 ${p.intang}</span>` : "") + (p.weak > 0 ? `<span class="bst wk" title="カードで与えるダメージが0.75倍">脱力 ${p.weak}</span>` : "")
   + [[p.barricade, "バリケード", "ブロックがターンのはじめに消えない"], [p.plate > 0, `プレート ${p.plate}`, "自分のターンのおわりにこの分ブロックを得る。LPを失うたび20減る"], [p.corrupt, "堕落", "スキルのコストが0。使うと廃棄"], [p.vulnBonus > 0, `無慈悲 +${p.vulnBonus}%`, "弱体の相手へのダメージがさらにふえる"], [p.firstBlock2, "盤石", "毎ターン最初のブロックが2倍"], [p.rage > 0, `激怒 ${p.rage}`, "このターン、アタックを使うたびブロックを得る"], [p.thorns > 0, `反撃 ${p.thorns}`, "攻撃してきたモンスターにダメージ"], [p.dblAtk > 0, `次のアタック×2`, "次に使うアタックをもう1回プレイ"], [p.extraTurns > 0, `追加ターン${p.extraTurns > 1 ? "×" + p.extraTurns : ""}`, "このターンのあと、もう一度自分のターン"], [(p.autoPlay || []).length, `自動：${(p.autoPlay || []).join("・")}`, "名前にこの文字が入ったカードを引くと自動で使う"]].filter(x => x[0]).map(x => `<span class="bst pw" title="${x[2]}">${x[1]}</span>`).join("");
 function dealDmg(st, s, n){
   const p = P(st, s);
@@ -292,6 +292,7 @@ function dealDmg(st, s, n){
   if (n > 0 && (p.reflectUntil || 0) >= st.turnNo && !dealDmg.busy){ log(st, s, `${p.name}は${n === Infinity ? "" : fmtN(n) + "の"}ダメージを跳ね返した！`); dealDmg.busy = true; try { dealDmg(st, O(s), n); } finally { dealDmg.busy = false; } return; }
   if (n === Infinity){ p.lp = Math.min(0, p.lp); return; }
   if (n > 0 && p.vuln > 0){ n = Math.floor(n * (1.5 + (P(st, O(s)).vulnBonus || 0) / 100)); log(st, s, `弱体で${n}ダメージに！`); }
+  if (n > 1 && p.intang > 0){ n = 1; log(st, s, `霊体でダメージが1になった`); }
   let blk = 0;
   if (n > 0 && p.block > 0){ const b = Math.min(p.block, n); p.block -= b; n -= b; blk = b; log(st, s, `ブロックで${b}ダメージを防いだ（残りブロック ${p.block}）`); }
   p.lp -= n;
@@ -310,9 +311,10 @@ function checkEnd(st){
   else if (lb <= 0){ st.winner = "a"; st.why = `${nm(st, "b")} のLPが0になった`; }
 }
 function drawN(st, s, n, why){
-  const p = P(st, s); let got = 0;
+  const p = P(st, s); let got = 0; p.lastDrawn = [];
   if (p.noDraw && n > 0){ log(st, s, `${why || ""}：このターンはもうカードを引けない`); return; }
   for (let i = 0; i < n; i++){ if (!p.deck.length) refill(st, s); if (p.deck.length){ p.hand.push(p.deck.shift()); got++; } }
+  p.lastDrawn = got ? p.hand.slice(-got) : [];
   if (why) log(st, s, `${why}でカードを${got}枚引いた`);
   // 「名前に○が入ったカードを引くたび自動で使う」
   if (got && (p.autoPlay || []).length && !st.winner){
@@ -370,6 +372,7 @@ function targetOptions(st, s, kind, ctx = {}){
   // 1体/2体 aim at the opponent's monsters first; the player only when there is none (ランダム can hit either)
   const TS = ctx.side === "me" ? s : O(s);
   if (kind === "removeBoard"){ const sides = ctx.rside === "me" ? [s] : ctx.rside === "both" ? [s, O(s)] : [O(s)], out = []; sides.forEach(o => { const X = P(st, o); X.mz.forEach((m, i) => { if (m && (o === s || !hiddenMon(st, o, i))) out.push(`${o}:mz:${i}`); }); X.sz.forEach((z, i) => { if (z) out.push(`${o}:sz:${i}`); }); }); if (st.field && sides.includes(st.field.o)) out.push("field"); return out; }
+  if (kind === "setCost" && ctx.sp !== "pick") return null;
   if (kind === "giveAb"){ const w = ctx.gw; if (w !== "mine" && w !== "opp") return null; const o = w === "mine" ? s : O(s), out = []; P(st, o).mz.forEach((m, i) => { if (m && (o === s || !hiddenMon(st, o, i))) out.push(`${o}:${i}`); }); return out; }
   if (kind === "ctrAdd" || kind === "ctrDel") return ctx.ctrPick ? P(st, TS).mz.map((m, i) => m && (TS === s || !hiddenMon(st, TS, i)) ? "m:" + i : null).filter(Boolean) : null;
   if (ctx.spireAtk && (kind === "dmg" || kind === "bash" || kind === "vuln" || kind === "weak")){ const tt = TS === s ? [] : tauntIdx(st, TS), ms = (tt.length ? tt : P(st, TS).mz.map((m, i) => m ? i : -1).filter(i => i >= 0)).map(i => "m:" + i); if (ctx.anyEnemy) return ms.length ? ["p", ...ms] : null; const left = ms.filter(o => !(ctx.hit && (ctx.hit.picked || []).includes(o))); return left.length ? ms : ["p"]; }
@@ -597,6 +600,7 @@ function runTimers(st, who, then){
 function fireTurn(st, who, trig, then, timersDone, boonsDone){
   if (trig === "turnStart" && !timersDone && (P(st, who).timers || []).length) return runTimers(st, who, st2 => fireTurn(st2, who, trig, then, true));
   if (!boonsDone && (P(st, who).boons || []).some(t => t.at === trig)) return runBoons(st, who, trig, st2 => fireTurn(st2, who, trig, then, true, true));
+  if (trig === "turnEnd") etherealEnd(st, who);
   altarTurn(st, who, trig);
   const L = [];
   for (const o of ["a", "b"]) P(st, o).mz.forEach((m, i) => { if (m) monTrigList(st, o, i, trig).forEach(x => { if (x.s === who && hasTrig(x.c, trig)) L.push(x); }); });
@@ -729,7 +733,7 @@ function applyEffect(st, s, c, target, ctx = {}, fx = normFx(c)){
     case "draft": if (target && hasCard(target)){ me.grave.push(target); log(st, s, `${src}で「${card(target).name}」を墓地に加えた`); } break;
     case "atkAll": { let k = 0; me.mz.forEach(m => { if (m){ m.mod = (m.mod || 0) + n; k++; } }); log(st, s, `${src}で自分のモンスター${k}体のATK+${n}`); break; }
     case "dmg": if (typeof target === "string" && target.startsWith("m:")){ monDmg(st, OS, +target.slice(2), n, src); break; } log(st, s, `${src}で${opT.name}に${n}ダメージ`); dealDmg(st, OS, n); break;
-    case "block": { if (me.firstBlock2 && !me.blockedNow && !ctx.potion){ n *= 2; log(st, s, `最初のブロックなので2倍！`); } me.blockedNow = true; me.block = (me.block || 0) + n; log(st, s, `${src}でブロックを${n}得た（ブロック ${me.block}）`); if (n > 0) persistFire(st, s, "blockGain", {}); break; }
+    case "block": { if (me.dex && !ctx.potion){ n = Math.max(0, n + me.dex); } if (me.firstBlock2 && !me.blockedNow && !ctx.potion){ n *= 2; log(st, s, `最初のブロックなので2倍！`); } me.blockedNow = true; me.block = (me.block || 0) + n; log(st, s, `${src}でブロックを${n}得た（ブロック ${me.block}）`); if (n > 0) persistFire(st, s, "blockGain", {}); break; }
     case "barricade": me.barricade = true; log(st, s, `${src}：ブロックがターンのはじめに消えなくなった`); break;
     case "plate": me.plate = (me.plate || 0) + n; log(st, s, `${src}でプレート${n}を得た（プレート ${me.plate}）`); break;
     case "corrupt": me.corrupt = true; log(st, s, `${src}：スキルのコストが0になり、使うと廃棄されるようになった`); break;
@@ -833,6 +837,16 @@ function applyEffect(st, s, c, target, ctx = {}, fx = normFx(c)){
       else log(st, s, `${src}：破壊されたモンスターはいなかった`);
       break;
     }
+    case "dblNext": (me.dblNext = me.dblNext || []).push({ pf: fx.pf || "any", pfn: fx.pfn || "", n: Math.max(1, n || 1) }); log(st, s, `${src}：このターン、次に使う${usedPfText(fx)}はもう1回発動する`); break;
+    case "freeNext": (me.freeNext = me.freeNext || []).push({ pf: fx.pf || "any", pfn: fx.pfn || "", n: Math.max(1, n || 1) }); log(st, s, `${src}：次に使う${usedPfText(fx)}のコストが0になる`); break;
+    case "drawTo": { const k = Math.max(0, n - me.hand.length); if (k) drawN(st, s, k, src); else log(st, s, `${src}：手札はもう${me.hand.length}枚ある`); break; }
+    case "copyPick": { const id = me.hand[target]; if (id == null) break; const k = Math.max(1, n || 1);
+      if (fx.cpw === "next"){ (me.nextGive = me.nextGive || []).push({ id, n: k }); log(st, s, `${src}：次の自分のターンのはじめに「${card(id).name}」のコピーを${k}枚手札に加える`); }
+      else { for (let r = 0; r < k; r++) me.hand.push(id); log(st, s, `${src}で「${card(id).name}」のコピーを${k}枚手札に加えた`); } break; }
+    case "setCost": { const v = Math.max(0, Math.round(fx.n ?? n ?? 0)), until = fx.sd === "used" ? 0 : st.turnNo;
+      const ids = fx.sp === "pick" ? (me.hand[target] != null ? [me.hand[target]] : []) : [...new Set(me.hand.filter(id => usedMatch(card(id), fx.pf, fx.pfn)))];
+      ids.forEach(id => (me.costSet = me.costSet || []).push({ id, v, until, once: fx.sd === "used" }));
+      log(st, s, ids.length ? `${src}で${ids.map(id => `「${card(id).name}」`).join("")}のコストが${v}になった（${fx.sd === "used" ? "使うまで" : "このターン"}）` : `${src}：コストを変えるカードがない`); break; }
     case "giveAb": {
       const a = gabAbility(fx), w = GAB_W[fx.gw] ? fx.gw : "self", until = fx.gd === "turn" ? st.turnNo : fx.gd === "next" ? st.turnNo + 2 : 0;
       const give = m => { if (!m) return; const g = { ...a, until };
@@ -855,6 +869,9 @@ function applyEffect(st, s, c, target, ctx = {}, fx = normFx(c)){
     case "vulnAll": addVuln(st, s, "p", n, src, OS); opT.mz.forEach((m, i) => { if (m) addVuln(st, s, "m:" + i, n, src, OS); }); break;
     case "weak": addWeak(st, s, target, n, src, OS); break;
     case "weakAll": addWeak(st, s, "p", n, src, OS); opT.mz.forEach((m, i) => { if (m) addWeak(st, s, "m:" + i, n, src, OS); }); break;
+    case "dex": me.dex = (me.dex || 0) + n; log(st, s, `${src}で敏捷${n}を得た（敏捷 ${me.dex}）`); break;
+    case "dexTemp": me.dex = (me.dex || 0) + n; me.dexTemp = (me.dexTemp || 0) + n; log(st, s, `${src}でこのターン敏捷${n}を得た（敏捷 ${me.dex}）`); break;
+    case "intang": me.intang = (me.intang || 0) + n; log(st, s, `${src}で霊体${n}を得た（霊体 ${me.intang}：受けるダメージが1になる）`); break;
     case "str": me.str = (me.str || 0) + n; log(st, s, `${src}で筋力${n}を得た（筋力 ${me.str}）`); break;
     case "strTemp": me.str = (me.str || 0) + n; me.strTemp = (me.strTemp || 0) + n; log(st, s, `${src}でこのターン筋力${n}を得た（筋力 ${me.str}）`); break;
     case "oppStr": op.str = (op.str || 0) + n; log(st, s, `${src}で${op.name}が筋力${n}を得た（筋力 ${op.str}）`); break;
@@ -949,7 +966,7 @@ function applyEffect(st, s, c, target, ctx = {}, fx = normFx(c)){
       trigger(st, s, card(target), "ssummon", { zone: z, mon: { s, i: z, u: me.mz[z].u } }); persistFire(st, s, "mySummon", {});
       break;
     }
-    case "tagGen": { const pool = [...S.cards.values()].filter(x => x && hasTag(x.id, fx.into) && !x.token), got = []; for (let r = 0; r < (n || 1) && pool.length; r++){ const x = pool[Math.floor(Math.random() * pool.length)]; me.hand.push(x.id); got.push(x); } log(st, s, got.length ? `${src}で${got.map(x => `「${x.name}」`).join("")}を手札に加えた` : `${src}：タグ「${fx.into || "？"}」のカードがない`); break; }
+    case "tagGen": { const pool = [...S.cards.values()].filter(x => x && !x.skinOf && hasTag(x.id, fx.into) && !x.token), got = []; for (let r = 0; r < (n || 1) && pool.length; r++){ const x = pool[Math.floor(Math.random() * pool.length)]; me.hand.push(x.id); got.push(x); } log(st, s, got.length ? `${src}で${got.map(x => `「${x.name}」`).join("")}を手札に加えた` : `${src}：タグ「${fx.into || "？"}」のカードがない`); break; }
     case "transformHand": transformAt(st, s, target, fx.into, src, c, fx); break;
     case "transformRand": { const L = shuffle(me.hand.map((_, k) => k)).slice(0, n || 1); if (!L.length) log(st, s, `${src}：手札がない`); L.forEach(k => transformAt(st, s, k, fx.into, src, c, fx)); break; }
     case "transformAtk": { const L = me.hand.map((id, k) => isAttackCard(card(id)) ? k : -1).filter(k => k >= 0); if (!L.length) log(st, s, `${src}：手札にアタックがない`); L.forEach(k => transformAt(st, s, k, fx.into, src, c, fx)); break; }
@@ -1019,6 +1036,7 @@ function runEffect(st, s, c, ctx = {}, then, fx = normFx(c)){
   if (KINDS[fx.kind] && KINDS[fx.kind].tag) ctx = { ...ctx, tagName: fx.into || "" };
   if (SIDED_KINDS.has(fx.kind)) ctx = { ...ctx, side: fx.side === "me" ? "me" : null };
   if (fx.kind === "giveAb") ctx = { ...ctx, gw: GAB_W[fx.gw] ? fx.gw : "self" };
+  if (fx.kind === "setCost") ctx = { ...ctx, sp: fx.sp === "pick" ? "pick" : "filter" };
   if (fx.kind === "removeBoard") ctx = { ...ctx, rside: RB_SIDE[fx.rside] ? fx.rside : "op" };
   if (KINDS[fx.kind] && KINDS[fx.kind].ctr) ctx = { ...ctx, ctrPick: (CTR_CW[fx.cw] ? fx.cw : "pick") === "pick" };
   if (KINDS[fx.kind] && KINDS[fx.kind].mod) ctx = { ...ctx, modPick: modT(fx).scope === "pick" };
@@ -1119,7 +1137,7 @@ function runEffects(st, s, c, effs, ctx, then){
   (effs || []).forEach(e => {
     const one = [];
     if (KINDS[e.kind] && KINDS[e.kind].each && e.n > 1){ for (let r = 0; r < e.n; r++) one.push({ kind: e.kind, n: 1, ...(e.into ? { into: e.into } : {}) }); }
-    else one.push(...expandFx({ kind: e.kind, n: e.n, to: e.to, ...(e.into ? { into: e.into } : {}), ...(e.intoId ? { intoId: e.intoId } : {}), ...(e.per ? { per: e.per, pm: e.pm, hits: e.hits } : {}), ...(KINDS[e.kind] && KINDS[e.kind].mod ? { mt: e.mt, ms: e.ms, mpl: e.mpl, mc: e.mc, mn: e.mn, gk: e.gk, gn: e.gn, nm: e.nm, ge: e.ge } : {}), ...(e.side ? { side: e.side } : {}), ...(e.tn ? { tn: e.tn } : {}), ...(e.kind === "removeBoard" ? { rside: e.rside, rm: e.rm } : {}), ...(KINDS[e.kind] && KINDS[e.kind].ctr ? { ctr: e.ctr, cw: e.cw } : {}), ...(e.per === "ctr" ? { pctr: e.pctr, pcw: e.pcw } : {}), ...(e.per === "usedNow" ? { pf: e.pf, pfn: e.pfn } : {}), ...(e.kind === "giveAb" ? { ab: e.ab, gw: e.gw, gd: e.gd } : {}) }));
+    else one.push(...expandFx({ kind: e.kind, n: e.n, to: e.to, ...(e.into ? { into: e.into } : {}), ...(e.intoId ? { intoId: e.intoId } : {}), ...(e.per ? { per: e.per, pm: e.pm, hits: e.hits } : {}), ...(KINDS[e.kind] && KINDS[e.kind].mod ? { mt: e.mt, ms: e.ms, mpl: e.mpl, mc: e.mc, mn: e.mn, gk: e.gk, gn: e.gn, nm: e.nm, ge: e.ge } : {}), ...(e.side ? { side: e.side } : {}), ...(e.tn ? { tn: e.tn } : {}), ...(e.kind === "removeBoard" ? { rside: e.rside, rm: e.rm } : {}), ...(KINDS[e.kind] && KINDS[e.kind].ctr ? { ctr: e.ctr, cw: e.cw } : {}), ...(e.per === "ctr" ? { pctr: e.pctr, pcw: e.pcw } : {}), ...(e.per === "usedNow" || e.per === "handF" ? { pf: e.pf, pfn: e.pfn } : {}), ...(e.kind === "giveAb" ? { ab: e.ab, gw: e.gw, gd: e.gd } : {}), ...(["dblNext", "freeNext", "setCost", "copyPick"].includes(e.kind) ? { pf: e.pf, pfn: e.pfn, cpw: e.cpw, sp: e.sp, sd: e.sd } : {}) }));
     // 「×○回」: the same effect again and again
     const reps = e.timesDie ? (ctx && ctx.roll && ctx.roll.kind === "die" ? ctx.roll.v : 0) : Math.max(1, Math.min(20, e.times || 1));
     for (let r = 0; r < reps; r++) list.push(...one);
@@ -1140,7 +1158,10 @@ const corrupted = (st, s, c) => !!(c && P(st, s).corrupt && c.frame === "spire" 
 function revAtk(st, s){ const pd = st && st.pending, a = !pd ? null : pd.type === "attack" ? pd : pd.type === "chain" && pd.resume && pd.resume.type === "attack" ? pd.resume : null; return a && a.by !== s && a.to === "direct" ? a : null; }
 function revOk(st, s, c){ if (!c || c.revG == null || cardType(c) !== "magic" || !P(st, s).hand.includes(c.id)) return false; const a = revAtk(st, s); return !!(a && !a.revUsed); }
 function revDue(st, s){ return (P(st, s).revDebt || []).reduce((t, d) => t + (+d.n || 0), 0); }
-function baseCost(st, s, c){ return c && c.costX ? 0 : freeKey(st, s, c) || freeId(st, s, c) || corrupted(st, s, c) || gzOk(st, s, c) || revOk(st, s, c) ? 0 : sbCut(st, s, c, symCost(st, s, c, costOf(c))); }
+// コストを○にする（手札のカード）／次に使う○のコスト0
+const costSetOf = (st, s, c) => { if (!c) return null; const L = (P(st, s).costSet || []).filter(e => e.id === c.id && (!e.until || st.turnNo <= e.until)); return L.length ? L[L.length - 1] : null; };
+const freeNextIdx = (st, s, c) => c ? (P(st, s).freeNext || []).findIndex(e => e.n > 0 && usedMatch(c, e.pf, e.pfn)) : -1;
+function baseCost(st, s, c){ const cs = c && !c.costX ? costSetOf(st, s, c) : null; if (cs) return cs.v; return c && c.costX ? 0 : freeNextIdx(st, s, c) >= 0 ? 0 : freeKey(st, s, c) || freeId(st, s, c) || corrupted(st, s, c) || gzOk(st, s, c) || revOk(st, s, c) ? 0 : sbCut(st, s, c, symCost(st, s, c, costOf(c))); }
 function effCost(st, s, c){ const b = baseCost(st, s, c); return c && c.delve && isFinite(b) ? Math.max(0, b - P(st, s).grave.length) : b; }
 function sbCut(st, s, c, base){ const n = +(c && c.sbCost) || 0, k = c ? ((P(st, s).sb || {})[c.id] || 0) : 0; return !n || !k || !isFinite(base) ? base : Math.max(0, base - n * k); }
 function gzOk(st, s, c){ const g = c && c.gz; if (g && g.where === "none") return hasCost(c); if (!g || !String(g.name || "").trim() || !hasCost(c)) return false; return condMet(st, s, c, { k: "card", name: g.name, where: ["field", "grave", "hand"].includes(g.where) ? g.where : "field", match: ["tag", "part", "exact"].includes(g.match) ? g.match : "tag", cnt: Math.max(1, +g.cnt || 1), op: "ge" }, {}); }
@@ -1174,7 +1195,14 @@ function costWhy(st, s, c){
 }
 // 追加コスト「手札を捨てる」: picks = indices in the hand (after the used card has left it); missing / wrong picks → random
 // スライ: 手札から捨てられたら、タダで使う（ターン終了で捨てるときはのぞく）
+// エセリアル: ターンの終わりに手札にあると廃棄される
+function etherealEnd(st, s){
+  const p = P(st, s), gone = p.hand.filter(id => card(id) && card(id).ethereal); if (!gone.length) return;
+  p.hand = p.hand.filter(id => !(card(id) && card(id).ethereal)); (p.exile = p.exile || []).push(...gone); p.exhaustedNow = (p.exhaustedNow || 0) + gone.length;
+  log(st, s, `エセリアル：手札の${gone.map(id => `「${card(id).name}」`).join("")}が廃棄された`); persistFire(st, s, "exhaust", {});
+}
 function slyFire(st, s, ids){
+  if ((ids || []).length) P(st, s).discNow = (P(st, s).discNow || 0) + ids.length;
   (ids || []).forEach(id => { const c = card(id); if (!c || !c.sly || (cardType(c) !== "magic" && cardType(c) !== "trap")) return;
     log(st, s, `スライ！ 捨てられた「${c.name}」をタダで使った`); ev(st, { type: "spell", s, c: id }); countPlay(st, s, c); runCard(st, s, c, "use", { sly: true }); });
 }
@@ -1204,7 +1232,9 @@ function pay(st, s, c){
   if (lpc){ p.lp -= lpc; log(st, s, `「${c.name}」のコストでLPを${lpc}払った`); lostLp(st, s); }
   if (mx && m){ m.max -= mx; if (p.spire) p.maxAdj = (p.maxAdj || 0) - mx; log(st, s, `「${c.name}」のコストで最大マナが${mx}減った（${m.cur}/${m.max}）`); }
   if (fk){ p.free[fk]--; log(st, s, `「${c.name}」はコスト0で使える！`); }
+  else if (!costSetOf(st, s, c) && freeNextIdx(st, s, c) >= 0 && !(c && c.costX)){ const fi = freeNextIdx(st, s, c), e = p.freeNext[fi]; e.n--; if (e.n <= 0) p.freeNext.splice(fi, 1); log(st, s, `「${c.name}」はコスト0で使える！`); }
   else if (freeId(st, s, c) && !(c && c.costX)){ p.freeIds.splice(p.freeIds.indexOf(c.id), 1); }
+  { const cs = costSetOf(st, s, c); if (cs && cs.once) p.costSet.splice(p.costSet.indexOf(cs), 1); }
   if (dv){ const ex = p.grave.splice(0, dv); (p.exile = p.exile || []).push(...ex); log(st, s, `「${c.name}」の探査：墓地のカード${dv}枚を除外した`); }
   if (m) m.cur -= k; p.lastPaid = k; return true;
 }
@@ -1354,6 +1384,7 @@ function activate(st, s, from, i, ctx = {}){
   if (from === "grave") log(st, s, `「${c.name}」を墓地から発動（フラッシュバック）。使ったあとは廃棄される`);
   // ワン・ツーパンチ: this attack is played twice
   if (isAttackCard(c) && cardType(c) === "magic" && p.dblAtk > 0){ p.dblAtk--; ctx = { ...ctx, dbl: true }; log(st, s, `「${c.name}」をもう1回プレイする！`); }
+  if (!ctx.dbl){ const di = (p.dblNext || []).findIndex(e => e.n > 0 && usedMatch(c, e.pf, e.pfn)); if (di >= 0){ const e = p.dblNext[di]; e.n--; if (e.n <= 0) p.dblNext.splice(di, 1); ctx = { ...ctx, dbl: true }; log(st, s, `「${c.name}」をもう1回発動する！`); } }
   pushChain(st, s, id, { ...ctx, fromHand: from === "hand" }, `${keep ? "永続" : ""}${t === "trap" ? "罠" : isQuick(c) ? "速攻魔法" : isField(c) ? "フィールド魔法" : "魔法"}「${c.name}」`, keep ? { pz, pu: p.sz[pz].u } : isField(c) && st.field ? { fu: st.field.u } : null);
   if (!keep && (exhausts(c) || corrupted(st, s, c))){ p.exhaustedNow = (p.exhaustedNow || 0) + 1; log(st, s, `「${c.name}」は廃棄された（このゲームではもう使えない）`); persistFire(st, s, "exhaust", {}); }
   return true;
@@ -1678,12 +1709,12 @@ function endTurn(st, s){
 function finishEndTurn(st){ const pd = st.pending; st.pending = null; checkEnd(st); if (!st.winner && pd) passTurn(st, pd.by); }
 function passTurn(st, s){
   fireTurn(st, s, "turnEnd", st => {
-    checkEnd(st); if (st.winner) return;
+    ctrTick(st, s, "end"); checkEnd(st); if (st.winner) return;
     evolveCheck(st, s, "end");
     P(st, s).mz.forEach(m => { if (m){ m.attacked = false; m.atkCount = 0; } });
-    { const ep = P(st, s); if (ep.strTemp){ ep.str = (ep.str || 0) - ep.strTemp; log(st, s, `一時的な筋力がもどった（筋力 ${ep.str}）`); ep.strTemp = 0; } ep.freeIds = []; ep.noDraw = false; ep.rage = 0; ep.dblAtk = 0;
+    { const ep = P(st, s); if (ep.strTemp){ ep.str = (ep.str || 0) - ep.strTemp; log(st, s, `一時的な筋力がもどった（筋力 ${ep.str}）`); ep.strTemp = 0; } if (ep.dexTemp){ ep.dex = (ep.dex || 0) - ep.dexTemp; log(st, s, `一時的な敏捷がもどった（敏捷 ${ep.dex}）`); ep.dexTemp = 0; } ep.freeIds = []; ep.noDraw = false; ep.rage = 0; ep.dblAtk = 0; ep.dblNext = []; ep.costSet = (ep.costSet || []).filter(e => !e.until);
       if (ep.plate > 0){ ep.block = (ep.block || 0) + ep.plate; log(st, s, `プレートでブロックを${ep.plate}得た（ブロック ${ep.block}）`); }
-      for (const o of ["a", "b"]){ const q = P(st, o); q.lostNow = 0; q.exhaustedNow = 0; q.atkNow = 0; q.playedNow = 0; q.usedNowIds = []; }
+      for (const o of ["a", "b"]){ const q = P(st, o); q.lostNow = 0; q.exhaustedNow = 0; q.atkNow = 0; q.playedNow = 0; q.usedNowIds = []; q.discNow = 0; }
       // 脱力 wears off at the end of its owner's own turn (it weakens what they deal on that turn)
       if (ep.weak > 0){ ep.weak--; if (!ep.weak) log(st, s, `${ep.name}の脱力がとけた`); }
       ep.mz.forEach(m => { if (m && m.weak > 0){ m.weak--; if (!m.weak) log(st, s, `「${card(m.c).name}」の脱力がとけた`); } }); }
@@ -1694,6 +1725,7 @@ function passTurn(st, s){
     st.turn = xt ? s : O(s); st.turnNo++; st.summoned = false;
     const np = P(st, st.turn);
     np.mz.forEach(m => { if (m) m.age = (m.age || 0) + 1; }); evolveCheck(st, st.turn, "start");
+    if (np.intang > 0){ np.intang--; if (!np.intang) log(st, st.turn, `${np.name}の霊体がとけた`); }
     if (np.vuln > 0){ np.vuln--; if (!np.vuln) log(st, st.turn, `${np.name}の弱体がとけた`); }
     np.mz.forEach(m => { if (m && m.vuln > 0){ m.vuln--; if (!m.vuln) log(st, st.turn, `「${card(m.c).name}」の弱体がとけた`); } });
     if (np.block && !np.barricade){ log(st, st.turn, `ブロック${np.block}が消えた`); np.block = 0; }
@@ -1705,6 +1737,8 @@ function passTurn(st, s){
     if (!np.deck.length && !np.spire){ st.winner = s; st.why = `${np.name} の山札がなくなった`; log(st, st.turn, "引くカードがない！"); return; }
     np.deck = innateTop(np.deck);
     if (np.deck.length) np.hand.push(np.deck.shift());
+    if ((np.nextGive || []).length){ const L = np.nextGive; np.nextGive = []; L.forEach(g => { for (let r = 0; r < g.n; r++) np.hand.push(g.id); log(st, st.turn, `「${card(g.id).name}」のコピーを${g.n}枚手札に加えた`); }); }
+    ctrTick(st, st.turn, "start"); checkEnd(st); if (st.winner) return;
     // online: the new player's own screen runs their turn-start effects (so they can choose targets)
     if (G && G.mode === "online" && st.turn !== G.slot) st.tsPending = st.turnNo;
     else fireTurn(st, st.turn, "turnStart", null);

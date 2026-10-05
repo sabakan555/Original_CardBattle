@@ -46,7 +46,7 @@ const ctrCostText = x => x && x.id && x.n > 0 ? `${CTR_PAY[x.w] || "自分"}の$
 const payCtrOf = c => c && c.payCtr && c.payCtr.id && +c.payCtr.n > 0 ? { id: String(c.payCtr.id), n: Math.min(99, Math.round(+c.payCtr.n)), w: c.payCtr.w === "field" ? "field" : "me" } : null;
 // 「○○カウンターがN個以上になったとき」
 const ctrReachHead = b => `${b.rw === "me" ? "自分" : "このモンスター"}の${ctrName(b.rc)}が${b.rn || 1}個以上になったとき`;
-const perLab = m => m.per === "usedNow" ? `このターン使った${usedPfText(m)}1枚` : m.per === "ctr" ? `${ctrAtText(m.pcw)}の${ctrName(m.pctr)}1個` : PER_DEFS[m.per].label + PER_DEFS[m.per].u;
+const perLab = m => m.per === "handF" ? `手札の${usedPfText(m)}1枚` : m.per === "usedNow" ? `このターン使った${usedPfText(m)}1枚` : m.per === "ctr" ? `${ctrAtText(m.pcw)}の${ctrName(m.pctr)}1個` : PER_DEFS[m.per].label + PER_DEFS[m.per].u;
 
 /* ---- 数える・ふやす・へらす ---- */
 const ctrOfM = (m, id) => !m || !id ? 0 : id === CTR_DMG ? m.dmg || 0 : (m.ctr && m.ctr[id]) || 0;
@@ -98,10 +98,45 @@ function ctrPay(st, s, x, src, ctx){
   ctrPl(st, s, x.id, -x.n, why, s);
 }
 
+/* ---- カウンター自体の効果（毒など）: 乗っている側のターンのはじめ／終わりに、乗っているもの（プレイヤーかモンスター）に起きる ---- */
+const CTR_FX_AT = { start: "乗っている側のターンのはじめ", end: "乗っている側のターンの終わり" };
+const CTR_FX_K = { dmg: "ダメージを与える（ブロックで防げる）", lose: "LPを失わせる（ブロック無視）", heal: "回復する", dec: "このカウンターを減らす", inc: "このカウンターを増やす" };
+const ctrFxOf = d => d && Array.isArray(d.fx) ? d.fx.filter(f => f && CTR_FX_AT[f.at] && CTR_FX_K[f.k]) : [];
+function ctrFxText(d){
+  const L = ctrFxOf(d); if (!L.length) return "";
+  const one = f => { const n = Math.max(0, Math.round(+f.n || 0)), x = f.per ? `このカウンター1個につき${n}` : String(n);
+    return f.k === "dec" ? `このカウンターを${Math.max(1, n)}個取り除く` : f.k === "inc" ? `このカウンターを${Math.max(1, n)}個乗せる` : f.k === "heal" ? `${x}回復する` : f.k === "lose" ? `${x}LPを失う（ブロック無視）` : `${x}ダメージを受ける`; };
+  return Object.keys(CTR_FX_AT).map(at => { const fs = L.filter(f => f.at === at); return fs.length ? `${CTR_FX_AT[at]}：${fs.map(one).join("、")}` : ""; }).filter(Boolean).join("。");
+}
+function ctrTick(st, s, at){
+  if (st.winner) return;
+  const p = P(st, s);
+  const run = (bag, id, mi, ref) => {
+    const fs = ctrFxOf(ctrDef(id)).filter(f => f.at === at), nm = ctrName(id);
+    for (const f of fs){
+      if (st.winner) return; if (mi != null && p.mz[mi] !== ref) return;
+      const cnt = bag[id] || 0; if (cnt <= 0) return;
+      const amt = Math.max(0, Math.round((+f.n || 0) * (f.per ? cnt : 1)));
+      if (f.k === "dec" || f.k === "inc"){ const k = Math.max(1, Math.round(+f.n || 1)); bag[id] = Math.max(0, cnt + (f.k === "inc" ? k : -k)); log(st, s, `${nm}が${bag[id]}個になった`); if (!bag[id]) delete bag[id]; continue; }
+      if (mi == null){
+        if (f.k === "heal"){ p.lp += amt; log(st, s, `${nm}で${p.name}のLPが${amt}回復`); }
+        else if (f.k === "lose"){ p.lp -= amt; log(st, s, `${nm}で${p.name}は${amt}LPを失った`); if (amt > 0){ ev(st, { type: "hit", s, d: amt, blk: 0 }); lostLp(st, s); } }
+        else { log(st, s, `${nm}で${p.name}に${amt}ダメージ`); dealDmg(st, s, amt); }
+      } else {
+        const m = p.mz[mi]; if (!m) return;
+        if (f.k === "heal"){ m.dmg = Math.max(0, (m.dmg || 0) - amt); log(st, s, `${nm}で「${card(m.c).name}」のダメージが${amt}回復`); }
+        else monDmg(st, s, mi, amt, nm);
+      }
+      checkEnd(st);
+    }
+  };
+  Object.keys(p.ctr || {}).forEach(id => run(p.ctr, id, null, null));
+  p.mz.forEach((m, i) => { if (m && m.ctr) Object.keys(m.ctr).forEach(id => { if (p.mz[i] === m && m.ctr) run(m.ctr, id, i, m); }); });
+}
 /* ---- 表示 ---- */
 function ctrChip(id, n, named){
   const d = ctrDef(id) || { name: "？", color: "#666" }, col = HEX6.test(d.color || "") ? d.color : "#666";
-  return `<span class="ctrc" style="--cc:${col}" title="${esc(d.name)}カウンター${n !== "" ? ` ${n}個` : ""}">${d.icon ? `<img alt="" src="${esc(d.icon)}">` : `<i>${esc([...(d.name || "？")][0])}</i>`}${named ? esc(d.name) + " " : ""}${n !== "" ? esc(n) : ""}</span>`;
+  return `<span class="ctrc" style="--cc:${col}" title="${esc(d.name)}カウンター${n !== "" ? ` ${n}個` : ""}${ctrFxText(d) ? "：" + esc(ctrFxText(d)) : ""}">${d.icon ? `<img alt="" src="${esc(d.icon)}">` : `<i>${esc([...(d.name || "？")][0])}</i>`}${named ? esc(d.name) + " " : ""}${n !== "" ? esc(n) : ""}</span>`;
 }
 function ctrBadges(opts){
   const L = [];
@@ -131,12 +166,12 @@ function cardCtrIds(c){
 }
 function ctrSnap(c){
   const o = {};
-  cardCtrIds(c).forEach(id => { if (CTR_BUILTIN[id]) return; const d = ctrDef(id); if (d) o[id] = { name: d.name, color: d.color || "", icon: d.icon || "" }; });
+  cardCtrIds(c).forEach(id => { if (CTR_BUILTIN[id]) return; const d = ctrDef(id); if (d) o[id] = { name: d.name, color: d.color || "", icon: d.icon || "", ...(ctrFxOf(d).length ? { fx: ctrFxOf(d) } : {}) }; });
   return Object.keys(o).length ? o : null;
 }
 function rebuildCtrEmb(){
   CTR_EMB = {};
-  S.cards.forEach(c => { if (c && c.ctrs && typeof c.ctrs === "object") Object.entries(c.ctrs).forEach(([k, v]) => { if (v && v.name && !CTR_EMB[k]) CTR_EMB[k] = { id: k, name: String(v.name), color: v.color || "", icon: v.icon || "" }; }); });
+  S.cards.forEach(c => { if (c && c.ctrs && typeof c.ctrs === "object") Object.entries(c.ctrs).forEach(([k, v]) => { if (v && v.name && !CTR_EMB[k]) CTR_EMB[k] = { id: k, name: String(v.name), color: v.color || "", icon: v.icon || "", ...(Array.isArray(v.fx) ? { fx: v.fx } : {}) }; }); });
 }
 
 /* ---- 保存（Firestore の counters／ログインしていないときはこの端末だけ） ---- */
@@ -168,9 +203,14 @@ function renderCtrBox(){
         <label class="row" style="gap:4px">名前<input type="text" id="ctrName" maxlength="12" value="${esc(ed.name)}" placeholder="例: 毒" style="width:120px">カウンター</label>
         <label class="row" style="gap:4px">色<input type="color" id="ctrColor" value="${esc(HEX6.test(ed.color || "") ? ed.color : "#7a4fd0")}"></label>
         <span class="row" style="gap:6px;align-items:center">アイコン${ed.icon ? `<img class="ctr-ico" alt="" src="${esc(ed.icon)}">` : `<span class="ctr-ico ctr-ico0">${esc([...(ed.name || "？")][0])}</span>`}<label class="small btnlike"><input type="file" id="ctrIcon" accept="image/*" hidden>画像をえらぶ</label>${ed.icon ? `<button type="button" class="small ghost" data-ctrnoicon>アイコンを消す</button>` : ""}</span>
-        <div class="row" style="gap:6px;width:100%"><button type="button" class="small primary" data-ctrsave>${ed.id ? "保存する" : "作る"}</button><button type="button" class="small ghost" data-ctrcancel>やめる</button>${ed.id ? `<span style="flex:1"></span><button type="button" class="small ghost danger" data-ctrdel>${ed.delAsk ? "本当に消す（もう一度押す）" : "このカウンターを消す"}</button>` : ""}</div>
+        ${ctrFxForm(ed)}<div class="row" style="gap:6px;width:100%"><button type="button" class="small primary" data-ctrsave>${ed.id ? "保存する" : "作る"}</button><button type="button" class="small ghost" data-ctrcancel>やめる</button>${ed.id ? `<span style="flex:1"></span><button type="button" class="small ghost danger" data-ctrdel>${ed.delAsk ? "本当に消す（もう一度押す）" : "このカウンターを消す"}</button>` : ""}</div>
         ${ed.id ? `<p class="note" style="margin:0;width:100%">消しても、このカウンターを使っているカードはそのまま動きます（カードの中に名前とアイコンが入っているため）</p>` : ""}
       </div>` : `<button type="button" class="small" data-ctrnew>＋ 新しいカウンターを作る</button>`);
+}
+// カウンターの効果の入力（毒なら「乗っている側のターンの終わり：1個につき20ダメージ、1個取り除く」など）
+function ctrFxForm(ed){
+  const L = ed.fx || [], o = (v, l, cur) => `<option value="${v}"${v === cur ? " selected" : ""}>${l}</option>`;
+  return `<div class="ctr-fx" style="width:100%"><b style="font-size:13px">カウンターの効果（なくてもOK）</b>${L.map((f, i) => `<div class="row" style="gap:4px;flex-wrap:wrap;margin:4px 0" data-cfi="${i}"><select data-cf="at">${Object.entries(CTR_FX_AT).map(([k, l]) => o(k, l, f.at)).join("")}</select><select data-cf="k">${Object.entries(CTR_FX_K).map(([k, l]) => o(k, l, f.k)).join("")}</select><input type="number" data-cf="n" min="0" max="9999" value="${esc(f.n ?? 20)}" style="width:72px" aria-label="数">${f.k === "dec" || f.k === "inc" ? `<span class="note">個</span>` : `<label class="row" style="gap:3px;cursor:pointer"><input type="checkbox" data-cf="per"${f.per ? " checked" : ""}>このカウンター1個につき</label>`}<button type="button" class="small ghost" data-cfdel="${i}" aria-label="消す">×</button></div>`).join("")}<button type="button" class="small" data-cfadd>＋ 効果を足す</button>${L.length ? `<p class="note" style="margin:2px 0">上から順に起きます。いまの文：${esc(ctrFxText({ fx: L }) || "—")}</p>` : `<p class="note" style="margin:2px 0">例：毒カウンター＝「乗っている側のターンの終わり・ダメージを与える・20・1個につき」＋「このカウンターを減らす・1」</p>`}</div>`;
 }
 // 画像 → 64×64 の丸アイコン用（真ん中を切り取る）
 function ctrIconFrom(file){
@@ -185,8 +225,10 @@ function ctrIconFrom(file){
   box.addEventListener("click", async e => {
     const t = e.target.closest("button"); if (!t) return;
     if (t.matches("[data-ctrnew]")){ S.ctrEdit = { id: null, name: "", color: "#7a4fd0", icon: "" }; renderCtrBox(); const n = document.getElementById("ctrName"); if (n) n.focus(); return; }
-    if (t.matches("[data-ctred]")){ const d = ctrDef(t.dataset.ctred); if (!d || !ctrCanEdit(d)) return; S.ctrEdit = { id: d.id, name: d.name, color: d.color || "#7a4fd0", icon: d.icon || "" }; renderCtrBox(); return; }
+    if (t.matches("[data-ctred]")){ const d = ctrDef(t.dataset.ctred); if (!d || !ctrCanEdit(d)) return; S.ctrEdit = { id: d.id, name: d.name, color: d.color || "#7a4fd0", icon: d.icon || "", fx: ctrFxOf(d).map(f => ({ ...f })) }; renderCtrBox(); return; }
     const ed = S.ctrEdit; if (!ed) return;
+    if (t.matches("[data-cfadd]")){ (ed.fx = ed.fx || []).push({ at: "end", k: "dmg", n: 20, per: true }); renderCtrBox(); return; }
+    if (t.matches("[data-cfdel]")){ (ed.fx || []).splice(+t.dataset.cfdel, 1); renderCtrBox(); return; }
     if (t.matches("[data-ctrcancel]")){ S.ctrEdit = null; renderCtrBox(); return; }
     if (t.matches("[data-ctrnoicon]")){ ed.icon = ""; renderCtrBox(); return; }
     if (t.matches("[data-ctrdel]")){
@@ -199,12 +241,15 @@ function ctrIconFrom(file){
       if (!name){ toast("カウンターの名前を書いてね"); return; }
       if (ctrList().some(d => d.id !== ed.id && d.name === name)){ toast(`「${name}カウンター」はもうあるよ`); return; }
       const prev = ed.id ? ctrDef(ed.id) : null, id = ed.id || uid("ct");
-      const doc = { name, color: HEX6.test(ed.color || "") ? ed.color : "#7a4fd0", icon: ed.icon || "", author: prev ? prev.author || S.name : S.name, ownerId: prev ? prev.ownerId || null : S.uid || null, createdAt: prev ? prev.createdAt || Date.now() : Date.now(), updatedAt: Date.now() };
+      const doc = { name, color: HEX6.test(ed.color || "") ? ed.color : "#7a4fd0", icon: ed.icon || "", fx: ctrFxOf(ed).map(f => ({ at: f.at, k: f.k, n: Math.max(0, Math.round(+f.n || 0)), per: !!f.per && f.k !== "dec" && f.k !== "inc" })), author: prev ? prev.author || S.name : S.name, ownerId: prev ? prev.ownerId || null : S.uid || null, createdAt: prev ? prev.createdAt || Date.now() : Date.now(), updatedAt: Date.now() };
       t.disabled = true;
       try{ await saveCounterDoc(id, doc); if (S.db){ S.counters = [...(S.counters || []).filter(x => x.id !== id), { id, ...doc }]; } S.ctrEdit = null; ctrRefresh(); toast(`「${name}カウンター」を${prev ? "保存" : "作り"}ました`); }
       catch(err){ t.disabled = false; toast(err && err.code === "permission-denied" ? "保存できませんでした（Firestoreのルールに counters を足してね）" : "保存できませんでした"); }
     }
   });
+  const cfSet = e => { const ed = S.ctrEdit, el = e.target.closest("[data-cf]"), row = el && el.closest("[data-cfi]"); if (!ed || !row) return false; const f = (ed.fx || [])[+row.dataset.cfi]; if (!f) return true; const k = el.dataset.cf; f[k] = k === "per" ? el.checked : k === "n" ? el.value : el.value; if (e.type === "change") renderCtrBox(); return true; };
+  box.addEventListener("change", e => { cfSet(e); });
+  box.addEventListener("input", e => { if (e.target.dataset && e.target.dataset.cf === "n") cfSet(e); });
   box.addEventListener("input", e => { const ed = S.ctrEdit; if (!ed) return; if (e.target.id === "ctrName") ed.name = e.target.value; if (e.target.id === "ctrColor") ed.color = e.target.value; });
   box.addEventListener("change", async e => {
     const ed = S.ctrEdit; if (!ed || e.target.id !== "ctrIcon") return;
@@ -234,7 +279,7 @@ function setPayCtr(x){ const p = payCtrOf({ payCtr: x }), sel = document.getElem
 ["mkPayCtr", "mkPayCtrN", "mkPayCtrW"].forEach(id => { const el = document.getElementById(id); if (el) el.addEventListener("input", () => { if (id === "mkPayCtr") el.dataset.want = el.value; if (typeof updateBkText === "function") updateBkText(); }); });
 renderCtrBox();
 /* ---- カード図鑑の「カウンター」 ---- */
-function ctrUseCount(){ const cnt = {}; S.cards.forEach(c => { if (!c || c.tut) return; cardCtrIds(c).forEach(id => { cnt[id] = (cnt[id] || 0) + 1; }); }); return cnt; }
+function ctrUseCount(){ const cnt = {}; S.cards.forEach(c => { if (!c || c.tut || c.skinOf) return; cardCtrIds(c).forEach(id => { cnt[id] = (cnt[id] || 0) + 1; }); }); return cnt; }
 function ctrGalList(){ const cnt = ctrUseCount(), ids = [...new Set([...ctrList().map(d => d.id), ...Object.keys(cnt)])]; return ids.map(id => ({ ...(ctrDef(id) || { id, name: "？" }), id, uses: cnt[id] || 0 })); }
 function ctrTileHTML(d){
   const col = HEX6.test(d.color || "") ? d.color : "#666", by = d.builtin ? "はじめから" : (S.counters || []).some(x => x.id === d.id) ? "by " + (d.author || "？") : "（消されたカウンター。カードの中にだけ残っている）";

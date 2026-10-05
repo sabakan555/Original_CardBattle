@@ -20,8 +20,8 @@ function renderDeck(){
   S.deckPoolIds = pool.map(c => c.id);
   setCount("deck", pool.length, pool0.length);
   $("#deckPool").innerHTML = (pool.length ? "" : `<p class="muted">条件に合うカードがありません。</p>`) + pool.map(c => {
-    const k = S.deckEdit.cards[c.id] || 0, lim = cardLimit(c);
-    return `<div class="pool-item">${cardHTML(c, "sm", "", { mana: $("#deckMana").checked })}<div class="cnt"><button class="small" data-dm="${esc(c.id)}" ${k ? "" : "disabled"} aria-label="へらす">−</button><b>${k}/${lim || "∞"}</b><button class="small" data-dp="${esc(c.id)}" ${lim && k >= lim ? "disabled" : ""} aria-label="ふやす">＋</button></div></div>`;
+    const k = famCount(c.id), lim = cardLimit(c), shown = k ? card(famPick(c.id)) : c;
+    return `<div class="pool-item">${cardHTML(shown, "sm", "", { mana: $("#deckMana").checked })}<div class="cnt"><button class="small" data-dm="${esc(c.id)}" ${k ? "" : "disabled"} aria-label="へらす">−</button><b>${k}/${lim || "∞"}</b><button class="small" data-dp="${esc(c.id)}" ${lim && k >= lim ? "disabled" : ""} aria-label="ふやす">＋</button></div></div>`;
   }).join("");
 }
 $("#deckMana").addEventListener("change", renderDeck);
@@ -42,10 +42,23 @@ $("#deckEditSel").addEventListener("change", e => {
   $("#deckMana").checked = !!(d && d.mana); $("#deckSpire").checked = !!(d && d.spire); $("#deckSpc").value = d && d.spc === "silent" ? "silent" : ""; $("#deckSpcRow").hidden = !$("#deckSpire").checked;
   renderDeck();
 });
+// スキン違いは同じカードとして数える（枚数制限もまとめて）
+const famIds = id => Object.keys(S.deckEdit.cards).filter(k => skinBase(k) === skinBase(id));
+const famCount = id => famIds(id).reduce((t, k) => t + (S.deckEdit.cards[k] || 0), 0);
+const famPick = id => famIds(id).sort((a, b) => (S.deckEdit.cards[b] || 0) - (S.deckEdit.cards[a] || 0))[0] || id;
+function famAdd(id, d){
+  const lim = cardLimit(S.cards.get(skinBase(id))), tot = famCount(id);
+  if (d > 0){ if (lim && tot >= lim) return; const t = S.deckEdit.cards[id] ? id : famPick(id); S.deckEdit.cards[t] = (S.deckEdit.cards[t] || 0) + 1; return; }
+  const t = S.deckEdit.cards[id] ? id : famIds(id)[0]; if (!t) return; S.deckEdit.cards[t] = Math.max(0, (S.deckEdit.cards[t] || 0) - 1); if (!S.deckEdit.cards[t]) delete S.deckEdit.cards[t];
+}
+// デッキの中のこのカードを、ぜんぶ同じスキンにする
+function famSkin(id, to){
+  const tot = famCount(id), keyIn = S.deckEdit.key && skinBase(S.deckEdit.key) === skinBase(id);
+  famIds(id).forEach(k => delete S.deckEdit.cards[k]); if (tot) S.deckEdit.cards[to] = tot; if (keyIn) S.deckEdit.key = to;
+}
 $("#deckPool").addEventListener("click", e => {
-  const p = e.target.closest("[data-dp]"), m = e.target.closest("[data-dm]");
-  if (p){ const id = p.dataset.dp, lim = cardLimit(S.cards.get(id)); const k = (S.deckEdit.cards[id] || 0) + 1; S.deckEdit.cards[id] = lim ? Math.min(lim, k) : k; }
-  if (m){ const id = m.dataset.dm; S.deckEdit.cards[id] = Math.max(0, (S.deckEdit.cards[id] || 0) - 1); if (!S.deckEdit.cards[id]) delete S.deckEdit.cards[id]; }
+  if (p) famAdd(p.dataset.dp, 1);
+  if (m) famAdd(m.dataset.dm, -1);
   if (p || m) renderDeck();
 });
 $("#btnDeckSave").addEventListener("click", async () => {
@@ -91,8 +104,9 @@ function renderCardView(){
   if (c.flavor) text += `<p class="cv-flv">${rubyHTML(c.flavor)}</p>`;
   let foot = "";
   if (CV.ctx === "deck"){
-    const k = S.deckEdit.cards[c.id] || 0;
-    foot = `<div class="cv-foot"><span>デッキに入っている枚数　<b>${k}</b> / ${lim || "∞"}</span><div class="row">${k ? (S.deckEdit.key === c.id ? `<span class="note">★ キーカード</span>` : `<button class="small" data-cv="key">★ キーカードにする</button>`) : ""}<button class="danger" data-cv="minus" ${k ? "" : "disabled"}>− へらす</button><button class="primary" data-cv="plus" ${lim && k >= lim ? "disabled" : ""}>＋ ふやす</button></div></div>`;
+    const k = famCount(c.id), sk = skinsOf(c.id), bid = skinBase(c.id);
+    const skinRow = sk.length ? `<div class="row" style="gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:6px"><span class="note">スキン</span>${[{ id: bid, name: "もとの見た目" }, ...sk.map(s => ({ id: bid + "~" + s.key, name: s.name || "スキン" }))].map(x => `<button class="small${x.id === c.id ? " primary" : ""}" data-cv="skin" data-cvskin="${esc(x.id)}">${esc(x.name)}</button>`).join("")}</div>` : "";
+    foot = `${skinRow}<div class="cv-foot"><span>デッキに入っている枚数　<b>${k}</b> / ${lim || "∞"}</span><div class="row">${k ? (S.deckEdit.key === c.id ? `<span class="note">★ キーカード</span>` : `<button class="small" data-cv="key">★ キーカードにする</button>`) : ""}<button class="danger" data-cv="minus" ${k ? "" : "disabled"}>− へらす</button><button class="primary" data-cv="plus" ${lim && k >= lim ? "disabled" : ""}>＋ ふやす</button></div></div>`;
   }
   $("#cardView").innerHTML = `<div class="cv-box" role="dialog" aria-label="カード詳細">
     <button class="cv-x ghost" data-cv="close" aria-label="とじる">×</button>
@@ -107,14 +121,13 @@ $("#cardView").addEventListener("click", e => {
   if (e.target === e.currentTarget){ closeCardView(); return; }
   const b = e.target.closest("[data-cv]"); if (!b) return;
   const k = b.dataset.cv, id = CV.ids[CV.i];
+  if (k === "skin"){ const to = b.dataset.cvskin; famSkin(id, to); CV.ids[CV.i] = to; renderDeck(); renderCardView(); return; }
   if (k === "close"){ closeCardView(); return; }
   if (k === "prev" && CV.i > 0){ CV.i--; renderCardView(); }
   if (k === "next" && CV.i < CV.ids.length - 1){ CV.i++; renderCardView(); }
   if (k === "key"){ S.deckEdit.key = id; renderDeck(); renderCardView(); toast("キーカードにしました（デッキを保存すると反映）"); return; }
   if (k === "plus" || k === "minus"){
-    const lim = cardLimit(S.cards.get(id)), cur = S.deckEdit.cards[id] || 0;
-    const n = k === "plus" ? (lim ? Math.min(lim, cur + 1) : cur + 1) : Math.max(0, cur - 1);
-    if (n) S.deckEdit.cards[id] = n; else delete S.deckEdit.cards[id];
+    famAdd(id, k === "plus" ? 1 : -1);
     renderDeck(); renderCardView();
   }
 });

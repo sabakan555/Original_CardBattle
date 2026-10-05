@@ -55,7 +55,7 @@ function newPlayer(deckIds, name, mana, spire){
   const p = { name: name || S.name, lp: START_LP, deck, hand, grave: [], mz: Array(ZONES).fill(null), sz: Array(ZONES).fill(null), mana: mana ? { max: 0, cur: 0 } : null, sleeve: name ? null : (mySleeve() || null), deckIds: [...deckIds], ex };
   // スパイアデッキ: the altar starts on the field, and the deck never runs out (the graveyard is shuffled back in)
   // スパイアデッキ: the opening hand is drawn only after the relic is picked (若葉 can change any card of the deck)
-  if (spire){ p.spire = true; p.relicPick = neowChoices(); p.deck = innateTop(shuffle([...p.hand, ...p.deck])); p.hand = []; p.openHand = 5; if (!p.mana) p.mana = { max: 0, cur: 0 }; p.spc = spire === "silent" ? "silent" : null; p.sz[0] = { c: p.spc ? SPIRE_ALTAR_S.id : SPIRE_ALTAR.id, turn: 0, face: true, u: -1 }; }
+  if (spire){ p.spire = true; p.relicPick = neowChoices(); p.deck = innateTop(shuffle([...p.hand, ...p.deck])); p.hand = []; p.openHand = 5; if (!p.mana) p.mana = { max: 0, cur: 0 }; p.spc = spire === "silent" ? "silent" : null; p.relics = [p.spc ? "snake" : "blood"]; if (p.spc) p.openHand += 2; p.sz[0] = { c: p.spc ? SPIRE_ALTAR_S.id : SPIRE_ALTAR.id, turn: 0, face: true, u: -1 }; }
   return p;
 }
 // 選択の祭壇 (face-up): turn start → draw up to 5 cards, turn end → the whole hand goes to the graveyard
@@ -68,7 +68,10 @@ function altarTurn(st, s, trig){
 const RELICS = {
   scroll: { name: "秘術の巻物", text: "ランダムなレアのスパイア風カード1枚をデッキに加える" },
   sprout: { name: "若葉", text: "デッキのカードを1枚えらんで、ランダムなスパイア風カードに変える" },
-  conch:  { name: "轟音のほら貝", text: "最初の手札が2枚多くなり、最初のターンだけマナが1増える" }
+  conch:  { name: "轟音のほら貝", text: "最初の手札が2枚多くなり、最初のターンだけマナが1増える" },
+  // キャラのはじまりのレリック（ネオーの祝福には出ない）
+  blood:  { name: "燃える血", text: "自分のターンの終わりに、LPを60回復する", starter: true, blocks: [{ trig: "turnEnd", conds: [], join: "and", then: [{ kind: "heal", n: 60 }], else: [] }] },
+  snake:  { name: "蛇の指輪", text: "最初の手札が2枚多くなる", starter: true }
 };
 // user-made レリック (cards collection, type "relic")
 const userRelic = k => (S.userRelics || []).find(c => c && c.id === k) || null;
@@ -77,16 +80,16 @@ const relicEdit = k => (S.builtinEdits || {})["relic-" + k] || null;
 function builtinRelicCard(id){
   const k = String(id || "").replace(/^relic-/, ""); if (!RELICS[k]) return null;
   const e = relicEdit(k) || {};
-  return { id: "relic-" + k, name: RELICS[k].name, effect: RELICS[k].text, flavor: "", fx: null, blocks: null, img: "", ...e, type: "relic", author: "はじめから", ownerId: null, builtinRelic: true, starter: true, neow: true, relicView: true, edited: !!relicEdit(k), relKey: k };
+  return { id: "relic-" + k, name: RELICS[k].name, effect: RELICS[k].text, flavor: "", fx: null, blocks: RELICS[k].blocks || null, img: "", ...e, type: "relic", author: "はじめから", ownerId: null, builtinRelic: true, starter: true, neow: !RELICS[k].starter, relicView: true, edited: !!relicEdit(k), relKey: k };
 }
-const relicCard = k => { const u = userRelic(k) || (RELICS[k] && relicEdit(k) ? builtinRelicCard(k) : null); return u ? { ...u, type: "magic", frame: "spire", sk: "power", persist: false, relicView: true, costX: false, payLp: null, payDisc: null, payMax: null } : null; };
+const relicCard = k => { const u = userRelic(k) || (RELICS[k] && (relicEdit(k) || RELICS[k].blocks) ? builtinRelicCard(k) : null); return u ? { ...u, type: "magic", frame: "spire", sk: "power", persist: false, relicView: true, costX: false, payLp: null, payDisc: null, payMax: null } : null; };
 function relicDef(k){
-  if (RELICS[k]){ const b = builtinRelicCard(k), rc = relicCard(k); return { name: b.name, text: [plainRuby(b.effect || ""), rc ? fxText0(rc) : ""].filter(Boolean).join("。") || RELICS[k].text, img: b.img || "", key: k }; }
+  if (RELICS[k]){ const b = builtinRelicCard(k), rc = relicCard(k); return { name: b.name, text: [plainRuby(b.effect || ""), rc && relicEdit(k) ? fxText0(rc) : ""].filter(Boolean).join("。") || RELICS[k].text, img: b.img || "", key: k }; }
   const c = userRelic(k); if (!c) return null;
   return { name: c.name, text: [fxText0(relicCard(k)), plainRuby(c.effect || "")].filter(Boolean).join("。") || "（効果なし）", img: c.img || "", key: k, user: true, neow: !!c.neow };
 }
 // ネオーの祝福: 3 of the ネオーレリック (the built-in ones + ones marked ネオーレリック in the card maker)
-function neowChoices(){ const pool = [...Object.keys(RELICS), ...(S.userRelics || []).filter(c => c.neow).map(c => c.id)]; return pool.length <= 3 ? pool : shuffle(pool).slice(0, 3); }
+function neowChoices(){ const pool = [...Object.keys(RELICS).filter(k => !RELICS[k].starter), ...(S.userRelics || []).filter(c => c.neow).map(c => c.id)]; return pool.length <= 3 ? pool : shuffle(pool).slice(0, 3); }
 function gainRelic(st, s, k, why, then){
   const p = P(st, s), d = relicDef(k); if (!d){ then && then(st); return; }
   p.relics = [...(p.relics || []), k]; log(st, s, `${why}レリック「${d.name}」を手に入れた`); ev(st, { type: "gain", s, what: "relic", k });

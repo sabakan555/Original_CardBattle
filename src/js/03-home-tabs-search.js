@@ -116,7 +116,7 @@ const normQ = t => kata2hira(String(t || "").toLowerCase().normalize("NFKC"));
 S.filt = { gal: { q: "", type: "all", fx: "", sort: "new", dm: "", tag: "", ctr: "" }, deck: { q: "", type: "all", fx: "", sort: "new", dm: "", tag: "", ctr: "" }, trade: { q: "", type: "all", fx: "", sort: "new", dm: "", tag: "", ctr: "" } };
 // カウンターでさがす: カードが使っているカウンター（乗せる・取り除く・もし・1個につき・○個になったとき・コスト）を、使っている枚数つきで
 function ctrFilterHTML(cur){
-  const cnt = {}; [...S.cards.values()].forEach(c => { if (!c || c.tut) return; cardCtrIds(c).forEach(id => { cnt[id] = (cnt[id] || 0) + 1; }); });
+  const cnt = {}; [...S.cards.values()].forEach(c => { if (!c || c.tut || c.skinOf) return; cardCtrIds(c).forEach(id => { cnt[id] = (cnt[id] || 0) + 1; }); });
   const ids = [...new Set([...ctrList().map(d => d.id), ...Object.keys(cnt)])].filter(id => cnt[id] || id === cur);
   return `<option value="">カウンター：指定なし</option>` + ids.map(id => `<option value="${esc(id)}"${id === cur ? " selected" : ""}>${esc(ctrName(id))}（${cnt[id] || 0}）</option>`).join("");
 }
@@ -156,7 +156,7 @@ function cardFxKeys(c){
 const FX_EXTRA = { ctr: "カウンターを使う", combo: "追加効果（特定のカードがあるとき）", one: "効果を1つえらんで発動", grant: "プレイヤーに効果を付与", roll: "サイコロ・コイン", delay: "時計（○ターン後に出る）", mass: "要求質量（ナナシ系）", fusion: "融合モンスター", ex: "EXデッキのカード", token: "トークン" };
 function fxOptionsHTML(cur){
   const cnt = {}; let any = 0, none = 0, free = 0;
-  [...S.cards.values()].forEach(c => { if (!c || c.tut) return; const K = cardFxKeys(c); K.forEach(k => { cnt[k] = (cnt[k] || 0) + 1; });
+  [...S.cards.values()].forEach(c => { if (!c || c.tut || c.skinOf) return; const K = cardFxKeys(c); K.forEach(k => { cnt[k] = (cnt[k] || 0) + 1; });
     const has = blocksOf(c).length || absOf(c).length || cardType(c) === "equip"; if (has) any++; else if (!c.effect) none++; if (freeText(c)) free++; });
   const o = (v, l) => (cnt[v] || v === cur) ? `<option value="${v}"${v === cur ? " selected" : ""}>${esc(l)}（${cnt[v] || 0}）</option>` : "";
   const grp = (label, body) => body ? `<optgroup label="${esc(label)}">${body}</optgroup>` : "";
