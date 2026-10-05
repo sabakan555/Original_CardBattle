@@ -369,6 +369,7 @@ function targetOptions(st, s, kind, ctx = {}){
   // 1体/2体 aim at the opponent's monsters first; the player only when there is none (ランダム can hit either)
   const TS = ctx.side === "me" ? s : O(s);
   if (kind === "removeBoard"){ const sides = ctx.rside === "me" ? [s] : ctx.rside === "both" ? [s, O(s)] : [O(s)], out = []; sides.forEach(o => { const X = P(st, o); X.mz.forEach((m, i) => { if (m && (o === s || !hiddenMon(st, o, i))) out.push(`${o}:mz:${i}`); }); X.sz.forEach((z, i) => { if (z) out.push(`${o}:sz:${i}`); }); }); if (st.field && sides.includes(st.field.o)) out.push("field"); return out; }
+  if (kind === "giveAb"){ const w = ctx.gw; if (w !== "mine" && w !== "opp") return null; const o = w === "mine" ? s : O(s), out = []; P(st, o).mz.forEach((m, i) => { if (m && (o === s || !hiddenMon(st, o, i))) out.push(`${o}:${i}`); }); return out; }
   if (kind === "ctrAdd" || kind === "ctrDel") return ctx.ctrPick ? P(st, TS).mz.map((m, i) => m && (TS === s || !hiddenMon(st, TS, i)) ? "m:" + i : null).filter(Boolean) : null;
   if (ctx.spireAtk && (kind === "dmg" || kind === "bash" || kind === "vuln" || kind === "weak")){ const tt = TS === s ? [] : tauntIdx(st, TS), ms = (tt.length ? tt : P(st, TS).mz.map((m, i) => m ? i : -1).filter(i => i >= 0)).map(i => "m:" + i); if (ctx.anyEnemy) return ms.length ? ["p", ...ms] : null; const left = ms.filter(o => !(ctx.hit && (ctx.hit.picked || []).includes(o))); return left.length ? ms : ["p"]; }
   const t = KINDS[kind] && KINDS[kind].target;
@@ -415,6 +416,7 @@ function autoTarget(st, s, kind, opts, fx){
   if (kind === "discardPeek"){ const H = P(st, O(s)).hand, v = j => { const c = card(H[j]); return (cardType(c) === "monster" ? baseAtk(c) || 0 : 300) + (costOf(c) || 0) * 100; }; return opts.slice().sort((a, b) => v(b) - v(a))[0]; }
   // 合成: 自分の一番強いモンスターに付ける
   if (kind === "synthTo"){ const own = opts.filter(o => String(o).split(":")[0] === s); const L = own.length ? own : opts; return L.slice().sort((a, b) => { const [sa, ia] = String(a).split(":"), [sb, ib] = String(b).split(":"); return cmpNum(atkOf(P(st, sb).mz[+ib]), atkOf(P(st, sa).mz[+ia])); })[0]; }
+  if (kind === "giveAb") return opts.slice().sort((a, b) => { const A = String(a).split(":"), B = String(b).split(":"); return cmpNum(atkOf(P(st, B[0]).mz[+B[1]]), atkOf(P(st, A[0]).mz[+A[1]])); })[0];
   if (fx && fx.side === "me"){ const own = P(st, s), v = o => o === "p" ? 1e9 : (m => m ? atkOf(m) : 0)(own.mz[typeof o === "string" ? +o.slice(2) : o]); return opts.slice().sort((a, b) => v(a) - v(b))[0]; }
   // CPU スパイア attack: finish the strongest monster it can destroy now, otherwise the one closest to dying
   if (opts.length && opts.every(o => typeof o === "string" && o.startsWith("m:"))){
@@ -455,6 +457,7 @@ function monAbs(st, s, i){
   const out = absOf(card(m.c)).map(a => ({ ...a, mult: 1 }));
   const es = eqsOf(m);
   es.forEach((e, k) => absOf(card(e.c)).forEach(a => { if (a.k !== "double") out.push({ ...a, mult: eqMult(es, k), eqU: e.u }); }));
+  (m.gab || []).forEach(g => { if (ABS[g.k] && (!g.until || st.turnNo <= g.until)) out.push({ ...g, mult: 1, gab: true }); });
   return out;
 }
 function hasAb(st, s, i, ab){ return monAbs(st, s, i).some(a => a.k === ab); }
@@ -829,6 +832,18 @@ function applyEffect(st, s, c, target, ctx = {}, fx = normFx(c)){
       else log(st, s, `${src}：破壊されたモンスターはいなかった`);
       break;
     }
+    case "giveAb": {
+      const a = gabAbility(fx), w = GAB_W[fx.gw] ? fx.gw : "self", until = fx.gd === "turn" ? st.turnNo : fx.gd === "next" ? st.turnNo + 2 : 0;
+      const give = m => { if (!m) return; const g = { ...a, until };
+        // 成長は「付与されてから」数える
+        if (g.k === "evoTurn") g.n = (g.n || 1) + (m.age || 0); if (g.k === "evoAtk") g.n = (g.n || 1) + (m.atkTotal || 0); if (g.k === "evoTurn" || g.k === "evoAtk"){ g.n0 = a.n || 1; delete m.evoFail; }
+        (m.gab = m.gab || []).push(g); log(st, s, `${src}で「${card(m.c).name}」が${ABS[g.k].kw ? `《${ABS[g.k].kw}》` : ABS[g.k].label}を得た${until ? `（${GAB_D[fx.gd]}）` : ""}`); };
+      if (w === "self"){ const m = ctx.mon ? monAt(st, ctx.mon) : ctx.zone != null ? me.mz[ctx.zone] : null; if (m && (ctx.mon || m.c === c.id)) give(m); else log(st, s, `${src}：場にいないので能力は得られない`); }
+      else if (w === "mineAll") me.mz.forEach(give);
+      else if (w === "oppAll") op.mz.forEach(give);
+      else if (typeof target === "string"){ const [o, i] = target.split(":"); give(P(st, o).mz[+i]); }
+      break;
+    }
     case "charm": {
       const m = opT.mz[target];
       if (m){ m.charm = { eu: ctx.eqU || null, mu: ctx.mon ? ctx.mon.u : null, c: c.id }; log(st, s, `${src}で「${card(m.c).name}」を魅了した（${src}が場にある間、攻撃できない）`); }
@@ -1002,6 +1017,7 @@ function runEffect(st, s, c, ctx = {}, then, fx = normFx(c)){
   if (fx.kind === "scry") ctx = { ...ctx, scryN: Math.max(1, fx.n || 3) };
   if (KINDS[fx.kind] && KINDS[fx.kind].tag) ctx = { ...ctx, tagName: fx.into || "" };
   if (SIDED_KINDS.has(fx.kind)) ctx = { ...ctx, side: fx.side === "me" ? "me" : null };
+  if (fx.kind === "giveAb") ctx = { ...ctx, gw: GAB_W[fx.gw] ? fx.gw : "self" };
   if (fx.kind === "removeBoard") ctx = { ...ctx, rside: RB_SIDE[fx.rside] ? fx.rside : "op" };
   if (KINDS[fx.kind] && KINDS[fx.kind].ctr) ctx = { ...ctx, ctrPick: (CTR_CW[fx.cw] ? fx.cw : "pick") === "pick" };
   if (KINDS[fx.kind] && KINDS[fx.kind].mod) ctx = { ...ctx, modPick: modT(fx).scope === "pick" };
@@ -1102,7 +1118,7 @@ function runEffects(st, s, c, effs, ctx, then){
   (effs || []).forEach(e => {
     const one = [];
     if (KINDS[e.kind] && KINDS[e.kind].each && e.n > 1){ for (let r = 0; r < e.n; r++) one.push({ kind: e.kind, n: 1, ...(e.into ? { into: e.into } : {}) }); }
-    else one.push(...expandFx({ kind: e.kind, n: e.n, to: e.to, ...(e.into ? { into: e.into } : {}), ...(e.intoId ? { intoId: e.intoId } : {}), ...(e.per ? { per: e.per, pm: e.pm, hits: e.hits } : {}), ...(KINDS[e.kind] && KINDS[e.kind].mod ? { mt: e.mt, ms: e.ms, mpl: e.mpl, mc: e.mc, mn: e.mn, gk: e.gk, gn: e.gn, nm: e.nm, ge: e.ge } : {}), ...(e.side ? { side: e.side } : {}), ...(e.tn ? { tn: e.tn } : {}) }));
+    else one.push(...expandFx({ kind: e.kind, n: e.n, to: e.to, ...(e.into ? { into: e.into } : {}), ...(e.intoId ? { intoId: e.intoId } : {}), ...(e.per ? { per: e.per, pm: e.pm, hits: e.hits } : {}), ...(KINDS[e.kind] && KINDS[e.kind].mod ? { mt: e.mt, ms: e.ms, mpl: e.mpl, mc: e.mc, mn: e.mn, gk: e.gk, gn: e.gn, nm: e.nm, ge: e.ge } : {}), ...(e.side ? { side: e.side } : {}), ...(e.tn ? { tn: e.tn } : {}), ...(e.kind === "removeBoard" ? { rside: e.rside, rm: e.rm } : {}), ...(KINDS[e.kind] && KINDS[e.kind].ctr ? { ctr: e.ctr, cw: e.cw } : {}), ...(e.per === "ctr" ? { pctr: e.pctr, pcw: e.pcw } : {}), ...(e.kind === "giveAb" ? { ab: e.ab, gw: e.gw, gd: e.gd } : {}) }));
     // 「×○回」: the same effect again and again
     const reps = e.timesDie ? (ctx && ctx.roll && ctx.roll.kind === "die" ? ctx.roll.v : 0) : Math.max(1, Math.min(20, e.times || 1));
     for (let r = 0; r < reps; r++) list.push(...one);
@@ -1601,7 +1617,7 @@ function evolveCheck(st, s, when){
     if (!a) return;
     const id = fxCardId({ kind: "oppSummon", into: a.name }, card(m.c));
     if (!id || id === m.c){ m.evoFail = true; log(st, s, `「${card(m.c).name}」は成長しようとしたが、「${a.name}」というモンスターが見つからない`); return; }
-    const old = card(m.c).name; m.c = id; m.mod = 0; delete m.mul; m.atkTotal = 0; m.age = 0;
+    const old = card(m.c).name; m.c = id; m.mod = 0; delete m.mul; m.atkTotal = 0; m.age = 0; if (m.gab) m.gab = m.gab.filter(g => g.k !== "evoTurn" && g.k !== "evoAtk");
     ev(st, { type: "summon", s, z: i }); log(st, s, `「${old}」が成長して「${card(id).name}」になった！`);
   });
 }

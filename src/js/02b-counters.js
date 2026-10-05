@@ -4,6 +4,14 @@
 // カードを保存するとき、使っているカウンターの名前・色・アイコンをカードの中（c.ctrs）にもコピーする → 交換したカードや、カウンターが消されたあとでも表示できる
 // 場での数: モンスターは m.ctr = { id: 個数 }、プレイヤーは p.ctr = { id: 個数 }
 // 場のカードを指定して除去: どちらの場の・どうする
+// 能力を付与する（効果）: だれに・どの能力・いつまで
+const GAB_W = { self: "このモンスター", mine: "自分のモンスター1体", mineAll: "自分のモンスターすべて", opp: "相手のモンスター1体", oppAll: "相手のモンスターすべて" };
+const GAB_D = { "": "ずっと", turn: "このターンだけ", next: "次の自分のターンの終わりまで" };
+const GAB_NG = new Set(["sympathy", "sbAtk"]);
+const gabList = () => Object.keys(ABS).filter(k => ABS[k].only !== "eq" && !GAB_NG.has(k));
+const gabKey = e => e && ABS[e.ab] && gabList().includes(e.ab) ? e.ab : "evoTurn";
+function gabAbility(e){ const k = gabKey(e), d = ABS[k]; return { k, ...(d.n ? { n: Math.max(0, Math.round(e && e.n != null ? +e.n : d.n)) } : {}), ...(d.name ? { name: String(e && e.into || "") } : {}) }; }
+function gabText(e){ const a = gabAbility(e), w = GAB_W[e && e.gw] ? e.gw : "self", d = GAB_D[e && e.gd] != null && e.gd ? GAB_D[e.gd] + "、" : ""; return `${d}${GAB_W[w]}は${ABS[a.k].kw ? kwStr(a) : abPhrase(a)}を得る`; }
 const RB_SIDE = { op: "相手", me: "自分", both: "お互い" }, RB_MODE = { destroy: "破壊する", bounce: "持ち主の手札に戻す", banish: "除外する" };
 const CTR_DMG = "dmg";
 const CTR_BUILTIN = { dmg: { id: "dmg", name: "ダメージ", color: "#c0392b", icon: "", builtin: true } };
