@@ -218,6 +218,16 @@ document.addEventListener("click", e => {
 }, true);
 document.addEventListener("keydown", e => { if ((e.key === "Enter" || e.key === " ") && e.target.classList && e.target.classList.contains("kwd") && !e.target.closest(".card")){ e.preventDefault(); e.target.click(); } });
 const HEX6 = /^#[0-9a-f]{6}$/i;
+// 枠の色のグラデーション: colF→colF2（枠）、colB→colB2（中）。向きは colGd（v 縦・h 横・d 斜め）
+const GRAD_DIR = { v: "180deg", h: "90deg", d: "135deg" };
+const GRAD_LABEL = { v: "縦", h: "横", d: "斜め" };
+function mixHex(a, b){ const p = h => [1, 3, 5].map(k => parseInt(h.slice(k, k + 2), 16)); const x = p(a), y = p(b); return "#" + x.map((v, k) => Math.round((v + y[k]) / 2).toString(16).padStart(2, "0")).join(""); }
+function colVars(c){
+  const L = []; if (!c) return L; const gd = GRAD_DIR[c.colGd] ? c.colGd : "v", dir = GRAD_DIR[gd];
+  if (HEX6.test(c.colF || "")){ if (HEX6.test(c.colF2 || "")) L.push(`--cframe:${mixHex(c.colF, c.colF2)}`, `--cframeBg:linear-gradient(${dir},${c.colF},${c.colF2})`); else L.push(`--cframe:${c.colF}`); }
+  if (HEX6.test(c.colB || "")){ if (HEX6.test(c.colB2 || "")){ const m = mixHex(c.colB, c.colB2); L.push(`--cbg:${m}`, `--cbgBg:linear-gradient(${dir},${c.colB},${c.colB2})`, `--cbgTL:${c.colB}`, `--cbgBR:${c.colB2}`, `--cbgBL:${gd === "v" ? c.colB2 : gd === "h" ? c.colB : m}`); } else L.push(`--cbg:${c.colB}`); }
+  return L;
+}
 // 効果のブロック表示: 効果ごとに【名前】・アイコン・説明の行。「いつ」がある効果が2つ以上なら見出し行（「これより下の効果を発動する」）
 const FX_ICONS = { cards: "カード", trash: "ゴミ箱", heart: "十字（回復）", revive: "棺（蘇生）", split: "分裂", cocoon: "もくもく（増殖）", clash: "ふたり（反発）", box: "箱（生成）", lock: "鎖（不動）", void: "空集合", ikenie: "生贄（見出し用）", jumon: "呪文（見出し用）", jirai: "地雷（見出し用）", sword: "剣", teeth: "牙", bomb: "爆弾", synth: "合成", spark: "星", flag: "旗" };
 const FX_ROW_DEF = { draw: ["発見", "cards"], drawUntil: ["発見", "cards"], selfDisc: ["自己破壊", "trash"], selfDiscRand: ["自己破壊", "trash"], selfDiscAll: ["自己破壊", "trash"], selfAtk: ["攻撃力ＵＰ", "sword"], atkUp: ["攻撃力ＵＰ", "sword"], absorbKill: ["暴食の王", "teeth"], synth: ["合成", "synth"], heal: ["自己修復", "heart"], millBoth: ["反発", "clash"], graveHand: ["蘇生", "revive"], matCopy: ["分裂", "split"], matOut: ["増殖", "cocoon"], stealGrave: ["吸いこみ", "void"], fieldOut: ["増殖", "box"] };
@@ -297,7 +307,7 @@ function cardHTML0(c, cls = "", attrs = "", opts = {}){
   const cl = (flv ? { s: 4, m: 3, l: 2 } : { s: 6, m: 5, l: 4 })[SIZES_T[c.textSize] ? c.textSize : "m"];
   const sv = []; if (fc) sv.push(`--cf:${fc}`); if (c.nameSize && c.nameSize !== "m") sv.push(`--nk:${sizeK(c.nameSize)}`); if (c.textSize && c.textSize !== "m") sv.push(`--tk:${sizeK(c.textSize)}`); if (cl !== 5) sv.push(`--cl:${cl};--cls:${cl}`);
   // 自分で決めた枠の色（ふつうの枠だけ）
-  if (HEX6.test(c.colF || "")) sv.push(`--cframe:${c.colF}`); if (HEX6.test(c.colB || "")) sv.push(`--cbg:${c.colB}`);
+  sv.push(...colVars(c));
   if (fl && c.flAlpha != null && isFinite(+c.flAlpha)) sv.push(`--fla:${Math.max(0, Math.min(100, +c.flAlpha))}%`);
   if (c.frame === "socra") return socraHTML(c, t, cls, attrs, opts, sv, showCost);
   if (c.frame === "spire") return spireHTML(c, t, cls, attrs, opts, sv, showCost);

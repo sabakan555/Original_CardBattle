@@ -39,7 +39,7 @@ label.f{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:13p
 .grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px}
 
 /* ---- card (frame after the club's design) ---- */
-.card{--w:150px;--lw:calc(var(--w)*.024);--cbg:var(--c-mon);width:var(--w);aspect-ratio:650/890;background:var(--cframe);border-radius:calc(var(--w)*.035);padding:calc(var(--w)*.046);flex:none;position:relative;font-family:var(--cf,var(--hand));font-weight:600;color:#1e2328;box-shadow:0 2px 0 rgba(30,35,40,.25)}
+.card{--w:150px;--lw:calc(var(--w)*.024);--cbg:var(--c-mon);width:var(--w);aspect-ratio:650/890;background:var(--cframeBg,var(--cframe));border-radius:calc(var(--w)*.035);padding:calc(var(--w)*.046);flex:none;position:relative;font-family:var(--cf,var(--hand));font-weight:600;color:#1e2328;box-shadow:0 2px 0 rgba(30,35,40,.25)}
 .card.magic{--cbg:var(--c-mag)}
 .card.token{--cbg:#dfe1e4;--cframe:#7a7f87}
 .card.socra.token,.card.socra.token .c-in{--cbg:#e2e2e2;background:#e2e2e2}
@@ -194,9 +194,9 @@ label.f{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:13p
 .btnlike{display:inline-block;padding:2px 10px;border:1px solid rgba(127,127,127,.6);border-radius:6px;cursor:pointer}
 .card .dmgc{position:absolute;top:-8px;left:50%;transform:translateX(-50%);background:#c0392b;color:#fff;font:700 11px/1.5 var(--ui);padding:0 8px;border-radius:99px;z-index:5;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,.4)}
 .card .eqb{position:absolute;top:-8px;left:-6px;background:var(--magic);color:#fff;font-family:var(--ui);font-size:11px;padding:0 7px;border-radius:99px;z-index:1}
-.c-in{height:100%;background:var(--cbg);border-radius:calc(var(--w)*.028);display:flex;flex-direction:column;overflow:hidden;position:relative}
+.c-in{height:100%;background:var(--cbgBg,var(--cbg));border-radius:calc(var(--w)*.028);display:flex;flex-direction:column;overflow:hidden;position:relative}
 /* mana cards: a cost box cut into the top-left corner of the frame (club design) */
-.c-cost{position:absolute;left:0;top:0;z-index:2;box-sizing:content-box;width:calc(var(--w)*.146);height:calc(var(--w)*.15);padding:calc(var(--w)*.017) 0 0 calc(var(--w)*.013);background:var(--cbg);border-right:var(--lw) solid var(--cframe);border-bottom:var(--lw) solid var(--cframe);border-bottom-right-radius:calc(var(--w)*.036);border-top-left-radius:calc(var(--w)*.028);box-shadow:0 calc(var(--w)*.006) calc(var(--w)*.006) rgba(0,0,0,.25);color:#1e2328;font-family:var(--en,var(--ui));font-weight:700;font-size:calc(var(--w)*.105);line-height:1;display:grid;place-items:center;font-variant-numeric:tabular-nums}
+.c-cost{position:absolute;left:0;top:0;z-index:2;box-sizing:content-box;width:calc(var(--w)*.146);height:calc(var(--w)*.15);padding:calc(var(--w)*.017) 0 0 calc(var(--w)*.013);background:var(--cbgTL,var(--cbg));border-right:var(--lw) solid var(--cframe);border-bottom:var(--lw) solid var(--cframe);border-bottom-right-radius:calc(var(--w)*.036);border-top-left-radius:calc(var(--w)*.028);box-shadow:0 calc(var(--w)*.006) calc(var(--w)*.006) rgba(0,0,0,.25);color:#1e2328;font-family:var(--en,var(--ui));font-weight:700;font-size:calc(var(--w)*.105);line-height:1;display:grid;place-items:center;font-variant-numeric:tabular-nums}
 .c-name{height:calc(var(--w)*.151 + var(--lw));line-height:calc(var(--w)*.151)!important;padding-top:0!important;padding-bottom:0!important}
 .card.costed .c-name{padding-left:calc(var(--w)*.2);padding-right:calc(var(--w)*.035)}
 .card.dim{filter:grayscale(.6) brightness(.92)}
@@ -227,7 +227,7 @@ label.f{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:13p
 .card.editor.frameless .c-art{aspect-ratio:560/680}
 .card.editor.frameless .c-tab{bottom:calc(100% * 280 / 680)}
 .fl-guide{position:absolute;left:0;right:0;top:calc(100% * 400 / 680);bottom:0;border-top:3px dashed rgba(224,83,58,.85);background:rgba(239,244,245,.28);pointer-events:none;display:flex;justify-content:flex-end;align-items:flex-start;padding:4px 8px;font:700 12px var(--ui);color:#c0412a}
-.c-tab{position:absolute;left:0;bottom:0;background:var(--cbg);border-top:var(--lw) solid var(--cframe);border-right:var(--lw) solid var(--cframe);border-top-right-radius:calc(var(--w)*.07);padding:0 calc(var(--w)*.05) 0 calc(var(--w)*.03);font-size:calc(var(--w)*.052);line-height:1.5;font-family:var(--ui);font-weight:700}
+.c-tab{position:absolute;left:0;bottom:0;background:var(--cbgBL,var(--cbg));border-top:var(--lw) solid var(--cframe);border-right:var(--lw) solid var(--cframe);border-top-right-radius:calc(var(--w)*.07);padding:0 calc(var(--w)*.05) 0 calc(var(--w)*.03);font-size:calc(var(--w)*.052);line-height:1.5;font-family:var(--ui);font-weight:700}
 .card.magic .c-tab{color:var(--magic)}
 .eqfx{color:#1b5e8a}
 .card.trap .c-tab{color:var(--trap)}
@@ -240,7 +240,7 @@ ruby rt{font-size:.5em;line-height:1;font-style:normal}
 .c-text .body{flex:0 1 auto;min-height:0;display:-webkit-box;-webkit-line-clamp:var(--cl,5);-webkit-box-orient:vertical;overflow:hidden;word-break:break-all}
 .card.sm .c-text .body{-webkit-line-clamp:var(--cls,4)}
 .c-lim{position:absolute;left:calc(var(--w)*.035);bottom:calc(var(--w)*.01);font-size:calc(var(--w)*.05);color:#6c767f;font-family:var(--ui)}
-.c-atk{position:absolute;right:0;bottom:0;background:var(--cbg);border-top:var(--lw) solid var(--cframe);border-left:var(--lw) solid var(--cframe);border-top-left-radius:calc(var(--w)*.07);padding:0 calc(var(--w)*.04) 0 calc(var(--w)*.06);font-size:calc(var(--w)*.075);line-height:1.35;font-variant-numeric:tabular-nums}
+.c-atk{position:absolute;right:0;bottom:0;background:var(--cbgBR,var(--cbg));border-top:var(--lw) solid var(--cframe);border-left:var(--lw) solid var(--cframe);border-top-left-radius:calc(var(--w)*.07);padding:0 calc(var(--w)*.04) 0 calc(var(--w)*.06);font-size:calc(var(--w)*.075);line-height:1.35;font-variant-numeric:tabular-nums}
 .c-atk .up{color:var(--good)} .c-atk .dn{color:var(--hit)}
 .card.sm{--w:112px}
 .card.xs{--w:84px}
@@ -1136,7 +1136,7 @@ div.f{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:13px}
 .card.mtg::before{content:"";position:absolute;inset:0;background:url("assets/mtg_frame.webp") center/100% 100% no-repeat;border-radius:inherit;z-index:0;pointer-events:none}
 .card.mtg.magic::before{filter:hue-rotate(-60deg) saturate(1.3)}.card.mtg.trap::before{filter:hue-rotate(110deg) saturate(1.2)}.card.mtg.equip::before{filter:sepia(.45) hue-rotate(-20deg)}.card.mtg.token::before{filter:grayscale(1)}
 /* MTG枠の色（Figma Frame 43）: 背景色の四角を --cframe でぬり、その上にテクスチャ・パネルの絵をかさねる。パネルのフチは少し暗い色 */
-.card.mtg.mcol::before{background:url("assets/mtg_top.webp") 0 0/100% 100% no-repeat,linear-gradient(var(--cframe),var(--cframe)) calc(var(--mu)*7) calc(var(--mu)*8)/calc(var(--mu)*613) calc(var(--mu)*859) no-repeat;filter:none}
+.card.mtg.mcol::before{background:url("assets/mtg_top.webp") 0 0/100% 100% no-repeat,var(--cframeBg,linear-gradient(var(--cframe),var(--cframe))) calc(var(--mu)*7) calc(var(--mu)*8)/calc(var(--mu)*613) calc(var(--mu)*859) no-repeat;filter:none}
 .card.mtg.mcol .m-gem{display:block;position:absolute;inset:0;z-index:0;pointer-events:none;border-radius:inherit;background:color-mix(in srgb,var(--cframe) 55%,#000);-webkit-mask:url("assets/mtg_edge.webp") 0 0/100% 100% no-repeat;mask:url("assets/mtg_edge.webp") 0 0/100% 100% no-repeat}
 .card.mtg .c-in{position:static;display:block;height:auto;background:none;border-radius:0;overflow:visible}
 .card.mtg .c-name{position:absolute;left:calc(var(--mu)*57);top:calc(var(--mu)*52);width:calc(var(--mu)*472);height:calc(var(--mu)*38);padding:0!important;border:none!important;background:none;text-align:left;display:flex;align-items:center;font-size:calc(var(--mu)*32*var(--nk,1));line-height:1!important;letter-spacing:-.1em;font-weight:700;z-index:2;white-space:nowrap;overflow:hidden}
@@ -1275,7 +1275,7 @@ div.f{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:13px}
 .card.dm{--dmf:url("assets/dm_mon.webp")}.card.dm.magic,.card.dm.equip,.card.dm.trap{--dmf:url("assets/dm_sp.webp")}
 .card.dm::before{content:"";position:absolute;inset:0;background:var(--dmf) 0 0/100% 100% no-repeat;border-radius:inherit;z-index:2;pointer-events:none}
 /* 枠の色: 石の明るさはそのまま、色だけ変える（絵の窓は枠の形で切りぬく） */
-.card.dm.mcol::before{background:linear-gradient(var(--cframe),var(--cframe)) 0 0/100% 100%,var(--dmf) 0 0/100% 100% no-repeat;background-blend-mode:color,normal;-webkit-mask:var(--dmf) 0 0/100% 100% no-repeat;mask:var(--dmf) 0 0/100% 100% no-repeat}
+.card.dm.mcol::before{background:var(--cframeBg,linear-gradient(var(--cframe),var(--cframe))) 0 0/100% 100%,var(--dmf) 0 0/100% 100% no-repeat;background-blend-mode:color,normal;-webkit-mask:var(--dmf) 0 0/100% 100% no-repeat;mask:var(--dmf) 0 0/100% 100% no-repeat}
 .card.dm .c-in{position:static;display:block;height:auto;background:none;border-radius:0;overflow:visible}
 .card.dm .c-art{position:absolute;left:calc(var(--du)*93);top:calc(var(--du)*120);width:calc(var(--du)*512);height:calc(var(--du)*433);aspect-ratio:auto;border:none;background:#c7cdeb;overflow:visible;z-index:auto}
 .card.dm.magic .c-art,.card.dm.equip .c-art,.card.dm.trap .c-art{left:calc(var(--du)*57);top:calc(var(--du)*109);width:calc(var(--du)*513);height:calc(var(--du)*445)}
