@@ -247,7 +247,7 @@ function fusionPlanFrom(st, s, fc, picks){
 }
 function transformAt(st, s, k, into, src, srcCard, fxo){
   const p = P(st, s), old = p.hand[k]; if (old == null) return;
-  const id = into ? fxCardId({ kind: "transformHand", into, intoId: fxo && fxo.intoId }, srcCard) : randSpire(false);
+  const id = into ? fxCardId({ kind: "transformHand", into, intoId: fxo && fxo.intoId }, srcCard) : randSpire(false, p.spc);
   if (!id){ log(st, s, `${src}：${into ? `「${into}」というカードが見つからない` : "変化先のカードがない"}`); return; }
   p.hand[k] = id; log(st, s, `${src}で「${card(old).name}」が「${card(id).name}」に変化した`);
 }
@@ -780,10 +780,10 @@ function applyEffect(st, s, c, target, ctx = {}, fx = normFx(c)){
     case "vuln": addVuln(st, s, target, n, src, OS); break;
     case "bash": if (typeof target === "string" && target.startsWith("m:")){ const i = +target.slice(2), u = opT.mz[i] && opT.mz[i].u; monDmg(st, OS, i, n, src); if (opT.mz[i] && opT.mz[i].u === u) addVuln(st, s, target, 2, src, OS); } else { log(st, s, `${src}で${opT.name}に${n}ダメージ`); dealDmg(st, OS, n); addVuln(st, s, "p", 2, src, OS); } break;
     case "draw": drawN(st, s, n, src); break;
-    case "discardPeek": { const id = op.hand[target]; if (id == null) break; op.hand.splice(target, 1); op.grave.push(id); log(st, s, `${src}で${op.name}の手札を見て、「${card(id).name}」を捨てさせた`); break; }
+    case "discardPeek": { const id = op.hand[target]; if (id == null) break; op.hand.splice(target, 1); op.grave.push(id); log(st, s, `${src}で${op.name}の手札を見て、「${card(id).name}」を捨てさせた`); slyFire(st, O(s), [id]); break; }
     case "discard": {
-      let k = 0; for (let j = 0; j < n && op.hand.length; j++){ op.grave.push(op.hand.splice(Math.floor(Math.random() * op.hand.length), 1)[0]); k++; }
-      log(st, s, `${src}で${op.name}の手札を${k}枚捨てさせた`); break;
+      let k = 0; const gone = []; for (let j = 0; j < n && op.hand.length; j++){ const x = op.hand.splice(Math.floor(Math.random() * op.hand.length), 1)[0]; op.grave.push(x); gone.push(x); k++; }
+      log(st, s, `${src}で${op.name}の手札を${k}枚捨てさせた`); slyFire(st, O(s), gone); break;
     }
     case "destroy": if (opT.mz[target]) destroyMonster(st, OS, target, src); break;
     case "destroyOwn": if (me.mz[target]) destroyMonster(st, s, target, src); break;
@@ -867,7 +867,7 @@ function applyEffect(st, s, c, target, ctx = {}, fx = normFx(c)){
       const L = fx.kind === "selfDisc" ? (me.hand[target] != null ? [target] : []) : fx.kind === "selfDiscAll" ? me.hand.map((_, k) => k) : shuffle(me.hand.map((_, k) => k)).slice(0, n || 1);
       const gone = L.sort((a, b) => b - a).map(k => me.hand.splice(k, 1)[0]); me.grave.push(...gone);
       const h = ctx.hit || ctx; h.discN = (h.discN || 0) + gone.length; ctx.discN = h.discN;
-      log(st, s, gone.length ? `${src}：手札の${gone.map(id => `「${card(id).name}」`).join("")}を捨てた` : `${src}：捨てる手札がない`);
+      log(st, s, gone.length ? `${src}：手札の${gone.map(id => `「${card(id).name}」`).join("")}を捨てた` : `${src}：捨てる手札がない`); slyFire(st, s, gone);
       break;
     }
     case "exhaustHand": if (me.hand[target] != null) exileCard(st, s, me.hand.splice(target, 1)[0], src); break;
@@ -1014,7 +1014,7 @@ function runEffect(st, s, c, ctx = {}, then, fx = normFx(c)){
   }
   // 合成: 手札のカード → 付けるモンスターの順にえらぶ
   if (fx.kind === "synth"){ if (!ctx.hit) ctx = { ...ctx, hit: {} }; const h = ctx.hit; h.synthId = null; runEffect(st, s, c, ctx, st2 => { if (!h.synthId){ then && then(st2); return; } runEffect(st2, s, c, ctx, then, { kind: "synthTo" }); }, { kind: "synthHand" }); return; }
-  if (fx.kind === "draft" && !ctx.draft) ctx = { ...ctx, draft: draftPick(fx.n) };
+  if (fx.kind === "draft" && !ctx.draft) ctx = { ...ctx, draft: draftPick(fx.n, P(st, s).spc) };
   if (fx.kind === "scry") ctx = { ...ctx, scryN: Math.max(1, fx.n || 3) };
   if (KINDS[fx.kind] && KINDS[fx.kind].tag) ctx = { ...ctx, tagName: fx.into || "" };
   if (SIDED_KINDS.has(fx.kind)) ctx = { ...ctx, side: fx.side === "me" ? "me" : null };
@@ -1173,14 +1173,19 @@ function costWhy(st, s, c){
   return "";
 }
 // 追加コスト「手札を捨てる」: picks = indices in the hand (after the used card has left it); missing / wrong picks → random
+// スライ: 手札から捨てられたら、タダで使う（ターン終了で捨てるときはのぞく）
+function slyFire(st, s, ids){
+  (ids || []).forEach(id => { const c = card(id); if (!c || !c.sly || (cardType(c) !== "magic" && cardType(c) !== "trap")) return;
+    log(st, s, `スライ！ 捨てられた「${c.name}」をタダで使った`); ev(st, { type: "spell", s, c: id }); countPlay(st, s, c); runCard(st, s, c, "use", { sly: true }); });
+}
 function discardCost(st, s, c, picks){
-  if (payDiscAll(c)){ const p = P(st, s), gone = p.hand.splice(0); p.grave.push(...gone); log(st, s, gone.length ? `「${c.name}」のコストで手札をすべて（${gone.length}枚）捨てた` : `「${c.name}」のコスト：捨てる手札はなかった`); return; }
+  if (payDiscAll(c)){ const p = P(st, s), gone = p.hand.splice(0); p.grave.push(...gone); log(st, s, gone.length ? `「${c.name}」のコストで手札をすべて（${gone.length}枚）捨てた` : `「${c.name}」のコスト：捨てる手札はなかった`); slyFire(st, s, gone); return; }
   const n = payDiscOf(c); if (!n) return;
   const p = P(st, s), okJ = j => p.hand[j] != null && (!c.payDiscTag || hasTag(p.hand[j], c.payDiscTag));
   let L = [...new Set((picks || []).map(Number))].filter(okJ);
   if (L.length !== n){ const all = shuffle(p.hand.map((_, j) => j).filter(okJ)); L = all.slice(0, n); }
   const gone = L.sort((a, b) => b - a).map(j => p.hand.splice(j, 1)[0]);
-  p.grave.push(...gone); log(st, s, `「${c.name}」のコストで手札の${gone.map(id => `「${card(id).name}」`).join("")}を捨てた`);
+  p.grave.push(...gone); log(st, s, `「${c.name}」のコストで手札の${gone.map(id => `「${card(id).name}」`).join("")}を捨てた`); slyFire(st, s, gone);
 }
 const shiftPicks = (picks, hi) => (picks || []).map(Number).map(j => hi != null && hi >= 0 && j > hi ? j - 1 : j);
 function pay(st, s, c){
@@ -1693,7 +1698,7 @@ function passTurn(st, s){
     np.mz.forEach(m => { if (m && m.vuln > 0){ m.vuln--; if (!m.vuln) log(st, st.turn, `「${card(m.c).name}」の弱体がとけた`); } });
     if (np.block && !np.barricade){ log(st, st.turn, `ブロック${np.block}が消えた`); np.block = 0; }
     np.thorns = 0; np.blockedNow = false;
-    if (np.mana){ np.mana.max = np.sz.some(z => z && z.face && z.c === "spire-altar") ? 3 : Math.max(np.mana.max, Math.min(MAX_MANA, np.mana.max + 1)); np.mana.cur = np.mana.max; }
+    if (np.mana){ np.mana.max = np.sz.some(z => z && z.face && isAltar(z.c)) ? 3 : Math.max(np.mana.max, Math.min(MAX_MANA, np.mana.max + 1)); np.mana.cur = np.mana.max; }
     log(st, st.turn, `ターン${st.turnNo}：${np.name} の${xt ? "追加" : ""}ターン${np.mana ? `（マナ ${np.mana.max}）` : ""}`);
     if (np.revDebt && np.revDebt.length){ const L = np.revDebt; np.revDebt = []; for (const d of L){ const n = +d.n || 0; if (!np.mana || np.mana.cur >= n){ if (np.mana && n){ np.mana.cur -= n; } log(st, st.turn, `逆転劇「${d.name}」のコストでマナを${n}払った${np.mana ? `（${np.mana.cur}/${np.mana.max}）` : ""}`); } else { st.winner = O(st.turn); st.why = `${np.name} は逆転劇「${d.name}」のマナ${n}を払えなかった`; log(st, st.turn, `逆転劇「${d.name}」のマナ${n}を払えない…ゲームに負けた`); return; } } }
     refill(st, st.turn);

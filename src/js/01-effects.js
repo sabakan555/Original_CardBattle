@@ -224,6 +224,8 @@ const ABS = {
   eqBonus:    { label: "特定の名前の装備を付けているとATKアップ", only: "mon", self: true, n: 300, name: true, text: (n, nm) => `名前に「${nm || "？"}」が入った装備を付けているとき、ATK+${n}` }
 };
 const KW_DESC = {
+  "保留": "ターンの終わりに手札を捨てるとき（スパイアデッキ）、このカードは捨てずに手札に残る",
+  "スライ": "このカードが手札から捨てられたとき（効果やコストで）、コストを払わずにこのカードを使う",
   "天賦": "ゲーム開始時と自分のターンのはじめに、このカードが山札にあれば山札の一番上に置く（だから最初の手札に来やすく、毎ターン引ける）",
   "反射": "このモンスターが戦闘して自分がダメージを受けたとき、同じダメージを相手にも与える",
   "必殺": "このモンスターと戦闘した相手のモンスターは、ATKに関係なく破壊される",
@@ -489,7 +491,7 @@ function whenText(c){ const w = whenOf(c); return w ? `【${WHEN_LABEL[w]}に発
 function fusionMatText(x){ return x.m === "any" ? "モンスター" : x.m === "tag" ? `タグ「${x.v || "？"}」のモンスター` : `「${x.v || "？"}」`; }
 function fusionText(c){ return c && cardType(c) === "monster" && Array.isArray(c.fusion) && c.fusion.length ? `【融合】${c.fusion.map(fusionMatText).join("＋")}` : ""; }
 const spOptText = c => !c || (cardType(c) !== "magic" && cardType(c) !== "trap") ? "" : [c.strig ? "《S・トリガー》" : "", c.flashback && cardType(c) === "magic" ? "《フラッシュバック》" : "", +c.kick > 0 ? `《キッカー》（${+c.kick}）` : ""].join("");
-function fxText(c){ const t = fxTextB(c); return c && c.innate ? "《天賦》" + (t ? "。" + t : "") : t; }
+function fxText(c){ const t = fxTextB(c), k = c ? (c.innate ? "《天賦》" : "") + (c.retain ? "《保留》" : "") + (c.sly ? "《スライ》" : "") : ""; return k ? k + (t ? "。" + t : "") : t; }
 function fxTextB(c){ return (c && c.token && cardType(c) !== "monster" ? "【トークン】" : "") + (c && c.ex && cardType(c) !== "monster" ? "【EX】" : "") + (c && !c.noUse ? whenText(c) : "") + [fusionText(c) ? fusionText(c) + "（「融合召喚」の効果でだけ出せる）" : "", c && c.noUse && (cardType(c) === "magic" || cardType(c) === "trap") ? "このカードは発動できない" : "", isPersist(c) ? "【永続】使ったあとも場に残る" : "", spOptText(c), isField(c) ? `【フィールド】お互いに1枚だけ場に置ける（新しいフィールドが出ると、前のフィールドは墓地へ）。${fieldMine(c) ? "効果は出した人にだけ効く" : "効果はお互いに効く"}` : "", extraCostText(c), costMechText(c), revoText(c), tribText(c), massText(c), anySumText(c), atkCondText(c), ssText(c), fxText0(c)].filter(Boolean).join("。"); }
 /* ================= effect blocks: いつ / もし / なにを / ちがったら =================
    c.blocks = [{ trig, conds: [{k, op, n | name, where, match | text}], join: "and"|"or", then: [{kind, n, to}], else: [...] }]

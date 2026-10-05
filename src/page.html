@@ -267,6 +267,8 @@
           <label class="row" id="exRow" style="gap:6px;font-weight:700;cursor:pointer"><input type="checkbox" id="mkEx"> EXデッキのカード（山札には入らず、EXデッキから出す・使う）</label>
           <label class="row pro-only" id="tokenRow" style="gap:6px;font-weight:700;cursor:pointer"><input type="checkbox" id="mkToken"> トークン（デッキには入れられない。効果で生み出されるだけのカード）</label>
           <label class="row" style="gap:6px;font-weight:700;cursor:pointer"><input type="checkbox" id="mkInnate"> 天賦（ゲーム開始時と自分のターンのはじめ、山札にあれば一番上に置く）</label>
+          <label class="row" style="gap:6px;font-weight:700;cursor:pointer"><input type="checkbox" id="mkRetain"> 保留（ターンの終わりに手札から捨てられない・スパイアデッキ）</label>
+          <label class="row" style="gap:6px;font-weight:700;cursor:pointer"><input type="checkbox" id="mkSly"> スライ（手札から捨てられたら、タダで使う・魔法と罠）</label>
           <label class="f" style="flex-direction:row;align-items:center;gap:10px">デッキに入れられる枚数<select id="mkLimit"><option value="1">1枚まで</option><option value="2">2枚まで</option><option value="3" selected>3枚まで</option><option value="0">制限なし</option></select></label>
         </div>
 
@@ -297,6 +299,7 @@
         <label class="f">デッキ名<input type="text" id="deckName" maxlength="20" placeholder="例: かわいい軍団"></label>
         <label class="row" style="gap:6px;font-weight:700;font-size:14px;cursor:pointer"><input type="checkbox" id="deckMana"> コストデッキ（マナを使って遊ぶ）</label>
         <label class="row" style="gap:6px;font-weight:700;font-size:14px;cursor:pointer"><input type="checkbox" id="deckSpire"> スパイアデッキ（「選択の祭壇」が最初から場にあって、山札切れで負けない）</label>
+        <label class="row" id="deckSpcRow" style="gap:6px;font-size:14px" hidden>キャラ<select id="deckSpc"><option value="">アイアンクラッド（#アイアンクラッドのカードが出る）</option><option value="silent">サイレント（#サイレントのカードが出る）</option></select></label>
       </div>
       <div class="row">
         <span class="meter" id="deckMeter">0枚</span>

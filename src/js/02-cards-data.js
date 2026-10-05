@@ -146,7 +146,7 @@ function buildStarters(){
     fx: s.fx ? { trig: s.type ? "use" : s.fx.trig, ...s.fx } : null, combo: s.combo || null, cost: s.cost ?? null, quick: !!s.quick, eqN: s.eqN || 0, eqAb: s.eqAb || "none", limit: s.limit ?? 3, author: "スターター", starter: true,
     img: s.type ? drawSymbol(s.col, s.sym, s.type === "trap") : drawMonster(1234 + i * 97, s.col)
   }));
-  S.starterBase = STARTER_CARDS.map(c => ({ ...c })).concat(extra, SOCRA.map(socraCard), [SPIRE_ALTAR], SPIRE_BASIC, NANASHI.map(s => ({ id: "nanashi-" + s.nid, effect: "", flavor: "", eqN: 0, eqAb: "none", abs: [], cost: null, deckMode: "normal", limit: 3, author: "ナナシ（サンプル）", starter: true, frame: "socra", fxRows: true, ...s, img: s.type === "magic" ? drawSymbol(s.col, s.sym, false) : drawMonster(4321 + s.nid * 53, s.col) })));
+  S.starterBase = STARTER_CARDS.map(c => ({ ...c })).concat(extra, SOCRA.map(socraCard), [SPIRE_ALTAR, SPIRE_ALTAR_S], SPIRE_BASIC, NANASHI.map(s => ({ id: "nanashi-" + s.nid, effect: "", flavor: "", eqN: 0, eqAb: "none", abs: [], cost: null, deckMode: "normal", limit: 3, author: "ナナシ（サンプル）", starter: true, frame: "socra", fxRows: true, ...s, img: s.type === "magic" ? drawSymbol(s.col, s.sym, false) : drawMonster(4321 + s.nid * 53, s.col) })));
   S.starters = S.starterBase;
 }
 // スパイアデッキ: this card is face-up in the magic/trap zone from the start; every turn it offers 3 random スパイア風 cards
@@ -159,12 +159,16 @@ const SPIRE_BASIC = [
 ].map(x => ({ type: "magic", frame: "spire", rarity: "common", persist: false, tags: ["アイアンクラッド"], atk: 0, eqN: 0, eqAb: "none", abs: [], combo: null, effect: "", flavor: "", deckMode: "both", limit: 5, author: "スターター", starter: true, img: "", ...x, fx: { trig: "use", ...x.fx } }));
 function spireDeck(){ return { id: "spire-start", name: "スパイアデッキ（はじまり）", cards: [...Array(5).fill("spire-strike"), ...Array(4).fill("spire-defend"), "spire-bash"], builtin: true, mana: true, spire: true, key: "spire-strike" }; }
 const DRAFT_TAG = "アイアンクラッド";
-const spirePoolAll = () => [...S.cards.values()].filter(c => c && c.frame === "spire" && !c.token && !c.ex && c.id !== SPIRE_ALTAR.id && !SPIRE_BASIC.some(b => b.id === c.id));
+// サイレント用の選択の祭壇: 出てくるカードは #サイレント（か、サイレントの枠のカード）
+const SPIRE_ALTAR_S = { ...SPIRE_ALTAR, id: "spire-altar-s", name: "選択の祭壇（サイレント）", spc: "silent" };
+const isAltar = id => id === SPIRE_ALTAR.id || id === SPIRE_ALTAR_S.id;
+const DRAFT_TAGS = { "": DRAFT_TAG, silent: "サイレント" };
+const spirePoolAll = () => [...S.cards.values()].filter(c => c && c.frame === "spire" && !c.token && !c.ex && !isAltar(c.id) && !SPIRE_BASIC.some(b => b.id === c.id));
 // 選択の祭壇などで出るのは #アイアンクラッド のついたカードだけ（1枚もなければ、スパイア風カード全部）
-function draftPool(){ const all = spirePoolAll(), t = all.filter(c => tagsOf(c).includes(DRAFT_TAG)); return t.length ? t : all; }
+function draftPool(spc){ const sil = spc === "silent", all = spirePoolAll(), t = all.filter(c => tagsOf(c).includes(DRAFT_TAGS[sil ? "silent" : ""]) || (sil && c.spc === "silent")); return t.length ? t : all; }
 const RARITY_W = { common: 6, uncommon: 3, rare: 1 };
-function draftPick(n){
-  const pool = draftPool(), out = []; n = Math.max(1, n || 3);
+function draftPick(n, spc){
+  const pool = draftPool(spc), out = []; n = Math.max(1, n || 3);
   while (out.length < n && pool.length){ let r = Math.random() * pool.reduce((a, c) => a + RARITY_W[rarityOf(c)], 0), k = 0; while (k < pool.length - 1 && (r -= RARITY_W[rarityOf(pool[k])]) > 0) k++; out.push(pool.splice(k, 1)[0].id); }
   return out;
 }

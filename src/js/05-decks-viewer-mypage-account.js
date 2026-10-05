@@ -33,13 +33,13 @@ $("#btnDeckSheetX").addEventListener("click", e => { e.preventDefault(); e.stopP
 $("#deckSheetBg").addEventListener("click", () => deckSheet(false));
 $("#deckViewBox").open = ls.get("cb_dkv", true) !== false;
 $("#deckViewBox").addEventListener("toggle", () => ls.set("cb_dkv", $("#deckViewBox").open));
-$("#deckSpire").addEventListener("change", renderDeck);
+$("#deckSpire").addEventListener("change", () => { $("#deckSpcRow").hidden = !$("#deckSpire").checked; renderDeck(); });
 $("#deckEditSel").addEventListener("change", e => {
   const d = S.decks.find(x => x.id === e.target.value);
   S.deckEdit = { id: d ? d.id : null, cards: {}, key: (d && d.key) || null };
   if (d) d.cards.forEach(id => S.deckEdit.cards[id] = (S.deckEdit.cards[id] || 0) + 1);
   $("#deckName").value = d ? d.name : "";
-  $("#deckMana").checked = !!(d && d.mana); $("#deckSpire").checked = !!(d && d.spire);
+  $("#deckMana").checked = !!(d && d.mana); $("#deckSpire").checked = !!(d && d.spire); $("#deckSpc").value = d && d.spc === "silent" ? "silent" : ""; $("#deckSpcRow").hidden = !$("#deckSpire").checked;
   renderDeck();
 });
 $("#deckPool").addEventListener("click", e => {
@@ -54,14 +54,14 @@ $("#btnDeckSave").addEventListener("click", async () => {
   const name = $("#deckName").value.trim() || "マイデッキ";
   const cards = []; for (const [id, k] of Object.entries(S.deckEdit.cards)) for (let i = 0; i < k; i++) cards.push(id);
   const id = S.deckEdit.id || uid("d");
-  try{ await saveDeckDoc(id, { name, owner: S.name, ownerId: (S.decks.find(d => d.id === id) || {}).ownerId || S.uid || null, cards, mana: $("#deckMana").checked, spire: $("#deckSpire").checked, key: S.deckEdit.key && S.deckEdit.cards[S.deckEdit.key] ? S.deckEdit.key : null, updatedAt: Date.now() }); S.deckEdit.id = id; ls.set("cb_deck", id); toast("デッキを保存しました"); renderDeck(); }
+  try{ await saveDeckDoc(id, { name, owner: S.name, ownerId: (S.decks.find(d => d.id === id) || {}).ownerId || S.uid || null, cards, mana: $("#deckMana").checked, spire: $("#deckSpire").checked, spc: $("#deckSpire").checked && $("#deckSpc").value === "silent" ? "silent" : null, key: S.deckEdit.key && S.deckEdit.cards[S.deckEdit.key] ? S.deckEdit.key : null, updatedAt: Date.now() }); S.deckEdit.id = id; ls.set("cb_deck", id); toast("デッキを保存しました"); renderDeck(); }
   catch(e){ writeErr(e); }
 });
 let deckDelArm = false;
 $("#btnDeckDel").addEventListener("click", async () => {
   if (!deckDelArm){ deckDelArm = true; $("#btnDeckDel").textContent = "本当に消す"; setTimeout(() => { deckDelArm = false; $("#btnDeckDel").textContent = "このデッキを消す"; }, 3000); return; }
   deckDelArm = false; $("#btnDeckDel").textContent = "このデッキを消す";
-  try{ await deleteDeckDoc(S.deckEdit.id); S.deckEdit = { id: null, cards: {} }; $("#deckName").value = ""; $("#deckMana").checked = false; $("#deckSpire").checked = false; toast("デッキを消しました"); renderDeck(); } catch(e){ writeErr(e); }
+  try{ await deleteDeckDoc(S.deckEdit.id); S.deckEdit = { id: null, cards: {} }; $("#deckName").value = ""; $("#deckMana").checked = false; $("#deckSpire").checked = false; $("#deckSpc").value = ""; $("#deckSpcRow").hidden = true; toast("デッキを消しました"); renderDeck(); } catch(e){ writeErr(e); }
 });
 
 /* ================= card viewer ================= */
@@ -396,7 +396,7 @@ $("#deckList").addEventListener("click", async e => {
   if (g("[data-dcopy]")){
     openDeckEditor("");
     S.deckEdit = { id: null, cards: {}, key: d.key || null }; d.cards.forEach(id => S.deckEdit.cards[id] = (S.deckEdit.cards[id] || 0) + 1);
-    $("#deckName").value = d.name.replace(/【コスト】/, "") + "のコピー"; $("#deckMana").checked = !!d.mana; $("#deckSpire").checked = !!d.spire; renderDeck(); return;
+    $("#deckName").value = d.name.replace(/【コスト】/, "") + "のコピー"; $("#deckMana").checked = !!d.mana; $("#deckSpire").checked = !!d.spire; $("#deckSpc").value = d.spc === "silent" ? "silent" : ""; $("#deckSpcRow").hidden = !d.spire; renderDeck(); return;
   }
   if (g("[data-dthumb]")){ S.thumbPick = !S.thumbPick; renderDeckList(); return; }
   if (g("[data-dkey]")){

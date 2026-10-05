@@ -15,7 +15,8 @@ function renderCpuDeckSel(){
 $("#joinCode").addEventListener("input", e => { e.target.value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ""); });
 $("#joinCode").addEventListener("keydown", e => { if (e.key === "Enter") $("#btnJoin").click(); });
 function chosenMana(){ const id = $("#deckSel").value; const d = allDeckOptions().find(x => x.id === id); return !!(d && d.mana); }
-function chosenSpire(){ const id = $("#deckSel").value; const d = allDeckOptions().find(x => x.id === id); return !!(d && d.spire); }
+const deckSpireVal = d => d && d.spire ? (d.spc === "silent" ? "silent" : true) : false;
+function chosenSpire(){ const id = $("#deckSel").value; const d = allDeckOptions().find(x => x.id === id); return deckSpireVal(d); }
 function chosenDeckIds(){
   const id = $("#deckSel").value; const d = allDeckOptions().find(x => x.id === id) || starterDeck();
   return d.cards.filter(c => S.cards.has(c) && (!S.tradesReady || owns(c)));
@@ -54,14 +55,14 @@ function newPlayer(deckIds, name, mana, spire){
   const p = { name: name || S.name, lp: START_LP, deck, hand, grave: [], mz: Array(ZONES).fill(null), sz: Array(ZONES).fill(null), mana: mana ? { max: 0, cur: 0 } : null, sleeve: name ? null : (mySleeve() || null), deckIds: [...deckIds], ex };
   // スパイアデッキ: the altar starts on the field, and the deck never runs out (the graveyard is shuffled back in)
   // スパイアデッキ: the opening hand is drawn only after the relic is picked (若葉 can change any card of the deck)
-  if (spire){ p.spire = true; p.relicPick = neowChoices(); p.deck = innateTop(shuffle([...p.hand, ...p.deck])); p.hand = []; p.openHand = 5; if (!p.mana) p.mana = { max: 0, cur: 0 }; p.sz[0] = { c: SPIRE_ALTAR.id, turn: 0, face: true, u: -1 }; }
+  if (spire){ p.spire = true; p.relicPick = neowChoices(); p.deck = innateTop(shuffle([...p.hand, ...p.deck])); p.hand = []; p.openHand = 5; if (!p.mana) p.mana = { max: 0, cur: 0 }; p.spc = spire === "silent" ? "silent" : null; p.sz[0] = { c: p.spc ? SPIRE_ALTAR_S.id : SPIRE_ALTAR.id, turn: 0, face: true, u: -1 }; }
   return p;
 }
 // 選択の祭壇 (face-up): turn start → draw up to 5 cards, turn end → the whole hand goes to the graveyard
 function altarTurn(st, s, trig){
-  const p = P(st, s); if (!p.sz.some(z => z && z.face && z.c === SPIRE_ALTAR.id)) return;
+  const p = P(st, s); if (!p.sz.some(z => z && z.face && isAltar(z.c))) return;
   if (trig === "turnStart"){ if (p.mana){ p.mana.max = Math.max(0, 3 + (p.maxAdj || 0)); p.mana.cur = p.mana.max; if (p.conch){ p.mana.cur += 1; p.conch = false; } } const k = 5 - p.hand.length; if (k > 0) drawN(st, s, k, "「選択の祭壇」"); }
-  if (trig === "turnEnd" && p.hand.length){ const n = p.hand.length; p.grave.push(...p.hand.splice(0)); log(st, s, `「選択の祭壇」で手札${n}枚を墓地に捨てた`); }
+  if (trig === "turnEnd" && p.hand.length){ const keep = p.hand.filter(id => card(id) && card(id).retain), gone = p.hand.filter(id => !(card(id) && card(id).retain)); p.hand = keep; p.grave.push(...gone); log(st, s, `「選択の祭壇」で手札${gone.length}枚を墓地に捨てた${keep.length ? `（保留で${keep.length}枚は手札に残した）` : ""}`); }
 }
 // ネオーのレリック: at the start of a スパイアデッキ game the player picks 1 of these 3
 const RELICS = {
@@ -96,8 +97,8 @@ function dropRelicId(st, s){
   const have = new Set(P(st, s).relics || []), pool = (S.userRelics || []).filter(c => !c.neow && !have.has(c.id));
   return pool.length ? pool[Math.floor(Math.random() * pool.length)].id : null;
 }
-const hasAltar = p => !!(p && p.sz.some(z => z && z.face && z.c === SPIRE_ALTAR.id));
-function randSpire(rare){ const pool = draftPool(), rp = pool.filter(c => rarityOf(c) === "rare"); const L = rare && rp.length ? rp : pool; return L.length ? L[Math.floor(Math.random() * L.length)].id : null; }
+const hasAltar = p => !!(p && p.sz.some(z => z && z.face && isAltar(z.c)));
+function randSpire(rare, spc){ const pool = draftPool(spc), rp = pool.filter(c => rarityOf(c) === "rare"); const L = rare && rp.length ? rp : pool; return L.length ? L[Math.floor(Math.random() * L.length)].id : null; }
 // pick relic `key` for player s (step 2 of 若葉: `target` = "deck:i" or "hand:i")
 function chooseRelic(st, s, key, target){
   const p = P(st, s); if (!p.relicPick || !(RELICS[key] || userRelic(key))) return false;
@@ -111,9 +112,9 @@ function chooseRelic(st, s, key, target){
   if (key === "sprout" && target == null){ p.relicPick = "sprout"; return true; }
   p.relicPick = null; p.relics = [...(p.relics || []), key];
   const nm = `レリック「${relicDef(key).name}」`;
-  if (key === "scroll"){ const id = randSpire(true); if (id){ p.deck.splice(Math.floor(Math.random() * (p.deck.length + 1)), 0, id); log(st, s, `${nm}で「${card(id).name}」をデッキに加えた`); } else log(st, s, `${nm}：加えられるスパイア風カードがない`); }
+  if (key === "scroll"){ const id = randSpire(true, p.spc); if (id){ p.deck.splice(Math.floor(Math.random() * (p.deck.length + 1)), 0, id); log(st, s, `${nm}で「${card(id).name}」をデッキに加えた`); } else log(st, s, `${nm}：加えられるスパイア風カードがない`); }
   if (key === "sprout"){
-    const [where, i] = String(target).split(":"), arr = where === "hand" ? p.hand : p.deck, id = randSpire(false);
+    const [where, i] = String(target).split(":"), arr = where === "hand" ? p.hand : p.deck, id = randSpire(false, p.spc);
     if (arr[+i] && id){ const old = arr[+i]; arr[+i] = id; log(st, s, `${nm}で「${card(old).name}」を「${card(id).name}」に変えた`); }
     else log(st, s, `${nm}：変えられるカードがない`);
   }
@@ -194,7 +195,7 @@ function usePotion(st, s, i, then){
 // 報酬 (選択の祭壇): 1 of 3 cards, maybe a ポーション, maybe a レリック — each can be taken or skipped
 const randPotionKey = () => { const ks = [...Object.keys(POTIONS), ...(S.userPotions || []).map(c => c.id)]; return ks[Math.floor(Math.random() * ks.length)]; };
 function offerReward(st, s, extra = {}){
-  const ids = draftPick(3), r = { ids, pot: extra.pot || null, rel: extra.rel || null, cd: !ids.length, pd: !extra.pot, rd: !extra.rel };
+  const ids = draftPick(3, P(st, s).spc), r = { ids, pot: extra.pot || null, rel: extra.rel || null, cd: !ids.length, pd: !extra.pot, rd: !extra.rel };
   if (r.cd && r.pd && r.rd) return;
   const p = P(st, s); (p.rewards = p.rewards || []).push(r);
   if (isCpuSide(s)){ if (!r.cd) rewardAct(st, s, "card", cpuRewardPick(st, s, ids)); if (!r.pd) rewardAct(st, s, "pot", (p.potions || []).length < POTION_MAX ? "1" : "0"); if (!r.rd) rewardAct(st, s, "rel", "1"); if (p.rewards[0] === r) rewardAct(st, s, "done"); }
@@ -240,7 +241,7 @@ function makeCode(){ const a = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; let s = ""; f
 function startState(pa, pb){
   const first = Math.random() < .5 ? "a" : "b";
   const fp = first === "a" ? pa : pb; if (fp.mana){ fp.mana.max = 1; fp.mana.cur = 1; }
-  [pa, pb].forEach(p => { if (p.mana && p.sz.some(z => z && z.face && z.c === "spire-altar")){ p.mana.max = 3; p.mana.cur = p === fp ? 3 : 0; } });
+  [pa, pb].forEach(p => { if (p.mana && p.sz.some(z => z && z.face && isAltar(z.c))){ p.mana.max = 3; p.mana.cur = p === fp ? 3 : 0; } });
   return { v: 3, started: true, players: { a: pa, b: pb }, first, turn: first, turnNo: 1, summoned: false, pending: null, winner: null, why: "", log: [{ t: Date.now(), m: `${(first === "a" ? pa : pb).name} の先攻でスタート！` }] };
 }
 
@@ -287,7 +288,7 @@ $("#btnCpu").addEventListener("click", () => {
   const cid = $("#cpuDeckSel").value, cd = cid && cid !== "auto" ? cpuDeckOptions().find(d => d.id === cid) : null;
   const cpuMana = cd ? !!cd.mana : chosenMana(), cpuIds = (cd || (cpuMana ? sampleManaDeck() : starterDeck())).cards.filter(id => S.cards.has(id));
   if ((!(cd && cd.spire) && cpuIds.length < MIN_DECK) || (!(cd && cd.spire) && !cpuIds.some(id => cardType(S.cards.get(id)) === "monster"))){ toast("CPUのデッキのカードが足りません。別のデッキをえらんでね"); return; }
-  G = { mode: "cpu", slot: "a", st: startState(newPlayer(ids, null, chosenMana(), chosenSpire()), newPlayer(cpuIds, cd ? `CPU（${cd.name}）` : "CPU", cpuMana, !!(cd && cd.spire))), sel: null, atkFrom: null, chooseQ: [], evSeen: 0 };
+  G = { mode: "cpu", slot: "a", st: startState(newPlayer(ids, null, chosenMana(), chosenSpire()), newPlayer(cpuIds, cd ? `CPU（${cd.name}）` : "CPU", cpuMana, deckSpireVal(cd))), sel: null, atkFrom: null, chooseQ: [], evSeen: 0 };
   autoRelic(G.st, "b");
   after(false);
 });
@@ -300,7 +301,7 @@ function allCardsOf(st, s){
 }
 function freshFrom(st, s){
   const p = P(st, s), ids = p.deckIds && p.deckIds.length ? p.deckIds : allCardsOf(st, s);
-  const n = newPlayer(ids, p.name, !!p.mana, !!p.spire); n.sleeve = p.sleeve || null; return n;
+  const n = newPlayer(ids, p.name, !!p.mana, p.spire ? (p.spc === "silent" ? "silent" : true) : false); n.sleeve = p.sleeve || null; return n;
 }
 function resetLocal(){ Object.assign(G, { costPick: null, potPick: null, sel: null, atkFrom: null, chooseQ: [], evSeen: 0, recorded: false, prevLp: null, eqPlace: null, ssPick: null, view: null, graveHand: false, detailOpen: false, detailBack: null, lastDetail: null }); renderDetail(null); }
 function rematch(){
