@@ -1047,7 +1047,7 @@ function runCard(st, s, c, trig, ctx = {}, then){
 // one block: check もし (a 質問 is asked last, only when it can still change the result), then なにを or ちがったら
 // サイコロ／コイン: 結果は ctx.roll に入り、その効果ブロックの条件・「出た目1につき」・「出た目の回数」で使える
 function doRoll(st, s, c, b){
-  const die = b.roll === "die", faces = Math.max(2, Math.min(20, Math.round(+b.faces || 6))), v = die ? 1 + Math.floor(Math.random() * faces) : (Math.random() < .5 ? 1 : 0);
+  const die = b.roll === "die", faces = Math.max(2, Math.min(100, Math.round(+b.faces || 6))), v = die ? 1 + Math.floor(Math.random() * faces) : (Math.random() < .5 ? 1 : 0);
   log(st, s, `「${c ? c.name : "？"}」：${die ? `サイコロを振った → ${v}` : `コインを投げた → ${v ? "表" : "裏"}`}`);
   ev(st, { type: "roll", s, kind: die ? "die" : "coin", v, faces });
   return { kind: die ? "die" : "coin", v };

@@ -617,7 +617,7 @@ const LEGACY_COND = { lp: { k: "lp", op: "le" }, grave: { k: "grave", op: "ge" }
 function blocksOf(c){
   if (!c) return [];
   if (Array.isArray(c.blocks)) return c.blocks.filter(b => b && typeof b === "object").map(b => ({
-    trig: normTrig(c, b.trig), join: b.join === "or" ? "or" : "and", roll: b.roll === "die" || b.roll === "coin" ? b.roll : "", faces: Math.max(2, Math.min(20, Math.round(+b.faces || 6))), delay: Math.max(0, Math.min(9, Math.round(+b.delay || 0))),
+    trig: normTrig(c, b.trig), join: b.join === "or" ? "or" : "and", roll: b.roll === "die" || b.roll === "coin" ? b.roll : "", faces: Math.max(2, Math.min(100, Math.round(+b.faces || 6))), delay: Math.max(0, Math.min(9, Math.round(+b.delay || 0))),
     ...(b.trig === "act" ? { ap: b.ap === "game" || b.ap === "free" ? b.ap : "turn", an: Math.max(1, Math.min(9, Math.round(+b.an || 1))) } : {}),
     ...(b.trig === "ctrReach" ? { rc: String(b.rc || ctrDefault()), rn: Math.max(1, Math.min(99, Math.round(+b.rn || 1))), rw: b.rw === "me" ? "me" : "self" } : {}),
     ...(b.trig === "act" && b.cost && b.cost.id && +b.cost.n > 0 ? { cost: { id: String(b.cost.id), n: Math.min(99, Math.round(+b.cost.n)), w: b.cost.w === "me" || b.cost.w === "field" ? b.cost.w : "self" } } : {}),
