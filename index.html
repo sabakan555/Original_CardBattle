@@ -2704,8 +2704,8 @@ const SPIRE_ALTAR_S = { ...SPIRE_ALTAR, id: "spire-altar-s", name: "選択の祭
 const isAltar = id => id === SPIRE_ALTAR.id || id === SPIRE_ALTAR_S.id;
 const DRAFT_TAGS = { "": DRAFT_TAG, silent: "サイレント" };
 const spirePoolAll = () => [...S.cards.values()].filter(c => c && c.frame === "spire" && !c.token && !c.ex && !isAltar(c.id) && !SPIRE_BASIC.some(b => b.id === c.id));
-// 選択の祭壇などで出るのは #アイアンクラッド のついたカードだけ（1枚もなければ、スパイア風カード全部）
-function draftPool(spc){ const sil = spc === "silent", all = spirePoolAll(), t = all.filter(c => tagsOf(c).includes(DRAFT_TAGS[sil ? "silent" : ""]) || (sil && c.spc === "silent")); return t.length ? t : all; }
+// 選択の祭壇などで出るのは、キャラのタグ（#アイアンクラッド／#サイレント）のついたカードだけ
+function draftPool(spc){ const tag = DRAFT_TAGS[spc === "silent" ? "silent" : ""]; return spirePoolAll().filter(c => tagsOf(c).includes(tag)); }
 const RARITY_W = { common: 6, uncommon: 3, rare: 1 };
 function draftPick(n, spc){
   const pool = draftPool(spc), out = []; n = Math.max(1, n || 3);
