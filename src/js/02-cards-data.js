@@ -332,12 +332,12 @@ function socraHTML(c, t, cls, attrs, opts, sv, showCost){
 }
 // スパイア風 frame: gem cost at the top left, ribbon name over an arched picture, type plaque, centered text
 const exhausts = c => !!(c && c.exhaust && (cardType(c) === "magic" || cardType(c) === "trap"));
-// トークンの名前（「○○」）に下線を引いて、押すとそのトークンの詳細が開くようにする
+// カードの名前（「○○」）に下線を引いて、押すとそのカードの詳細が開くようにする（トークン以外のカードも。同じ名前ならトークンを優先）
 var TK_CACHE;
 function tokenMap(){
   const now = Date.now();
   if (!TK_CACHE || TK_CACHE.n !== S.cards.size || now - TK_CACHE.at > 3000){
-    const m = new Map(); S.cards.forEach(c => { if (c && c.token && c.name && !m.has(c.name)) m.set(c.name, c.id); });
+    const m = new Map(); S.cards.forEach(c => { if (c && c.token && c.name && !m.has(c.name)) m.set(c.name, c.id); }); S.cards.forEach(c => { if (c && !c.token && c.name && !m.has(c.name)) m.set(c.name, c.id); });
     TK_CACHE = { n: S.cards.size, at: now, map: m };
   }
   return TK_CACHE.map;
