@@ -4,6 +4,19 @@
 // カードを保存するとき、使っているカウンターの名前・色・アイコンをカードの中（c.ctrs）にもコピーする → 交換したカードや、カウンターが消されたあとでも表示できる
 // 場での数: モンスターは m.ctr = { id: 個数 }、プレイヤーは p.ctr = { id: 個数 }
 // 場のカードを指定して除去: どちらの場の・どうする
+// 天賦: ゲーム開始時と自分のターンのはじめ、山札にあれば一番上へ（順番はそのまま）
+function innateTop(deck){ const a = [], b = []; (deck || []).forEach(id => (card(id) && card(id).innate ? a : b).push(id)); return a.length ? [...a, ...b] : deck; }
+// 「このターン使ったカード1枚につき」の絞り込み
+const USED_PF = { any: "カード", attack: "アタック", skill: "スキル", power: "パワー", monster: "モンスター", magic: "魔法", trap: "罠", equip: "装備", name: "名前がぴったりのカード", part: "名前に○が入ったカード", tag: "タグ○のカード" };
+function usedMatch(c, pf, nm){
+  if (!c) return false; pf = USED_PF[pf] ? pf : "any"; nm = String(nm || "");
+  if (pf === "any") return true;
+  if (pf === "attack" || pf === "skill" || pf === "power") return spireKind(c) === pf;
+  if (pf === "monster" || pf === "magic" || pf === "trap" || pf === "equip") return cardType(c) === pf;
+  if (!nm) return false;
+  return pf === "name" ? c.name === nm : pf === "part" ? (c.name || "").includes(nm) : hasTag(c.id, nm);
+}
+const usedPfText = m => { const pf = USED_PF[m.pf] ? m.pf : "any", nm = m.pfn || "？"; return pf === "name" ? `「${nm}」` : pf === "part" ? `名前に「${nm}」が入ったカード` : pf === "tag" ? `タグ「${nm}」のカード` : USED_PF[pf]; };
 // 能力を付与する（効果）: だれに・どの能力・いつまで
 const GAB_W = { self: "このモンスター", mine: "自分のモンスター1体", mineAll: "自分のモンスターすべて", opp: "相手のモンスター1体", oppAll: "相手のモンスターすべて" };
 const GAB_D = { "": "ずっと", turn: "このターンだけ", next: "次の自分のターンの終わりまで" };
@@ -33,7 +46,7 @@ const ctrCostText = x => x && x.id && x.n > 0 ? `${CTR_PAY[x.w] || "自分"}の$
 const payCtrOf = c => c && c.payCtr && c.payCtr.id && +c.payCtr.n > 0 ? { id: String(c.payCtr.id), n: Math.min(99, Math.round(+c.payCtr.n)), w: c.payCtr.w === "field" ? "field" : "me" } : null;
 // 「○○カウンターがN個以上になったとき」
 const ctrReachHead = b => `${b.rw === "me" ? "自分" : "このモンスター"}の${ctrName(b.rc)}が${b.rn || 1}個以上になったとき`;
-const perLab = m => m.per === "ctr" ? `${ctrAtText(m.pcw)}の${ctrName(m.pctr)}1個` : PER_DEFS[m.per].label + PER_DEFS[m.per].u;
+const perLab = m => m.per === "usedNow" ? `このターン使った${usedPfText(m)}1枚` : m.per === "ctr" ? `${ctrAtText(m.pcw)}の${ctrName(m.pctr)}1個` : PER_DEFS[m.per].label + PER_DEFS[m.per].u;
 
 /* ---- 数える・ふやす・へらす ---- */
 const ctrOfM = (m, id) => !m || !id ? 0 : id === CTR_DMG ? m.dmg || 0 : (m.ctr && m.ctr[id]) || 0;

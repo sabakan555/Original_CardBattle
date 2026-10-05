@@ -50,11 +50,11 @@ $("#rejoin").addEventListener("click", e => { if (e.target.closest("#btnRejoin")
 
 function isEx(c){ return !!(c && c.ex); }
 function newPlayer(deckIds, name, mana, spire){
-  const deck = shuffle(deckIds.filter(id => !isEx(card(id)))); const hand = deck.splice(0, 5), ex = deckIds.filter(id => isEx(card(id)));
+  const deck = shuffle(deckIds.filter(id => !isEx(card(id)))); deck.splice(0, deck.length, ...innateTop(deck)); const hand = deck.splice(0, 5), ex = deckIds.filter(id => isEx(card(id)));
   const p = { name: name || S.name, lp: START_LP, deck, hand, grave: [], mz: Array(ZONES).fill(null), sz: Array(ZONES).fill(null), mana: mana ? { max: 0, cur: 0 } : null, sleeve: name ? null : (mySleeve() || null), deckIds: [...deckIds], ex };
   // スパイアデッキ: the altar starts on the field, and the deck never runs out (the graveyard is shuffled back in)
   // スパイアデッキ: the opening hand is drawn only after the relic is picked (若葉 can change any card of the deck)
-  if (spire){ p.spire = true; p.relicPick = neowChoices(); p.deck = shuffle([...p.hand, ...p.deck]); p.hand = []; p.openHand = 5; if (!p.mana) p.mana = { max: 0, cur: 0 }; p.sz[0] = { c: SPIRE_ALTAR.id, turn: 0, face: true, u: -1 }; }
+  if (spire){ p.spire = true; p.relicPick = neowChoices(); p.deck = innateTop(shuffle([...p.hand, ...p.deck])); p.hand = []; p.openHand = 5; if (!p.mana) p.mana = { max: 0, cur: 0 }; p.sz[0] = { c: SPIRE_ALTAR.id, turn: 0, face: true, u: -1 }; }
   return p;
 }
 // 選択の祭壇 (face-up): turn start → draw up to 5 cards, turn end → the whole hand goes to the graveyard
