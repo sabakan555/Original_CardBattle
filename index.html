@@ -4006,7 +4006,39 @@ const KIND_GROUPS = [
 ];
 // kinds shown only when an older card already uses them (they're now 基本の効果 + 「だれに」)
 const intoText = into => into ? `「${into}」` : "ランダムなスパイア風カード";
-const PICK_HIDDEN = ["atkAll", "bash", "dmgRand", "dmgAll", "vulnAll", "weakAll", "atkDownAll", "atkDownTmpAll", "charmAll", "destroyAll", "destroyOthers", "bounceAll"];
+// 同じ効果の「どこに・どれ・いつまで」ちがい: 「どれ」には1つだけ出して、となりの小さい欄でえらぶ
+const KIND_FAM = [
+  { label: "このカードのコピーを加える", ax: "どこに", v: [["copyHand", "手札に"], ["copyDeck", "山札に"], ["copyGrave", "墓地に"]] },
+  { label: "ランダムなスパイア風カードを手札に", ax: "種類", v: [["genAttack", "アタック"], ["genAttack0", "アタック（このターン0コスト）"], ["genSkill", "スキル"], ["genPower", "パワー"]] },
+  { label: "相手の魔法・罠を破壊", ax: "どれを", v: [["destroySt", "えらんで"], ["destroyStRand", "ランダムに"], ["destroyStAll", "すべて"]] },
+  { label: "ATKを下げる", ax: "いつまで", v: [["atkDown", "ずっと"], ["atkDownTmp", "このターンだけ"]] },
+  { label: "筋力を得る（与えるダメージ+○）", ax: "いつまで", v: [["str", "ずっと"], ["strTemp", "このターンだけ"]] },
+  { label: "敏捷を得る（得るブロック+○）", ax: "いつまで", v: [["dex", "ずっと"], ["dexTemp", "このターンだけ"]] },
+  { label: "山札からカードを手札に（えらぶ）", ax: "種類", v: [["searchMon", "モンスター"], ["searchMagic", "魔法"], ["searchTrap", "罠"]] },
+  { label: "タグのカードを手札に（えらぶ）", ax: "どこから", v: [["tagSearch", "山札から"], ["tagGraveHand", "墓地から"]] },
+  { label: "タグのモンスターを場に出す", ax: "どこから", v: [["tagSummonHand", "手札から"], ["tagSummonDeck", "山札から"], ["tagSummonGrave", "墓地から"], ["tagSummonEx", "EXデッキから"]] },
+  { label: "山札の一番上をプレイ（○枚）", ax: "使ったあと", v: [["playTop", "ふつう"], ["playTopEx", "廃棄する"]] },
+  { label: "相手のモンスターをうばう", ax: "いつまで", v: [["stealMon", "ずっと"], ["stealMonTmp", "このターンだけ"]] },
+  { label: "相手の墓地のカードを除外する", ax: "どれを", v: [["banishGrave", "えらんで"], ["banishGraveAll", "すべて"]] },
+  { label: "手札を捨てる", ax: "どれを", v: [["selfDisc", "えらんで"], ["selfDiscRand", "ランダムに"], ["selfDiscAll", "すべて"]] },
+  { label: "自分のモンスターを破壊", ax: "どれを", v: [["destroyOwn", "1体えらんで"], ["destroyThis", "このモンスター"], ["destroyOwnAll", "すべて"]] },
+  { label: "名前を指定したカードを相手に送る", ax: "どこに", v: [["oppGenHand", "手札に"], ["oppGenDeck", "山札に混ぜる"]] },
+  { label: "手札を廃棄する", ax: "どれを", v: [["exhaustHand", "○枚えらんで"], ["exhaustRand", "ランダムに○枚"], ["exhaustAll", "すべて"], ["exhaustNonAtk", "アタック以外すべて"]] },
+  { label: "手札を変化させる", ax: "どれを", v: [["transformHand", "○枚えらんで"], ["transformRand", "ランダムに○枚"], ["transformAtk", "アタックすべて"], ["transformAll", "すべて"]] }
+];
+const famOf = k => KIND_FAM.find(f => f.v.some(([x]) => x === k)) || null;
+// 「どれ」の一覧: なかまは1つにまとめる（いまえらんでいるものを代表に）
+function famCollapse(v, cur){
+  const out = [], seen = new Set(), ks = v.map(x => x[0]);
+  v.forEach(([k, l]) => { const f = famOf(k); if (!f){ out.push([k, l]); return; } if (seen.has(f)) return; seen.add(f); const mine = ks.filter(x => famOf(x) === f); out.push([mine.includes(cur) ? cur : mine[0], f.label]); });
+  return out;
+}
+function famSel(e, avail, opt){
+  const f = famOf(e.kind); if (!f) return ""; const vs = f.v.filter(([k]) => k === e.kind || avail.includes(k)); if (vs.length < 2) return "";
+  return `<select data-f="kind" class="bk-fam" aria-label="${esc(f.ax)}">${vs.map(([k, l]) => opt(k, l, e.kind)).join("")}</select>`;
+}
+// 前の効果（いまは「次に使う○」でしぼれる）は、もう使っているカードのときだけ出す
+const PICK_HIDDEN = ["dblAtk", "freeAttack", "freeSkill", "freePower", "atkAll", "bash", "dmgRand", "dmgAll", "vulnAll", "weakAll", "atkDownAll", "atkDownTmpAll", "charmAll", "destroyAll", "destroyOthers", "bounceAll"];
 function attachKindPicker(sel){
   if (!sel) return;
   if (!sel._kp){
@@ -4233,7 +4265,8 @@ function renderBlocksUI(){
     const tg = TARGETABLE[e.kind];
     return `<div class="bk-row${sub ? " bk-sub" : ""}" data-part="${part}" data-i="${j}"${sub ? ' data-sub="ge"' : ""}>${sub ? `<span class="note bk-subl">${sub === "rep" ? "上書きする効果" : "足す効果"}</span>` : `<span class="bk-no">${j + 1}</span>`}`
       + `<select data-f="g" aria-label="なにをする">${gs.map(x => opt(x.g, x.label, g && g.g)).join("")}</select>`
-      + (g && g.v.length > 1 ? `<select data-f="kind" aria-label="どれ">${g.v.map(([k, l]) => opt(k, l || KINDS[k].label, e.kind)).join("")}</select>` : "")
+      + (g && famCollapse(g.v, e.kind).length > 1 ? `<select data-f="kind" aria-label="どれ">${famCollapse(g.v, e.kind).map(([k, l]) => opt(k, l || KINDS[k].label, e.kind)).join("")}</select>` : "")
+      + famSel(e, g ? g.v.map(x => x[0]) : [], opt)
       + (tg ? toUI(e, opt) : "")
       + (KINDS[e.kind] && KINDS[e.kind].ctr ? ctrEffUI(e, opt) : "")
       + (e.kind === "dblNext" || e.kind === "freeNext" || (e.kind === "setCost" && e.sp !== "pick") ? usedPfUI(e, opt) : "")
