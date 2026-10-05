@@ -215,8 +215,16 @@
           <details class="mk-sec" id="secAbs">
             <summary><span class="mk-st" id="secAbsTitle">能力</span><span class="mk-sum" id="sumAbs"></span></summary>
             <div class="fxform" id="absBox">
+              <div class="abs-tools"><input type="search" id="absQ" placeholder="能力をさがす（例: 攻撃・破壊・成長）" aria-label="能力をさがす"><div class="abs-cats" id="absCats"></div></div>
+              <div class="abs-list" id="mkAbsCard">
+                <label data-cat="card"><input type="checkbox" id="mkInnate"> 天賦（ゲーム開始時と自分のターンのはじめ、山札にあれば一番上に置く）</label>
+                <label data-cat="card"><input type="checkbox" id="mkRetain"> 保留（ターンの終わりに手札から捨てられない・スパイアデッキ）</label>
+                <label data-cat="card"><input type="checkbox" id="mkEthereal"> エセリアル（ターンの終わりに手札にあると廃棄される）</label>
+                <label data-cat="card"><input type="checkbox" id="mkSly"> スライ（手札から捨てられたら、タダで使う・魔法と罠）</label>
+              </div>
               <h3 style="margin:0" id="absHead" hidden>能力</h3>
               <div class="abs-list" id="mkAbs"></div>
+              <p class="note" id="absNone" hidden style="margin:0">見つかりませんでした</p>
             </div>
           </details>
           <details class="mk-sec" id="secEq">
@@ -267,10 +275,6 @@
           <label class="f">タグ（スペースかカンマで区切る・8個まで）<input type="text" id="mkTags" list="tagNames" maxlength="80" placeholder="例: アイアンクラッド 炎"></label>
           <label class="row" id="exRow" style="gap:6px;font-weight:700;cursor:pointer"><input type="checkbox" id="mkEx"> EXデッキのカード（山札には入らず、EXデッキから出す・使う）</label>
           <label class="row pro-only" id="tokenRow" style="gap:6px;font-weight:700;cursor:pointer"><input type="checkbox" id="mkToken"> トークン（デッキには入れられない。効果で生み出されるだけのカード）</label>
-          <label class="row" style="gap:6px;font-weight:700;cursor:pointer"><input type="checkbox" id="mkInnate"> 天賦（ゲーム開始時と自分のターンのはじめ、山札にあれば一番上に置く）</label>
-          <label class="row" style="gap:6px;font-weight:700;cursor:pointer"><input type="checkbox" id="mkRetain"> 保留（ターンの終わりに手札から捨てられない・スパイアデッキ）</label>
-          <label class="row" style="gap:6px;font-weight:700;cursor:pointer"><input type="checkbox" id="mkEthereal"> エセリアル（ターンの終わりに手札にあると廃棄される）</label>
-          <label class="row" style="gap:6px;font-weight:700;cursor:pointer"><input type="checkbox" id="mkSly"> スライ（手札から捨てられたら、タダで使う・魔法と罠）</label>
           <label class="f" style="flex-direction:row;align-items:center;gap:10px">デッキに入れられる枚数<select id="mkLimit"><option value="1">1枚まで</option><option value="2">2枚まで</option><option value="3" selected>3枚まで</option><option value="0">制限なし</option></select></label>
         </div>
 

@@ -164,6 +164,12 @@ label.f{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:13p
 .eqplace{display:flex;align-items:center;gap:6px;overflow-x:auto;padding:6px 2px}
 .eqplace .ins{flex:none;min-width:44px;height:64px;border:2px dashed var(--magic);border-radius:10px;background:transparent;font-size:12px;padding:0 4px}
 .abs-list{display:flex;flex-direction:column;gap:4px}
+.abs-tools{display:flex;flex-direction:column;gap:6px;margin-bottom:4px}
+.abs-tools input[type=search]{width:100%;box-sizing:border-box}
+.abs-cats{display:flex;flex-wrap:wrap;gap:4px}
+.abs-cats button{font-size:12px;padding:3px 10px;border-radius:99px}
+.abs-cats button.on{background:var(--accent,#3cc);color:#102;border-color:transparent}
+.abs-list label[hidden]{display:none!important}
 .abs-list label{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:14px}
 .abs-list input[type=number]{width:80px}.abs-list input[type=text]{width:120px}
 /* 召喚酔い: the monster dozes (a bit grey, Zzz floating up) until its owner's next turn */
@@ -1564,8 +1570,16 @@ div.f{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:13px}
           <details class="mk-sec" id="secAbs">
             <summary><span class="mk-st" id="secAbsTitle">能力</span><span class="mk-sum" id="sumAbs"></span></summary>
             <div class="fxform" id="absBox">
+              <div class="abs-tools"><input type="search" id="absQ" placeholder="能力をさがす（例: 攻撃・破壊・成長）" aria-label="能力をさがす"><div class="abs-cats" id="absCats"></div></div>
+              <div class="abs-list" id="mkAbsCard">
+                <label data-cat="card"><input type="checkbox" id="mkInnate"> 天賦（ゲーム開始時と自分のターンのはじめ、山札にあれば一番上に置く）</label>
+                <label data-cat="card"><input type="checkbox" id="mkRetain"> 保留（ターンの終わりに手札から捨てられない・スパイアデッキ）</label>
+                <label data-cat="card"><input type="checkbox" id="mkEthereal"> エセリアル（ターンの終わりに手札にあると廃棄される）</label>
+                <label data-cat="card"><input type="checkbox" id="mkSly"> スライ（手札から捨てられたら、タダで使う・魔法と罠）</label>
+              </div>
               <h3 style="margin:0" id="absHead" hidden>能力</h3>
               <div class="abs-list" id="mkAbs"></div>
+              <p class="note" id="absNone" hidden style="margin:0">見つかりませんでした</p>
             </div>
           </details>
           <details class="mk-sec" id="secEq">
@@ -1616,10 +1630,6 @@ div.f{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:13px}
           <label class="f">タグ（スペースかカンマで区切る・8個まで）<input type="text" id="mkTags" list="tagNames" maxlength="80" placeholder="例: アイアンクラッド 炎"></label>
           <label class="row" id="exRow" style="gap:6px;font-weight:700;cursor:pointer"><input type="checkbox" id="mkEx"> EXデッキのカード（山札には入らず、EXデッキから出す・使う）</label>
           <label class="row pro-only" id="tokenRow" style="gap:6px;font-weight:700;cursor:pointer"><input type="checkbox" id="mkToken"> トークン（デッキには入れられない。効果で生み出されるだけのカード）</label>
-          <label class="row" style="gap:6px;font-weight:700;cursor:pointer"><input type="checkbox" id="mkInnate"> 天賦（ゲーム開始時と自分のターンのはじめ、山札にあれば一番上に置く）</label>
-          <label class="row" style="gap:6px;font-weight:700;cursor:pointer"><input type="checkbox" id="mkRetain"> 保留（ターンの終わりに手札から捨てられない・スパイアデッキ）</label>
-          <label class="row" style="gap:6px;font-weight:700;cursor:pointer"><input type="checkbox" id="mkEthereal"> エセリアル（ターンの終わりに手札にあると廃棄される）</label>
-          <label class="row" style="gap:6px;font-weight:700;cursor:pointer"><input type="checkbox" id="mkSly"> スライ（手札から捨てられたら、タダで使う・魔法と罠）</label>
           <label class="f" style="flex-direction:row;align-items:center;gap:10px">デッキに入れられる枚数<select id="mkLimit"><option value="1">1枚まで</option><option value="2">2枚まで</option><option value="3" selected>3枚まで</option><option value="0">制限なし</option></select></label>
         </div>
 
@@ -3749,11 +3759,31 @@ function syncEqLine(){
   const c = { type: MK.type, eqN: Math.round(+$("#mkEq").value || 0), abs: readAbs(), fx: readFx(), combo: readCombo(), ss: readSS() };
   $("#mkFxLine").innerHTML = kwLink(esc([MK.type === "equip" ? eqText(c) : monAbsText(c), fxText(c)].filter(Boolean).join("。")));
 }
+// 能力のなかま分け（しぼりこみ用）
+const ABS_CAT = { twice: "atk", haste: "atk", direct: "atk", noAttack: "atk", topOnly: "atk", pierce: "atk", lifelink: "atk", flying: "atk", reach: "atk", bane: "atk",
+  guard: "def", noEffect: "def", taunt: "def", dmgCut: "def", reflect: "def", shield: "def", stealth: "def", reborn: "def", blocker: "def", justDiver: "def", ward: "def",
+  evoAtk: "grow", evoTurn: "grow", evolve: "grow", sbAtk: "grow", sympathy: "cost", substitute: "eq", negateOnce: "eq", double: "eq", eqBonus: "eq" };
+const ABS_CATS = [["all", "すべて"], ["card", "カード（天賦など）"], ["atk", "攻撃"], ["def", "守り・耐性"], ["grow", "成長・進化"], ["cost", "コスト"], ["eq", "装備"], ["other", "その他"]];
+const absCatOf = k => ABS_CAT[k] || "other";
+function absFilter(){
+  const box = $("#absBox"); if (!box) return;
+  const q = normQ($("#absQ").value || "").trim(), cat = MK.absCat || "all";
+  const labs = [...box.querySelectorAll(".abs-list label[data-cat]")].filter(l => !l.closest("[hidden]") || l.parentElement.id !== "mkAbs" || !$("#mkAbs").hidden);
+  const have = new Set(labs.filter(l => !l.parentElement.hidden).map(l => l.dataset.cat));
+  if (cat !== "all" && !have.has(cat)){ MK.absCat = "all"; return absFilter(); }
+  $("#absCats").innerHTML = ABS_CATS.filter(([k]) => k === "all" || have.has(k)).map(([k, l]) => `<button type="button" class="small ghost${k === cat ? " on" : ""}" data-abscat="${k}">${l}</button>`).join("");
+  let shown = 0;
+  labs.forEach(l => { const on = l.querySelector("input[type=checkbox]") && l.querySelector("input[type=checkbox]").checked; const ok = on || ((cat === "all" || l.dataset.cat === cat) && (!q || normQ(l.textContent + " " + (l.dataset.q || "")).includes(q))); l.hidden = !ok; if (ok && !l.parentElement.hidden) shown++; });
+  $("#absNone").hidden = shown > 0;
+}
+$("#absQ").addEventListener("input", absFilter);
+$("#absCats").addEventListener("click", e => { const b = e.target.closest("[data-abscat]"); if (!b) return; MK.absCat = b.dataset.abscat; absFilter(); });
+["#mkInnate", "#mkRetain", "#mkEthereal", "#mkSly"].forEach(q => $(q).addEventListener("change", () => { if (typeof updateSecs === "function") updateSecs(); }));
 function renderAbsForm(t){
   const cur = readAbs();
   $("#mkAbs").innerHTML = Object.entries(ABS).filter(([, v]) => !v.only || v.only === (t === "equip" ? "eq" : "mon")).map(([k, v]) =>
-    `<label><input type="checkbox" data-ab="${k}"> ${v.label}${(v.sel || []).map(([f, l, o]) => ` <select data-absel="${k}" data-f="${f}" aria-label="${l}">${o.map(([ov, ol]) => `<option value="${ov}">${ol}</option>`).join("")}</select>`).join("")}${v.name ? ` ${v.ph ? "" : "名前"}<input type="text" data-abname="${k}" maxlength="40" ${v.ph ? `list="cardNames" placeholder="${v.ph}"` : `placeholder="例: ただの"`}>` : ""}${v.n ? ` 数<input type="number" data-abn="${k}" min="1" max="9999" value="${v.n}">` : ""}</label>`).join("");
-  loadAbs(cur);
+    `<label data-cat="${absCatOf(k)}" data-q="${esc((v.kw || "") + " " + (ABS_CATS.find(c => c[0] === absCatOf(k)) || [])[1])}"><input type="checkbox" data-ab="${k}"> ${v.label}${(v.sel || []).map(([f, l, o]) => ` <select data-absel="${k}" data-f="${f}" aria-label="${l}">${o.map(([ov, ol]) => `<option value="${ov}">${ol}</option>`).join("")}</select>`).join("")}${v.name ? ` ${v.ph ? "" : "名前"}<input type="text" data-abname="${k}" maxlength="40" ${v.ph ? `list="cardNames" placeholder="${v.ph}"` : `placeholder="例: ただの"`}>` : ""}${v.n ? ` 数<input type="number" data-abn="${k}" min="1" max="9999" value="${v.n}">` : ""}</label>`).join("");
+  loadAbs(cur); absFilter();
 }
 function readAbs(){
   if (!document.querySelector("#mkAbs [data-ab]")) return [];
@@ -3865,7 +3895,7 @@ function setMkType(t){
   if (typeof syncCost === "function" && $("#mkCost").options.length) syncCost();
   $("#eqRow").hidden = $("#eqNote").hidden = t !== "equip";
   $("#capRow").hidden = t !== "monster" || $("#mkFrame").value !== "socra";
-  $("#absBox").hidden = t !== "monster" && t !== "equip";
+  $("#absBox").hidden = false; $("#mkAbs").hidden = t !== "monster" && t !== "equip"; $("#absHead").hidden = $("#mkAbs").hidden;
   $("#absHead").textContent = t === "equip" ? "装備したモンスターに付く能力" : "このモンスターの能力";
   renderAbsForm(t);
   $("#cbBox").hidden = t === "equip";
@@ -4500,9 +4530,9 @@ function updateSecs(){
   const bs = typeof readBlocks === "function" ? readBlocks() : null;
   sum("#sumFx", bs ? fxText({ ...mkPreviewCard(), ss: null }) || "設定あり" : "なし", !!bs);
   const abs = readAbs();
-  $("#secAbs").hidden = t !== "monster" && t !== "equip";
-  $("#secAbsTitle").textContent = t === "equip" ? "装備したモンスターに付く能力" : "能力";
-  sum("#sumAbs", abs.length ? abs.map(a => ABS[a.k] ? ABS[a.k].label : a.k).join("・") : "なし", abs.length);
+  $("#secAbs").hidden = false;
+  $("#secAbsTitle").textContent = "能力";
+  { const cn = [["#mkInnate", "天賦"], ["#mkRetain", "保留"], ["#mkEthereal", "エセリアル"], ["#mkSly", "スライ"]].filter(([q]) => $(q).checked).map(x => x[1]), al = [...cn, ...abs.map(a => ABS[a.k] ? (ABS[a.k].kw || ABS[a.k].label) : a.k)]; sum("#sumAbs", al.length ? al.join("・") : "なし", al.length); }
   $("#secEq").hidden = $("#eqNote").hidden && $("#capRow").hidden;
   $("#secEqTitle").textContent = t === "equip" ? "装備コスト" : "装備キャパ";
   if (t === "equip") sum("#sumEq", `コスト ${Math.max(0, Math.round(+$("#mkEqCost").value || 0))}`, true);

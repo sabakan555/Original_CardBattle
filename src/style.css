@@ -152,6 +152,12 @@ label.f{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:13p
 .eqplace{display:flex;align-items:center;gap:6px;overflow-x:auto;padding:6px 2px}
 .eqplace .ins{flex:none;min-width:44px;height:64px;border:2px dashed var(--magic);border-radius:10px;background:transparent;font-size:12px;padding:0 4px}
 .abs-list{display:flex;flex-direction:column;gap:4px}
+.abs-tools{display:flex;flex-direction:column;gap:6px;margin-bottom:4px}
+.abs-tools input[type=search]{width:100%;box-sizing:border-box}
+.abs-cats{display:flex;flex-wrap:wrap;gap:4px}
+.abs-cats button{font-size:12px;padding:3px 10px;border-radius:99px}
+.abs-cats button.on{background:var(--accent,#3cc);color:#102;border-color:transparent}
+.abs-list label[hidden]{display:none!important}
 .abs-list label{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:14px}
 .abs-list input[type=number]{width:80px}.abs-list input[type=text]{width:120px}
 /* 召喚酔い: the monster dozes (a bit grey, Zzz floating up) until its owner's next turn */
