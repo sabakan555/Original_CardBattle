@@ -471,7 +471,8 @@ const payMaxOf = c => c && c.payMax > 0 ? Math.round(+c.payMax) : 0;
 function costMechText(c){
   if (!c) return ""; const L = [];
   if (+c.sbCost > 0) L.push(`【スペルブースト】手札にある間、自分が魔法を使うたびに、このカードのコスト−${c.sbCost}`);
-  if (c.gz && String(c.gz.name || "").trim()){ const g = c.gz, n = Math.max(1, +g.cnt || 1); L.push(`【G・ゼロ】自分の${WHERE[g.where] || WHERE.field}に${g.match === "part" ? `名前に「${g.name}」が入ったカード` : g.match === "exact" ? `「${g.name}」` : `タグ「${g.name}」のカード`}が${n > 1 ? n + "枚以上" : ""}あれば、コストを払わずに使える`); }
+  if (c.gz && c.gz.where === "none") L.push("【G・ゼロ】いつでもコストを払わずに使える");
+  else if (c.gz && String(c.gz.name || "").trim()){ const g = c.gz, n = Math.max(1, +g.cnt || 1); L.push(`【G・ゼロ】自分の${WHERE[g.where] || WHERE.field}に${g.match === "part" ? `名前に「${g.name}」が入ったカード` : g.match === "exact" ? `「${g.name}」` : `タグ「${g.name}」のカード`}が${n > 1 ? n + "枚以上" : ""}あれば、コストを払わずに使える`); }
   if (c.revG != null && cardType(c) === "magic") L.push(`【逆転劇 ${+c.revG || 0}】相手のモンスターが自分に直接攻撃するとき、その攻撃中に1回、手札からこのカードをコストを払わずに使ってよい。そうしたら、次の自分のターンのはじめにマナを${+c.revG || 0}払う。払えなければ、自分はゲームに負ける`);
   if (c.delve) L.push("【探査】マナで払いきれないぶん、自分の墓地のカードを1枚除外するごとにコスト−1");
   return L.join("。");

@@ -245,12 +245,15 @@ const ctrBanner = f => f && f.ctr ? `<div class="ctr-on">${ctrChip(f.ctr, "")}<b
 function mkCostMech(save){
   const g = id => document.getElementById(id); if (!g("mkSbCost")) return {};
   const sb = Math.max(0, Math.min(20, Math.round(+g("mkSbCost").value || 0))), gzName = g("mkGzName").value.trim(), rvName = g("mkRevoName").value.trim();
-  return { sbCost: sb || null, gz: g("mkGz").checked && gzName ? { where: g("mkGzWhere").value, match: g("mkGzMatch").value, name: gzName.slice(0, 40), cnt: Math.max(1, Math.min(20, Math.round(+g("mkGzCnt").value || 1))) } : null, delve: g("mkDelve").checked || null, revG: g("mkRevG") && g("mkRevG").checked && (typeof MK === "undefined" || MK.type === "magic") ? Math.max(0, Math.min(20, Math.round(+g("mkRevGN").value || 0))) : null, revo: g("mkRevo").checked && rvName && (typeof MK === "undefined" || MK.type === "monster") ? { match: g("mkRevoMatch").value, name: rvName.slice(0, 40) } : null };
+  return { sbCost: sb || null, gz: g("mkGz").checked && g("mkGzWhere").value === "none" ? { where: "none" } : g("mkGz").checked && gzName ? { where: g("mkGzWhere").value, match: g("mkGzMatch").value, name: gzName.slice(0, 40), cnt: Math.max(1, Math.min(20, Math.round(+g("mkGzCnt").value || 1))) } : null, delve: g("mkDelve").checked || null, revG: g("mkRevG") && g("mkRevG").checked && (typeof MK === "undefined" || MK.type === "magic") ? Math.max(0, Math.min(20, Math.round(+g("mkRevGN").value || 0))) : null, revo: g("mkRevo").checked && rvName && (typeof MK === "undefined" || MK.type === "monster") ? { match: g("mkRevoMatch").value, name: rvName.slice(0, 40) } : null };
 }
+// G・ゼロ: 条件なしなら名前の欄はかくす／カード名のときは名前の候補を出す
+function syncGz(){ const g = id => document.getElementById(id); if (!g("mkGzWhere")) return; const none = g("mkGzWhere").value === "none"; document.querySelectorAll(".gz-c").forEach(el => { el.hidden = none; }); const m = g("mkGzMatch").value; g("mkGzName").setAttribute("list", m === "tag" ? "tagNames" : "cardNames"); g("mkGzName").placeholder = m === "tag" ? "例: 竜" : m === "exact" ? "カード名" : "名前に入る文字"; }
+["mkGzWhere", "mkGzMatch"].forEach(id => { const el = document.getElementById(id); if (el) el.addEventListener("change", syncGz); });
 function setCostMech(c){
   const g = id => document.getElementById(id); if (!g("mkSbCost")) return;
   g("mkSbCost").value = String(c && +c.sbCost > 0 ? +c.sbCost : 0);
-  const gz = c && c.gz; g("mkGz").checked = !!(gz && gz.name); g("mkGzWhere").value = gz && ["field", "grave", "hand"].includes(gz.where) ? gz.where : "field"; g("mkGzMatch").value = gz && ["tag", "part", "exact"].includes(gz.match) ? gz.match : "tag"; g("mkGzName").value = gz ? gz.name || "" : ""; g("mkGzCnt").value = String(gz ? Math.max(1, +gz.cnt || 1) : 1);
+  const gz = c && c.gz; g("mkGz").checked = !!(gz && (gz.name || gz.where === "none")); g("mkGzWhere").value = gz && ["field", "grave", "hand", "none"].includes(gz.where) ? gz.where : "field"; g("mkGzMatch").value = gz && ["tag", "part", "exact"].includes(gz.match) ? gz.match : "tag"; g("mkGzName").value = gz ? gz.name || "" : ""; g("mkGzCnt").value = String(gz ? Math.max(1, +gz.cnt || 1) : 1); syncGz();
   g("mkDelve").checked = !!(c && c.delve); if (g("mkRevG")){ g("mkRevG").checked = !!(c && c.revG != null); g("mkRevGN").value = String(c && c.revG != null ? Math.max(0, +c.revG || 0) : 3); }
   const rv = c && c.revo; g("mkRevo").checked = !!(rv && rv.name); g("mkRevoMatch").value = rv && ["tag", "part", "exact"].includes(rv.match) ? rv.match : "tag"; g("mkRevoName").value = rv ? rv.name || "" : "";
 }
