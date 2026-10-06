@@ -85,7 +85,7 @@
     <div class="maker">
       <div class="mk-left"><div class="card editor" id="editCard"><span class="holo-fx" aria-hidden="true"></span><span class="m-gem" aria-hidden="true"></span><div class="c-in">
         <span class="c-cost" id="mkCostBadge" hidden></span><div class="c-name"><input type="text" id="mkName" maxlength="40" placeholder="カード名"></div>
-        <div class="c-art"><canvas id="cv" width="560" height="400" aria-label="イラストを描くところ"></canvas><div class="fl-guide" id="flGuide" hidden>ここから下は半透明の文字の欄</div><div class="c-tab" id="mkTab">モンスター</div></div>
+        <div class="c-art"><span class="c-tribe" id="mkTribe" hidden></span><canvas id="cv" width="560" height="400" aria-label="イラストを描くところ"></canvas><div class="fl-guide" id="flGuide" hidden>ここから下は半透明の文字の欄</div><div class="c-tab" id="mkTab">モンスター</div></div>
         <div class="c-text">
           <div class="fxline" id="mkFxLine"></div>
           <textarea id="mkEff" maxlength="120" placeholder="カードに書く文（なくてもいい）。書くと、自動の効果の文の代わりにカードに出る。本来の効果はカードを開くと見られる"></textarea>
@@ -281,6 +281,7 @@
 
         <div class="mk-pane" data-pane="deck" hidden>
           <label class="f">タグ（スペースかカンマで区切る・8個まで）<input type="text" id="mkTags" list="tagNames" maxlength="80" placeholder="例: アイアンクラッド 炎"></label>
+          <label class="row" style="gap:6px;font-weight:700;cursor:pointer"><input type="checkbox" id="mkShowTags"> タグをカードの名前の下に出す（デュエマの種族みたいに）</label>
           <label class="row" id="exRow" style="gap:6px;font-weight:700;cursor:pointer"><input type="checkbox" id="mkEx"> EXデッキのカード（山札には入らず、EXデッキから出す・使う）</label>
           <label class="row pro-only" id="tokenRow" style="gap:6px;font-weight:700;cursor:pointer"><input type="checkbox" id="mkToken"> トークン（デッキには入れられない。効果で生み出されるだけのカード）</label>
           <label class="f" style="flex-direction:row;align-items:center;gap:10px">デッキに入れられる枚数<select id="mkLimit"><option value="1">1枚まで</option><option value="2">2枚まで</option><option value="3" selected>3枚まで</option><option value="0">制限なし</option></select></label>

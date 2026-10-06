@@ -294,6 +294,8 @@ function cardHTML(c, cls = "", attrs = "", opts = {}){
   if (mt) h = h.replace(/^<div class="card /, `<div class="card ${FR_CLS[fr]}${(fr === "mtg" || fr === "dm") && HEX6.test(c.colF || "") ? " mcol" : ""} `).replace(/<\/div>$/, `<span class="m-gem" aria-hidden="true"></span></div>`).replace(/<div class="c-atk">ATK /, `<div class="c-atk">`).replace(/<div class="c-name">([\s\S]*?)<\/div><div class="c-art">/, `<div class="c-name"><span class="m-nm">$1</span></div><div class="c-art">`);
   if (c && c.fxRows && !freeText(c) && !c.potionView && !c.relicView && c.frame !== "spire" && c.frame !== "socra") h = h.replace(/^<div class="card /, '<div class="card fxrows ').replace(/<div class="body">[\s\S]*?<\/div>(?=<div class="flv">|<span class="c-lim">|<div class="c-atk">|<\/div><\/div>)/, () => `<div class="body">${fxRowsHTML(c)}</div>`);
   if (c && c.land && isField(c) && !c.potionView && !c.relicView && !FR_CLS[c.frame] && c.frame !== "spire") h = h.replace(/^<div class="card /, '<div class="card land ');
+  // タグを名前の下に（デュエマの種族みたいに）。カードごとに出す・出さないを決められる
+  if (c && c.showTags && !c.potionView && !c.relicView && tagsOf(c).length) h = c.frame === "spire" ? h.replace('<div class="p-type">', `<div class="p-tribe">${esc(tagsOf(c).join("／"))}</div><div class="p-type">`) : h.replace('<div class="c-art">', `<div class="c-art"><span class="c-tribe">${esc(tagsOf(c).join("／"))}</span>`);
   const ho = c && HOLO[c.holo] ? c.holo : "", fo = c && FOIL[c.foil] ? c.foil : "";
   if (!ho && !fo) return h;
   return h.replace(/^<div class="card /, `<div class="card${ho ? ` holo holo-${ho}` : ""}${fo ? ` foil-${fo}` : ""} `).replace(/<\/div>$/, ho ? `<span class="holo-fx" aria-hidden="true"></span></div>` : "</div>");
