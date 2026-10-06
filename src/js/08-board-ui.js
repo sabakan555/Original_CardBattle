@@ -22,6 +22,7 @@ function act(fn){
   if (!G || G.spectate) return;
   const ok = fn(G.st);
   if (ok === false) return;
+  mugRun(G.st);
   checkEnd(G.st);
   persist();
   after(true);
@@ -251,7 +252,7 @@ function renderBoard(){
       return zcap(cardHTML(sc, `${cls} isset`, attrs, { ...mOpt(s), done: late ? "次ターン〜" : w ? WHEN_SHORT[w] : "" }), sc);
     }
     const es = eqsOf(z), cap = eqCapOf(card(z.c));
-    const eqB = [es.length ? `装備${es.length} ${eqUsed(z)}/${cap}` : "", (z.mats || []).length ? `質量${z.mats.length}` : "", (z.evoU || []).length ? `進化${z.evoU.length}` : ""].filter(Boolean).join(" ");
+    const eqB = [es.length ? `装備${es.length} ${eqUsed(z)}/${cap}` : "", (z.mats || []).length ? `質量${z.mats.length}` : "", (z.evoU || []).length ? `重ね${z.evoU.length}` : ""].filter(Boolean).join(" ");
     const ttl = es.length ? ` title="${esc("装備（左から）：" + es.map(e => card(e.c).name).join("→"))}"` : "";
     const atkr = atkNow && atkNow.by === s && atkNow.from === i, atkd = atkNow && atkNow.by !== s && atkNow.to === i;
     const stt0 = atkr ? "攻撃中！" : atkd ? "狙われている" : "";
@@ -560,7 +561,7 @@ function renderDetail(info, anim){
 
   if (info.seal) rows.push(["封印", info.seal]);
   if (info.charm) rows.push(["状態", info.charm]);
-  if (info.evoU && info.evoU.length) rows.push(["進化元", info.evoU.map(n => `「${n}」`).join("←")]);
+  if (info.evoU && info.evoU.length) rows.push(["下のカード", `${info.evoU.length}枚：${info.evoU.map(n => `「${n}」`).join("")}`]);
   if (info.mats && info.mats.length) rows.push(["質量", `${info.mats.length}枚：${info.mats.map(n => `「${n}」`).join("")}`]);
   if (info.abs && info.abs.length) rows.push(["装備でついた能力", info.abs.join("／")]);
   if (info.gab && info.gab.length) rows.push(["効果でついた能力", info.gab.join("／")]);
