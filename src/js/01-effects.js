@@ -7,7 +7,7 @@ const RARITY = { common: "コモン", uncommon: "アンコモン", rare: "レア
 const rarityOf = c => c && RARITY[c.rarity] ? c.rarity : "common";
 const spireKind = c => { const t = cardType(c); if (c && c.sk && t === "magic") return c.persist ? "power" : c.sk === "attack" ? "attack" : "skill"; return t === "monster" ? "attack" : t === "trap" || (t === "magic" && c.persist) ? "power" : "skill"; };
 const typeLabel = c => { if (c && c.potionView) return "ポーション"; const t = cardType(c); if (t === "monster" && c && c.token) return "トークン"; if (t === "monster" && c && c.ex) return "EXモンスター"; return isQuick(c) ? "速攻魔法" : isField(c) ? "フィールド魔法" : isPersist(c) ? "永続" + TYPE_LABEL[t] : TYPE_LABEL[t]; };
-const TRIGS = { evolve: "進化したとき", ctrReach: "カウンターが○個以上になったとき", summon: "召喚したとき", ssummon: "特殊召喚したとき", attack: "攻撃するとき", kill: "戦闘で相手を破壊したとき", destroyed: "破壊されたとき", battleLose: "バトルに負けたとき", turnStart: "自分のターンのはじめ", turnEnd: "自分のターンの終わり", enter: "場に出たとき", while: "場にいる間", anyUse: "魔法・罠が発動したとき", attach: "装備したとき", use: "発動したとき", act: "起動（ボタンで使う）" };
+const TRIGS = { evolve: "エボルヴしたとき", ctrReach: "カウンターが○個以上になったとき", summon: "召喚したとき", ssummon: "特殊召喚したとき", attack: "攻撃するとき", kill: "戦闘で相手を破壊したとき", destroyed: "破壊されたとき", battleLose: "バトルに負けたとき", turnStart: "自分のターンのはじめ", turnEnd: "自分のターンの終わり", enter: "場に出たとき", while: "場にいる間", anyUse: "魔法・罠が発動したとき", attach: "装備したとき", use: "発動したとき", act: "起動（ボタンで使う）" };
 const MON_TRIGS = ["summon", "ssummon", "enter", "while", "act", "evolve", "ctrReach", "anyUse", "attack", "kill", "destroyed", "battleLose", "turnStart", "turnEnd"];
 const EQ_TRIGS = ["attach", "attack", "turnStart", "turnEnd", "destroyed", "battleLose"];
 // 永続魔法・永続罠 (スパイア風 のパワー): stay face-up in the magic/trap zone; their effect fires on one of these
@@ -225,7 +225,7 @@ const ABS = {
   blocker:    { label: "ブロッカー（相手が攻撃してきたとき、代わりに攻撃を受けられる・1ターンに1回）", only: "mon", kw: "ブロッカー" },
   justDiver:  { label: "ジャストダイバー（出てから次の自分のターンまで、攻撃も効果の対象もされない）", only: "mon", kw: "ジャストダイバー" },
   ward:       { label: "護法（相手がこのモンスターを効果の対象にするとき、LPを払わないと効果が消える）", only: "mon", n: 200, kw: "護法", kwx: n => `（LP${n}）` },
-  evolve:     { label: "進化（進化ポイントを使って、ATKアップ＋そのターン相手のモンスターに攻撃できる）", only: "mon", n: 200, kw: "進化", kwx: n => `（ATK+${n}）` },
+  evolve:     { label: "エボルヴ（エボルヴポイントを使って、ATKアップ＋そのターン相手のモンスターに攻撃できる）", only: "mon", n: 200, kw: "エボルヴ", kwx: n => `（ATK+${n}）` },
   sbAtk:      { label: "スペルブースト（手札にある間、魔法を使うたびに、出たときのATKが上がる）", only: "mon", n: 100, kw: "スペルブースト", kwx: n => `（ATK+${n}）` },
   sympathy:   { label: "シンパシー：○○1枚につき、召喚するコストが下がる（コストデッキ用）", only: "mon", n: 1, name: true, ph: "タグか名前に入る文字（空ならぜんぶ）", kw: "シンパシー",
     sel: [["where", "どこの", [["field", "自分の場"], ["grave", "自分の墓地"], ["hand", "自分の手札"], ["oppField", "相手の場"], ["both", "お互いの場"]]], ["what", "なにを", [["monster", "モンスター"], ["magic", "魔法"], ["trap", "罠"], ["equip", "装備"], ["any", "カード（なんでも）"]]]],
@@ -245,7 +245,7 @@ const KW_DESC = {
   "ブロッカー": "相手のモンスターが攻撃してきたとき、このモンスターが代わりに攻撃を受けられる（1ターンに1回。攻撃されたモンスター自身はできない）",
   "ジャストダイバー": "場に出てから次の自分のターンのはじめまで、相手の攻撃と効果の対象にならない",
   "護法": "相手がこのモンスターを効果の対象にするとき、相手は（ ）のLPを払う。払えないと、その効果は消える",
-  "進化": "自分の3ターン目から、1ターンに1回・ゲーム中に2回まで、場のモンスターのボタンから進化できる。進化するとATKが（ ）上がり、そのターンは出たばかりでも相手のモンスターに攻撃できる。「進化したとき」の効果も出る",
+  "エボルヴ": "自分の3ターン目から、1ターンに1回・ゲーム中に2回まで、場のモンスターのボタンからエボルヴできる。エボルヴするとATKが（ ）上がり、そのターンは出たばかりでも相手のモンスターに攻撃できる。「エボルヴしたとき」の効果も出る",
   "スペルブースト": "このカードが手札にある間、自分が魔法を使うたびに強くなる（コストが下がる・ATKが上がる）。同じカードが手札に何枚あっても、全部いっしょに強くなる",
   "シンパシー": "（ ）に書いてある場所の、そのカード1枚（1体）につき、このモンスターを召喚するコストが1（数が書いてあればその数）少なくなる。コストは1より少なくはならない。「 」はタグか、名前に入る文字",
   "2回攻撃": "1ターンに2回攻撃できる", "速攻": "出たターンから攻撃できる（召喚酔いしない）", "直接攻撃": "相手の場にモンスターがいても、相手に直接攻撃できる",

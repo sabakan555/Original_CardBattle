@@ -1875,7 +1875,7 @@ const RARITY = { common: "コモン", uncommon: "アンコモン", rare: "レア
 const rarityOf = c => c && RARITY[c.rarity] ? c.rarity : "common";
 const spireKind = c => { const t = cardType(c); if (c && c.sk && t === "magic") return c.persist ? "power" : c.sk === "attack" ? "attack" : "skill"; return t === "monster" ? "attack" : t === "trap" || (t === "magic" && c.persist) ? "power" : "skill"; };
 const typeLabel = c => { if (c && c.potionView) return "ポーション"; const t = cardType(c); if (t === "monster" && c && c.token) return "トークン"; if (t === "monster" && c && c.ex) return "EXモンスター"; return isQuick(c) ? "速攻魔法" : isField(c) ? "フィールド魔法" : isPersist(c) ? "永続" + TYPE_LABEL[t] : TYPE_LABEL[t]; };
-const TRIGS = { evolve: "進化したとき", ctrReach: "カウンターが○個以上になったとき", summon: "召喚したとき", ssummon: "特殊召喚したとき", attack: "攻撃するとき", kill: "戦闘で相手を破壊したとき", destroyed: "破壊されたとき", battleLose: "バトルに負けたとき", turnStart: "自分のターンのはじめ", turnEnd: "自分のターンの終わり", enter: "場に出たとき", while: "場にいる間", anyUse: "魔法・罠が発動したとき", attach: "装備したとき", use: "発動したとき", act: "起動（ボタンで使う）" };
+const TRIGS = { evolve: "エボルヴしたとき", ctrReach: "カウンターが○個以上になったとき", summon: "召喚したとき", ssummon: "特殊召喚したとき", attack: "攻撃するとき", kill: "戦闘で相手を破壊したとき", destroyed: "破壊されたとき", battleLose: "バトルに負けたとき", turnStart: "自分のターンのはじめ", turnEnd: "自分のターンの終わり", enter: "場に出たとき", while: "場にいる間", anyUse: "魔法・罠が発動したとき", attach: "装備したとき", use: "発動したとき", act: "起動（ボタンで使う）" };
 const MON_TRIGS = ["summon", "ssummon", "enter", "while", "act", "evolve", "ctrReach", "anyUse", "attack", "kill", "destroyed", "battleLose", "turnStart", "turnEnd"];
 const EQ_TRIGS = ["attach", "attack", "turnStart", "turnEnd", "destroyed", "battleLose"];
 // 永続魔法・永続罠 (スパイア風 のパワー): stay face-up in the magic/trap zone; their effect fires on one of these
@@ -2093,7 +2093,7 @@ const ABS = {
   blocker:    { label: "ブロッカー（相手が攻撃してきたとき、代わりに攻撃を受けられる・1ターンに1回）", only: "mon", kw: "ブロッカー" },
   justDiver:  { label: "ジャストダイバー（出てから次の自分のターンまで、攻撃も効果の対象もされない）", only: "mon", kw: "ジャストダイバー" },
   ward:       { label: "護法（相手がこのモンスターを効果の対象にするとき、LPを払わないと効果が消える）", only: "mon", n: 200, kw: "護法", kwx: n => `（LP${n}）` },
-  evolve:     { label: "進化（進化ポイントを使って、ATKアップ＋そのターン相手のモンスターに攻撃できる）", only: "mon", n: 200, kw: "進化", kwx: n => `（ATK+${n}）` },
+  evolve:     { label: "エボルヴ（エボルヴポイントを使って、ATKアップ＋そのターン相手のモンスターに攻撃できる）", only: "mon", n: 200, kw: "エボルヴ", kwx: n => `（ATK+${n}）` },
   sbAtk:      { label: "スペルブースト（手札にある間、魔法を使うたびに、出たときのATKが上がる）", only: "mon", n: 100, kw: "スペルブースト", kwx: n => `（ATK+${n}）` },
   sympathy:   { label: "シンパシー：○○1枚につき、召喚するコストが下がる（コストデッキ用）", only: "mon", n: 1, name: true, ph: "タグか名前に入る文字（空ならぜんぶ）", kw: "シンパシー",
     sel: [["where", "どこの", [["field", "自分の場"], ["grave", "自分の墓地"], ["hand", "自分の手札"], ["oppField", "相手の場"], ["both", "お互いの場"]]], ["what", "なにを", [["monster", "モンスター"], ["magic", "魔法"], ["trap", "罠"], ["equip", "装備"], ["any", "カード（なんでも）"]]]],
@@ -2113,7 +2113,7 @@ const KW_DESC = {
   "ブロッカー": "相手のモンスターが攻撃してきたとき、このモンスターが代わりに攻撃を受けられる（1ターンに1回。攻撃されたモンスター自身はできない）",
   "ジャストダイバー": "場に出てから次の自分のターンのはじめまで、相手の攻撃と効果の対象にならない",
   "護法": "相手がこのモンスターを効果の対象にするとき、相手は（ ）のLPを払う。払えないと、その効果は消える",
-  "進化": "自分の3ターン目から、1ターンに1回・ゲーム中に2回まで、場のモンスターのボタンから進化できる。進化するとATKが（ ）上がり、そのターンは出たばかりでも相手のモンスターに攻撃できる。「進化したとき」の効果も出る",
+  "エボルヴ": "自分の3ターン目から、1ターンに1回・ゲーム中に2回まで、場のモンスターのボタンからエボルヴできる。エボルヴするとATKが（ ）上がり、そのターンは出たばかりでも相手のモンスターに攻撃できる。「エボルヴしたとき」の効果も出る",
   "スペルブースト": "このカードが手札にある間、自分が魔法を使うたびに強くなる（コストが下がる・ATKが上がる）。同じカードが手札に何枚あっても、全部いっしょに強くなる",
   "シンパシー": "（ ）に書いてある場所の、そのカード1枚（1体）につき、このモンスターを召喚するコストが1（数が書いてあればその数）少なくなる。コストは1より少なくはならない。「 」はタグか、名前に入る文字",
   "2回攻撃": "1ターンに2回攻撃できる", "速攻": "出たターンから攻撃できる（召喚酔いしない）", "直接攻撃": "相手の場にモンスターがいても、相手に直接攻撃できる",
@@ -7302,16 +7302,16 @@ function atkTargets(st, s, from){
   return { L, direct: !rushOnly(st, s, from) && !tt.length && (!all.length || (!top && (hasAb(st, s, from, "direct") || flyDirect))), top, taunt: tt.length > 0 };
 }
 
-/* ---- 進化（シャドバ風）: ゲーム中2回・1ターンに1回・自分の3ターン目（ターン5）から ---- */
+/* ---- エボルヴ（シャドバ風）: ゲーム中2回・1ターンに1回・自分の3ターン目（ターン5）から ---- */
 const EVO_MAX = 2;
 function evoWhy(st, s, i){
-  const p = P(st, s), m = p.mz[i]; if (!m || !hasAb(st, s, i, "evolve")) return "進化できない";
-  if (m.evolved) return "もう進化している";
+  const p = P(st, s), m = p.mz[i]; if (!m || !hasAb(st, s, i, "evolve")) return "エボルヴできない";
+  if (m.evolved) return "もうエボルヴしている";
   if (st.turn !== s) return "自分のターンだけ";
-  if (st.turnNo < 5) return "自分の3ターン目から進化できる";
-  if ((p.evoUsed || 0) >= EVO_MAX) return "進化ポイントがもうない";
-  if (p.evoTurn === st.turnNo) return "このターンはもう進化した";
-  if (!canAct(st, s)) return "いまは進化できない";
+  if (st.turnNo < 5) return "自分の3ターン目からエボルヴできる";
+  if ((p.evoUsed || 0) >= EVO_MAX) return "エボルヴポイントがもうない";
+  if (p.evoTurn === st.turnNo) return "このターンはもうエボルヴした";
+  if (!canAct(st, s)) return "いまはエボルヴできない";
   return "";
 }
 function evolveMon(st, s, i){
@@ -7319,12 +7319,12 @@ function evolveMon(st, s, i){
   const p = P(st, s), m = p.mz[i], n = abN(st, s, i, "evolve") || 200;
   p.evoUsed = (p.evoUsed || 0) + 1; p.evoTurn = st.turnNo;
   m.evolved = true; m.mod = (m.mod || 0) + n; m.rushTurn = st.turnNo;
-  log(st, s, `「${card(m.c).name}」が進化した！ ATK+${n}（進化ポイント あと${EVO_MAX - p.evoUsed}）`); ev(st, { type: "evolve", s, z: i });
+  log(st, s, `「${card(m.c).name}」がエボルヴした！ ATK+${n}（エボルヴポイント あと${EVO_MAX - p.evoUsed}）`); ev(st, { type: "evolve", s, z: i });
   const L = monTrigList(st, s, i, "evolve").filter(x => hasTrig(x.c, "evolve"));
   if (L.length) runList(st, L, st2 => checkEnd(st2)); else checkEnd(st);
   return true;
 }
-// 進化したターン: 出たばかりでも、相手のモンスターになら攻撃できる（突進）
+// エボルヴしたターン: 出たばかりでも、相手のモンスターになら攻撃できる（突進）
 const rushOnly = (st, s, i) => { const m = P(st, s).mz[i]; return !!m && m.rushTurn === st.turnNo && sick(st, s, i); };
 
 /* ---- 革命チェンジ（デュエマ風）: 条件に合うモンスターが攻撃するとき、手札のこのカードと入れかえる ---- */
@@ -7629,7 +7629,7 @@ function cpuStep(st, s){
       if (summon(st, s, i, null, null, picks)) return;
     }
   }
-  // 2a. 進化（一番強いモンスターから）
+  // 2a. エボルヴ（一番強いモンスターから）
   { const ev2 = p.mz.map((m, i) => m && !evoWhy(st, s, i) ? i : -1).filter(i => i >= 0).sort((a, b) => cmpNum(atkOf(p.mz[b]), atkOf(p.mz[a]))); if (ev2.length && Math.random() < .8){ evolveMon(st, s, ev2[0]); return; } }
   // 2b. 起動効果（使えるときはだいたい使う）
   for (let i = 0; i < ZONES; i++){ if (p.mz[i] && !actWhy(st, s, i) && Math.random() < .7){ activateMon(st, s, i); return; } }
@@ -7791,7 +7791,7 @@ function renderBoard(){
     const evH = mine && !G.spectate && hasAb(st, s, i, "evolve") && !z.evolved, evNo = evH ? evoWhy(st, s, i) : "";
     const sealN = (z.seals || []).length;
     const rsx = !sealN && (hasAb(st, s, i, "noEffect") || hasAb(st, s, i, "ward") || hiddenMon(st, s, i)), rsxT = [hasAb(st, s, i, "noEffect") ? "効果では破壊されない" : "", hasAb(st, s, i, "ward") ? "護法" : "", jdOn(st, s, i) ? "ジャストダイバー中" : hiddenMon(st, s, i) ? "隠密中" : ""].filter(Boolean).join("・");
-    return (h => sealN ? h.replace(/<\/div>$/, `<span class="sealx" title="封印 ${sealN}（ないものとして扱う。持ち主が同じタグのモンスターを出すと1つはがれる）">封印${sealN > 1 ? " " + sealN : ""}</span></div>`) : h)((h => rsx ? h.replace(/<\/div>$/, `<span class="rsx" role="img" aria-label="除去耐性：${rsxT}" title="${rsxT}"></span></div>`) : h)((h => evH ? h.replace(/<\/div>$/, `<button type="button" class="evobtn" data-evomon="${i}" ${evNo ? "disabled" : ""} title="${esc(evNo || `進化する（進化ポイント あと${EVO_MAX - (P(st, s).evoUsed || 0)}）`)}" aria-label="「${esc(card(z.c).name)}」を進化させる">進化</button></div>`) : h)((h => actH ? h.replace(/<\/div>$/, `<button type="button" class="actbtn" data-actmon="${i}" ${actNo ? "disabled" : ""} title="${actNo ? esc(actNo) : "能力を発動する"}" aria-label="「${esc(card(z.c).name)}」の能力を発動する">${ACT_ICON}</button></div>`) : h)(zcap(cardHTML(card(z.c), cls + zz + zx + (actH ? (actNo ? " actable actused" : " actable") : "") + (atkr ? " attacking" : "") + (atkd ? " atk-tgt" : ""), attrs + (zz ? ` title="召喚酔い：次の自分のターンから攻撃できる"` : ttl), { mod: modOf(z), done: stt, eq: eqB, dmg: z.dmg || 0, ctr: z.ctr, vuln: z.vuln || 0, weak: z.weak || 0, ...mOpt(s) }), card(z.c), z)))));
+    return (h => sealN ? h.replace(/<\/div>$/, `<span class="sealx" title="封印 ${sealN}（ないものとして扱う。持ち主が同じタグのモンスターを出すと1つはがれる）">封印${sealN > 1 ? " " + sealN : ""}</span></div>`) : h)((h => rsx ? h.replace(/<\/div>$/, `<span class="rsx" role="img" aria-label="除去耐性：${rsxT}" title="${rsxT}"></span></div>`) : h)((h => evH ? h.replace(/<\/div>$/, `<button type="button" class="evobtn" data-evomon="${i}" ${evNo ? "disabled" : ""} title="${esc(evNo || `エボルヴする（エボルヴポイント あと${EVO_MAX - (P(st, s).evoUsed || 0)}）`)}" aria-label="「${esc(card(z.c).name)}」をエボルヴさせる">エボルヴ</button></div>`) : h)((h => actH ? h.replace(/<\/div>$/, `<button type="button" class="actbtn" data-actmon="${i}" ${actNo ? "disabled" : ""} title="${actNo ? esc(actNo) : "能力を発動する"}" aria-label="「${esc(card(z.c).name)}」の能力を発動する">${ACT_ICON}</button></div>`) : h)(zcap(cardHTML(card(z.c), cls + zz + zx + (actH ? (actNo ? " actable actused" : " actable") : "") + (atkr ? " attacking" : "") + (atkd ? " atk-tgt" : ""), attrs + (zz ? ` title="召喚酔い：次の自分のターンから攻撃できる"` : ttl), { mod: modOf(z), done: stt, eq: eqB, dmg: z.dmg || 0, ctr: z.ctr, vuln: z.vuln || 0, weak: z.weak || 0, ...mOpt(s) }), card(z.c), z)))));
   }).join("");
 
   // action bar

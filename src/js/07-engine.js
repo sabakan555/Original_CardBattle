@@ -1538,16 +1538,16 @@ function atkTargets(st, s, from){
   return { L, direct: !rushOnly(st, s, from) && !tt.length && (!all.length || (!top && (hasAb(st, s, from, "direct") || flyDirect))), top, taunt: tt.length > 0 };
 }
 
-/* ---- 進化（シャドバ風）: ゲーム中2回・1ターンに1回・自分の3ターン目（ターン5）から ---- */
+/* ---- エボルヴ（シャドバ風）: ゲーム中2回・1ターンに1回・自分の3ターン目（ターン5）から ---- */
 const EVO_MAX = 2;
 function evoWhy(st, s, i){
-  const p = P(st, s), m = p.mz[i]; if (!m || !hasAb(st, s, i, "evolve")) return "進化できない";
-  if (m.evolved) return "もう進化している";
+  const p = P(st, s), m = p.mz[i]; if (!m || !hasAb(st, s, i, "evolve")) return "エボルヴできない";
+  if (m.evolved) return "もうエボルヴしている";
   if (st.turn !== s) return "自分のターンだけ";
-  if (st.turnNo < 5) return "自分の3ターン目から進化できる";
-  if ((p.evoUsed || 0) >= EVO_MAX) return "進化ポイントがもうない";
-  if (p.evoTurn === st.turnNo) return "このターンはもう進化した";
-  if (!canAct(st, s)) return "いまは進化できない";
+  if (st.turnNo < 5) return "自分の3ターン目からエボルヴできる";
+  if ((p.evoUsed || 0) >= EVO_MAX) return "エボルヴポイントがもうない";
+  if (p.evoTurn === st.turnNo) return "このターンはもうエボルヴした";
+  if (!canAct(st, s)) return "いまはエボルヴできない";
   return "";
 }
 function evolveMon(st, s, i){
@@ -1555,12 +1555,12 @@ function evolveMon(st, s, i){
   const p = P(st, s), m = p.mz[i], n = abN(st, s, i, "evolve") || 200;
   p.evoUsed = (p.evoUsed || 0) + 1; p.evoTurn = st.turnNo;
   m.evolved = true; m.mod = (m.mod || 0) + n; m.rushTurn = st.turnNo;
-  log(st, s, `「${card(m.c).name}」が進化した！ ATK+${n}（進化ポイント あと${EVO_MAX - p.evoUsed}）`); ev(st, { type: "evolve", s, z: i });
+  log(st, s, `「${card(m.c).name}」がエボルヴした！ ATK+${n}（エボルヴポイント あと${EVO_MAX - p.evoUsed}）`); ev(st, { type: "evolve", s, z: i });
   const L = monTrigList(st, s, i, "evolve").filter(x => hasTrig(x.c, "evolve"));
   if (L.length) runList(st, L, st2 => checkEnd(st2)); else checkEnd(st);
   return true;
 }
-// 進化したターン: 出たばかりでも、相手のモンスターになら攻撃できる（突進）
+// エボルヴしたターン: 出たばかりでも、相手のモンスターになら攻撃できる（突進）
 const rushOnly = (st, s, i) => { const m = P(st, s).mz[i]; return !!m && m.rushTurn === st.turnNo && sick(st, s, i); };
 
 /* ---- 革命チェンジ（デュエマ風）: 条件に合うモンスターが攻撃するとき、手札のこのカードと入れかえる ---- */
