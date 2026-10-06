@@ -46,7 +46,7 @@ function cpuSpd(){ const v = ls.get("cb_cpuspd", "normal"); return CPU_SPD[v] ? 
 function cpuDelay(){ return Math.round(900 * CPU_SPD[cpuSpd()][0]); }
 const manualOn = () => !!ls.get("cb_manual", false);
 function scheduleCpu(){
-  if (!G || G.mode !== "cpu" || G.cpuT || G.st.winner || G.chooseQ.length) return;
+  if (!G || G.mode !== "cpu" || G.cpuT || G.st.winner || G.chooseQ.length || G.mugPick) return;
   const st = G.st, c = "b";
   // CPU as defender
   if (st.pending && st.pending.wait && st.pending.by !== c) {
@@ -150,7 +150,7 @@ function exAutoReturn(){
   if (!G || G.spectate || !G.st || !G.st.players) return;
   const p = P(G.st, G.slot), t = p && p.exTemp; if (!t) return;
   if (!exTempOk(p)){ setTimeout(() => { if (G && P(G.st, G.slot).exTemp === t) act(st => { P(st, G.slot).exTemp = null; }); }, 0); return; }
-  const busy = G.ssPick || G.costPick || G.eqPlace || G.equipFrom != null || (G.sel && G.sel.z === "hand" && G.sel.i === t.i) || (G.chooseQ || []).length;
+  const busy = G.ssPick || G.mugPick || G.costPick || G.eqPlace || G.equipFrom != null || (G.sel && G.sel.z === "hand" && G.sel.i === t.i) || (G.chooseQ || []).length;
   if (!busy) setTimeout(() => { if (G && P(G.st, G.slot).exTemp === t) act(st => { exReturnP(st, G.slot); }); }, 0);
 }
 // short reason why card c can't be activated on your own turn ("" = it can)
@@ -719,6 +719,16 @@ function renderOverlay(){
       + (rd && !r.rd ? `<div class="rw-item">${icon(rd, "🏺")}<div class="rw-txt"><b>レリック「${esc(rd.name)}」</b><span>${esc(rd.text)}</span></div><button class="primary" data-rw="rel:1">受け取る</button><button class="ghost" data-rw="rel:0">いらない</button></div>` : "")
       + (r.cd ? "" : `<h3 style="margin:6px 0 0">カードを1枚えらぶ</h3><p class="muted" style="margin:0">えらんだカードは墓地に入り、山札がなくなったときデッキにまざります</p><div class="gallery reward-pick">${r.ids.filter(id => S.cards.has(id)).map(id => cardHTML(card(id), "sm pick", `data-rw="card:${esc(id)}" tabindex="0" role="button"`, mOpt(me))).join("")}</div>`)
       + `<div class="row">${r.cd ? "" : `<button class="ghost" data-rw="card:">カードはいらない</button>`}<button class="ghost" data-rw="done">報酬をおわる${r.cd && r.pd && r.rd ? "" : "（のこりはスキップ）"}</button></div></div>`;
+  } else if (G.mugPick && !st.winner){
+    const mp = G.mugPick, pm = P(st, mp.s), x = mugCands(st, mp.s).find(d => d.id === mp.id);
+    if (!x){ G.mugPick = null; }
+    else {
+      const one = (cc, on, attr, o) => cardHTML(cc, `sm pick ${on ? "sel" : ""}`, `${attr} tabindex="0" role="button" aria-pressed="${on}"`, o);
+      const fl = x.fAll.map(i => one(card(pm.mz[i].c), mp.pf.includes(i), `data-mugf="${i}"`, { mod: modOf(pm.mz[i]), ...mOpt(mp.s) })).join("");
+      const gl = x.gAll.map(k => one(card(pm.grave[k]), mp.pg.includes(k), `data-mugg="${k}"`, mOpt(mp.s))).join("");
+      const ok = mp.pf.length === x.nf && mp.pg.length === x.ng;
+      html = `<div class="box"><h2 style="margin:0">「${esc(card(mp.id).name)}」の無月の門</h2><p class="muted" style="margin:0">下に重ねるカードをえらんでね</p>${x.nf ? `<h3 style="margin:6px 0 0">場のモンスター（${mp.pf.length} / ${x.nf}）</h3><div class="gallery">${fl}</div>` : ""}${x.ng ? `<h3 style="margin:6px 0 0">墓地のカード（${mp.pg.length} / ${x.ng}）</h3><div class="gallery">${gl}</div>` : ""}<div class="row"><button class="primary" data-muggo ${ok ? "" : "disabled"}>重ねて召喚する</button><button class="ghost" data-close="mugpick">やめる</button></div></div>`;
+    }
   } else if (G.ssPick && canAct(st, me)){
     const sp = G.ssPick, pm = P(st, me), c = card(pm.hand[sp.hi]);
     const opts = sp.kind === "evo" ? evoBases(st, me, c) : sp.kind === "tribute" ? pm.mz.map((m, i) => m && (!sp.tag || hasTag(m.c, sp.tag)) ? i : -1).filter(i => i >= 0) : sp.kind === "mass" ? pm.grave.map((id, i) => i) : pm.hand.map((id, i) => i).filter(i => i !== sp.hi);
@@ -767,6 +777,9 @@ $("#overlay").addEventListener("click", e => {
   if (cpk && G.costPick){ const j = +cpk.dataset.cpick, cp = G.costPick; if (cp.picked.includes(j)) cp.picked = cp.picked.filter(x => x !== j); else if (cp.picked.length < cp.need) cp.picked.push(j); renderAll(); return; }
   if (e.target.closest("[data-cpgo]") && G.costPick){ const cp = G.costPick; G.costPick = null; cp.go(cp.picked.slice()); return; }
   const spk = e.target.closest("[data-sspick]");
+  { const mf = e.target.closest("[data-mugf]"), mg = e.target.closest("[data-mugg]"), mp = G.mugPick;
+    if (mp && (mf || mg)){ const x = mugCands(st0(), mp.s).find(d => d.id === mp.id); if (x){ const key = mf ? "pf" : "pg", need = mf ? x.nf : x.ng, i = +(mf || mg).dataset[mf ? "mugf" : "mugg"]; if (mp[key].includes(i)) mp[key] = mp[key].filter(v => v !== i); else if (need === 1) mp[key] = [i]; else if (mp[key].length < need) mp[key].push(i); } renderAll(); return; }
+    if (mp && e.target.closest("[data-muggo]")){ G.mugPick = null; act(st => { const x = mugPicked(st, mp.s, mp.id, mp.pf, mp.pg); if (x) mugDo(st, mp.s, x); else log(st, mp.s, "無月の門：えらんだカードが使えなくなっていた"); }); return; } }
   if (spk && G.ssPick){ const i = +spk.dataset.sspick, sp = G.ssPick; if (sp.picked.includes(i)) sp.picked = sp.picked.filter(x => x !== i); else if (sp.picked.length < sp.need) sp.picked.push(i); renderAll(); return; }
   if (e.target.closest("[data-ssgo]") && G.ssPick){ const sp = G.ssPick; G.ssPick = null; if (sp.kind === "evo") withDiscard(card(P(st0(), G.slot).hand[sp.hi]), sp.hi, d => act(st => summon(st, G.slot, sp.hi, sp.picked[0], d))); else if (sp.kind === "mass") withDiscard(card(P(st0(), G.slot).hand[sp.hi]), sp.hi, d => act(st => summon(st, G.slot, sp.hi, sp.zi ?? null, d, null, sp.picked))); else if (sp.normal) withDiscard(card(P(st0(), G.slot).hand[sp.hi]), sp.hi, d => act(st => summon(st, G.slot, sp.hi, null, d, sp.picked))); else act(st => specialSummon(st, G.slot, sp.hi, sp.picked)); return; }
   const ep = e.target.closest("[data-eqpos]");
@@ -815,6 +828,7 @@ $("#overlay").addEventListener("click", e => {
   if (k === "gh"){ G.graveHand = false; renderAll(); }
   if (k === "eqplace"){ G.eqPlace = null; renderAll(); }
   if (k === "sspick"){ G.ssPick = null; renderAll(); }
+  if (k === "mugpick"){ G.mugPick = null; renderAll(); if (G.mode === "cpu") scheduleCpu(); }
   if (k === "potion"){ G.potPick = null; renderAll(); }
   if (k === "costpick"){ G.costPick = null; renderAll(); }
 });

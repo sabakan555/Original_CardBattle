@@ -387,13 +387,20 @@ function mugCands(st, s){
   const p = P(st, s), out = [];
   [["hand", p.hand], ["grave", p.grave]].forEach(([where, L]) => L.forEach((id, j) => {
     const c = card(id), g = mugOf(c); if (!g) return;
-    const f = p.mz.map((m, i) => m && !m.cp && !hiddenMon(st, s, i) && revoHit(card(m.c), g) ? i : -1).filter(i => i >= 0).sort((a, b) => cmpNum(atkOf(p.mz[a]), atkOf(p.mz[b]))).slice(0, g.nf);
-    const gr = p.grave.map((x, k) => !(where === "grave" && k === j) && revoHit(card(x), g) ? k : -1).filter(k => k >= 0).slice(0, g.ng);
+    const fAll = p.mz.map((m, i) => m && !m.cp && !hiddenMon(st, s, i) && revoHit(card(m.c), g) ? i : -1).filter(i => i >= 0).sort((a, b) => cmpNum(atkOf(p.mz[a]), atkOf(p.mz[b]))), f = fAll.slice(0, g.nf);
+    const gAll = p.grave.map((x, k) => !(where === "grave" && k === j) && revoHit(card(x), g) ? k : -1).filter(k => k >= 0), gr = gAll.slice(0, g.ng);
     if (f.length < g.nf || gr.length < g.ng || (!f.length && freeZone(p.mz) < 0)) return;
     if (out.some(o => o.id === id)) return;
-    out.push({ where, j, id, f, g: gr });
+    out.push({ where, j, id, f, g: gr, fAll, gAll, nf: g.nf, ng: g.ng });
   }));
   return out;
+}
+// 自分で選んだ下のカード（f: 場のゾーン, g: 墓地の位置）が今も使えるか
+function mugPicked(st, s, id, f, g){
+  const x = mugCands(st, s).find(d => d.id === id); if (!x) return null;
+  f = [...new Set((f || []).map(Number))]; g = [...new Set((g || []).map(Number))];
+  if (f.length !== x.nf || g.length !== x.ng || f.some(i => !x.fAll.includes(i)) || g.some(k => !x.gAll.includes(k))) return null;
+  return { ...x, f, g };
 }
 function mugDo(st, s, x){
   const p = P(st, s), c = card(x.id); if ((x.where === "hand" ? p.hand : p.grave)[x.j] !== x.id) return false;
@@ -412,13 +419,13 @@ function mugDo(st, s, x){
 }
 // たまった無月の門を処理（手が空いたときだけ）。オンラインでは、その人の画面でだけ聞く
 function mugRun(st){
-  if (!st || !(st.mugQ || []).length || st.pending || st.winner || st.askQ || (G && G.chooseQ.length)) return;
+  if (!st || !(st.mugQ || []).length || st.pending || st.winner || st.askQ || (G && (G.chooseQ.length || G.mugPick))) return;
   const L = st.mugQ.slice(); st.mugQ = [];
   for (const s of L){
     if (G && G.mode === "online" && s !== G.slot){ st.mugQ.push(s); continue; }
     const C = mugCands(st, s); if (!C.length) continue;
     const p = P(st, s), desc = x => `${x.where === "hand" ? "手札" : "墓地"}から・ATK ${fmtN(baseAtk(card(x.id)))}・下に：${[...x.f.map(i => card(p.mz[i].c).name), ...x.g.map(k => card(p.grave[k]).name)].map(n => `「${n}」`).join("")}`;
-    if (isHumanHere(s)){ G.chooseQ.push({ ask: true, s, c: card(C[0].id), fx: { kind: "__block", ask: "無月の門を使う？（えらんだカードの上に重ねて、タダで召喚する）" }, ctx: {}, then: null, pick1: [...C.map(x => ({ name: card(x.id).name, text: desc(x) })), { name: "使わない", text: "このまま" }], p1go: (st2, k) => { const D = mugCands(st2, s); if (k < C.length){ const x = D.find(d => d.id === C[k].id); if (x) mugDo(st2, s, x); } } }); return; }
+    if (isHumanHere(s)){ G.chooseQ.push({ ask: true, s, c: card(C[0].id), fx: { kind: "__block", ask: "無月の門を使う？（えらんだカードの上に重ねて、タダで召喚する）" }, ctx: {}, then: null, pick1: [...C.map(x => ({ name: card(x.id).name, text: desc(x) })), { name: "使わない", text: "このまま" }], p1go: (st2, k) => { const D = mugCands(st2, s); if (k < C.length){ const x = D.find(d => d.id === C[k].id); if (!x) return; if (x.fAll.length === x.nf && x.gAll.length === x.ng) mugDo(st2, s, x); else G.mugPick = { s, id: x.id, pf: x.f.slice(), pg: x.g.slice() }; } } }); return; }
     // CPU: 下にする場のモンスターより強ければ使う
     const best = C.map(x => ({ x, gain: cmpNum(baseAtk(card(x.id)), x.f.reduce((t, i) => t + (+atkOf(p.mz[i]) || 0), 0)) })).filter(o => o.gain > 0).sort((a, b) => cmpNum(baseAtk(card(b.x.id)), baseAtk(card(a.x.id))))[0];
     if (best) mugDo(st, s, best.x);
