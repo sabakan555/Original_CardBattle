@@ -112,7 +112,7 @@ function renderCardView(){
     <button class="cv-x ghost" data-cv="close" aria-label="とじる">×</button>
     <button class="cv-nav prev" data-cv="prev" ${CV.i ? "" : "disabled"} aria-label="前のカード">‹</button>
     <div class="cv-card">${cardHTML(c, "", "", mana === undefined ? {} : { mana })}</div>
-    <div class="cv-info"><h2>${rubyHTML(c.nameRuby || c.name)}</h2><dl class="cv-dl">${rows.map(([k, v]) => `<dt>${k}</dt><dd>${tkLink(esc(v))}</dd>`).join("")}</dl><h3>テキスト</h3><div class="cv-text">${text}</div>${foot}</div>
+    <div class="cv-info"><div class="row" style="justify-content:space-between;align-items:center;gap:8px"><h2>${rubyHTML(c.nameRuby || c.name)}</h2><button class="small" data-cv="shot" title="このカードを画像（PNG）で保存">📷 画像で保存</button></div><dl class="cv-dl">${rows.map(([k, v]) => `<dt>${k}</dt><dd>${tkLink(esc(v))}</dd>`).join("")}</dl><h3>テキスト</h3><div class="cv-text">${text}</div>${foot}</div>
     <button class="cv-nav next" data-cv="next" ${CV.i < CV.ids.length - 1 ? "" : "disabled"} aria-label="次のカード">›</button>
     <div class="cv-pos">${CV.i + 1} / ${CV.ids.length}</div></div>`;
   $("#cardView").hidden = false;
@@ -123,6 +123,7 @@ $("#cardView").addEventListener("click", e => {
   const k = b.dataset.cv, id = CV.ids[CV.i];
   if (k === "skin"){ const to = b.dataset.cvskin; famSkin(id, to); CV.ids[CV.i] = to; renderDeck(); renderCardView(); return; }
   if (k === "close"){ closeCardView(); return; }
+  if (k === "shot"){ saveCardImage(card(id)); return; }
   if (k === "prev" && CV.i > 0){ CV.i--; renderCardView(); }
   if (k === "next" && CV.i < CV.ids.length - 1){ CV.i++; renderCardView(); }
   if (k === "key"){ S.deckEdit.key = id; renderDeck(); renderCardView(); toast("キーカードにしました（デッキを保存すると反映）"); return; }

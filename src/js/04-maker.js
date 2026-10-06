@@ -1122,6 +1122,7 @@ $("#btnPreview").addEventListener("click", () => {
   document.body.appendChild(v); v.querySelector("[data-pvclose]").focus();
 });
 document.addEventListener("keydown", e => { if (e.key === "Escape") closeMkPreview(); });
+$("#btnShot").addEventListener("click", () => { const B = mkBuildDoc(); if (!B) return; saveCardImage({ ...B.doc, id: B.id }); });
 $("#btnTest").addEventListener("click", () => {
   if (MK.kind === "potion" || MK.kind === "relic"){ toast("ポーション・レリックはテストモードでは試せません"); return; }
   const B = mkBuildDoc(); if (!B) return;
