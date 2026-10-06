@@ -599,7 +599,9 @@ $("#mkField").addEventListener("change", () => { if ($("#mkField").checked){ $("
 function mkPays(save){ const v = q => Math.max(0, Math.round(+$(q).value || 0)) || (save ? null : 0); return { payLp: v("#mkPayLp"), payDisc: $("#mkPayDiscAll").checked ? -1 : v("#mkPayDisc"), payDiscTag: $("#mkPayDiscTag").value.trim() || null, payMax: v("#mkPayMax"), payCtr: mkPayCtrVal(), ...mkCostMech(save) }; }
 ["#mkPayDiscTag", "#mkTags", "#mkTribTag"].forEach(q => $(q).addEventListener("input", () => updateBkText()));
 // カード工房の見本: タグを名前の下に
-function syncTribe(){ const el = $("#mkTribe"); if (!el) return; const L = parseTags($("#mkTags").value); el.textContent = L.join("／"); el.hidden = !($("#mkShowTags").checked && L.length); }
+function syncTribe(){ const el = $("#mkTribe"), en = $("#mkTribeN"); if (!el) return; const L = parseTags($("#mkTags").value), on = !!($("#mkShowTags").checked && L.length), fr = $("#mkFrame").value, band = !fr || fr === "dm";
+  el.textContent = en.textContent = L.join("／"); en.style.setProperty("--trn", Math.max(1, [...L.join("／")].length)); el.hidden = !on || band; en.hidden = !on || !band; en.parentElement.classList.toggle("has-tr", on && band); }
+$("#mkFrame").addEventListener("change", () => syncTribe());
 $("#mkTags").addEventListener("input", syncTribe); $("#mkShowTags").addEventListener("change", syncTribe);
 $("#mkPayDiscAll").addEventListener("change", () => { $("#mkPayDisc").disabled = $("#mkPayDiscAll").checked; updateBkText(); });
 // スパイア風: スキル = magic, パワー = 永続 magic (the kind buttons show which one is on)

@@ -239,6 +239,14 @@ label.f{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:13p
 .mana i{width:11px;height:11px;border-radius:50%;background:#2f6fd0;border:1.5px solid var(--ink);display:inline-block}
 .mana i.off{background:#d6dde6}
 .c-name{border-bottom:var(--lw) solid var(--cframe);text-align:center;font-size:calc(var(--w)*.085*var(--nk,1));line-height:1.15;padding:calc(var(--w)*.03) calc(var(--w)*.13);position:relative;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:none}
+.c-name.has-tr{display:flex;flex-direction:column;justify-content:center;align-items:stretch;line-height:1.05!important;text-overflow:clip}
+.c-name.has-tr>.c-nm1{display:block;font-size:.82em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:center}
+.c-name.has-tr>.c-tribe-n{display:block;font-size:min(calc(var(--w)*.038),calc(var(--w)*.6/var(--trn,1)));font-weight:700;line-height:1.15;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:0;opacity:.9}
+.card.dm .c-name.has-tr{justify-content:flex-start;padding-top:calc(var(--du)*4)!important}
+.card.dm .c-name.has-tr>.m-nm{font-size:.86em;text-align:center;line-height:1.05}
+.card.dm .c-name.has-tr>.c-tribe-n{font-size:min(calc(var(--du)*21),calc(var(--du)*455/var(--trn,1)));margin-top:calc(var(--du)*5);padding-right:calc(var(--du)*4);font-family:"GenJyuuGothic",var(--cf),sans-serif}
+.card.editor .c-name.has-tr input{flex:none;height:auto;font-size:calc(var(--w)*.06*var(--nk,1))}
+.card.editor.dm .c-name.has-tr input{font-size:calc(var(--du)*36*var(--nk,1))}
 .card.fut .c-art>.c-tribe{top:calc(var(--w)*.15);left:calc(var(--w)*.06);right:calc(var(--w)*.06);border-radius:calc(var(--w)*.02);background:rgba(0,0,0,.6)}
 .card.spire .p-tribe{position:absolute;left:calc(var(--u)*105);width:calc(var(--u)*420);top:calc(var(--u)*100);z-index:3;box-sizing:border-box;padding:calc(var(--u)*4) calc(var(--u)*14);border-radius:calc(var(--u)*20);background:rgba(20,16,8,.7);color:#f1ead0;font:700 calc(var(--u)*28)/1.2 "Zen Maru Gothic",var(--ui);text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:none}
 .card .c-art>.c-tribe{position:absolute!important;top:0;left:0;right:0;z-index:4!important;padding:calc(var(--w)*.01) calc(var(--w)*.03) calc(var(--w)*.03);font-size:calc(var(--w)*.052);line-height:1.2;font-weight:700;color:#fff;background:linear-gradient(rgba(0,0,0,.6),rgba(0,0,0,0));text-shadow:0 0 calc(var(--w)*.012) #000,0 0 calc(var(--w)*.012) #000;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:none;text-align:left}
@@ -1444,7 +1452,7 @@ div.f{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:13px}
   <section id="tab-make" hidden>
     <div class="maker">
       <div class="mk-left"><div class="card editor" id="editCard"><span class="holo-fx" aria-hidden="true"></span><span class="m-gem" aria-hidden="true"></span><div class="c-in">
-        <span class="c-cost" id="mkCostBadge" hidden></span><div class="c-name"><input type="text" id="mkName" maxlength="40" placeholder="カード名"></div>
+        <span class="c-cost" id="mkCostBadge" hidden></span><div class="c-name"><input type="text" id="mkName" maxlength="40" placeholder="カード名"><span class="c-tribe-n" id="mkTribeN" hidden></span></div>
         <div class="c-art"><span class="c-tribe" id="mkTribe" hidden></span><canvas id="cv" width="560" height="400" aria-label="イラストを描くところ"></canvas><div class="fl-guide" id="flGuide" hidden>ここから下は半透明の文字の欄</div><div class="c-tab" id="mkTab">モンスター</div></div>
         <div class="c-text">
           <div class="fxline" id="mkFxLine"></div>
@@ -2887,7 +2895,9 @@ function cardHTML(c, cls = "", attrs = "", opts = {}){
   if (c && c.fxRows && !freeText(c) && !c.potionView && !c.relicView && c.frame !== "spire" && c.frame !== "socra") h = h.replace(/^<div class="card /, '<div class="card fxrows ').replace(/<div class="body">[\s\S]*?<\/div>(?=<div class="flv">|<span class="c-lim">|<div class="c-atk">|<\/div><\/div>)/, () => `<div class="body">${fxRowsHTML(c)}</div>`);
   if (c && c.land && isField(c) && !c.potionView && !c.relicView && !FR_CLS[c.frame] && c.frame !== "spire") h = h.replace(/^<div class="card /, '<div class="card land ');
   // タグを名前の下に（デュエマの種族みたいに）。カードごとに出す・出さないを決められる
-  if (c && c.showTags && !c.potionView && !c.relicView && tagsOf(c).length) h = c.frame === "spire" ? h.replace('<div class="p-type">', `<div class="p-tribe">${esc(tagsOf(c).join("／"))}</div><div class="p-type">`) : h.replace('<div class="c-art">', `<div class="c-art"><span class="c-tribe">${esc(tagsOf(c).join("／"))}</span>`);
+  if (c && c.showTags && !c.potionView && !c.relicView && tagsOf(c).length) { const tr = esc(tagsOf(c).join("／")), band = (!fr || fr === "dm") && c.frame !== "spire" && c.frame !== "socra", trn = Math.max(1, [...tagsOf(c).join("／")].length);
+    if (band) h = fr === "dm" ? h.replace(/<div class="c-name"><span class="m-nm">([\s\S]*?)<\/span><\/div>/, `<div class="c-name has-tr"><span class="m-nm">$1</span><span class="c-tribe-n" style="--trn:${trn}">${tr}</span></div>`) : h.replace(/<div class="c-name">([\s\S]*?)<\/div><div class="c-art">/, `<div class="c-name has-tr"><span class="c-nm1">$1</span><span class="c-tribe-n" style="--trn:${trn}">${tr}</span></div><div class="c-art">`);
+    else h = c.frame === "spire" ? h.replace('<div class="p-type">', `<div class="p-tribe">${esc(tagsOf(c).join("／"))}</div><div class="p-type">`) : h.replace('<div class="c-art">', `<div class="c-art"><span class="c-tribe">${esc(tagsOf(c).join("／"))}</span>`); }
   const ho = c && HOLO[c.holo] ? c.holo : "", fo = c && FOIL[c.foil] ? c.foil : "";
   if (!ho && !fo) return h;
   return h.replace(/^<div class="card /, `<div class="card${ho ? ` holo holo-${ho}` : ""}${fo ? ` foil-${fo}` : ""} `).replace(/<\/div>$/, ho ? `<span class="holo-fx" aria-hidden="true"></span></div>` : "</div>");
@@ -4275,7 +4285,9 @@ $("#mkField").addEventListener("change", () => { if ($("#mkField").checked){ $("
 function mkPays(save){ const v = q => Math.max(0, Math.round(+$(q).value || 0)) || (save ? null : 0); return { payLp: v("#mkPayLp"), payDisc: $("#mkPayDiscAll").checked ? -1 : v("#mkPayDisc"), payDiscTag: $("#mkPayDiscTag").value.trim() || null, payMax: v("#mkPayMax"), payCtr: mkPayCtrVal(), ...mkCostMech(save) }; }
 ["#mkPayDiscTag", "#mkTags", "#mkTribTag"].forEach(q => $(q).addEventListener("input", () => updateBkText()));
 // カード工房の見本: タグを名前の下に
-function syncTribe(){ const el = $("#mkTribe"); if (!el) return; const L = parseTags($("#mkTags").value); el.textContent = L.join("／"); el.hidden = !($("#mkShowTags").checked && L.length); }
+function syncTribe(){ const el = $("#mkTribe"), en = $("#mkTribeN"); if (!el) return; const L = parseTags($("#mkTags").value), on = !!($("#mkShowTags").checked && L.length), fr = $("#mkFrame").value, band = !fr || fr === "dm";
+  el.textContent = en.textContent = L.join("／"); en.style.setProperty("--trn", Math.max(1, [...L.join("／")].length)); el.hidden = !on || band; en.hidden = !on || !band; en.parentElement.classList.toggle("has-tr", on && band); }
+$("#mkFrame").addEventListener("change", () => syncTribe());
 $("#mkTags").addEventListener("input", syncTribe); $("#mkShowTags").addEventListener("change", syncTribe);
 $("#mkPayDiscAll").addEventListener("change", () => { $("#mkPayDisc").disabled = $("#mkPayDiscAll").checked; updateBkText(); });
 // スパイア風: スキル = magic, パワー = 永続 magic (the kind buttons show which one is on)

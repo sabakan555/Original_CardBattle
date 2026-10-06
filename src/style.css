@@ -227,6 +227,14 @@ label.f{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:13p
 .mana i{width:11px;height:11px;border-radius:50%;background:#2f6fd0;border:1.5px solid var(--ink);display:inline-block}
 .mana i.off{background:#d6dde6}
 .c-name{border-bottom:var(--lw) solid var(--cframe);text-align:center;font-size:calc(var(--w)*.085*var(--nk,1));line-height:1.15;padding:calc(var(--w)*.03) calc(var(--w)*.13);position:relative;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:none}
+.c-name.has-tr{display:flex;flex-direction:column;justify-content:center;align-items:stretch;line-height:1.05!important;text-overflow:clip}
+.c-name.has-tr>.c-nm1{display:block;font-size:.82em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:center}
+.c-name.has-tr>.c-tribe-n{display:block;font-size:min(calc(var(--w)*.038),calc(var(--w)*.6/var(--trn,1)));font-weight:700;line-height:1.15;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:0;opacity:.9}
+.card.dm .c-name.has-tr{justify-content:flex-start;padding-top:calc(var(--du)*4)!important}
+.card.dm .c-name.has-tr>.m-nm{font-size:.86em;text-align:center;line-height:1.05}
+.card.dm .c-name.has-tr>.c-tribe-n{font-size:min(calc(var(--du)*21),calc(var(--du)*455/var(--trn,1)));margin-top:calc(var(--du)*5);padding-right:calc(var(--du)*4);font-family:"GenJyuuGothic",var(--cf),sans-serif}
+.card.editor .c-name.has-tr input{flex:none;height:auto;font-size:calc(var(--w)*.06*var(--nk,1))}
+.card.editor.dm .c-name.has-tr input{font-size:calc(var(--du)*36*var(--nk,1))}
 .card.fut .c-art>.c-tribe{top:calc(var(--w)*.15);left:calc(var(--w)*.06);right:calc(var(--w)*.06);border-radius:calc(var(--w)*.02);background:rgba(0,0,0,.6)}
 .card.spire .p-tribe{position:absolute;left:calc(var(--u)*105);width:calc(var(--u)*420);top:calc(var(--u)*100);z-index:3;box-sizing:border-box;padding:calc(var(--u)*4) calc(var(--u)*14);border-radius:calc(var(--u)*20);background:rgba(20,16,8,.7);color:#f1ead0;font:700 calc(var(--u)*28)/1.2 "Zen Maru Gothic",var(--ui);text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:none}
 .card .c-art>.c-tribe{position:absolute!important;top:0;left:0;right:0;z-index:4!important;padding:calc(var(--w)*.01) calc(var(--w)*.03) calc(var(--w)*.03);font-size:calc(var(--w)*.052);line-height:1.2;font-weight:700;color:#fff;background:linear-gradient(rgba(0,0,0,.6),rgba(0,0,0,0));text-shadow:0 0 calc(var(--w)*.012) #000,0 0 calc(var(--w)*.012) #000;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:none;text-align:left}
