@@ -375,7 +375,19 @@ function sealRelease(st, s, z){
   const m = p.mz[j], sl = m.seals.shift(); P(st, sl.o).grave.push(sl.c);
   log(st, s, `「${card(nm.c).name}」を出したので、「${card(m.c).name}」の封印が1つはがれた（のこり${m.seals.length}）`);
 }
-const sealsOut = (st, m) => { (m && m.seals || []).forEach(x => P(st, x.o).grave.push(x.c)); if (m) m.seals = []; };
+const sealsOut = (st, m) => { (m && m.seals || []).forEach(x => P(st, x.o).grave.push(x.c)); if (m) m.seals = []; evoUOut(st, m); };
+// 進化（デュエマ風）: 下に重なったカード（進化元）。場をはなれるときはいっしょに墓地へ
+const evoUOut = (st, m) => { (m && m.evoU || []).forEach(x => P(st, x.o).grave.push(x.c)); if (m) m.evoU = []; };
+const isDmEvo = c => !!(c && cardType(c) === "monster" && c.dmEvo && String(c.dmEvo.name || "").trim());
+function evoBases(st, s, c){ const p = P(st, s); if (!isDmEvo(c)) return []; return p.mz.map((m, i) => m && !m.cp && !hiddenMon(st, s, i) && revoHit(card(m.c), c.dmEvo) ? i : -1).filter(i => i >= 0); }
+// 進化元 z の上に id を重ねる
+function evoPut(st, s, z, id){
+  const p = P(st, s), b = p.mz[z]; if (!b) return null;
+  const nm = mkMon(st, id);
+  nm.evoU = [...(b.evoU || []), { c: b.c, o: b.owner || s }]; nm.eqs = b.eqs || []; if ((b.mats || []).length) nm.mats = b.mats;
+  nm.attacked = b.attacked; nm.atkCount = b.atkCount; nm.atkTotal = b.atkTotal; nm.evoDM = true;
+  p.mz[z] = nm; return nm;
+}
 // ジャストダイバー: 出たターンと、そのあとの相手のターンのあいだ
 const jdOn = (st, s, i) => { const m = P(st, s).mz[i]; return !!m && hasAb(st, s, i, "justDiver") && (st.turnNo === m.born || (st.turnNo === m.born + 1 && st.turn !== s)); };
 function targetOptions(st, s, kind, ctx = {}){
@@ -456,7 +468,7 @@ function autoTarget(st, s, kind, opts, fx){
 /* ---- equips stick to a monster: m.eqs = [{ c, o (owner), u }] from left to right ---- */
 // born: the turn it came out — 召喚酔い: it can attack from its owner's next turn (unless it has 速攻)
 function mkMon(st, id){ st.un = (st.un || 0) + 1; const m = { c: id, mod: 0, attacked: false, eqs: [], u: st.un, born: st.turnNo }; if (st.sbAtkPend && st.sbAtkPend.id === id){ m.mod += st.sbAtkPend.add; st.sbAtkPend = null; } return m; }
-const sick = (st, s, i) => { const m = P(st, s).mz[i]; return !!m && m.born === st.turnNo && !hasAb(st, s, i, "haste"); };
+const sick = (st, s, i) => { const m = P(st, s).mz[i]; return !!m && m.born === st.turnNo && !m.evoDM && !hasAb(st, s, i, "haste"); };
 const monAt = (st, ref) => { const m = ref && P(st, ref.s).mz[ref.i]; return m && m.u === ref.u ? m : null; };
 function findEq(st, u){ for (const s of ["a", "b"]){ const mz = P(st, s).mz; for (let i = 0; i < mz.length; i++){ const k = eqsOf(mz[i]).findIndex(e => e.u === u); if (k >= 0) return { s, i, k, e: mz[i].eqs[k] }; } } return null; }
 // all equips on monster (s,i) go to their owners' graveyards
@@ -680,6 +692,7 @@ function destroyMonster(st, s, i, why, opt = {}){
   if (es.length) log(st, s, `付いていた装備${es.map(e => `「${card(e.c).name}」`).join("")}も墓地へ`);
   if ((m.mats || []).length){ p.grave.push(...m.mats); log(st, s, `質量${m.mats.length}枚も墓地へ`); }
   if (sealedM(m)){ log(st, s, `封印${m.seals.length}枚も墓地へ`); sealsOut(st, m); }
+  if ((m.evoU || []).length){ log(st, s, `下に重なっていた${m.evoU.map(x => `「${card(x.c).name}」`).join("")}も墓地へ`); evoUOut(st, m); }
   if (rb){ const k = p.grave.lastIndexOf(m.c); if (k >= 0) p.grave.splice(k, 1); const r = mkMon(st, m.c), b = baseAtk(card(m.c)); r.reborned = true; if (isFinite(b)) r.mod = -Math.ceil(b / 2); p.mz[i] = r; ev(st, { type: "summon", s, z: i }); log(st, s, `「${name}」が復活した！（ATK半分）`); }
   // スパイアデッキ: beating an opponent's monster → カード報酬 + maybe a ポーション
   // 選択の祭壇: beating an opponent's monster → カード報酬, 40% ポーション, 10% レリック
@@ -1264,9 +1277,10 @@ function canSummonNow(st, s){ return P(st, s).mana ? true : !st.summoned; }
 function canAct(st, s){ return !(G && G.spectate) && st.turn === s && !st.pending && !st.askQ && !st.winner && !(G && G.chooseQ.length); }
 // mats: 質量にする墓地の場所（なければ古い順に自動）
 function summon(st, s, hi, zi, disc, trib, mats){
-  const p = P(st, s), id = p.hand[hi], need = tribOf(card(id), st, s), ms = massOf(card(id));
+  const p = P(st, s), id = p.hand[hi], evo = isDmEvo(card(id)), need = evo ? 0 : tribOf(card(id), st, s), ms = evo ? 0 : massOf(card(id));
+  if (evo){ const B = evoBases(st, s, card(id)); if (!B.length) return false; if (zi == null || !B.includes(+zi)) zi = B.sort((a, b) => cmpNum(atkOf(p.mz[a]), atkOf(p.mz[b])))[0]; zi = +zi; }
   if (ms){ if (p.grave.length < ms) return false; let L = [...new Set((mats || []).map(Number))].filter(j => p.grave[j] != null); if (L.length !== ms) L = p.grave.map((_, j) => j).slice(0, ms); mats = L; }
-  let z = (zi != null && !p.mz[zi]) ? zi : freeZone(p.mz);
+  let z = evo ? zi : (zi != null && !p.mz[zi]) ? zi : freeZone(p.mz);
   if (need){ const tt = card(id).tribTag; trib = [...new Set((trib || []).map(Number))].filter(i => p.mz[i] && (!tt || hasTag(p.mz[i].c, tt))); if (trib.length !== need) return false; }
   if (!canSummonNow(st, s) || (z < 0 && !need) || cardType(card(id)) !== "monster" || !canPay(st, s, card(id)) || (ssOf(card(id)) || {}).only || isFusion(card(id))) return false;
   if (!pay(st, s, card(id))) return false;
@@ -1275,15 +1289,15 @@ function summon(st, s, hi, zi, disc, trib, mats){
   p.hand.splice(hi, 1); if (!p.mana) st.summoned = true;
   discardCost(st, s, card(id), shiftPicks(disc, hi));
   if (need){ log(st, s, `${trib.map(i => `「${card(p.mz[i].c).name}」`).join("")}を生贄にした`); trib.forEach(i => sendToGrave(st, s, i)); z = (zi != null && !p.mz[zi]) ? zi : trib.includes(z) || z < 0 ? trib[0] : z; }
-  const label = `「${card(id).name}」（ATK ${fmtN(baseAtk(card(id)))}）を召喚${p.mana ? `（コスト${costLabel(card(id))}）` : ""}`;
+  const label = `「${card(id).name}」（ATK ${fmtN(baseAtk(card(id)))}）を${evo ? `「${card(p.mz[z].c).name}」から進化` : "召喚"}${p.mana ? `（コスト${costLabel(card(id))}）` : ""}`;
   // the opponent gets a window only if they hold something that can counter it
   if (responseOptions(st, O(s), "summon").length){
-    st.chain = [{ s, c: id, summon: true, z, ctx: { zone: z }, mats: matIds }];
+    st.chain = [{ s, c: id, summon: true, z, ctx: { zone: z }, mats: matIds, ...(evo ? { evo: true, bu: p.mz[z].u } : {}) }];
     log(st, s, `${label}しようとしている…`);
     st.pending = { type: "chain", by: s, wait: true, resume: null };
     return true;
   }
-  p.mz[z] = mkMon(st, id); if (matIds.length) p.mz[z].mats = matIds;
+  if (evo) evoPut(st, s, z, id); else { p.mz[z] = mkMon(st, id); if (matIds.length) p.mz[z].mats = matIds; }
   log(st, s, label); ev(st, { type: "summon", s, z });
   trigger(st, s, card(id), "summon", { zone: z, mon: { s, i: z, u: p.mz[z].u } });
   persistFire(st, s, "mySummon", {});
@@ -1316,7 +1330,7 @@ const canSpecial = (st, s, hi) => st.turn === s && !st.pending && !st.winner && 
 function sendToGrave(st, s, i){
   const p = P(st, s), m = p.mz[i]; if (!m) return;
   eqsOf(m).forEach(e => P(st, e.o).grave.push(e.c));
-  p.mz[i] = null; P(st, m.owner || s).grave.push(...(m.cp ? [] : [m.c])); p.grave.push(...(m.mats || [])); ev(st, { type: "destroy", s, z: i });
+  p.mz[i] = null; P(st, m.owner || s).grave.push(...(m.cp ? [] : [m.c])); p.grave.push(...(m.mats || [])); sealsOut(st, m); ev(st, { type: "destroy", s, z: i });
 }
 // picks: my monster zones (tribute) or other hand indexes (discard)
 function specialSummon(st, s, hi, picks = []){
@@ -1453,6 +1467,10 @@ function resolveChain(st, resume){
     if (link.summon){
       const p = P(st2, link.s);
       if (link.negated){ p.grave.push(link.c, ...(link.mats || [])); log(st2, link.s, `「${c.name}」の${link.special ? "特殊召喚" : "召喚"}は打ち消された！`); step(st2); return; }
+      if (link.evo){ const b = p.mz[link.z];
+        if (!b || b.u !== link.bu){ p.grave.push(link.c); log(st2, link.s, `進化元がいなくなって、「${c.name}」は出られなかった`); step(st2); return; }
+        evoPut(st2, link.s, link.z, link.c); log(st2, link.s, `「${c.name}」が「${card(b.c).name}」から進化した！`); ev(st2, { type: "summon", s: link.s, z: link.z });
+        runCard(st2, link.s, c, "summon", { zone: link.z, mon: { s: link.s, i: link.z, u: p.mz[link.z].u } }, st3 => persistFire(st3, link.s, "mySummon", {}, step)); return; }
       let z = p.mz[link.z] ? freeZone(p.mz) : link.z;
       if (z < 0){ p.grave.push(link.c); log(st2, link.s, `場がいっぱいで「${c.name}」は出られなかった`); step(st2); return; }
       p.mz[z] = mkMon(st2, link.c); if ((link.mats || []).length) p.mz[z].mats = link.mats.slice();
@@ -1735,7 +1753,7 @@ function passTurn(st, s){
       ep.mz.forEach(m => { if (m && m.weak > 0){ m.weak--; if (!m.weak) log(st, s, `「${card(m.c).name}」の脱力がとけた`); } }); }
     for (const o of ["a", "b"]) P(st, o).mz.forEach(m => { if (m && m.tmpBy === s){ m.tmp = 0; m.tmpBy = null; } });
     for (const o of ["a", "b"]) P(st, o).mz.forEach((m, i) => { if (!m || m.retBy !== s) return; const back = m.owner, B = P(st, back); delete m.retBy; P(st, o).mz[i] = null; const z = freeZone(B.mz);
-      if (z >= 0){ B.mz[z] = m; delete m.owner; log(st, back, `「${card(m.c).name}」が持ち主の場に戻った`); } else { eqsOf(m).forEach(e => P(st, e.o).grave.push(e.c)); B.grave.push(m.c, ...(m.mats || [])); log(st, back, `「${card(m.c).name}」は戻る場所がなく墓地へ`); } });
+      if (z >= 0){ B.mz[z] = m; delete m.owner; log(st, back, `「${card(m.c).name}」が持ち主の場に戻った`); } else { eqsOf(m).forEach(e => P(st, e.o).grave.push(e.c)); B.grave.push(m.c, ...(m.mats || [])); sealsOut(st, m); log(st, back, `「${card(m.c).name}」は戻る場所がなく墓地へ`); } });
     const xt = P(st, s).extraTurns > 0; if (xt) P(st, s).extraTurns--;
     st.turn = xt ? s : O(s); st.turnNo++; st.summoned = false;
     const np = P(st, st.turn);

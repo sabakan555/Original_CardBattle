@@ -88,6 +88,7 @@ function cpuStep(st, s){
   if (canSummonNow(st, s)){
     const mons = p.hand.map((id, i) => [i, card(id)]).filter(([, c]) => cardType(c) === "monster" && canPay(st, s, c) && !(ssOf(c) || {}).only && massOf(c) <= p.grave.length).sort((a, b) => cmpNum(baseAtk(b[1]), baseAtk(a[1])));
     for (const [i, c] of mons){
+      if (isDmEvo(c)){ const B = evoBases(st, s, c).filter(j => cmpNum(atkOf(p.mz[j]), baseAtk(c)) < 0); if (B.length && summon(st, s, i, B.sort((a, b) => cmpNum(atkOf(p.mz[a]), atkOf(p.mz[b])))[0])) return; continue; }
       const need = tribOf(c, st, s);
       if (!need){ if (freeZone(p.mz) >= 0){ summon(st, s, i); return; } continue; }
       // 生贄召喚: only when the weakest ones it gives up are all weaker than it
@@ -129,6 +130,7 @@ function equipMode(st, me){
 function dropTarget(st, me){
   if (!G.sel || G.sel.z !== "hand" || !canAct(st, me)) return null;
   const t = cardType(card(P(st, me).hand[G.sel.i]));
+  if (t === "monster" && isDmEvo(card(P(st, me).hand[G.sel.i]))) return null;
   if (t === "monster") return canSummonNow(st, me) && canPay(st, me, card(P(st, me).hand[G.sel.i])) && !(ssOf(card(P(st, me).hand[G.sel.i])) || {}).only ? "mz" : null;
   return t === "equip" || card(P(st, me).hand[G.sel.i]).frame === "spire" ? null : "sz";
 }
@@ -249,7 +251,7 @@ function renderBoard(){
       return zcap(cardHTML(sc, `${cls} isset`, attrs, { ...mOpt(s), done: late ? "次ターン〜" : w ? WHEN_SHORT[w] : "" }), sc);
     }
     const es = eqsOf(z), cap = eqCapOf(card(z.c));
-    const eqB = [es.length ? `装備${es.length} ${eqUsed(z)}/${cap}` : "", (z.mats || []).length ? `質量${z.mats.length}` : ""].filter(Boolean).join(" ");
+    const eqB = [es.length ? `装備${es.length} ${eqUsed(z)}/${cap}` : "", (z.mats || []).length ? `質量${z.mats.length}` : "", (z.evoU || []).length ? `進化${z.evoU.length}` : ""].filter(Boolean).join(" ");
     const ttl = es.length ? ` title="${esc("装備（左から）：" + es.map(e => card(e.c).name).join("→"))}"` : "";
     const atkr = atkNow && atkNow.by === s && atkNow.from === i, atkd = atkNow && atkNow.by !== s && atkNow.to === i;
     const stt0 = atkr ? "攻撃中！" : atkd ? "狙われている" : "";
@@ -296,7 +298,8 @@ function renderBoard(){
       if (t === "monster"){
         const ss = ssOf(c);
         const tn = tribOf(c, st, me), mineN = pm.mz.filter(m => m && (!c.tribTag || hasTag(m.c, c.tribTag))).length;
-        if (!(ss && ss.only)){ const ms = massOf(c), msOk = pm.grave.length >= ms, ok = canSummonNow(st, me) && afford && msOk && (tn ? mineN >= tn : freeZone(pm.mz) >= 0); acts += `<button class="primary" data-act="summon" ${ok ? "" : "disabled"}>${tn ? "生贄召喚する" : ms ? `召喚する（質量${ms}）` : "召喚する"}${!canSummonNow(st, me) ? "（このターンは召喚ずみ）" : !msOk ? `（墓地のカードが${ms}枚いる）` : tn && mineN < tn ? `（生贄が${tn}体いる）` : short}</button>`; if (ok) hint = tn ? `自分のモンスター${tn}体を生贄にして召喚します` : "光っているモンスターゾーンをクリックしても召喚できます"; }
+        if (isDmEvo(c)){ const B = evoBases(st, me, c), ok = canSummonNow(st, me) && afford && B.length > 0; acts += `<button class="primary" data-act="summon" ${ok ? "" : "disabled"}>進化する${!canSummonNow(st, me) ? "（このターンは召喚ずみ）" : !B.length ? `（進化元がいない）` : short}</button>`; if (ok) hint = `自分の${DM_EVO_W(c.dmEvo)}モンスターの上に重ねて出します（出たターンから攻撃できる）`; }
+        else if (!(ss && ss.only)){ const ms = massOf(c), msOk = pm.grave.length >= ms, ok = canSummonNow(st, me) && afford && msOk && (tn ? mineN >= tn : freeZone(pm.mz) >= 0); acts += `<button class="primary" data-act="summon" ${ok ? "" : "disabled"}>${tn ? "生贄召喚する" : ms ? `召喚する（質量${ms}）` : "召喚する"}${!canSummonNow(st, me) ? "（このターンは召喚ずみ）" : !msOk ? `（墓地のカードが${ms}枚いる）` : tn && mineN < tn ? `（生贄が${tn}体いる）` : short}</button>`; if (ok) hint = tn ? `自分のモンスター${tn}体を生贄にして召喚します` : "光っているモンスターゾーンをクリックしても召喚できます"; }
         else hint = "このカードは特殊召喚でしか出せません";
         if (ss){ const why = ssBlock(st, me, sel.i); acts += `<button class="mg" data-act="ssummon" ${why ? "disabled" : ""}>特殊召喚する${why ? `（${why}）` : ""}</button>`; }
       }
@@ -511,7 +514,7 @@ function detailInfo(z, s, i){
     const es = eqsOf(slot);
     info.equips = es.map((e, k) => `「${card(e.c).name}」${eqMult(es, k) > 1 ? "（×2）" : ""}${e.o !== owner ? "（相手の）" : ""}${e.used ? "（使用ずみ）" : ""}`);
     info.cap = `${eqUsed(slot)} / ${eqCapOf(card(slot.c))}`;
-    info.mats = (slot.mats || []).map(id => card(id).name); info.xbFx = (slot.xb || []).filter(b => b.xfr); info.xbNo = (slot.xb || []).filter(b => !b.xfr);
+    info.mats = (slot.mats || []).map(id => card(id).name); info.evoU = (slot.evoU || []).map(x => card(x.c).name); info.xbFx = (slot.xb || []).filter(b => b.xfr); info.xbNo = (slot.xb || []).filter(b => !b.xfr);
     info.gab = monAbs(G.st, owner, i).filter(a => a.gab).map(a => { const x = { ...a, n: a.n0 != null ? a.n0 : a.n }; return (ABS[a.k].kw ? kwStr(x) : abPhrase(x)) + (a.until ? `（${a.until >= G.st.turnNo + 1 ? "次の自分のターンの終わりまで" : "このターンだけ"}）` : ""); });
     info.abs = [...new Set(monAbs(G.st, owner, i).filter(a => a.eqU).map(a => ABS[a.k].text && ABS[a.k].n ? ABS[a.k].text((a.n || 0) * a.mult, a.name || "") : ABS[a.k].label))];
     info.eqList = es.map((e, k) => ({ c: e.c, mult: eqMult(es, k), used: !!e.used, opp: e.o !== owner, mana: !!P(G.st, e.o).mana }));
@@ -557,6 +560,7 @@ function renderDetail(info, anim){
 
   if (info.seal) rows.push(["封印", info.seal]);
   if (info.charm) rows.push(["状態", info.charm]);
+  if (info.evoU && info.evoU.length) rows.push(["進化元", info.evoU.map(n => `「${n}」`).join("←")]);
   if (info.mats && info.mats.length) rows.push(["質量", `${info.mats.length}枚：${info.mats.map(n => `「${n}」`).join("")}`]);
   if (info.abs && info.abs.length) rows.push(["装備でついた能力", info.abs.join("／")]);
   if (info.gab && info.gab.length) rows.push(["効果でついた能力", info.gab.join("／")]);
@@ -716,9 +720,9 @@ function renderOverlay(){
       + `<div class="row">${r.cd ? "" : `<button class="ghost" data-rw="card:">カードはいらない</button>`}<button class="ghost" data-rw="done">報酬をおわる${r.cd && r.pd && r.rd ? "" : "（のこりはスキップ）"}</button></div></div>`;
   } else if (G.ssPick && canAct(st, me)){
     const sp = G.ssPick, pm = P(st, me), c = card(pm.hand[sp.hi]);
-    const opts = sp.kind === "tribute" ? pm.mz.map((m, i) => m && (!sp.tag || hasTag(m.c, sp.tag)) ? i : -1).filter(i => i >= 0) : sp.kind === "mass" ? pm.grave.map((id, i) => i) : pm.hand.map((id, i) => i).filter(i => i !== sp.hi);
-    const list = opts.map(i => { const on = sp.picked.includes(i), cc = sp.kind === "tribute" ? card(pm.mz[i].c) : sp.kind === "mass" ? card(pm.grave[i]) : card(pm.hand[i]); return cardHTML(cc, `sm pick ${on ? "sel" : ""}`, `data-sspick="${i}" tabindex="0" role="button" aria-pressed="${on}"`, sp.kind === "tribute" ? { mod: modOf(pm.mz[i]), ...mOpt(me) } : mOpt(me)); }).join("");
-    html = `<div class="box"><h2 style="margin:0">「${esc(c.name)}」を${sp.kind === "mass" ? "召喚（質量）" : sp.normal ? "生贄召喚" : "特殊召喚"}</h2><p class="muted" style="margin:0">${sp.kind === "mass" ? `質量としてモンスターの下に重ねる墓地のカードを${sp.need}枚えらんでね` : sp.kind === "tribute" ? `墓地へ送るモンスターを${sp.need}体えらんでね` : `捨てる手札を${sp.need}枚えらんでね`}（${sp.picked.length} / ${sp.need}）</p><div class="gallery">${list}</div><div class="row"><button class="primary" data-ssgo ${sp.picked.length === sp.need ? "" : "disabled"}>${sp.kind === "mass" ? "質量にして召喚する" : sp.normal ? "生贄召喚する" : "特殊召喚する"}</button><button class="ghost" data-close="sspick">やめる</button></div></div>`;
+    const opts = sp.kind === "evo" ? evoBases(st, me, c) : sp.kind === "tribute" ? pm.mz.map((m, i) => m && (!sp.tag || hasTag(m.c, sp.tag)) ? i : -1).filter(i => i >= 0) : sp.kind === "mass" ? pm.grave.map((id, i) => i) : pm.hand.map((id, i) => i).filter(i => i !== sp.hi);
+    const list = opts.map(i => { const on = sp.picked.includes(i), cc = sp.kind === "tribute" || sp.kind === "evo" ? card(pm.mz[i].c) : sp.kind === "mass" ? card(pm.grave[i]) : card(pm.hand[i]); return cardHTML(cc, `sm pick ${on ? "sel" : ""}`, `data-sspick="${i}" tabindex="0" role="button" aria-pressed="${on}"`, sp.kind === "tribute" || sp.kind === "evo" ? { mod: modOf(pm.mz[i]), ...mOpt(me) } : mOpt(me)); }).join("");
+    html = `<div class="box"><h2 style="margin:0">「${esc(c.name)}」を${sp.kind === "evo" ? "進化" : sp.kind === "mass" ? "召喚（質量）" : sp.normal ? "生贄召喚" : "特殊召喚"}</h2><p class="muted" style="margin:0">${sp.kind === "evo" ? "上に重ねる進化元のモンスターを1体えらんでね" : sp.kind === "mass" ? `質量としてモンスターの下に重ねる墓地のカードを${sp.need}枚えらんでね` : sp.kind === "tribute" ? `墓地へ送るモンスターを${sp.need}体えらんでね` : `捨てる手札を${sp.need}枚えらんでね`}（${sp.picked.length} / ${sp.need}）</p><div class="gallery">${list}</div><div class="row"><button class="primary" data-ssgo ${sp.picked.length === sp.need ? "" : "disabled"}>${sp.kind === "evo" ? "進化する" : sp.kind === "mass" ? "質量にして召喚する" : sp.normal ? "生贄召喚する" : "特殊召喚する"}</button><button class="ghost" data-close="sspick">やめる</button></div></div>`;
   } else if (G.eqPlace){
     const ep = G.eqPlace, m = P(st, ep.s).mz[ep.i], id = P(st, me).hand[ep.hi];
     if (m && id){
@@ -763,7 +767,7 @@ $("#overlay").addEventListener("click", e => {
   if (e.target.closest("[data-cpgo]") && G.costPick){ const cp = G.costPick; G.costPick = null; cp.go(cp.picked.slice()); return; }
   const spk = e.target.closest("[data-sspick]");
   if (spk && G.ssPick){ const i = +spk.dataset.sspick, sp = G.ssPick; if (sp.picked.includes(i)) sp.picked = sp.picked.filter(x => x !== i); else if (sp.picked.length < sp.need) sp.picked.push(i); renderAll(); return; }
-  if (e.target.closest("[data-ssgo]") && G.ssPick){ const sp = G.ssPick; G.ssPick = null; if (sp.kind === "mass") withDiscard(card(P(st0(), G.slot).hand[sp.hi]), sp.hi, d => act(st => summon(st, G.slot, sp.hi, sp.zi ?? null, d, null, sp.picked))); else if (sp.normal) withDiscard(card(P(st0(), G.slot).hand[sp.hi]), sp.hi, d => act(st => summon(st, G.slot, sp.hi, null, d, sp.picked))); else act(st => specialSummon(st, G.slot, sp.hi, sp.picked)); return; }
+  if (e.target.closest("[data-ssgo]") && G.ssPick){ const sp = G.ssPick; G.ssPick = null; if (sp.kind === "evo") withDiscard(card(P(st0(), G.slot).hand[sp.hi]), sp.hi, d => act(st => summon(st, G.slot, sp.hi, sp.picked[0], d))); else if (sp.kind === "mass") withDiscard(card(P(st0(), G.slot).hand[sp.hi]), sp.hi, d => act(st => summon(st, G.slot, sp.hi, sp.zi ?? null, d, null, sp.picked))); else if (sp.normal) withDiscard(card(P(st0(), G.slot).hand[sp.hi]), sp.hi, d => act(st => summon(st, G.slot, sp.hi, null, d, sp.picked))); else act(st => specialSummon(st, G.slot, sp.hi, sp.picked)); return; }
   const ep = e.target.closest("[data-eqpos]");
   if (ep && G.eqPlace){ const x = G.eqPlace; G.eqPlace = null; G.sel = null; const pos = +ep.dataset.eqpos; withDiscard(card(P(st0(), G.slot).hand[x.hi]), x.hi, d => act(st => equip(st, G.slot, x.hi, x.s, x.i, pos, d))); return; }
   const rw = e.target.closest("[data-rw]");
@@ -892,6 +896,7 @@ $("#board").addEventListener("click", e => {
   if (k === "cancelEq"){ G.equipFrom = null; renderAll(); return; }
   if (k === "direct"){ const from = G.atkFrom; G.atkFrom = null; G.sel = null; act(st => declareAttack(st, me, from, "direct")); return; }
   if (!sel) return;
+  if (k === "summon" && isDmEvo(card(P(st, me).hand[sel.i]))){ G.sel = null; const hi = sel.i, B = evoBases(st, me, card(P(st, me).hand[hi])); if (B.length > 1){ G.ssPick = { hi, kind: "evo", need: 1, picked: [], normal: true }; renderAll(); } else withDiscard(card(P(st, me).hand[hi]), hi, d => act(st => summon(st, me, hi, B[0], d))); return; }
   if (k === "summon" && massOf(card(P(st, me).hand[sel.i]))){ G.sel = null; G.ssPick = { hi: sel.i, kind: "mass", need: massOf(card(P(st, me).hand[sel.i])), picked: [], normal: true }; renderAll(); return; }
   if (k === "summon"){ G.sel = null; const tn = tribOf(card(P(st, me).hand[sel.i]), st, me); if (tn){ G.ssPick = { hi: sel.i, kind: "tribute", need: tn, picked: [], normal: true, tag: card(P(st, me).hand[sel.i]).tribTag || "" }; renderAll(); } else withDiscard(card(P(st, me).hand[sel.i]), sel.i, d => act(st => summon(st, me, sel.i, null, d))); }
   if (k === "ssummon"){

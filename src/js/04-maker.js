@@ -662,7 +662,7 @@ function easyKinds(){ const ks = mkKinds(), e = ks.filter(isEasyKind); return e.
 function syncProOn(){
   const on = (q, v) => { const el = $(q); if (el) el.classList.toggle("pro-on", !!v); };
   { const c = mkPreviewCard(), tx = extraCostText(c).replace(/^【コスト】/, ""), el = $("#sumCost"); if (el){ el.textContent = tx || "なし"; el.classList.toggle("on", !!tx); } }
-  on("#payRow", (+$("#mkPayLp").value || 0) || (+$("#mkPayDisc").value || 0) || $("#mkPayDiscAll").checked || (+$("#mkPayMax").value || 0) || (+$("#mkPayCtrN").value || 0) || (+$("#mkSbCost").value || 0) || $("#mkGz").checked || $("#mkDelve").checked || ($("#mkRevG") && $("#mkRevG").checked) || $("#mkRevo").checked);
+  on("#payRow", (+$("#mkPayLp").value || 0) || (+$("#mkPayDisc").value || 0) || $("#mkPayDiscAll").checked || (+$("#mkPayMax").value || 0) || (+$("#mkPayCtrN").value || 0) || (+$("#mkSbCost").value || 0) || $("#mkGz").checked || $("#mkDelve").checked || ($("#mkRevG") && $("#mkRevG").checked) || $("#mkRevo").checked || ($("#mkDmEvo") && $("#mkDmEvo").checked));
   on("#secAtk", (MK.atkConds || []).length);
   on("#secSs", (+$("#mkTrib").value || 0) || $("#ssOn").checked);
   on("#tokenRow", $("#mkToken").checked);
