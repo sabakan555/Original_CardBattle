@@ -16,6 +16,40 @@ async function shotInlineUrls(root){
   }
   if (rules.length){ const st = document.createElement("style"); st.textContent = rules.join("\n"); root.prepend(st); }
 }
+// フォント: 画像の中ではページのフォントが使えないので、カードで使っている書体・文字のぶんだけ中身を埋めこむ
+// （ぜんぶ埋めこむと日本語フォントは何千ファイルにもなって失敗する）
+const SHOT_FONT_CACHE = new Map();
+async function shotFontCSS(root){
+  const fam = s => String(s || "").split(",").map(x => x.trim().replace(/^["']|["']$/g, "")).filter(Boolean);
+  // 1. ページの @font-face をぜんぶ集める（よそのサーバーのCSSは読めないので、取ってきて読み直す）
+  const faces = [];
+  for (const sh of [...document.styleSheets]){
+    let rules = null; try{ rules = sh.cssRules; }catch(e){ rules = null; }
+    if (!rules && sh.href){ try{ const t = await (await fetch(sh.href)).text(), cs = new CSSStyleSheet(); cs.replaceSync(t.replace(/@import[^;]+;/g, "")); rules = cs.cssRules; }catch(e){ rules = null; } }
+    for (const r of rules || []) if (r.type === CSSRule.FONT_FACE_RULE) faces.push({ r, base: sh.href || location.href });
+  }
+  const known = new Set(faces.map(f => fam(f.r.style.getPropertyValue("font-family"))[0]));
+  // 2. カードで実際に使っている書体（並びの中で最初に見つかるもの）と文字
+  const used = new Map(), add = (f, txt) => { if (!used.has(f)) used.set(f, new Set()); for (const ch of txt) used.get(f).add(ch.codePointAt(0)); };
+  for (const el of [root, ...root.querySelectorAll("*")]) for (const ps of ["", "::before", "::after"]){
+    const cs = getComputedStyle(el, ps || null); if (!cs) continue;
+    let txt = ""; if (ps){ const c = cs.content; if (!c || c === "none" || c === "normal") continue; txt = c.replace(/^["']|["']$/g, ""); } else txt = [...el.childNodes].filter(n => n.nodeType === 3).map(n => n.textContent).join("");
+    if (!txt.trim()) continue;
+    const L = fam(cs.fontFamily); for (const f of L){ if (known.has(f)){ add(f, txt + "0123456789"); break; } }
+  }
+  if (!used.size) return "";
+  // 3. 使う書体の、その文字を含むファイルだけ埋めこむ
+  const inRange = (ur, cps) => { if (!ur) return true; return ur.split(",").some(part => { const m = part.trim().replace(/^U\+/i, ""); let a, b; if (m.includes("?")){ a = parseInt(m.replace(/\?/g, "0"), 16); b = parseInt(m.replace(/\?/g, "F"), 16); } else if (m.includes("-")){ [a, b] = m.split("-").map(x => parseInt(x.replace(/^U\+/i, ""), 16)); } else a = b = parseInt(m, 16); for (const cp of cps) if (cp >= a && cp <= b) return true; return false; }); };
+  const toData = u => { if (!SHOT_FONT_CACHE.has(u)) SHOT_FONT_CACHE.set(u, fetch(u).then(r => { if (!r.ok) throw 0; return r.blob(); }).then(b => new Promise(res => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.onerror = () => res(null); fr.readAsDataURL(b); })).catch(() => null)); return SHOT_FONT_CACHE.get(u); };
+  const out = await Promise.all(faces.map(async ({ r, base }) => {
+    const f = fam(r.style.getPropertyValue("font-family"))[0], cps = used.get(f); if (!cps) return "";
+    if (!inRange(r.style.getPropertyValue("unicode-range"), cps)) return "";
+    let css = r.cssText; const urls = [...css.matchAll(/url\(\s*["']?([^"')]+)["']?\s*\)/g)].map(m => m[1]).filter(u => !u.startsWith("data:"));
+    for (const u of urls){ let abs = u; try{ abs = new URL(u, base).href; }catch(e){} const d = await toData(abs); if (!d) return ""; css = css.split(u).join(d); }
+    return css;
+  }));
+  return out.filter(Boolean).join("\n");
+}
 // カード1枚を大きめに描いて PNG にする（スパイア風などのはみ出す枠も入るように、まわりに余白をとる）
 async function cardShotBlob(c){
   const box = document.createElement("div"); box.className = "card-shot";
@@ -25,7 +59,8 @@ async function cardShotBlob(c){
     if (document.fonts && document.fonts.ready) await document.fonts.ready;
     await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
     try{ await shotInlineUrls(box); }catch(e){}
-    return await htmlToImage.toBlob(box, { pixelRatio: 2, cacheBust: false, style: { position: "static", left: "0", top: "0", transform: "none" }, imagePlaceholder: "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" });
+    let fcss = ""; try{ fcss = await shotFontCSS(box); }catch(e){ fcss = ""; }
+    return await htmlToImage.toBlob(box, { pixelRatio: 2, cacheBust: false, ...(fcss ? { fontEmbedCSS: fcss } : { skipFonts: true }), style: { position: "static", left: "0", top: "0", transform: "none" }, imagePlaceholder: "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" });
   } finally { box.remove(); }
 }
 async function saveCardImage(c){
