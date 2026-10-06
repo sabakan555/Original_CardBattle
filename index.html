@@ -311,6 +311,14 @@ ruby rt{font-size:.5em;line-height:1;font-style:normal}
 .editor #cv{width:100%;height:100%;display:block;touch-action:none;cursor:crosshair;background:#fff}
 .editor .c-text{min-height:200px;padding-bottom:calc(var(--w)*.14)}
 .editor .fxline{font-size:14px;color:#1b5e8a;min-height:1.4em}
+/* 効果の文が長いときは、カードからはみ出さずに中でスクロール（下の入力欄や「完成を見る」をふさがない） */
+.card.editor .fxline{flex:none;max-height:calc(1.4em*4.5);overflow-y:auto;overscroll-behavior:contain;line-height:1.4;font-size:13px;scrollbar-width:thin}
+.card.editor .c-text textarea{position:relative;z-index:2}
+/* 枠つき（デュエマ・MTG・遊戯王・近未来）の工房: 文の欄が小さいので、自動の効果の文は2行半まで（中でスクロール）、書く文とフレーバーの欄はいつも2行ぶん残す */
+.card.editor:is(.dm,.mtg,.ygo,.fut) .c-text{display:flex!important;flex-direction:column;overflow:hidden!important;gap:2px}
+.card.editor:is(.dm,.mtg,.ygo,.fut) .fxline{flex:1 1 0!important;min-height:1.4em!important;max-height:none!important;font-size:12px!important;overflow-y:auto!important;overflow-x:hidden!important}
+.card.editor.fut .c-text{box-sizing:border-box!important;padding-bottom:calc(var(--w)*.11)!important}
+.card.editor:is(.dm,.mtg,.ygo,.fut) #mkEff,.card.editor:is(.dm,.mtg,.ygo,.fut) #mkFlv{flex:0 0 auto!important;height:2.7em!important;min-height:2.7em!important;margin-top:0!important;position:relative!important;inset:auto!important}
 .editor textarea{font-size:calc(14px*var(--tk,1));resize:none;height:56px;line-height:1.4;flex:none}
 .editor #mkFlv{font-style:italic;font-size:calc(12.5px*var(--tk,1));height:40px;margin-top:6px}
 .editor .c-atk input{width:5em;text-align:right;font-size:inherit;border:none;padding:0}
