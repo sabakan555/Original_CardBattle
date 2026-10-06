@@ -187,7 +187,7 @@ label.f{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:13p
 .bk-tpls .small{border-radius:99px}
 #bkUI{display:flex;flex-direction:column;gap:12px}
 .bk{border:1px solid var(--line);border-radius:14px;padding:12px;display:flex;flex-direction:column;gap:10px;background:rgba(255,255,255,.03)}
-.bk-h{display:flex;align-items:center;gap:6px}
+.bk-h{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
 .bk-h b{font-family:var(--en,var(--ui));color:var(--muted)}
 .bk-grid{display:grid;grid-template-columns:auto minmax(0,1fr);gap:10px 12px;align-items:start}
 .bk-tag{justify-self:start;padding:3px 12px;border-radius:99px;font-weight:700;font-size:13px;white-space:nowrap;margin-top:4px}
@@ -2564,7 +2564,7 @@ function blocksOf(c){
     ...(b.trig === "ctrReach" ? { rc: String(b.rc || ctrDefault()), rn: Math.max(1, Math.min(99, Math.round(+b.rn || 1))), rw: b.rw === "me" ? "me" : "self" } : {}),
     ...(b.trig === "act" && b.cost && b.cost.id && +b.cost.n > 0 ? { cost: { id: String(b.cost.id), n: Math.min(99, Math.round(+b.cost.n)), w: b.cost.w === "me" || b.cost.w === "field" ? b.cost.w : "self" } } : {}),
     ...(+b.necro > 0 ? { necro: Math.min(40, Math.round(+b.necro)) } : {}), ...(b.trig === "act" && +b.mcost > 0 ? { mcost: Math.min(99, Math.round(+b.mcost)) } : {}),
-    ...(b.cont ? { cont: true } : {}), ...(b.bn ? { bn: String(b.bn).slice(0, 20) } : {}), ...(b.bic ? { bic: String(b.bic).slice(0, 12) } : {}), ...(b.bd ? { bd: String(b.bd).slice(0, 40) } : {}), ...(b.one ? { one: true } : {}),
+    ...(b.cont ? { cont: true } : {}), ...(b.alt ? { alt: true } : {}), ...(b.bn ? { bn: String(b.bn).slice(0, 20) } : {}), ...(b.bic ? { bic: String(b.bic).slice(0, 12) } : {}), ...(b.bd ? { bd: String(b.bd).slice(0, 40) } : {}), ...(b.one ? { one: true } : {}),
     // プレイヤーに付与: { to: me|op, at: turnStart|turnEnd, dur: 0=ずっと / ○回 }
     grant: b.grant && ["me", "op", "pick"].includes(b.grant.to) ? { to: b.grant.to, at: b.grant.at === "turnStart" ? "turnStart" : "turnEnd", dur: Math.max(0, Math.min(9, Math.round(+b.grant.dur || 0))) } : null,
     conds: (Array.isArray(b.conds) ? b.conds : []).filter(x => x && COND_DEFS[x.k]),
@@ -2624,7 +2624,9 @@ function blockText(c, b, detail = false){
   if (isField(c) && !fieldMine(c)) s = s.replace(/(自分|相手)のモンスターすべて/g, "お互いのモンスターすべて");
   return s;
 }
-function fxText0(c, detail = false){ const out = blocksOf(c).map(b => blockText(c, b, detail)).join(detail ? "。\n" : "。"); return c && c.costX && out ? "【X回くり返す】" + out : out; }
+// Consecutive blocks marked alt form one choice; unrelated blocks still run in order.
+function blockGroups(bs){ const groups = []; bs.forEach(b => { const last = groups[groups.length - 1]; if (b.alt && last && !["act", "while"].includes(b.trig) && b.trig === last[0].trig) last.push(b); else groups.push([b]); }); return groups; }
+function fxText0(c, detail = false){ const out = blockGroups(blocksOf(c)).map(g => g.length > 1 ? "次の効果ブロックから1つ選んで発動する：" + (detail ? "\n" : "") + g.map(b => blockText(c, b, detail)).join(detail ? "\nまたは、" : "、または、") : blockText(c, g[0], detail)).join(detail ? "。\n" : "。"); return c && c.costX && out ? "【X回くり返す】" + out : out; }
 
 /* ================= starter cards ================= */
 function rng(seed){ return () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
@@ -4418,7 +4420,7 @@ function mkSpOpts(){ const sp = MK.type === "magic" || MK.type === "trap", k = M
 function mkMassVal(){ const v = id => Math.max(0, Math.min(40, Math.round(+$(id).value || 0))) || null; return MK.type === "monster" ? v("#mkMass") : MK.type === "magic" && $("#mkField").checked ? v("#mkFMass") : null; }
 function mkPreviewCard(){ return { fusion: mkFusionVal(), when: mkWhenVal(), field: MK.type === "magic" && $("#mkField").checked, ex: $("#mkEx").checked, noUse: (MK.type === "magic" || MK.type === "trap") && $("#mkNoUse").checked, fxRows: $("#mkFxRows").checked, ...mkSpOpts(), mass: mkMassVal(), fieldMine: MK.type === "magic" && $("#mkField").checked && $("#mkFieldMine").checked || null, anySum: MK.type === "monster" && $("#mkAnySum").checked || null, land: MK.type === "magic" && $("#mkField").checked && $("#mkLand").checked || null, tags: MK.kind === "card" || !MK.kind ? parseTags($("#mkTags").value) : [], showTags: (MK.kind === "card" || !MK.kind) && $("#mkShowTags").checked || null, tribTag: MK.type === "monster" ? $("#mkTribTag").value.trim() || null : null, ...(MK.type === "monster" ? mkVarFields() : {}), ...(MK.kind === "relic" ? { relicView: true } : {}), type: MK.type, frame: MK.kind === "potion" || MK.kind === "relic" ? "spire" : $("#mkFrame").value, persist: (MK.type === "magic" || MK.type === "trap") && $("#mkPersist").checked && !$("#mkField").checked, costX: $("#mkCost").value === "X", costInf: $("#mkCost").value === "∞", ...mkPays(), blocks: readBlocks(), ss: readSS(), eqN: Math.round(+$("#mkEq").value || 0), abs: readAbs() }; }
 function readBlocks(){
-  const bs = (MK.blocks || []).map(b => ({ trig: b.trig, ...(b.cont ? { cont: true } : {}), ...(b.bn ? { bn: b.bn } : {}), ...(b.necro > 0 ? { necro: b.necro } : {}), ...(b.trig === "act" && b.mcost > 0 ? { mcost: b.mcost } : {}), ...(b.trig === "ctrReach" ? { rc: b.rc || ctrDefault(), rn: b.rn || 1, rw: b.rw === "me" ? "me" : "self" } : {}), ...(b.trig === "act" && b.cost && b.cost.id && b.cost.n > 0 ? { cost: { id: b.cost.id, n: b.cost.n, w: b.cost.w } } : {}), ...(b.bic ? { bic: b.bic } : {}), ...(b.bd ? { bd: b.bd } : {}), ...(b.one ? { one: true } : {}), ...(b.trig === "act" ? { ap: b.ap === "game" || b.ap === "free" ? b.ap : "turn", an: Math.max(1, Math.min(9, Math.round(+b.an || 1))) } : {}), ...(b.delay > 0 ? { delay: b.delay } : {}), ...(b.grant && b.grant.to ? { grant: { to: b.grant.to, at: b.grant.at === "turnStart" ? "turnStart" : "turnEnd", dur: b.grant.dur || 0 } } : {}), ...(b.roll === "die" || b.roll === "coin" ? { roll: b.roll, ...(b.roll === "die" && b.faces && b.faces !== 6 ? { faces: b.faces } : {}) } : {}), join: b.join === "or" ? "or" : "and", conds: (b.conds || []).map(x => ({ ...x })), then: (b.then || []).map(cleanEff).filter(Boolean), else: (b.conds || []).length ? (b.else || []).map(cleanEff).filter(Boolean) : [], ...(b.roll === "die" && (b.dieBr || []).length ? { dieBr: b.dieBr.map(x => ({ lo: x.lo, hi: x.hi, then: (x.then || []).map(cleanEff).filter(Boolean) })).filter(x => x.then.length) } : {}) })).filter(b => b.then.length || (b.dieBr || []).length || b.else.length);
+  const bs = (MK.blocks || []).map(b => ({ trig: b.trig, ...(b.cont ? { cont: true } : {}), ...(b.alt ? { alt: true } : {}), ...(b.bn ? { bn: b.bn } : {}), ...(b.necro > 0 ? { necro: b.necro } : {}), ...(b.trig === "act" && b.mcost > 0 ? { mcost: b.mcost } : {}), ...(b.trig === "ctrReach" ? { rc: b.rc || ctrDefault(), rn: b.rn || 1, rw: b.rw === "me" ? "me" : "self" } : {}), ...(b.trig === "act" && b.cost && b.cost.id && b.cost.n > 0 ? { cost: { id: b.cost.id, n: b.cost.n, w: b.cost.w } } : {}), ...(b.bic ? { bic: b.bic } : {}), ...(b.bd ? { bd: b.bd } : {}), ...(b.one ? { one: true } : {}), ...(b.trig === "act" ? { ap: b.ap === "game" || b.ap === "free" ? b.ap : "turn", an: Math.max(1, Math.min(9, Math.round(+b.an || 1))) } : {}), ...(b.delay > 0 ? { delay: b.delay } : {}), ...(b.grant && b.grant.to ? { grant: { to: b.grant.to, at: b.grant.at === "turnStart" ? "turnStart" : "turnEnd", dur: b.grant.dur || 0 } } : {}), ...(b.roll === "die" || b.roll === "coin" ? { roll: b.roll, ...(b.roll === "die" && b.faces && b.faces !== 6 ? { faces: b.faces } : {}) } : {}), join: b.join === "or" ? "or" : "and", conds: (b.conds || []).map(x => ({ ...x })), then: (b.then || []).map(cleanEff).filter(Boolean), else: (b.conds || []).length ? (b.else || []).map(cleanEff).filter(Boolean) : [], ...(b.roll === "die" && (b.dieBr || []).length ? { dieBr: b.dieBr.map(x => ({ lo: x.lo, hi: x.hi, then: (x.then || []).map(cleanEff).filter(Boolean) })).filter(x => x.then.length) } : {}) })).filter(b => b.then.length || (b.dieBr || []).length || b.else.length);
   return bs.length ? bs : null;
 }
 function loadBlocks(c){ MK.blocks = c ? JSON.parse(JSON.stringify(blocksOf(c))) : []; renderBlocksUI(); }
@@ -4431,7 +4433,7 @@ const BK_TEMPLATES = [
 ];
 function bkNormalize(){
   MK.blocks = MK.blocks || [];
-  MK.blocks.forEach((b, i) => { if (!i) delete b.cont; else if (b.cont) b.trig = MK.blocks[i - 1].trig; });
+  MK.blocks.forEach((b, i) => { if (!i){ delete b.cont; delete b.alt; } else { if (["act", "while"].includes(b.trig) || ["act", "while"].includes(MK.blocks[i - 1].trig)) delete b.alt; if (b.alt) delete b.cont; if (b.cont || b.alt) b.trig = MK.blocks[i - 1].trig; } });
   const trigs = mkTrigs(), kinds = mkKinds();
   MK.blocks.forEach(b => {
     if (!trigs.includes(b.trig)) b.trig = trigs[0];
@@ -4488,10 +4490,10 @@ function renderBlocksUI(){
   box.innerHTML = `<div class="bk-sentence"><div class="bk-cap">できあがる文</div><div id="bkText"></div></div>`
     + (tpls.length ? `<div class="bk-tpls"><span class="note">ひな形から始める：</span>${tpls.map((tp, i) => `<button type="button" class="small" data-tpl="${BK_TEMPLATES.indexOf(tp)}">${esc(tp.name)}</button>`).join("")}</div>` : "")
     + (trigs.length <= 1 && mkWhenOn() ? `<div class="bk bk-whenbox"><div class="bk-grid"><span class="bk-tag t-when">いつ</span><div class="row" style="gap:6px;flex-wrap:wrap"><select data-f="when" aria-label="いつ（発動できるとき）">${opt("", "いつでも", $("#mkWhen").value)}${WHEN_ORDER.map(k => opt(k, WHEN_LABEL[k], $("#mkWhen").value)).join("")}</select><span class="note">${$("#mkWhen").value ? "このときにしか発動できない" : "自分のターンでも、相手のターンでも発動できる"}</span></div></div></div>` : "")
-    + MK.blocks.map((b, bi) => `<div class="bk" data-b="${bi}"><div class="bk-h"><b>効果 ${bi + 1}</b>${bi ? `<label class="row" style="gap:4px;font-size:12px;margin-left:8px;cursor:pointer" title="前の効果のつづきとして出す（「さらに、もし引いたカードが〜なら」など）"><input type="checkbox" data-f="cont"${b.cont ? " checked" : ""}>さらに（前の効果のつづき）</label>` : ""}<span style="flex:1"></span>`
+    + MK.blocks.map((b, bi) => `<div class="bk" data-b="${bi}"><div class="bk-h"><b>効果 ${bi + 1}</b>${bi ? `<label class="row" style="gap:4px;font-size:12px;margin-left:8px;cursor:pointer" title="前の効果のつづきとして出す（「さらに、もし引いたカードが〜なら」など）"><input type="checkbox" data-f="cont"${b.cont ? " checked" : ""}>さらに（前の効果のつづき）</label>${!["act", "while"].includes(b.trig) && !["act", "while"].includes(MK.blocks[bi - 1].trig) ? `<label class="row" style="gap:4px;font-size:12px;margin-left:8px;cursor:pointer" title="前の効果ブロックと、どちらか1つを発動時に選ぶ"><input type="checkbox" data-f="alt"${b.alt ? " checked" : ""}>または（前の効果とどちらか選ぶ）</label>` : ""}` : ""}<span style="flex:1"></span>`
       + `<button type="button" class="small ghost" data-bk="up" aria-label="上へ" ${bi ? "" : "disabled"}>↑</button><button type="button" class="small ghost" data-bk="down" aria-label="下へ" ${bi < MK.blocks.length - 1 ? "" : "disabled"}>↓</button><button type="button" class="small ghost danger" data-bk="del" aria-label="この効果を消す">×</button></div>`
       + `<div class="bk-grid">`
-      + (trigs.length > 1 && !b.cont ? `<span class="bk-tag t-when">いつ</span><div><select data-f="trig" aria-label="いつ">${trigs.map(k => opt(k, mkTrigLabel(k), b.trig)).join("")}</select></div>` : "")
+      + (trigs.length > 1 && !b.cont && !b.alt ? `<span class="bk-tag t-when">いつ</span><div><select data-f="trig" aria-label="いつ">${trigs.map(k => opt(k, mkTrigLabel(k), b.trig)).join("")}</select></div>` : "")
       + (MK.fxRows && b.trig !== "while" ? `<span class="bk-tag t-when">見出し</span><div class="row" style="gap:6px;flex-wrap:wrap"><input type="text" data-f="bn" maxlength="20" value="${esc(b.bn || "")}" placeholder="ブロック表示の見出し（例: 起爆）"><input type="text" data-f="bd" maxlength="40" value="${esc(b.bd || "")}" placeholder="見出しの説明（空なら自動）"><select data-f="bic" aria-label="見出しのアイコン">${opt("", "アイコン：爆弾", b.bic || "")}${Object.entries(FX_ICONS).filter(([k]) => k !== "flag" && k !== "bomb").map(([k, l]) => opt(k, l, b.bic || "")).join("")}</select></div>` : "")
       + (b.trig === "ctrReach" ? ctrReachUI(b, opt) : "")
       + (b.trig === "act" ? ctrActCostUI(b, opt) + `<span class="bk-tag t-when">マナ</span><div class="row" style="gap:6px;align-items:center"><input type="number" data-f="amana" min="0" max="99" value="${esc(b.mcost || 0)}" aria-label="起動のマナコスト" style="width:64px"><span class="note">マナを払って発動（0ならなし。マナのないふつうのデッキではタダ）</span></div>` : "")
@@ -4574,7 +4576,8 @@ function bkEvent(e, rerenderOnInput){
   if (el.dataset.f === "when"){ if (e.type === "change"){ $("#mkWhen").value = el.value; renderBlocksUI(); } return; }
   const bi = +el.closest(".bk").dataset.b, b = MK.blocks[bi]; if (!b) return;
   const f = el.dataset.f, v = el.value;
-  if (f === "cont"){ if (el.checked) b.cont = true; else delete b.cont; bkNormalize(); return renderBlocksUI(); }
+  if (f === "alt"){ if (el.checked){ b.alt = true; delete b.cont; } else delete b.alt; bkNormalize(); return renderBlocksUI(); }
+  if (f === "cont"){ if (el.checked){ b.cont = true; delete b.alt; } else delete b.cont; bkNormalize(); return renderBlocksUI(); }
   if (f === "ap"){ b.ap = v === "game" || v === "free" ? v : "turn"; if (!b.an) b.an = 1; return renderBlocksUI(); }
   if (f === "an"){ b.an = Math.max(1, Math.min(9, Math.round(+v || 1))); return updateBkText(); }
   if (f === "bn" || f === "bic" || f === "bd"){ if (v) b[f] = v.slice(0, f === "bd" ? 40 : 20); else delete b[f]; return updateBkText(); }
@@ -7018,8 +7021,8 @@ function comboCount(st, s, cb, ctx = {}){
 // run a card's main effect and (if its condition holds) its extra effect, in order
 function runCard(st, s, c, trig, ctx = {}, then){
   ctx = { ...ctx, hit: {} };
-  const bs = blocksOf(c).filter(b => (b.trig === trig && (trig !== "ctrReach" || ctrReachHit(b, ctx))) || ((trig === "summon" || trig === "ssummon") && b.trig === "enter" && cardType(c) === "monster"));
-  const step = (st2, k) => { if (k >= bs.length){ then && then(st2); return; } runBlock(st2, s, c, bs[k], ctx, st3 => step(st3, k + 1)); };
+  const bs = blockGroups(blocksOf(c)).map(g => g.filter(b => (b.trig === trig && (trig !== "ctrReach" || ctrReachHit(b, ctx))) || ((trig === "summon" || trig === "ssummon") && b.trig === "enter" && cardType(c) === "monster"))).filter(g => g.length);
+  const step = (st2, k) => { if (k >= bs.length){ then && then(st2); return; } runBlockGroup(st2, s, c, bs[k], ctx, st3 => step(st3, k + 1)); };
   step(st, 0);
 }
 // one block: check もし (a 質問 is asked last, only when it can still change the result), then なにを or ちがったら
@@ -7029,6 +7032,12 @@ function doRoll(st, s, c, b){
   log(st, s, `「${c ? c.name : "？"}」：${die ? `サイコロを振った → ${v}` : `コインを投げた → ${v ? "表" : "裏"}`}`);
   ev(st, { type: "roll", s, kind: die ? "die" : "coin", v, faces });
   return { kind: die ? "die" : "coin", v };
+}
+function runBlockGroup(st, s, c, bs, ctx, then){
+  if (bs.length === 1) return runBlock(st, s, c, bs[0], ctx, then);
+  const go = (st2, k) => { const b = bs[k]; if (!b) return; log(st2, s, `「${c.name}」：効果ブロック${k + 1}を選んだ`); runBlock(st2, s, c, b, ctx, then); };
+  if (isHumanHere(s)){ G.chooseQ.push({ ask: true, s, c, ctx, then, fx: { kind: "__block", ask: "どの効果ブロックを発動する？" }, pick1: bs.map((b, k) => ({ name: b.bn || `効果 ${k + 1}`, text: blockText(c, b, true) })), p1go: go }); return; }
+  go(st, Math.floor(Math.random() * bs.length));
 }
 function runBlock(st, s, c, b, ctx, then){
   if (b.delay > 0 && !ctx.delayed){

@@ -175,7 +175,7 @@ label.f{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:13p
 .bk-tpls .small{border-radius:99px}
 #bkUI{display:flex;flex-direction:column;gap:12px}
 .bk{border:1px solid var(--line);border-radius:14px;padding:12px;display:flex;flex-direction:column;gap:10px;background:rgba(255,255,255,.03)}
-.bk-h{display:flex;align-items:center;gap:6px}
+.bk-h{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
 .bk-h b{font-family:var(--en,var(--ui));color:var(--muted)}
 .bk-grid{display:grid;grid-template-columns:auto minmax(0,1fr);gap:10px 12px;align-items:start}
 .bk-tag{justify-self:start;padding:3px 12px;border-radius:99px;font-weight:700;font-size:13px;white-space:nowrap;margin-top:4px}

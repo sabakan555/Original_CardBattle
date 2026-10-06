@@ -1154,8 +1154,8 @@ function comboCount(st, s, cb, ctx = {}){
 // run a card's main effect and (if its condition holds) its extra effect, in order
 function runCard(st, s, c, trig, ctx = {}, then){
   ctx = { ...ctx, hit: {} };
-  const bs = blocksOf(c).filter(b => (b.trig === trig && (trig !== "ctrReach" || ctrReachHit(b, ctx))) || ((trig === "summon" || trig === "ssummon") && b.trig === "enter" && cardType(c) === "monster"));
-  const step = (st2, k) => { if (k >= bs.length){ then && then(st2); return; } runBlock(st2, s, c, bs[k], ctx, st3 => step(st3, k + 1)); };
+  const bs = blockGroups(blocksOf(c)).map(g => g.filter(b => (b.trig === trig && (trig !== "ctrReach" || ctrReachHit(b, ctx))) || ((trig === "summon" || trig === "ssummon") && b.trig === "enter" && cardType(c) === "monster"))).filter(g => g.length);
+  const step = (st2, k) => { if (k >= bs.length){ then && then(st2); return; } runBlockGroup(st2, s, c, bs[k], ctx, st3 => step(st3, k + 1)); };
   step(st, 0);
 }
 // one block: check もし (a 質問 is asked last, only when it can still change the result), then なにを or ちがったら
@@ -1165,6 +1165,12 @@ function doRoll(st, s, c, b){
   log(st, s, `「${c ? c.name : "？"}」：${die ? `サイコロを振った → ${v}` : `コインを投げた → ${v ? "表" : "裏"}`}`);
   ev(st, { type: "roll", s, kind: die ? "die" : "coin", v, faces });
   return { kind: die ? "die" : "coin", v };
+}
+function runBlockGroup(st, s, c, bs, ctx, then){
+  if (bs.length === 1) return runBlock(st, s, c, bs[0], ctx, then);
+  const go = (st2, k) => { const b = bs[k]; if (!b) return; log(st2, s, `「${c.name}」：効果ブロック${k + 1}を選んだ`); runBlock(st2, s, c, b, ctx, then); };
+  if (isHumanHere(s)){ G.chooseQ.push({ ask: true, s, c, ctx, then, fx: { kind: "__block", ask: "どの効果ブロックを発動する？" }, pick1: bs.map((b, k) => ({ name: b.bn || `効果 ${k + 1}`, text: blockText(c, b, true) })), p1go: go }); return; }
+  go(st, Math.floor(Math.random() * bs.length));
 }
 function runBlock(st, s, c, b, ctx, then){
   if (b.delay > 0 && !ctx.delayed){

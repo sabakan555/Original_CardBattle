@@ -674,7 +674,7 @@ function blocksOf(c){
     ...(b.trig === "ctrReach" ? { rc: String(b.rc || ctrDefault()), rn: Math.max(1, Math.min(99, Math.round(+b.rn || 1))), rw: b.rw === "me" ? "me" : "self" } : {}),
     ...(b.trig === "act" && b.cost && b.cost.id && +b.cost.n > 0 ? { cost: { id: String(b.cost.id), n: Math.min(99, Math.round(+b.cost.n)), w: b.cost.w === "me" || b.cost.w === "field" ? b.cost.w : "self" } } : {}),
     ...(+b.necro > 0 ? { necro: Math.min(40, Math.round(+b.necro)) } : {}), ...(b.trig === "act" && +b.mcost > 0 ? { mcost: Math.min(99, Math.round(+b.mcost)) } : {}),
-    ...(b.cont ? { cont: true } : {}), ...(b.bn ? { bn: String(b.bn).slice(0, 20) } : {}), ...(b.bic ? { bic: String(b.bic).slice(0, 12) } : {}), ...(b.bd ? { bd: String(b.bd).slice(0, 40) } : {}), ...(b.one ? { one: true } : {}),
+    ...(b.cont ? { cont: true } : {}), ...(b.alt ? { alt: true } : {}), ...(b.bn ? { bn: String(b.bn).slice(0, 20) } : {}), ...(b.bic ? { bic: String(b.bic).slice(0, 12) } : {}), ...(b.bd ? { bd: String(b.bd).slice(0, 40) } : {}), ...(b.one ? { one: true } : {}),
     // プレイヤーに付与: { to: me|op, at: turnStart|turnEnd, dur: 0=ずっと / ○回 }
     grant: b.grant && ["me", "op", "pick"].includes(b.grant.to) ? { to: b.grant.to, at: b.grant.at === "turnStart" ? "turnStart" : "turnEnd", dur: Math.max(0, Math.min(9, Math.round(+b.grant.dur || 0))) } : null,
     conds: (Array.isArray(b.conds) ? b.conds : []).filter(x => x && COND_DEFS[x.k]),
@@ -734,5 +734,7 @@ function blockText(c, b, detail = false){
   if (isField(c) && !fieldMine(c)) s = s.replace(/(自分|相手)のモンスターすべて/g, "お互いのモンスターすべて");
   return s;
 }
-function fxText0(c, detail = false){ const out = blocksOf(c).map(b => blockText(c, b, detail)).join(detail ? "。\n" : "。"); return c && c.costX && out ? "【X回くり返す】" + out : out; }
+// Consecutive blocks marked alt form one choice; unrelated blocks still run in order.
+function blockGroups(bs){ const groups = []; bs.forEach(b => { const last = groups[groups.length - 1]; if (b.alt && last && !["act", "while"].includes(b.trig) && b.trig === last[0].trig) last.push(b); else groups.push([b]); }); return groups; }
+function fxText0(c, detail = false){ const out = blockGroups(blocksOf(c)).map(g => g.length > 1 ? "次の効果ブロックから1つ選んで発動する：" + (detail ? "\n" : "") + g.map(b => blockText(c, b, detail)).join(detail ? "\nまたは、" : "、または、") : blockText(c, g[0], detail)).join(detail ? "。\n" : "。"); return c && c.costX && out ? "【X回くり返す】" + out : out; }
 
