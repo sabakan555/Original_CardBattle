@@ -428,7 +428,7 @@ function playEvents(prevLp, nowLp){
   }
   if (reduceMotion) return;
   // one after another: a spell banner gets time to show before its hits, each hit gets its own beat (ツインストライク → 2 hits)
-  const GAP = { spell: 900, attack: 560, hit: 420, fusion: 2800 };
+  const GAP = { spell: 900, summon: 900, attack: 560, hit: 420, fusion: 2800 };
   let t = 0;
   list.forEach(e => { setTimeout(() => { try{ animateEvent(e); }catch(err){} }, t); t += GAP[e.type] || 320; });
 }
@@ -460,6 +460,9 @@ function fusionFx(e){
 }
 function animateEvent(e){
   if (!G) return;
+  if (e.type === "summon" && e.c){
+    fxEl("fxspell " + (sideOf(e.s) === "me" ? "mine" : "theirs"), `<div class="lbl">モンスター登場！</div>${cardHTML(card(e.c), "lg", "", mOpt(e.s))}`);
+  }
   if (e.type === "summon" || e.type === "equip"){
     const el = zoneEl(e.s, "mz", e.z); if (!el) return;
     if (e.type === "summon") el.animate([{ transform: "translateY(-46px) scale(1.3) rotate(-4deg)", opacity: 0 }, { transform: "translateY(4px) scale(.96)", opacity: 1, offset: .65 }, { transform: "none", opacity: 1 }], { duration: 480, easing: "ease-out" });
