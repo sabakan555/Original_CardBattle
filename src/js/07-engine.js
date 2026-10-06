@@ -330,7 +330,7 @@ function freeZone(arr){ return arr.findIndex(x => !x); }
 // 場のモンスターを手札・除外に送る（破壊ではないので「破壊されたとき」は出ない）。装備と質量は墓地へ、コピーは消える
 function moveMonOut(st, o, i, to){
   const p = P(st, o), m = p.mz[i]; if (!m) return null;
-  eqsOf(m).forEach(e => P(st, e.o).grave.push(e.c)); p.grave.push(...(m.mats || []));
+  eqsOf(m).forEach(e => P(st, e.o).grave.push(e.c)); p.grave.push(...(m.mats || [])); sealsOut(st, m);
   p.mz[i] = null; ev(st, { type: "destroy", s: o, z: i });
   if (!m.cp){ const w = P(st, m.owner || o); if (to === "exile") (w.exile = w.exile || []).push(m.c); else w.hand.push(m.c); }
   return m;
@@ -364,7 +364,18 @@ function anySumAsk(st, s, then){
 }
 const tauntIdx = (st, s) => P(st, s).mz.map((m, i) => m && hasAb(st, s, i, "taunt") ? i : -1).filter(i => i >= 0);
 // 隠密: 自分から攻撃するまで、相手の攻撃・効果の対象にならない
-const hiddenMon = (st, s, i) => { const m = P(st, s).mz[i]; return !!m && ((!m.revealed && hasAb(st, s, i, "stealth")) || jdOn(st, s, i)); };
+// 封印: m.seals = [{ c: カード, o: 持ち主 }]。1つでもあれば、ないものとして扱う
+const sealedM = m => !!(m && m.seals && m.seals.length);
+const hiddenMon = (st, s, i) => { const m = P(st, s).mz[i]; return !!m && (sealedM(m) || (!m.revealed && hasAb(st, s, i, "stealth")) || jdOn(st, s, i)); };
+const sealShare = (a, b) => { const A = tagsOf(a), B = tagsOf(b); return !A.length && !B.length ? true : A.some(t => B.includes(t)); };
+// 自分のモンスターを出したとき、同じタグの（封印された）自分のモンスターから封印を1つはがす
+function sealRelease(st, s, z){
+  const p = P(st, s), nm = p.mz[z]; if (!nm || sealedM(nm)) return;
+  const j = p.mz.findIndex((m, k) => k !== z && sealedM(m) && sealShare(card(nm.c), card(m.c))); if (j < 0) return;
+  const m = p.mz[j], sl = m.seals.shift(); P(st, sl.o).grave.push(sl.c);
+  log(st, s, `「${card(nm.c).name}」を出したので、「${card(m.c).name}」の封印が1つはがれた（のこり${m.seals.length}）`);
+}
+const sealsOut = (st, m) => { (m && m.seals || []).forEach(x => P(st, x.o).grave.push(x.c)); if (m) m.seals = []; };
 // ジャストダイバー: 出たターンと、そのあとの相手のターンのあいだ
 const jdOn = (st, s, i) => { const m = P(st, s).mz[i]; return !!m && hasAb(st, s, i, "justDiver") && (st.turnNo === m.born || (st.turnNo === m.born + 1 && st.turn !== s)); };
 function targetOptions(st, s, kind, ctx = {}){
@@ -457,7 +468,7 @@ function detachEquips(st, s, i){
 function unequip(){}
 // abilities of monster (s,i): its own + the ones its equips give (a 化身 doubles numbers)
 function monAbs(st, s, i){
-  const m = P(st, s).mz[i]; if (!m) return [];
+  const m = P(st, s).mz[i]; if (!m || sealedM(m)) return [];
   const out = absOf(card(m.c)).map(a => ({ ...a, mult: 1 }));
   const es = eqsOf(m);
   es.forEach((e, k) => absOf(card(e.c)).forEach(a => { if (a.k !== "double") out.push({ ...a, mult: eqMult(es, k), eqU: e.u }); }));
@@ -493,7 +504,7 @@ function useBlockedWhy(st, s, c, win){
 const atkLocked = (st, s) => (P(st, s).noAtkUntil || 0) >= st.turnNo;
 function canAttack(st, s, i){
   const m = P(st, s).mz[i];
-  return !!m && !atkLocked(st, s) && !((m.noAtkTurn || 0) >= st.turnNo) && !m.attacked && st.turnNo > 1 && (!sick(st, s, i) || m.rushTurn === st.turnNo) && !hasAb(st, s, i, "noAttack") && !charmActive(st, m) && atkCondOk(st, s, i);
+  return !!m && !sealedM(m) && !atkLocked(st, s) && !((m.noAtkTurn || 0) >= st.turnNo) && !m.attacked && st.turnNo > 1 && (!sick(st, s, i) || m.rushTurn === st.turnNo) && !hasAb(st, s, i, "noAttack") && !charmActive(st, m) && atkCondOk(st, s, i);
 }
 // 攻撃の条件: this monster can only attack while these hold
 function useCostVar(c, st, s){ return !!(c && st && s && P(st, s).mana && Array.isArray(c.atkCondsCost)); }
@@ -559,7 +570,7 @@ function actLeftText(st, s, m){
   return actBlocks(st, s, m).map(([b, bi]) => { const L = actLim(b); if (L.per === "free") return "何回でも使える"; const used = L.per === "turn" ? (m.actT && m.actT.no === st.turnNo ? m.actT.c[bi] || 0 : 0) : ((P(st, s).actG || {})[c.id + ":" + bi] || 0); return `${L.per === "turn" ? "このターン" : "この試合"}あと${Math.max(0, L.n - used)}回`; }).join("／");
 }
 function monTrigList(st, s, i, trig, m, extra = {}){
-  m = m || P(st, s).mz[i]; if (!m) return [];
+  m = m || P(st, s).mz[i]; if (!m || sealedM(m)) return [];
   const base = { zone: i, mon: { s, i, u: m.u }, ...extra };
   const L = [{ s, c: monCard(m), trig, ctx: base }];
   const es = eqsOf(m);
@@ -643,7 +654,7 @@ function equip(st, s, hi, ts, ti, pos, disc){
   return true;
 }
 // visual events, stored in the game state so both players see the same animations
-function ev(st, e){ if (e.type === "spell" && e.c) st.recent = [...(st.recent || []), { c: e.c, s: e.s }].slice(-5); st.evn = (st.evn || 0) + 1; (st.ev || (st.ev = [])).push({ ...e, n: st.evn }); if (st.ev.length > 30) st.ev.splice(0, st.ev.length - 30); }
+function ev(st, e){ if (e.type === "summon" && e.s && e.z != null) sealRelease(st, e.s, e.z); if (e.type === "spell" && e.c) st.recent = [...(st.recent || []), { c: e.c, s: e.s }].slice(-5); st.evn = (st.evn || 0) + 1; (st.ev || (st.ev = [])).push({ ...e, n: st.evn }); if (st.ev.length > 30) st.ev.splice(0, st.ev.length - 30); }
 // returns true if the monster actually left the field. opt.battle: destroyed by battle; opt.force: manual (no protection)
 function destroyMonster(st, s, i, why, opt = {}){
   const p = P(st, s), m = p.mz[i]; if (!m) return false;
@@ -668,6 +679,7 @@ function destroyMonster(st, s, i, why, opt = {}){
   es.forEach(e => P(st, e.o).grave.push(e.c));
   if (es.length) log(st, s, `付いていた装備${es.map(e => `「${card(e.c).name}」`).join("")}も墓地へ`);
   if ((m.mats || []).length){ p.grave.push(...m.mats); log(st, s, `質量${m.mats.length}枚も墓地へ`); }
+  if (sealedM(m)){ log(st, s, `封印${m.seals.length}枚も墓地へ`); sealsOut(st, m); }
   if (rb){ const k = p.grave.lastIndexOf(m.c); if (k >= 0) p.grave.splice(k, 1); const r = mkMon(st, m.c), b = baseAtk(card(m.c)); r.reborned = true; if (isFinite(b)) r.mod = -Math.ceil(b / 2); p.mz[i] = r; ev(st, { type: "summon", s, z: i }); log(st, s, `「${name}」が復活した！（ATK半分）`); }
   // スパイアデッキ: beating an opponent's monster → カード報酬 + maybe a ポーション
   // 選択の祭壇: beating an opponent's monster → カード報酬, 40% ポーション, 10% レリック
@@ -847,6 +859,9 @@ function applyEffect(st, s, c, target, ctx = {}, fx = normFx(c)){
       const ids = fx.sp === "pick" ? (me.hand[target] != null ? [me.hand[target]] : []) : [...new Set(me.hand.filter(id => usedMatch(card(id), fx.pf, fx.pfn)))];
       ids.forEach(id => (me.costSet = me.costSet || []).push({ id, v, until, once: fx.sd === "used" }));
       log(st, s, ids.length ? `${src}で${ids.map(id => `「${card(id).name}」`).join("")}のコストが${v}になった（${fx.sd === "used" ? "使うまで" : "このターン"}）` : `${src}：コストを変えるカードがない`); break; }
+    case "seal": { const m = opT.mz[target]; if (!m) break; let k = 0;
+      for (let r = 0; r < Math.max(1, n || 1); r++){ if (!me.deck.length) refill(st, s); const id = me.deck.shift(); if (id == null) break; (m.seals = m.seals || []).push({ c: id, o: s }); k++; }
+      log(st, s, k ? `${src}で「${card(m.c).name}」に封印を${k}つつけた（ないものとして扱う）` : `${src}：山札がないので封印をつけられない`); break; }
     case "giveAb": {
       const a = gabAbility(fx), w = GAB_W[fx.gw] ? fx.gw : "self", until = fx.gd === "turn" ? st.turnNo : fx.gd === "next" ? st.turnNo + 2 : 0;
       const give = m => { if (!m) return; const g = { ...a, until };

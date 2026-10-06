@@ -213,6 +213,7 @@ label.f{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:13p
 .ctr-big{width:72px;height:72px;border-radius:50%;object-fit:cover;background:#fff;box-shadow:0 0 0 4px var(--cc,#666)}.ctr-big0{display:grid;place-items:center;font-size:34px;font-weight:700;color:var(--cc,#666)}
 .ctr-on{grid-column:1/-1;display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:6px 10px;border-radius:10px;background:rgba(255,255,255,.07)}
 .ctr-hint{margin:8px 0 0;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.sealx{position:absolute;inset:0;z-index:6;display:grid;place-items:center;background:repeating-linear-gradient(135deg,rgba(20,20,30,.72) 0 10px,rgba(40,40,60,.72) 10px 20px);border-radius:inherit;color:#ffe9a8;font-weight:900;font-size:clamp(12px,calc(var(--w,150px)*.13),28px);letter-spacing:.1em;text-shadow:0 2px 4px #000;pointer-events:none}
 .card-shot{position:fixed;left:-10000px;top:0;display:inline-block;padding:30px;pointer-events:none;background:transparent}.card-shot>.card{--w:480px!important;margin:0}
 .cost-box{display:flex;flex-direction:column;gap:12px}.cost-grp{display:flex;flex-direction:column;gap:6px}.cost-gh{font-weight:700;font-size:13px;opacity:.85;border-bottom:1px solid var(--line);padding-bottom:3px}.cost-line{display:grid;grid-template-columns:7.2em minmax(0,1fr);gap:8px;align-items:start}.cost-line>.cost-k{margin-top:7px}.cost-in{display:flex;gap:6px;flex-wrap:wrap;align-items:center;min-width:0}.cost-in select{width:auto;max-width:12em}.cost-in .note{font-size:11px}.cost-sub{display:flex;gap:6px;flex-wrap:wrap;align-items:center;flex-basis:100%;padding-left:22px}.cost-sub[hidden]{display:none}.cost-on{gap:4px;cursor:pointer}.cost-k{font-weight:700;font-size:12px;padding:2px 6px;border-radius:99px;background:rgba(127,127,127,.18);text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}@media (max-width:520px){.cost-line{grid-template-columns:1fr}.cost-k{justify-self:start}}.ctr-grid{display:flex;flex-wrap:wrap;gap:6px 14px;margin:6px 0}.ctr-item{display:flex;align-items:center;gap:6px}
 .ctr-form{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;padding:8px;border:1px dashed rgba(127,127,127,.6);border-radius:8px}
@@ -2051,6 +2052,7 @@ const KINDS = {
   drawTo:     { label: "手札が○枚になるまで引く", n: true, text: n => `手札が${n}枚になるまでカードを引く` },
   copyPick:   { label: "手札を1枚えらんで、コピーを手札に加える（いま／次のターンのはじめ）", n: true, target: "hand", text: (n, nm, m) => `手札を1枚えらび、${m && m.cpw === "next" ? "次の自分のターンのはじめに" : ""}そのコピーを${n}枚手札に加える` },
   setCost:    { label: "手札のカードのコストを○にする（えらぶ／種類・名前でしぼる）", n: true, target: "hand", text: (n, nm, m) => `${m && m.sp === "pick" ? "手札を1枚えらび、そのコスト" : `手札の${usedPfText(m || {})}のコスト`}を${n}にする（${m && m.sd === "used" ? "使うまで" : "このターン"}）` },
+  seal:       { label: "相手のモンスターに封印をつける（同じタグのモンスターを出されるまで、ないものとして扱う）", n: true, target: "opp", text: n => `相手のモンスター1体に《封印》を${n}つつける（自分の山札の上から${n}枚を裏向きで重ねる）` },
   giveAb:     { label: "モンスターに能力を付与する（成長・2回攻撃・ブロッカーなど）", target: "any", text: (n, nm, m) => gabText(m) },
   win:        { label: "ゲームに勝利する", text: () => `ゲームに勝利する` }
 };
@@ -2099,6 +2101,7 @@ const ABS = {
   eqBonus:    { label: "特定の名前の装備を付けているとATKアップ", only: "mon", self: true, n: 300, name: true, text: (n, nm) => `名前に「${nm || "？"}」が入った装備を付けているとき、ATK+${n}` }
 };
 const KW_DESC = {
+  "封印": "山札の上のカードを裏向きで重ねたもの。封印があるモンスターは、ないものとして扱う（攻撃も、能力も、効果も出ない。攻撃や効果の対象にもならない）。持ち主がそのモンスターと同じタグのモンスターを出すと、封印が1つはがれる（タグがないもの同士でもOK）",
   "エセリアル": "ターンの終わりにこのカードが手札にあると、廃棄される",
   "敏捷": "カードで得るブロックがこの数だけ増える",
   "霊体": "受けるダメージが1になる。自分のターンのはじめに1減る",
@@ -4073,7 +4076,7 @@ const KIND_GROUPS = [
   { g: "summon",  label: "モンスターを場に出す", v: [["summonNamed", "名前を指定したモンスターを自分の場に（トークンなど）"], ["reborn", "墓地のモンスターを場に"], ["tagSummonHand", "タグのモンスターを手札から"], ["tagSummonDeck", "タグのモンスターを山札から"], ["tagSummonGrave", "タグのモンスターを墓地から"], ["summonSelf", "このカードを手札から特殊召喚（手札で反応する効果用）"], ["fusion", "融合召喚（EXデッキの融合モンスター）"], ["exSummon", "EXデッキのモンスターを（えらんで）"], ["tagSummonEx", "タグのモンスターをEXデッキから"]] },
   { g: "free",    label: "踏み倒す（コストを払わずに使う）", v: [["playTop", "山札の一番上をプレイ（○枚）"], ["playTopEx", "山札の一番上をプレイして廃棄（○枚）"], ["playHandAtk", "手札のランダムなアタックをプレイ"], ["autoPlay", "名前に○が入ったカードを引いたら自動で使う"], ["dblAtk", "次のアタックをもう1回使う"], ["freeAttack", "次に使うアタックのコストを0に"], ["freeSkill", "次に使うスキルのコストを0に"], ["freePower", "次に使うパワーのコストを0に"], ["corrupt", "スキルがずっと0コスト（使うと廃棄）"]] },
   { g: "mass",    label: "質量（ナナシ系）", v: [["matCopy", "分裂：場のモンスターの質量1枚をコピーして出す"], ["matOut", "増殖：このモンスターの質量をできるだけ場に出す（「破壊されたとき」用）"], ["fieldOut", "このフィールドの質量の半分をコピーとして出す（フィールド魔法用）"], ["stealGrave", "相手の墓地のカードを自分の墓地へ移す"], ["millBoth", "お互いの山札の上を墓地へ"], ["graveHand", "墓地のカードを手札に戻す（どのカードでも）"], ["absorbKill", "バトルで倒した相手を質量にする（「戦闘で相手を破壊したとき」用）"], ["synth", "合成：手札の効果を場のモンスターに付ける"]] },
-  { g: "remove",  label: "場からどかす（手札に戻す・除外・うばう）", v: [["bounce", "相手のモンスターを手札に戻す（バウンス）"], ["banishMon", "相手のモンスターを除外する"], ["stealMon", "相手のモンスターをうばう（ずっと）"], ["stealMonTmp", "相手のモンスターをうばう（このターンだけ）"], ["banishGrave", "相手の墓地のカードを除外する（えらぶ）"], ["banishGraveAll", "相手の墓地をすべて除外する"]] },
+  { g: "remove",  label: "場からどかす（手札に戻す・除外・うばう・封印）", v: [["seal", "相手のモンスターに封印をつける"], ["bounce", "相手のモンスターを手札に戻す（バウンス）"], ["banishMon", "相手のモンスターを除外する"], ["stealMon", "相手のモンスターをうばう（ずっと）"], ["stealMonTmp", "相手のモンスターをうばう（このターンだけ）"], ["banishGrave", "相手の墓地のカードを除外する（えらぶ）"], ["banishGraveAll", "相手の墓地をすべて除外する"]] },
   { g: "atk",     label: "ATKをあやつる（0にする・入れかえる・元に戻す）", v: [["atkZero", "相手のモンスターのATKを0にする"], ["atkSwap", "このモンスターと相手のモンスターのATKを入れかえる"], ["atkReset", "モンスターのATKを元の数字に戻す"]] },
   { g: "next",    label: "次に使うカード・手札のコスト・コピー", v: [["dblNext", "次に使う○をもう1回使う"], ["freeNext", "次に使う○のコストを0"], ["setCost", "手札のカードのコストを○にする"], ["copyPick", "手札を1枚えらんでコピーを加える"]] },
   { g: "ability", label: "能力を付与する（成長・2回攻撃・ブロッカーなど）", v: [["giveAb", "モンスターに能力を付与する"]] },
@@ -6091,7 +6094,7 @@ function freeZone(arr){ return arr.findIndex(x => !x); }
 // 場のモンスターを手札・除外に送る（破壊ではないので「破壊されたとき」は出ない）。装備と質量は墓地へ、コピーは消える
 function moveMonOut(st, o, i, to){
   const p = P(st, o), m = p.mz[i]; if (!m) return null;
-  eqsOf(m).forEach(e => P(st, e.o).grave.push(e.c)); p.grave.push(...(m.mats || []));
+  eqsOf(m).forEach(e => P(st, e.o).grave.push(e.c)); p.grave.push(...(m.mats || [])); sealsOut(st, m);
   p.mz[i] = null; ev(st, { type: "destroy", s: o, z: i });
   if (!m.cp){ const w = P(st, m.owner || o); if (to === "exile") (w.exile = w.exile || []).push(m.c); else w.hand.push(m.c); }
   return m;
@@ -6125,7 +6128,18 @@ function anySumAsk(st, s, then){
 }
 const tauntIdx = (st, s) => P(st, s).mz.map((m, i) => m && hasAb(st, s, i, "taunt") ? i : -1).filter(i => i >= 0);
 // 隠密: 自分から攻撃するまで、相手の攻撃・効果の対象にならない
-const hiddenMon = (st, s, i) => { const m = P(st, s).mz[i]; return !!m && ((!m.revealed && hasAb(st, s, i, "stealth")) || jdOn(st, s, i)); };
+// 封印: m.seals = [{ c: カード, o: 持ち主 }]。1つでもあれば、ないものとして扱う
+const sealedM = m => !!(m && m.seals && m.seals.length);
+const hiddenMon = (st, s, i) => { const m = P(st, s).mz[i]; return !!m && (sealedM(m) || (!m.revealed && hasAb(st, s, i, "stealth")) || jdOn(st, s, i)); };
+const sealShare = (a, b) => { const A = tagsOf(a), B = tagsOf(b); return !A.length && !B.length ? true : A.some(t => B.includes(t)); };
+// 自分のモンスターを出したとき、同じタグの（封印された）自分のモンスターから封印を1つはがす
+function sealRelease(st, s, z){
+  const p = P(st, s), nm = p.mz[z]; if (!nm || sealedM(nm)) return;
+  const j = p.mz.findIndex((m, k) => k !== z && sealedM(m) && sealShare(card(nm.c), card(m.c))); if (j < 0) return;
+  const m = p.mz[j], sl = m.seals.shift(); P(st, sl.o).grave.push(sl.c);
+  log(st, s, `「${card(nm.c).name}」を出したので、「${card(m.c).name}」の封印が1つはがれた（のこり${m.seals.length}）`);
+}
+const sealsOut = (st, m) => { (m && m.seals || []).forEach(x => P(st, x.o).grave.push(x.c)); if (m) m.seals = []; };
 // ジャストダイバー: 出たターンと、そのあとの相手のターンのあいだ
 const jdOn = (st, s, i) => { const m = P(st, s).mz[i]; return !!m && hasAb(st, s, i, "justDiver") && (st.turnNo === m.born || (st.turnNo === m.born + 1 && st.turn !== s)); };
 function targetOptions(st, s, kind, ctx = {}){
@@ -6218,7 +6232,7 @@ function detachEquips(st, s, i){
 function unequip(){}
 // abilities of monster (s,i): its own + the ones its equips give (a 化身 doubles numbers)
 function monAbs(st, s, i){
-  const m = P(st, s).mz[i]; if (!m) return [];
+  const m = P(st, s).mz[i]; if (!m || sealedM(m)) return [];
   const out = absOf(card(m.c)).map(a => ({ ...a, mult: 1 }));
   const es = eqsOf(m);
   es.forEach((e, k) => absOf(card(e.c)).forEach(a => { if (a.k !== "double") out.push({ ...a, mult: eqMult(es, k), eqU: e.u }); }));
@@ -6254,7 +6268,7 @@ function useBlockedWhy(st, s, c, win){
 const atkLocked = (st, s) => (P(st, s).noAtkUntil || 0) >= st.turnNo;
 function canAttack(st, s, i){
   const m = P(st, s).mz[i];
-  return !!m && !atkLocked(st, s) && !((m.noAtkTurn || 0) >= st.turnNo) && !m.attacked && st.turnNo > 1 && (!sick(st, s, i) || m.rushTurn === st.turnNo) && !hasAb(st, s, i, "noAttack") && !charmActive(st, m) && atkCondOk(st, s, i);
+  return !!m && !sealedM(m) && !atkLocked(st, s) && !((m.noAtkTurn || 0) >= st.turnNo) && !m.attacked && st.turnNo > 1 && (!sick(st, s, i) || m.rushTurn === st.turnNo) && !hasAb(st, s, i, "noAttack") && !charmActive(st, m) && atkCondOk(st, s, i);
 }
 // 攻撃の条件: this monster can only attack while these hold
 function useCostVar(c, st, s){ return !!(c && st && s && P(st, s).mana && Array.isArray(c.atkCondsCost)); }
@@ -6320,7 +6334,7 @@ function actLeftText(st, s, m){
   return actBlocks(st, s, m).map(([b, bi]) => { const L = actLim(b); if (L.per === "free") return "何回でも使える"; const used = L.per === "turn" ? (m.actT && m.actT.no === st.turnNo ? m.actT.c[bi] || 0 : 0) : ((P(st, s).actG || {})[c.id + ":" + bi] || 0); return `${L.per === "turn" ? "このターン" : "この試合"}あと${Math.max(0, L.n - used)}回`; }).join("／");
 }
 function monTrigList(st, s, i, trig, m, extra = {}){
-  m = m || P(st, s).mz[i]; if (!m) return [];
+  m = m || P(st, s).mz[i]; if (!m || sealedM(m)) return [];
   const base = { zone: i, mon: { s, i, u: m.u }, ...extra };
   const L = [{ s, c: monCard(m), trig, ctx: base }];
   const es = eqsOf(m);
@@ -6404,7 +6418,7 @@ function equip(st, s, hi, ts, ti, pos, disc){
   return true;
 }
 // visual events, stored in the game state so both players see the same animations
-function ev(st, e){ if (e.type === "spell" && e.c) st.recent = [...(st.recent || []), { c: e.c, s: e.s }].slice(-5); st.evn = (st.evn || 0) + 1; (st.ev || (st.ev = [])).push({ ...e, n: st.evn }); if (st.ev.length > 30) st.ev.splice(0, st.ev.length - 30); }
+function ev(st, e){ if (e.type === "summon" && e.s && e.z != null) sealRelease(st, e.s, e.z); if (e.type === "spell" && e.c) st.recent = [...(st.recent || []), { c: e.c, s: e.s }].slice(-5); st.evn = (st.evn || 0) + 1; (st.ev || (st.ev = [])).push({ ...e, n: st.evn }); if (st.ev.length > 30) st.ev.splice(0, st.ev.length - 30); }
 // returns true if the monster actually left the field. opt.battle: destroyed by battle; opt.force: manual (no protection)
 function destroyMonster(st, s, i, why, opt = {}){
   const p = P(st, s), m = p.mz[i]; if (!m) return false;
@@ -6429,6 +6443,7 @@ function destroyMonster(st, s, i, why, opt = {}){
   es.forEach(e => P(st, e.o).grave.push(e.c));
   if (es.length) log(st, s, `付いていた装備${es.map(e => `「${card(e.c).name}」`).join("")}も墓地へ`);
   if ((m.mats || []).length){ p.grave.push(...m.mats); log(st, s, `質量${m.mats.length}枚も墓地へ`); }
+  if (sealedM(m)){ log(st, s, `封印${m.seals.length}枚も墓地へ`); sealsOut(st, m); }
   if (rb){ const k = p.grave.lastIndexOf(m.c); if (k >= 0) p.grave.splice(k, 1); const r = mkMon(st, m.c), b = baseAtk(card(m.c)); r.reborned = true; if (isFinite(b)) r.mod = -Math.ceil(b / 2); p.mz[i] = r; ev(st, { type: "summon", s, z: i }); log(st, s, `「${name}」が復活した！（ATK半分）`); }
   // スパイアデッキ: beating an opponent's monster → カード報酬 + maybe a ポーション
   // 選択の祭壇: beating an opponent's monster → カード報酬, 40% ポーション, 10% レリック
@@ -6608,6 +6623,9 @@ function applyEffect(st, s, c, target, ctx = {}, fx = normFx(c)){
       const ids = fx.sp === "pick" ? (me.hand[target] != null ? [me.hand[target]] : []) : [...new Set(me.hand.filter(id => usedMatch(card(id), fx.pf, fx.pfn)))];
       ids.forEach(id => (me.costSet = me.costSet || []).push({ id, v, until, once: fx.sd === "used" }));
       log(st, s, ids.length ? `${src}で${ids.map(id => `「${card(id).name}」`).join("")}のコストが${v}になった（${fx.sd === "used" ? "使うまで" : "このターン"}）` : `${src}：コストを変えるカードがない`); break; }
+    case "seal": { const m = opT.mz[target]; if (!m) break; let k = 0;
+      for (let r = 0; r < Math.max(1, n || 1); r++){ if (!me.deck.length) refill(st, s); const id = me.deck.shift(); if (id == null) break; (m.seals = m.seals || []).push({ c: id, o: s }); k++; }
+      log(st, s, k ? `${src}で「${card(m.c).name}」に封印を${k}つつけた（ないものとして扱う）` : `${src}：山札がないので封印をつけられない`); break; }
     case "giveAb": {
       const a = gabAbility(fx), w = GAB_W[fx.gw] ? fx.gw : "self", until = fx.gd === "turn" ? st.turnNo : fx.gd === "next" ? st.turnNo + 2 : 0;
       const give = m => { if (!m) return; const g = { ...a, until };
@@ -7771,8 +7789,9 @@ function renderBoard(){
     const zz = sick(st, s, i) ? " sick" : "", zx = (!z.shieldGone && hasAb(st, s, i, "shield") ? " shielded" : "") + (hiddenMon(st, s, i) ? " stealthy" : "");
     const actH = mine && !G.spectate && hasTrig(monCard(z), "act"), actNo = actH ? actWhy(st, s, i) : "";
     const evH = mine && !G.spectate && hasAb(st, s, i, "evolve") && !z.evolved, evNo = evH ? evoWhy(st, s, i) : "";
-    const rsx = hasAb(st, s, i, "noEffect") || hasAb(st, s, i, "ward") || hiddenMon(st, s, i), rsxT = [hasAb(st, s, i, "noEffect") ? "効果では破壊されない" : "", hasAb(st, s, i, "ward") ? "護法" : "", jdOn(st, s, i) ? "ジャストダイバー中" : hiddenMon(st, s, i) ? "隠密中" : ""].filter(Boolean).join("・");
-    return (h => rsx ? h.replace(/<\/div>$/, `<span class="rsx" role="img" aria-label="除去耐性：${rsxT}" title="${rsxT}"></span></div>`) : h)((h => evH ? h.replace(/<\/div>$/, `<button type="button" class="evobtn" data-evomon="${i}" ${evNo ? "disabled" : ""} title="${esc(evNo || `進化する（進化ポイント あと${EVO_MAX - (P(st, s).evoUsed || 0)}）`)}" aria-label="「${esc(card(z.c).name)}」を進化させる">進化</button></div>`) : h)((h => actH ? h.replace(/<\/div>$/, `<button type="button" class="actbtn" data-actmon="${i}" ${actNo ? "disabled" : ""} title="${actNo ? esc(actNo) : "能力を発動する"}" aria-label="「${esc(card(z.c).name)}」の能力を発動する">${ACT_ICON}</button></div>`) : h)(zcap(cardHTML(card(z.c), cls + zz + zx + (actH ? (actNo ? " actable actused" : " actable") : "") + (atkr ? " attacking" : "") + (atkd ? " atk-tgt" : ""), attrs + (zz ? ` title="召喚酔い：次の自分のターンから攻撃できる"` : ttl), { mod: modOf(z), done: stt, eq: eqB, dmg: z.dmg || 0, ctr: z.ctr, vuln: z.vuln || 0, weak: z.weak || 0, ...mOpt(s) }), card(z.c), z))));
+    const sealN = (z.seals || []).length;
+    const rsx = !sealN && (hasAb(st, s, i, "noEffect") || hasAb(st, s, i, "ward") || hiddenMon(st, s, i)), rsxT = [hasAb(st, s, i, "noEffect") ? "効果では破壊されない" : "", hasAb(st, s, i, "ward") ? "護法" : "", jdOn(st, s, i) ? "ジャストダイバー中" : hiddenMon(st, s, i) ? "隠密中" : ""].filter(Boolean).join("・");
+    return (h => sealN ? h.replace(/<\/div>$/, `<span class="sealx" title="封印 ${sealN}（ないものとして扱う。持ち主が同じタグのモンスターを出すと1つはがれる）">封印${sealN > 1 ? " " + sealN : ""}</span></div>`) : h)((h => rsx ? h.replace(/<\/div>$/, `<span class="rsx" role="img" aria-label="除去耐性：${rsxT}" title="${rsxT}"></span></div>`) : h)((h => evH ? h.replace(/<\/div>$/, `<button type="button" class="evobtn" data-evomon="${i}" ${evNo ? "disabled" : ""} title="${esc(evNo || `進化する（進化ポイント あと${EVO_MAX - (P(st, s).evoUsed || 0)}）`)}" aria-label="「${esc(card(z.c).name)}」を進化させる">進化</button></div>`) : h)((h => actH ? h.replace(/<\/div>$/, `<button type="button" class="actbtn" data-actmon="${i}" ${actNo ? "disabled" : ""} title="${actNo ? esc(actNo) : "能力を発動する"}" aria-label="「${esc(card(z.c).name)}」の能力を発動する">${ACT_ICON}</button></div>`) : h)(zcap(cardHTML(card(z.c), cls + zz + zx + (actH ? (actNo ? " actable actused" : " actable") : "") + (atkr ? " attacking" : "") + (atkd ? " atk-tgt" : ""), attrs + (zz ? ` title="召喚酔い：次の自分のターンから攻撃できる"` : ttl), { mod: modOf(z), done: stt, eq: eqB, dmg: z.dmg || 0, ctr: z.ctr, vuln: z.vuln || 0, weak: z.weak || 0, ...mOpt(s) }), card(z.c), z)))));
   }).join("");
 
   // action bar
@@ -8028,6 +8047,7 @@ function detailInfo(z, s, i){
     info.gab = monAbs(G.st, owner, i).filter(a => a.gab).map(a => { const x = { ...a, n: a.n0 != null ? a.n0 : a.n }; return (ABS[a.k].kw ? kwStr(x) : abPhrase(x)) + (a.until ? `（${a.until >= G.st.turnNo + 1 ? "次の自分のターンの終わりまで" : "このターンだけ"}）` : ""); });
     info.abs = [...new Set(monAbs(G.st, owner, i).filter(a => a.eqU).map(a => ABS[a.k].text && ABS[a.k].n ? ABS[a.k].text((a.n || 0) * a.mult, a.name || "") : ABS[a.k].label))];
     info.eqList = es.map((e, k) => ({ c: e.c, mult: eqMult(es, k), used: !!e.used, opp: e.o !== owner, mana: !!P(G.st, e.o).mana }));
+    if ((slot.seals || []).length) info.seal = `封印 ${slot.seals.length}（ないものとして扱う。同じタグのモンスターを出すと1つはがれる）`;
     if (charmActive(G.st, slot)) info.charm = `魅了されている（「${card(slot.charm.c).name}」）`;
   }
   return info;
@@ -8067,6 +8087,7 @@ function renderDetail(info, anim){
   if (info.eqTo) rows.push(["装備先", info.eqTo]);
   if (info.cap) rows.push(["装備キャパ", info.cap]);
 
+  if (info.seal) rows.push(["封印", info.seal]);
   if (info.charm) rows.push(["状態", info.charm]);
   if (info.mats && info.mats.length) rows.push(["質量", `${info.mats.length}枚：${info.mats.map(n => `「${n}」`).join("")}`]);
   if (info.abs && info.abs.length) rows.push(["装備でついた能力", info.abs.join("／")]);
