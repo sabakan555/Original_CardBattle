@@ -425,7 +425,7 @@ ruby rt{font-size:.5em;line-height:1;font-style:normal}
 .card.detail{--w:200px}
 .dl{display:grid;grid-template-columns:auto 1fr;gap:4px 10px;margin:0;font-size:13px}
 .dl dt{font-weight:700;color:var(--muted);white-space:nowrap}
-.dl dd{margin:0;word-break:break-all}
+.dl dd{margin:0;word-break:break-all;white-space:pre-line}
 .pl{display:flex;justify-content:space-between;align-items:center;gap:10px}
 .pl .nm{font-weight:700}
 .lp{display:inline-flex;flex-direction:column;align-items:center;background:#fff;border:2px solid #1e2328;border-radius:10px;padding:2px 14px 4px;font-family:var(--hand);line-height:1.05;box-shadow:2px 3px 0 #1e2328;min-width:92px}
@@ -854,7 +854,7 @@ nav.tabs button{position:relative}
 .cv-text{background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:12px;padding:10px 14px;font-size:14px;line-height:1.9}
 .cv-text p{margin:0 0 6px}
 .cv-text p:last-child{margin-bottom:0}
-.cv-fx{color:#8fd3ff}
+.cv-fx{color:#8fd3ff;white-space:pre-line}
 .cv-cap{font-size:.78em;font-weight:700;color:var(--muted);margin:10px 0 2px!important;letter-spacing:.05em}
 .cv-flv{font-style:italic;color:var(--muted);border-top:1px dashed var(--line);padding-top:6px;margin-top:8px!important}
 .cv-foot{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;margin-top:16px;padding-top:12px;border-top:1px solid var(--line)}

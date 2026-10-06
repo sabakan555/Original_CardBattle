@@ -84,7 +84,7 @@ function openCardView(ctx, ids, i){ if (!ids || !ids.length || i < 0 || i >= ids
 function closeCardView(){ const v = $("#cardView"); v.hidden = true; v.innerHTML = ""; CV.ctx = null; }
 function renderCardView(){
   const c = S.cards.get(CV.ids[CV.i]); if (!c){ closeCardView(); return; }
-  const t = cardType(c), mana = CV.ctx === "deck" ? $("#deckMana").checked : undefined, ft = fxText(c), lim = cardLimit(c), rows = [];
+  const t = cardType(c), mana = CV.ctx === "deck" ? $("#deckMana").checked : undefined, ft = fxText(c, true), lim = cardLimit(c), rows = [];
   rows.push(["種類", typeLabel(c)]);
   if (t === "monster") rows.push(["ATK", fmtN(baseAtk(c))]);
   if (t === "equip") rows.push(["ATK", `${(c.eqN || 0) >= 0 ? "+" : "−"}${Math.abs(c.eqN || 0)}`], ["装備コスト", String(eqCostOf(c))]);

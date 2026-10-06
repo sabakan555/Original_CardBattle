@@ -547,7 +547,7 @@ function renderDetail(info, anim){
   if (!G || !G.detailOpen || !info){ box.hidden = true; box.innerHTML = ""; return; }
   box.hidden = false; box.classList.toggle("anim", !!anim); box.classList.toggle("at-bottom", !!G.detailBottom);
   if (info.hidden){ box.innerHTML = `${CLOSE}<h3>カード詳細</h3><div class="detailcard">${backHTML("detail", "", info.sleeve)}</div><p class="note" style="margin:0">相手がセットしたカード。中身はひみつ。</p>`; return; }
-  const c = card(info.id), t = cardType(c), ft = fxText(c), lim = cardLimit(c);
+  const c = card(info.id), t = cardType(c), ft = fxText(c, true), lim = cardLimit(c);
   const rows = [["種類", isQuick(c) ? "速攻魔法（相手のターンにも使える）" : typeLabel(c)]];
   if (hasCost(c) && info.mana !== false) rows.push(["コスト", String(costLabel(c))]);
   if (!c.starter) rows.push(["使えるデッキ", DECK_LABEL[deckModeOf(c)]]);
