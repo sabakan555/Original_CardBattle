@@ -676,7 +676,7 @@ function blocksOf(c){
     ...(+b.necro > 0 ? { necro: Math.min(40, Math.round(+b.necro)) } : {}), ...(b.trig === "act" && +b.mcost > 0 ? { mcost: Math.min(99, Math.round(+b.mcost)) } : {}),
     ...(b.cont ? { cont: true } : {}), ...(b.bn ? { bn: String(b.bn).slice(0, 20) } : {}), ...(b.bic ? { bic: String(b.bic).slice(0, 12) } : {}), ...(b.bd ? { bd: String(b.bd).slice(0, 40) } : {}), ...(b.one ? { one: true } : {}),
     // プレイヤーに付与: { to: me|op, at: turnStart|turnEnd, dur: 0=ずっと / ○回 }
-    grant: b.grant && (b.grant.to === "me" || b.grant.to === "op") ? { to: b.grant.to, at: b.grant.at === "turnStart" ? "turnStart" : "turnEnd", dur: Math.max(0, Math.min(9, Math.round(+b.grant.dur || 0))) } : null,
+    grant: b.grant && ["me", "op", "pick"].includes(b.grant.to) ? { to: b.grant.to, at: b.grant.at === "turnStart" ? "turnStart" : "turnEnd", dur: Math.max(0, Math.min(9, Math.round(+b.grant.dur || 0))) } : null,
     conds: (Array.isArray(b.conds) ? b.conds : []).filter(x => x && COND_DEFS[x.k]),
     then: (Array.isArray(b.then) ? b.then : []).map(cleanEff).filter(Boolean),
     else: (Array.isArray(b.else) ? b.else : []).map(cleanEff).filter(Boolean),
@@ -719,7 +719,7 @@ function effsText(c, effs, detail = false){
 const delayText = d => d > 0 ? (d === 1 ? "【次の自分のターンのはじめ】" : `【${d}ターン後の自分のターンのはじめ】`) : "";
 function clockSVG(n, cls){ return `<svg class="clk${cls ? " " + cls : ""}" viewBox="0 0 40 46" aria-hidden="true"><rect x="13" y="0" width="14" height="9" rx="4" fill="currentColor"/><circle cx="20" cy="26" r="18" fill="currentColor"/><circle cx="20" cy="26" r="11.5" fill="#fff"/><text x="20" y="31.5" text-anchor="middle" font-size="15" font-weight="800" font-family="sans-serif" fill="#111">${n}</text></svg>`; }
 function clockMark(html){ return html ? html.replace(/【次の自分のターンのはじめ】/g, () => `<span class="clkm" title="次の自分のターンのはじめに出る">${clockSVG(1)}</span>`).replace(/【(\d)ターン後の自分のターンのはじめ】/g, (_, d) => `<span class="clkm" title="${d}ターン後の自分のターンのはじめに出る">${clockSVG(d)}</span>`) : html; }
-const boonText = g => `${g.to === "op" ? "相手" : "自分"}に効果を付与する${g.dur ? `（${g.dur}回）` : "（ずっと）"}：`;
+const boonText = g => `${g.to === "pick" ? "自分、または相手" : g.to === "op" ? "相手" : "自分"}に効果を付与する${g.dur ? `（${g.dur}回）` : "（ずっと）"}：`;
 // 起動効果の回数: ap = turn（1ターンに○回）/ game（ゲーム中に○回）/ free（制限なし）
 const actLim = b => ({ per: b && (b.ap === "game" || b.ap === "free") ? b.ap : "turn", n: Math.max(1, Math.min(9, Math.round(+(b && b.an) || 1))) });
 const actLimText = b => { const L = actLim(b); return L.per === "free" ? "・何回でも" : L.per === "game" ? `・ゲーム中に${L.n}回` : `・1ターンに${L.n}回`; };

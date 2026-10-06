@@ -2566,7 +2566,7 @@ function blocksOf(c){
     ...(+b.necro > 0 ? { necro: Math.min(40, Math.round(+b.necro)) } : {}), ...(b.trig === "act" && +b.mcost > 0 ? { mcost: Math.min(99, Math.round(+b.mcost)) } : {}),
     ...(b.cont ? { cont: true } : {}), ...(b.bn ? { bn: String(b.bn).slice(0, 20) } : {}), ...(b.bic ? { bic: String(b.bic).slice(0, 12) } : {}), ...(b.bd ? { bd: String(b.bd).slice(0, 40) } : {}), ...(b.one ? { one: true } : {}),
     // プレイヤーに付与: { to: me|op, at: turnStart|turnEnd, dur: 0=ずっと / ○回 }
-    grant: b.grant && (b.grant.to === "me" || b.grant.to === "op") ? { to: b.grant.to, at: b.grant.at === "turnStart" ? "turnStart" : "turnEnd", dur: Math.max(0, Math.min(9, Math.round(+b.grant.dur || 0))) } : null,
+    grant: b.grant && ["me", "op", "pick"].includes(b.grant.to) ? { to: b.grant.to, at: b.grant.at === "turnStart" ? "turnStart" : "turnEnd", dur: Math.max(0, Math.min(9, Math.round(+b.grant.dur || 0))) } : null,
     conds: (Array.isArray(b.conds) ? b.conds : []).filter(x => x && COND_DEFS[x.k]),
     then: (Array.isArray(b.then) ? b.then : []).map(cleanEff).filter(Boolean),
     else: (Array.isArray(b.else) ? b.else : []).map(cleanEff).filter(Boolean),
@@ -2609,7 +2609,7 @@ function effsText(c, effs, detail = false){
 const delayText = d => d > 0 ? (d === 1 ? "【次の自分のターンのはじめ】" : `【${d}ターン後の自分のターンのはじめ】`) : "";
 function clockSVG(n, cls){ return `<svg class="clk${cls ? " " + cls : ""}" viewBox="0 0 40 46" aria-hidden="true"><rect x="13" y="0" width="14" height="9" rx="4" fill="currentColor"/><circle cx="20" cy="26" r="18" fill="currentColor"/><circle cx="20" cy="26" r="11.5" fill="#fff"/><text x="20" y="31.5" text-anchor="middle" font-size="15" font-weight="800" font-family="sans-serif" fill="#111">${n}</text></svg>`; }
 function clockMark(html){ return html ? html.replace(/【次の自分のターンのはじめ】/g, () => `<span class="clkm" title="次の自分のターンのはじめに出る">${clockSVG(1)}</span>`).replace(/【(\d)ターン後の自分のターンのはじめ】/g, (_, d) => `<span class="clkm" title="${d}ターン後の自分のターンのはじめに出る">${clockSVG(d)}</span>`) : html; }
-const boonText = g => `${g.to === "op" ? "相手" : "自分"}に効果を付与する${g.dur ? `（${g.dur}回）` : "（ずっと）"}：`;
+const boonText = g => `${g.to === "pick" ? "自分、または相手" : g.to === "op" ? "相手" : "自分"}に効果を付与する${g.dur ? `（${g.dur}回）` : "（ずっと）"}：`;
 // 起動効果の回数: ap = turn（1ターンに○回）/ game（ゲーム中に○回）/ free（制限なし）
 const actLim = b => ({ per: b && (b.ap === "game" || b.ap === "free") ? b.ap : "turn", n: Math.max(1, Math.min(9, Math.round(+(b && b.an) || 1))) });
 const actLimText = b => { const L = actLim(b); return L.per === "free" ? "・何回でも" : L.per === "game" ? `・ゲーム中に${L.n}回` : `・1ターンに${L.n}回`; };
@@ -4501,7 +4501,7 @@ function renderBlocksUI(){
       + `<span class="bk-tag t-when">まず</span><div class="row" style="gap:6px"><select data-f="roll" aria-label="まず">${opt("", "なし", b.roll || "")}${opt("die", "サイコロを振る", b.roll || "")}${opt("coin", "コインを投げる", b.roll || "")}</select>${b.roll === "die" ? `<input type="number" data-f="faces" min="2" max="100" value="${esc(b.faces || 6)}" aria-label="面の数" style="width:60px"><span class="note">面</span>` : ""}${b.roll === "die" ? `<select data-f="split" aria-label="出た目で分ける">${opt("", "どの目でも同じ効果", b.dieBr ? "1" : "")}${opt("1", "出た目ごとに効果を変える", b.dieBr ? "1" : "")}</select>` : ""}${b.roll ? `<span class="note">${b.roll === "die" ? "「もし」でサイコロの目を、数の「ふえる」や「×出た目の回数」で出た目を使えます" : "「もし」でコインが表／裏を使えます"}</span>` : ""}</div>`
       + (b.roll === "die" && b.dieBr ? `<span class="bk-tag t-do">出た目</span><div class="bk-col">${b.dieBr.map((x, k) => `<div class="bk-dbr"><div class="row bk-dbr-h" style="gap:4px;align-items:center"><input type="number" data-f="brlo" data-k="${k}" min="1" max="${b.faces || 6}" value="${x.lo}" aria-label="から" style="width:58px">${x.lo === x.hi ? "" : ""}<span>〜</span><input type="number" data-f="brhi" data-k="${k}" min="1" max="${b.faces || 6}" value="${x.hi}" aria-label="まで" style="width:58px"><b>が出たら</b><span style="flex:1"></span>${b.dieBr.length > 1 ? `<button type="button" class="small ghost" data-bk="delBr" data-k="${k}" aria-label="この目の行を消す">×</button>` : ""}</div>${x.then.map((e, j) => effRow(bi, "br" + k, e, j)).join("")}<button type="button" class="small bk-add" data-bk="addEff" data-part="br${k}">＋ ${x.then.length ? "そのあと…" : "効果を選ぶ"}</button></div>`).join("")}<button type="button" class="small bk-add" data-bk="addBr">＋ 出た目の範囲を足す</button><span class="note">「なにを」の効果はどの目でも出て、そのあとに出た目の効果が出ます</span></div>` : "")
       + (!easy || b.delay > 0 ? `<span class="bk-tag t-when">出るまで</span><div><select data-f="delay" aria-label="効果が出るまで">${[0, 1, 2, 3, 4, 5].map(d => opt(d, d === 0 ? "すぐ" : d === 1 ? "次の自分のターンのはじめ（時計1）" : `${d}ターン後の自分のターンのはじめ（時計${d}）`, b.delay || 0)).join("")}</select></div>` : "")
-      + `<span class="bk-tag t-when">付与</span><div class="row" style="gap:6px;flex-wrap:wrap;align-items:center"><select data-f="gto" aria-label="プレイヤーに付与">${opt("", "しない（すぐ効果が出る）", b.grant ? b.grant.to : "")}${opt("me", "自分に付与する", b.grant ? b.grant.to : "")}${opt("op", "相手に付与する", b.grant ? b.grant.to : "")}</select>${b.grant ? `<select data-f="gat" aria-label="いつ出るか">${opt("turnStart", "そのプレイヤーのターンのはじめに", b.grant.at)}${opt("turnEnd", "そのプレイヤーのターンのおわりに", b.grant.at)}</select><select data-f="gdur" aria-label="何回">${[0, 1, 2, 3, 4, 5].map(d => opt(d, d ? `${d}回だけ` : "ずっと", b.grant.dur || 0)).join("")}</select><span class="note">「もし」「なにを」は、付与されたプレイヤーが自分のこととしておこなう（例：相手に付与＋LPを失う → 相手がLPを失う）</span>` : ""}</div>`
+      + `<span class="bk-tag t-when">付与</span><div class="row" style="gap:6px;flex-wrap:wrap;align-items:center"><select data-f="gto" aria-label="プレイヤーに付与">${opt("", "しない（すぐ効果が出る）", b.grant ? b.grant.to : "")}${opt("me", "自分に付与する", b.grant ? b.grant.to : "")}${opt("op", "相手に付与する", b.grant ? b.grant.to : "")}${opt("pick", "自分または相手に付与する（発動時に選ぶ）", b.grant ? b.grant.to : "")}</select>${b.grant ? `<select data-f="gat" aria-label="いつ出るか">${opt("turnStart", "そのプレイヤーのターンのはじめに", b.grant.at)}${opt("turnEnd", "そのプレイヤーのターンのおわりに", b.grant.at)}</select><select data-f="gdur" aria-label="何回">${[0, 1, 2, 3, 4, 5].map(d => opt(d, d ? `${d}回だけ` : "ずっと", b.grant.dur || 0)).join("")}</select><span class="note">「もし」「なにを」は、付与されたプレイヤーが自分のこととしておこなう（例：相手に付与＋LPを失う → 相手がLPを失う）</span>` : ""}</div>`
       + (easy && !b.conds.length && b.trig !== "anyUse" ? "" : `<span class="bk-tag t-if">もし</span><div class="bk-col">${b.conds.map((x, j) => condRow(b, x, j)).join("")}<button type="button" class="small bk-add" data-bk="addCond">＋ 条件を足す</button>${b.conds.length ? "" : `<span class="note">なし（いつも出る）</span>`}</div>`)
       + `<span class="bk-tag t-do">なにを</span><div class="bk-col">${b.then.map((e, j) => (j > 0 ? `<div class="row bk-connect" style="gap:8px;margin:4px 0 8px 24px"><select data-f="one" aria-label="効果のつなぎ（この一覧すべてに適用）" title="そして：すべて順に発動／または：一覧から1つ選んで発動">${opt("", "そして", b.one ? "1" : "")}${opt("1", "または", b.one ? "1" : "")}</select><span class="note">効果のつなぎ</span></div>` : "") + effRow(bi, "then", e, j)).join("")}<button type="button" class="small bk-add" data-bk="addEff" data-part="then">＋ ${b.then.length ? "そのあと…" : "効果を選ぶ"}</button></div>`
       + (b.conds.length ? `<span class="bk-tag t-else">ちがったら</span><div class="bk-col">${b.else.map((e, j) => effRow(bi, "else", e, j)).join("")}<button type="button" class="small bk-add" data-bk="addEff" data-part="else">＋ ${b.else.length ? "そのあと…" : "効果を選ぶ（なくてもいい）"}</button></div>` : "")
@@ -4581,7 +4581,7 @@ function bkEvent(e, rerenderOnInput){
   if (f === "one"){ if (v === "1") b.one = true; else delete b.one; el.closest(".bk").querySelectorAll('[data-f="one"]').forEach(x => { x.value = b.one ? "1" : ""; }); return updateBkText(); }
   if (f === "trig"){ b.trig = v; if (v === "while"){ const fix = L => L.map(x => STATIC_KINDS.includes(x.kind) ? x : { kind: "selfAtk", n: 100 }); b.then = fix(b.then); b.else = fix(b.else); } if (v === "anyUse" && !b.conds.some(x => x.k === "used")) b.conds.push({ k: "used", who: "any", match: "trap", name: "" }); return renderBlocksUI(); }
   if (f === "delay"){ b.delay = Math.max(0, Math.min(9, +v || 0)); return updateBkText(); }
-  if (f === "gto"){ b.grant = v === "me" || v === "op" ? { to: v, at: b.grant ? b.grant.at : "turnEnd", dur: b.grant ? b.grant.dur || 0 : 0 } : null; return renderBlocksUI(); }
+  if (f === "gto"){ b.grant = ["me", "op", "pick"].includes(v) ? { to: v, at: b.grant ? b.grant.at : "turnEnd", dur: b.grant ? b.grant.dur || 0 : 0 } : null; return renderBlocksUI(); }
   if (f === "gat" || f === "gdur"){ if (!b.grant) return; if (f === "gat") b.grant.at = v === "turnStart" ? "turnStart" : "turnEnd"; else b.grant.dur = Math.max(0, Math.min(9, +v || 0)); return updateBkText(); }
   if (f === "roll"){ b.roll = v === "die" || v === "coin" ? v : ""; if (b.roll === "die" && !b.faces) b.faces = 6; if (b.roll === "coin" && !b.conds.length){ b.conds.push({ k: "coinH" }); } return renderBlocksUI(); }
   if (f === "rc" || f === "rw"){ b[f] = v; return updateBkText(); }
@@ -7033,13 +7033,21 @@ function doRoll(st, s, c, b){
 function runBlock(st, s, c, b, ctx, then){
   if (b.delay > 0 && !ctx.delayed){
     st.un = (st.un || 0) + 1; const p = P(st, s);
-    (p.timers = p.timers || []).push({ u: st.un, c: c && c.id || null, name: c && c.name || "？", b: { trig: b.trig, join: b.join, conds: b.conds, then: b.then, else: b.else, roll: b.roll || "", faces: b.faces, dieBr: b.dieBr || [], grant: b.grant || null }, left: b.delay, ctx: { zone: ctx.zone ?? null, mon: ctx.mon || null } });
+    (p.timers = p.timers || []).push({ u: st.un, c: c && c.id || null, name: c && c.name || "？", b: { trig: b.trig, join: b.join, ...(b.one ? { one: true } : {}), conds: b.conds, then: b.then, else: b.else, roll: b.roll || "", faces: b.faces, dieBr: b.dieBr || [], grant: b.grant || null }, left: b.delay, ctx: { zone: ctx.zone ?? null, mon: ctx.mon || null } });
     log(st, s, `「${c ? c.name : "？"}」：${b.delay === 1 ? "次の自分のターンのはじめ" : b.delay + "ターン後の自分のターンのはじめ"}に効果が出る（時計 ${b.delay}）`);
     then && then(st); return;
   }
+  if (b.grant && b.grant.to === "pick" && !ctx.granted){
+    const go = (st2, k) => runBlock(st2, s, c, { ...b, grant: { ...b.grant, to: k === 1 ? "op" : "me" } }, ctx, then);
+    if (isHumanHere(s)){
+      G.chooseQ.push({ ask: true, s, c, ctx, then, fx: { kind: "__block", ask: "どちらに効果を付与する？" }, pick1: [{ name: "自分に付与する", text: blockText(c, { ...b, grant: { ...b.grant, to: "me" } }) }, { name: "相手に付与する", text: blockText(c, { ...b, grant: { ...b.grant, to: "op" } }) }], p1go: go });
+      return;
+    }
+    return go(st, Math.random() < .5 ? 0 : 1);
+  }
   if (b.grant && !ctx.granted){
     st.un = (st.un || 0) + 1; const to = b.grant.to === "op" ? O(s) : s, p = P(st, to);
-    (p.boons = p.boons || []).push({ u: st.un, c: c && c.id || null, name: c && c.name || "？", at: b.grant.at, dur: b.grant.dur || 0, left: b.grant.dur || 0, b: { trig: b.grant.at, join: b.join, conds: b.conds, then: b.then, else: b.else, roll: b.roll || "", faces: b.faces, dieBr: b.dieBr || [] } });
+    (p.boons = p.boons || []).push({ u: st.un, c: c && c.id || null, name: c && c.name || "？", at: b.grant.at, dur: b.grant.dur || 0, left: b.grant.dur || 0, b: { trig: b.grant.at, join: b.join, ...(b.one ? { one: true } : {}), conds: b.conds, then: b.then, else: b.else, roll: b.roll || "", faces: b.faces, dieBr: b.dieBr || [] } });
     log(st, s, `「${c ? c.name : "？"}」：${P(st, to).name}に効果を付与した（${P(st, to).name}のターンの${b.grant.at === "turnStart" ? "はじめ" : "おわり"}に出る${b.grant.dur ? `・${b.grant.dur}回` : "・ずっと"}）`);
     then && then(st); return;
   }

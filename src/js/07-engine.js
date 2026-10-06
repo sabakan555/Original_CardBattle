@@ -1169,13 +1169,21 @@ function doRoll(st, s, c, b){
 function runBlock(st, s, c, b, ctx, then){
   if (b.delay > 0 && !ctx.delayed){
     st.un = (st.un || 0) + 1; const p = P(st, s);
-    (p.timers = p.timers || []).push({ u: st.un, c: c && c.id || null, name: c && c.name || "？", b: { trig: b.trig, join: b.join, conds: b.conds, then: b.then, else: b.else, roll: b.roll || "", faces: b.faces, dieBr: b.dieBr || [], grant: b.grant || null }, left: b.delay, ctx: { zone: ctx.zone ?? null, mon: ctx.mon || null } });
+    (p.timers = p.timers || []).push({ u: st.un, c: c && c.id || null, name: c && c.name || "？", b: { trig: b.trig, join: b.join, ...(b.one ? { one: true } : {}), conds: b.conds, then: b.then, else: b.else, roll: b.roll || "", faces: b.faces, dieBr: b.dieBr || [], grant: b.grant || null }, left: b.delay, ctx: { zone: ctx.zone ?? null, mon: ctx.mon || null } });
     log(st, s, `「${c ? c.name : "？"}」：${b.delay === 1 ? "次の自分のターンのはじめ" : b.delay + "ターン後の自分のターンのはじめ"}に効果が出る（時計 ${b.delay}）`);
     then && then(st); return;
   }
+  if (b.grant && b.grant.to === "pick" && !ctx.granted){
+    const go = (st2, k) => runBlock(st2, s, c, { ...b, grant: { ...b.grant, to: k === 1 ? "op" : "me" } }, ctx, then);
+    if (isHumanHere(s)){
+      G.chooseQ.push({ ask: true, s, c, ctx, then, fx: { kind: "__block", ask: "どちらに効果を付与する？" }, pick1: [{ name: "自分に付与する", text: blockText(c, { ...b, grant: { ...b.grant, to: "me" } }) }, { name: "相手に付与する", text: blockText(c, { ...b, grant: { ...b.grant, to: "op" } }) }], p1go: go });
+      return;
+    }
+    return go(st, Math.random() < .5 ? 0 : 1);
+  }
   if (b.grant && !ctx.granted){
     st.un = (st.un || 0) + 1; const to = b.grant.to === "op" ? O(s) : s, p = P(st, to);
-    (p.boons = p.boons || []).push({ u: st.un, c: c && c.id || null, name: c && c.name || "？", at: b.grant.at, dur: b.grant.dur || 0, left: b.grant.dur || 0, b: { trig: b.grant.at, join: b.join, conds: b.conds, then: b.then, else: b.else, roll: b.roll || "", faces: b.faces, dieBr: b.dieBr || [] } });
+    (p.boons = p.boons || []).push({ u: st.un, c: c && c.id || null, name: c && c.name || "？", at: b.grant.at, dur: b.grant.dur || 0, left: b.grant.dur || 0, b: { trig: b.grant.at, join: b.join, ...(b.one ? { one: true } : {}), conds: b.conds, then: b.then, else: b.else, roll: b.roll || "", faces: b.faces, dieBr: b.dieBr || [] } });
     log(st, s, `「${c ? c.name : "？"}」：${P(st, to).name}に効果を付与した（${P(st, to).name}のターンの${b.grant.at === "turnStart" ? "はじめ" : "おわり"}に出る${b.grant.dur ? `・${b.grant.dur}回` : "・ずっと"}）`);
     then && then(st); return;
   }
