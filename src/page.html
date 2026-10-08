@@ -30,6 +30,7 @@
     <button class="hbtn" data-go="play" aria-label="Battle（対戦）"><span class="en">Battle</span></button>
     <button class="hbtn" data-go="make" aria-label="Card（カード工房）"><span class="en">Card</span></button>
     <button class="hbtn" data-go="deck" aria-label="Deck（デッキ）"><span class="en">Deck</span></button>
+    <button class="hbtn" data-go="pack" aria-label="Pack（カードパック）"><span class="en">Pack</span></button>
   </nav>
   <div class="showcase" id="showcase" aria-live="polite"></div>
   <div class="home-foot">
@@ -45,6 +46,7 @@
       <button role="tab" data-tab="play" aria-selected="true">Battle<small>対戦</small></button>
       <button role="tab" data-tab="make" aria-selected="false">Card<small>カード工房</small></button>
       <button role="tab" data-tab="deck" aria-selected="false">Deck<small>デッキ</small></button>
+      <button role="tab" data-tab="pack" aria-selected="false">Pack<small>カードパック</small></button>
       <button role="tab" data-tab="trade" aria-selected="false">Trade<small>交換</small><span class="tbadge" id="tradeBadge" hidden></span></button>
       <button role="tab" data-tab="me" aria-selected="false">My<small>マイページ</small></button>
       <button role="tab" data-tab="rules" aria-selected="false">Guide<small>ルール</small></button>
@@ -280,6 +282,8 @@
         </div>
 
         <div class="mk-pane" data-pane="deck" hidden>
+          <label class="row" style="gap:8px;cursor:pointer"><input type="checkbox" id="mkNoPack">カードパックに入れない</label>
+          <p class="note">チェックしないカードは、ほかの人の無料パックに登場します。受け取ったカードにも、作者の編集・削除が反映されます。チェック後は新しい配布だけが止まります。</p>
           <label class="f">タグ（スペースかカンマで区切る・8個まで）<input type="text" id="mkTags" list="tagNames" maxlength="80" placeholder="例: アイアンクラッド 炎"></label>
           <label class="row" style="gap:6px;font-weight:700;cursor:pointer"><input type="checkbox" id="mkShowTags"> タグをカードの名前の下に出す（デュエマの種族みたいに）</label>
           <label class="row" id="exRow" style="gap:6px;font-weight:700;cursor:pointer"><input type="checkbox" id="mkEx"> EXデッキのカード（山札には入らず、EXデッキから出す・使う）</label>
@@ -336,6 +340,10 @@
   </section>
 
   <!-- TRADE -->
+  <section id="tab-pack" hidden aria-label="カードパック">
+    <div class="pack-page"><h2>みんなのカードパック</h2><p class="pack-lead">1日1回、みんなのカードと出会おう。</p><div id="packContent" aria-live="polite"></div>
+    <p class="pack-note">3枚入り・無料 / 毎日0:00（日本時間）に更新<br>自分のカードとスターターは出ません。同じパック内の重複はありません。すでに持っているカードが出ることもあります。<br>カードは作者の最新データを参照します。元カードが削除されると、所持カードとデッキからも消えます。</p></div>
+  </section>
   <section id="tab-trade" hidden>
     <div id="tradeOffline" class="offline" hidden>カード交換はサーバーにつながっているときだけ使えます。</div>
     <div class="grid2" style="margin-bottom:22px">
@@ -488,6 +496,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="config.js"></script>
+<script src="pack-config.js"></script>
 <script>
 (() => {
 "use strict";

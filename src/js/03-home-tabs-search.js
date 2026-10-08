@@ -88,12 +88,13 @@ function renderAll(){
   $("#home").hidden = S.tab !== "home"; $("#sheet").hidden = S.tab === "home";
   if (S.tab === "home"){ renderHome(); renderOverlay(); return; }
   document.querySelectorAll("nav.tabs button").forEach(b => b.setAttribute("aria-selected", b.dataset.tab === S.tab));
-  for (const t of ["play", "make", "deck", "trade", "me", "rules"]) $("#tab-" + t).hidden = S.tab !== t;
+  for (const t of ["play", "make", "deck", "pack", "trade", "me", "rules"]) $("#tab-" + t).hidden = S.tab !== t;
   if (S.tab === "me") renderMe();
   if (S.tab === "play") renderPlay();
   if (S.tab === "make"){ renderGallery(); if (typeof fitCanvas === "function") setTimeout(fitCanvas); }
   if (S.tab === "deck") renderDeckTab();
   if (S.tab === "trade") renderTrade();
+  if (S.tab === "pack") renderPack();
   renderTradeBadge();
   renderOverlay();
   renderPotTray();

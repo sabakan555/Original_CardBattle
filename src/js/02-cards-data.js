@@ -418,7 +418,8 @@ function rebuildOwned(){
   const o = new Set(S.starters.map(c => c.id));
   S.userCards.forEach(c => { if (!S.db || isMine(c)) o.add(c.id); });
   if (S.uid) allTrades().forEach(t => { if (t.status !== "accepted") return; if (t.from === S.uid) o.add(t.want); if (t.to === S.uid) o.add(t.give); });
-  S.owned = o;
+  if (S.pack) S.pack.owned.forEach(id => o.add(id));
+  S.owned = new Set([...o].filter(id => S.cards.has(id)));
 }
 const owns = id => S.owned.has(skinBase(id));
 
@@ -461,8 +462,8 @@ async function deleteDeckDoc(id){
 }
 function subscribeData(){
   if (S.db){
-    S.db.collection("cards").onSnapshot(snap => { S.userCards = snap.docs.map(d => ({ id: d.id, ...d.data() })); rebuildCards(); renderAll(); }, () => toast("カードの読みこみが止まりました。ページを開きなおしてね"));
-    S.db.collection("decks").onSnapshot(snap => { S.decks = snap.docs.map(d => ({ id: d.id, ...d.data() })); renderAll(); }, () => {});
+    S.db.collection("cards").onSnapshot({ includeMetadataChanges: true }, snap => { S.userCards = snap.docs.map(d => ({ id: d.id, ...d.data() })); rebuildCards(); S.cardsReady = !snap.metadata.fromCache && !snap.metadata.hasPendingWrites; if (S.cardsReady) pruneDeletedDeckCards(); renderAll(); }, () => toast("カードの読みこみが止まりました。ページを開きなおしてね"));
+    S.db.collection("decks").onSnapshot({ includeMetadataChanges: true }, snap => { S.decks = snap.docs.map(d => ({ id: d.id, ...d.data() })); S.decksReady = !snap.metadata.fromCache && !snap.metadata.hasPendingWrites; if (S.decksReady) pruneDeletedDeckCards(); renderAll(); }, () => {});
     S.db.collection("builtin").onSnapshot(snap => { const m = {}; snap.docs.forEach(d => { m[d.id] = d.data(); }); S.builtinEdits = m; rebuildCards(); renderAll(); }, () => {});
     subscribeCounters();
     subscribeTrades();

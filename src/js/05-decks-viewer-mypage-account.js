@@ -66,6 +66,8 @@ $("#btnDeckSave").addEventListener("click", async () => {
   if (!$("#deckSpire").checked && !deckMonsters()){ toast("モンスターを1枚以上入れてね"); return; }
   const name = $("#deckName").value.trim() || "マイデッキ";
   const cards = []; for (const [id, k] of Object.entries(S.deckEdit.cards)) for (let i = 0; i < k; i++) cards.push(id);
+  const limitIssue = deckLimitIssue(cards); if (limitIssue){ toast(limitIssue); return; }
+  if (cards.some(id => !S.cards.has(id) || !owns(id))){ toast("使えないカードが入っています。デッキを編集してね"); return; }
   const id = S.deckEdit.id || uid("d");
   try{ await saveDeckDoc(id, { name, owner: S.name, ownerId: (S.decks.find(d => d.id === id) || {}).ownerId || S.uid || null, cards, mana: $("#deckMana").checked, spire: $("#deckSpire").checked, spc: $("#deckSpire").checked && $("#deckSpc").value === "silent" ? "silent" : null, key: S.deckEdit.key && S.deckEdit.cards[S.deckEdit.key] ? S.deckEdit.key : null, updatedAt: Date.now() }); S.deckEdit.id = id; ls.set("cb_deck", id); toast("デッキを保存しました"); renderDeck(); }
   catch(e){ writeErr(e); }

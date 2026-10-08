@@ -1386,6 +1386,19 @@ div.f{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:13px}
 .card.editor.fut textarea{height:auto;flex:1;border:none!important;box-shadow:none;resize:none;background:transparent;font-size:calc(var(--fu)*15);font-family:inherit;color:#111}
 .card.editor.fut #mkFlv{position:absolute;left:0;top:calc(var(--fu)*172);width:62%;height:calc(var(--fu)*30)}
 .card.editor.fut .c-atk{font-size:0}.card.editor.fut .c-atk input{font-size:calc(var(--fu)*20);width:100%;text-align:center;background:transparent;font-family:inherit;font-weight:800;color:#000}
+/* Community daily pack */
+.pack-page{max-width:1000px;margin:0 auto;padding:24px 12px 40px;text-align:center}
+.pack-page h2{font-size:clamp(22px,4vw,32px);margin:0 0 8px}.pack-lead{color:#cbd0df;margin:0 0 18px}
+.pack-stage{background:#111;border-radius:24px;max-width:480px;margin:0 auto 18px;overflow:hidden}
+.pack-pouch{display:block;width:100%;padding:0;border:0;background:#111;border-radius:24px;cursor:pointer;transition:transform .3s;box-shadow:none}
+.pack-pouch img{display:block;width:100%;height:auto;max-height:540px;object-fit:contain}.pack-pouch:hover:not(:disabled){transform:translateY(-4px)}.pack-pouch:disabled{opacity:.72;cursor:default}
+.pack-open{min-width:min(300px,100%);min-height:48px}.pack-status{min-height:24px}.pack-note{color:#b8bed1;font-size:13px;line-height:1.9;max-width:650px;margin:24px auto 0}.pack-error{color:#ffbcc5}
+.pack-results{padding:18px 0;scroll-margin-top:90px}.pack-cards{display:flex;justify-content:center;gap:22px;flex-wrap:wrap}.pack-cards figure{margin:0;animation:pack-reveal .5s both;animation-delay:calc(var(--pack-i)*.15s);width:min(220px,100%)}
+.pack-card{padding:0;border:0;background:transparent;box-shadow:none}.pack-card .card{--w:210px;text-align:left}.pack-cards figcaption{margin:8px 0 18px;font-size:14px}.pack-cards figcaption span{display:block;font-size:12px;color:#bcc2d4}.pack-missing{min-height:200px;display:grid;place-items:center;border:1px dashed #798098;border-radius:12px}
+.is-opening .pack-pouch{animation:pack-shake .5s infinite alternate}.pack-pouch:focus-visible,.pack-card:focus-visible{outline:3px solid #66e5e0;outline-offset:4px}
+@keyframes pack-shake{from{transform:rotate(-1deg)}to{transform:rotate(1deg)}}@keyframes pack-reveal{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:translateY(0)}}
+@media(max-width:540px){.pack-pouch img{max-height:430px}.pack-cards{gap:12px}.pack-cards figure{width:calc(50% - 6px)}.pack-card .card{--w:min(190px,40vw)}nav.tabs{overflow-x:auto}}
+@media(prefers-reduced-motion:reduce){.is-opening .pack-pouch,.pack-cards figure{animation:none}.pack-pouch{transition:none}}
 </style>
 <style>html,body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
 </head>
@@ -1406,6 +1419,7 @@ div.f{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:13px}
     <button class="hbtn" data-go="play" aria-label="Battle（対戦）"><span class="en">Battle</span></button>
     <button class="hbtn" data-go="make" aria-label="Card（カード工房）"><span class="en">Card</span></button>
     <button class="hbtn" data-go="deck" aria-label="Deck（デッキ）"><span class="en">Deck</span></button>
+    <button class="hbtn" data-go="pack" aria-label="Pack（カードパック）"><span class="en">Pack</span></button>
   </nav>
   <div class="showcase" id="showcase" aria-live="polite"></div>
   <div class="home-foot">
@@ -1421,6 +1435,7 @@ div.f{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:13px}
       <button role="tab" data-tab="play" aria-selected="true">Battle<small>対戦</small></button>
       <button role="tab" data-tab="make" aria-selected="false">Card<small>カード工房</small></button>
       <button role="tab" data-tab="deck" aria-selected="false">Deck<small>デッキ</small></button>
+      <button role="tab" data-tab="pack" aria-selected="false">Pack<small>カードパック</small></button>
       <button role="tab" data-tab="trade" aria-selected="false">Trade<small>交換</small><span class="tbadge" id="tradeBadge" hidden></span></button>
       <button role="tab" data-tab="me" aria-selected="false">My<small>マイページ</small></button>
       <button role="tab" data-tab="rules" aria-selected="false">Guide<small>ルール</small></button>
@@ -1656,6 +1671,8 @@ div.f{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:13px}
         </div>
 
         <div class="mk-pane" data-pane="deck" hidden>
+          <label class="row" style="gap:8px;cursor:pointer"><input type="checkbox" id="mkNoPack">カードパックに入れない</label>
+          <p class="note">チェックしないカードは、ほかの人の無料パックに登場します。受け取ったカードにも、作者の編集・削除が反映されます。チェック後は新しい配布だけが止まります。</p>
           <label class="f">タグ（スペースかカンマで区切る・8個まで）<input type="text" id="mkTags" list="tagNames" maxlength="80" placeholder="例: アイアンクラッド 炎"></label>
           <label class="row" style="gap:6px;font-weight:700;cursor:pointer"><input type="checkbox" id="mkShowTags"> タグをカードの名前の下に出す（デュエマの種族みたいに）</label>
           <label class="row" id="exRow" style="gap:6px;font-weight:700;cursor:pointer"><input type="checkbox" id="mkEx"> EXデッキのカード（山札には入らず、EXデッキから出す・使う）</label>
@@ -1712,6 +1729,10 @@ div.f{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:13px}
   </section>
 
   <!-- TRADE -->
+  <section id="tab-pack" hidden aria-label="カードパック">
+    <div class="pack-page"><h2>みんなのカードパック</h2><p class="pack-lead">1日1回、みんなのカードと出会おう。</p><div id="packContent" aria-live="polite"></div>
+    <p class="pack-note">3枚入り・無料 / 毎日0:00（日本時間）に更新<br>自分のカードとスターターは出ません。同じパック内の重複はありません。すでに持っているカードが出ることもあります。<br>カードは作者の最新データを参照します。元カードが削除されると、所持カードとデッキからも消えます。</p></div>
+  </section>
   <section id="tab-trade" hidden>
     <div id="tradeOffline" class="offline" hidden>カード交換はサーバーにつながっているときだけ使えます。</div>
     <div class="grid2" style="margin-bottom:22px">
@@ -1864,6 +1885,7 @@ div.f{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:13px}
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="config.js"></script>
+<script src="pack-config.js"></script>
 <script>
 (() => {
 "use strict";
@@ -3048,7 +3070,8 @@ function rebuildOwned(){
   const o = new Set(S.starters.map(c => c.id));
   S.userCards.forEach(c => { if (!S.db || isMine(c)) o.add(c.id); });
   if (S.uid) allTrades().forEach(t => { if (t.status !== "accepted") return; if (t.from === S.uid) o.add(t.want); if (t.to === S.uid) o.add(t.give); });
-  S.owned = o;
+  if (S.pack) S.pack.owned.forEach(id => o.add(id));
+  S.owned = new Set([...o].filter(id => S.cards.has(id)));
 }
 const owns = id => S.owned.has(skinBase(id));
 
@@ -3091,8 +3114,8 @@ async function deleteDeckDoc(id){
 }
 function subscribeData(){
   if (S.db){
-    S.db.collection("cards").onSnapshot(snap => { S.userCards = snap.docs.map(d => ({ id: d.id, ...d.data() })); rebuildCards(); renderAll(); }, () => toast("カードの読みこみが止まりました。ページを開きなおしてね"));
-    S.db.collection("decks").onSnapshot(snap => { S.decks = snap.docs.map(d => ({ id: d.id, ...d.data() })); renderAll(); }, () => {});
+    S.db.collection("cards").onSnapshot({ includeMetadataChanges: true }, snap => { S.userCards = snap.docs.map(d => ({ id: d.id, ...d.data() })); rebuildCards(); S.cardsReady = !snap.metadata.fromCache && !snap.metadata.hasPendingWrites; if (S.cardsReady) pruneDeletedDeckCards(); renderAll(); }, () => toast("カードの読みこみが止まりました。ページを開きなおしてね"));
+    S.db.collection("decks").onSnapshot({ includeMetadataChanges: true }, snap => { S.decks = snap.docs.map(d => ({ id: d.id, ...d.data() })); S.decksReady = !snap.metadata.fromCache && !snap.metadata.hasPendingWrites; if (S.decksReady) pruneDeletedDeckCards(); renderAll(); }, () => {});
     S.db.collection("builtin").onSnapshot(snap => { const m = {}; snap.docs.forEach(d => { m[d.id] = d.data(); }); S.builtinEdits = m; rebuildCards(); renderAll(); }, () => {});
     subscribeCounters();
     subscribeTrades();
@@ -3592,12 +3615,13 @@ function renderAll(){
   $("#home").hidden = S.tab !== "home"; $("#sheet").hidden = S.tab === "home";
   if (S.tab === "home"){ renderHome(); renderOverlay(); return; }
   document.querySelectorAll("nav.tabs button").forEach(b => b.setAttribute("aria-selected", b.dataset.tab === S.tab));
-  for (const t of ["play", "make", "deck", "trade", "me", "rules"]) $("#tab-" + t).hidden = S.tab !== t;
+  for (const t of ["play", "make", "deck", "pack", "trade", "me", "rules"]) $("#tab-" + t).hidden = S.tab !== t;
   if (S.tab === "me") renderMe();
   if (S.tab === "play") renderPlay();
   if (S.tab === "make"){ renderGallery(); if (typeof fitCanvas === "function") setTimeout(fitCanvas); }
   if (S.tab === "deck") renderDeckTab();
   if (S.tab === "trade") renderTrade();
+  if (S.tab === "pack") renderPack();
   renderTradeBadge();
   renderOverlay();
   renderPotTray();
@@ -4737,6 +4761,7 @@ function setMkView(v){
   syncMkView(); updateBkText();
 }
 function mkLoadVars(c){
+  $("#mkNoPack").checked = !!(c && c.noPack);
   MK.view = "free";
   MK.varFree = { trib: c ? tribOf(c) : 0, atkConds: c && Array.isArray(c.atkConds) ? c.atkConds : [], atkJoin: c && c.atkJoin === "or" ? "or" : "and" };
   MK.varCost = c && (c.tribCost != null || Array.isArray(c.atkCondsCost)) ? { trib: c.tribCost != null ? +c.tribCost || 0 : MK.varFree.trib, atkConds: Array.isArray(c.atkCondsCost) ? c.atkCondsCost : MK.varFree.atkConds, atkJoin: (Array.isArray(c.atkCondsCost) ? c.atkJoinCost : c.atkJoin) === "or" ? "or" : "and" } : null;
@@ -4818,7 +4843,7 @@ function mkBuildDoc(){
   const id = S.editId || uid("c");
   const prev = S.cards.get(id) || userPotion(id) || userRelic(id) || builtinPotionCard(id) || builtinRelicCard(id);
   let eqN = Math.round(+$("#mkEq").value || 0); $("#mkEq").value = eqN;
-  const doc = { type: MK.type, name, atk: MK.type === "monster" ? atk : 0, atkInf, eqN: MK.type === "equip" ? eqN : 0, eqAb: "none", eqCost: MK.type === "equip" ? Math.max(0, Math.round(+$("#mkEqCost").value || 0)) : null, eqCap: MK.type === "monster" && $("#mkFrame").value === "socra" && $("#mkEqCap").value.trim() !== "" ? Math.max(0, Math.round(+$("#mkEqCap").value || 0)) : null, abs: MK.type === "monster" || MK.type === "equip" ? readAbs() : [], frame: $("#mkFrame").value || null, ss: readSS(), tags: parseTags($("#mkTags").value), showTags: $("#mkShowTags").checked || null, tribTag: MK.type === "monster" ? $("#mkTribTag").value.trim() || null : null, ...(MK.type === "monster" ? mkVarFields() : { trib: null, atkConds: null, atkJoin: "and", tribCost: null, atkCondsCost: null, atkJoinCost: null }), effect: $("#mkEff").value.trim(), flavor: $("#mkFlv").value.trim(), nameSize: $("#mkNameSize").value, textSize: $("#mkTextSize").value, fx: null, combo: null, blocks: readBlocks(), font: $("#mkFont").value, quick: MK.type === "magic" && $("#mkFrame").value !== "spire" && $("#mkQuick").checked, persist: (MK.type === "magic" || MK.type === "trap") && $("#mkPersist").checked && !$("#mkField").checked, field: MK.type === "magic" && $("#mkField").checked || null, sk: mkSk(), rarity: $("#mkFrame").value === "spire" ? $("#mkRarity").value : null, spc: $("#mkFrame").value === "spire" && $("#mkSpc").value === "silent" ? "silent" : null, exhaust: (MK.type === "magic" || MK.type === "trap") && $("#mkExhaust").checked, noUse: (MK.type === "magic" || MK.type === "trap") && $("#mkNoUse").checked || null, flashback: null, strig: null, kick: null, ...mkSpOpts(), mass: mkMassVal(), fieldMine: MK.type === "magic" && $("#mkField").checked && $("#mkFieldMine").checked || null, anySum: MK.type === "monster" && $("#mkAnySum").checked || null, land: MK.type === "magic" && $("#mkField").checked && $("#mkLand").checked || null, when: mkWhenVal(), fusion: mkFusionVal(), token: $("#mkToken").checked || null, ex: $("#mkEx").checked || !!mkFusionVal() || null, ...mkPays(true), cost: MK.deck === "normal" ? null : $("#mkCost").value === "X" || $("#mkCost").value === "∞" ? 0 : +$("#mkCost").value, costX: MK.deck !== "normal" && $("#mkCost").value === "X", costInf: MK.deck !== "normal" && $("#mkCost").value === "∞" || null, deckMode: MK.deck, limit: +$("#mkLimit").value,
+  const doc = { type: MK.type, name, atk: MK.type === "monster" ? atk : 0, atkInf, eqN: MK.type === "equip" ? eqN : 0, eqAb: "none", eqCost: MK.type === "equip" ? Math.max(0, Math.round(+$("#mkEqCost").value || 0)) : null, eqCap: MK.type === "monster" && $("#mkFrame").value === "socra" && $("#mkEqCap").value.trim() !== "" ? Math.max(0, Math.round(+$("#mkEqCap").value || 0)) : null, abs: MK.type === "monster" || MK.type === "equip" ? readAbs() : [], frame: $("#mkFrame").value || null, ss: readSS(), tags: parseTags($("#mkTags").value), showTags: $("#mkShowTags").checked || null, tribTag: MK.type === "monster" ? $("#mkTribTag").value.trim() || null : null, ...(MK.type === "monster" ? mkVarFields() : { trib: null, atkConds: null, atkJoin: "and", tribCost: null, atkCondsCost: null, atkJoinCost: null }), effect: $("#mkEff").value.trim(), flavor: $("#mkFlv").value.trim(), nameSize: $("#mkNameSize").value, textSize: $("#mkTextSize").value, fx: null, combo: null, blocks: readBlocks(), font: $("#mkFont").value, quick: MK.type === "magic" && $("#mkFrame").value !== "spire" && $("#mkQuick").checked, persist: (MK.type === "magic" || MK.type === "trap") && $("#mkPersist").checked && !$("#mkField").checked, field: MK.type === "magic" && $("#mkField").checked || null, sk: mkSk(), rarity: $("#mkFrame").value === "spire" ? $("#mkRarity").value : null, spc: $("#mkFrame").value === "spire" && $("#mkSpc").value === "silent" ? "silent" : null, exhaust: (MK.type === "magic" || MK.type === "trap") && $("#mkExhaust").checked, noUse: (MK.type === "magic" || MK.type === "trap") && $("#mkNoUse").checked || null, flashback: null, strig: null, kick: null, ...mkSpOpts(), mass: mkMassVal(), fieldMine: MK.type === "magic" && $("#mkField").checked && $("#mkFieldMine").checked || null, anySum: MK.type === "monster" && $("#mkAnySum").checked || null, land: MK.type === "magic" && $("#mkField").checked && $("#mkLand").checked || null, when: mkWhenVal(), fusion: mkFusionVal(), token: $("#mkToken").checked || null, ex: $("#mkEx").checked || !!mkFusionVal() || null, ...mkPays(true), cost: MK.deck === "normal" ? null : $("#mkCost").value === "X" || $("#mkCost").value === "∞" ? 0 : +$("#mkCost").value, costX: MK.deck !== "normal" && $("#mkCost").value === "X", costInf: MK.deck !== "normal" && $("#mkCost").value === "∞" || null, noPack: $("#mkNoPack").checked, deckMode: MK.deck, limit: +$("#mkLimit").value,
     img: prev && prev.img && !MK.artDirty ? prev.img : encodeArt(out, MK.kind === "potion" || MK.kind === "relic"), frameless: MK.frameless, textEdge: MK.frameless && $("#mkTEdge").checked || null, holo: $("#mkHolo").value || null, fxRows: $("#mkFxRows").checked || null, ...mkColVals(), foil: $("#mkFoil").value || null, flAlpha: MK.frameless && MK.flAlpha != null && MK.flAlpha !== FL_ALPHA_DEF ? MK.flAlpha : null, author: S.name, ownerId: prev?.ownerId || S.uid || null, updatedAt: Date.now() };
   if (prev && prev.builtinPotion && !MK.artDirty && doc.img === potionArt(prev.potKey)) delete doc.img;
   if (prev && prev.builtinRelic){ if (!MK.artDirty && !prev.img) doc.img = ""; doc.neow = true; }
@@ -5087,6 +5112,8 @@ $("#btnDeckSave").addEventListener("click", async () => {
   if (!$("#deckSpire").checked && !deckMonsters()){ toast("モンスターを1枚以上入れてね"); return; }
   const name = $("#deckName").value.trim() || "マイデッキ";
   const cards = []; for (const [id, k] of Object.entries(S.deckEdit.cards)) for (let i = 0; i < k; i++) cards.push(id);
+  const limitIssue = deckLimitIssue(cards); if (limitIssue){ toast(limitIssue); return; }
+  if (cards.some(id => !S.cards.has(id) || !owns(id))){ toast("使えないカードが入っています。デッキを編集してね"); return; }
   const id = S.deckEdit.id || uid("d");
   try{ await saveDeckDoc(id, { name, owner: S.name, ownerId: (S.decks.find(d => d.id === id) || {}).ownerId || S.uid || null, cards, mana: $("#deckMana").checked, spire: $("#deckSpire").checked, spc: $("#deckSpire").checked && $("#deckSpc").value === "silent" ? "silent" : null, key: S.deckEdit.key && S.deckEdit.cards[S.deckEdit.key] ? S.deckEdit.key : null, updatedAt: Date.now() }); S.deckEdit.id = id; ls.set("cb_deck", id); toast("デッキを保存しました"); renderDeck(); }
   catch(e){ writeErr(e); }
@@ -5529,6 +5556,79 @@ $("#mpAcct").addEventListener("submit", async e => {
 
 $("#btnDeckSave2").addEventListener("click", () => $("#btnDeckSave").click());
 
+/* Daily packs: authoritative draw/ownership live in the Worker, never localStorage. */
+S.pack = { url: typeof packApiUrl === "string" ? packApiUrl.replace(/\/$/, "") : "", owned: new Set(), ready: false, busy: false, error: "", day: null, result: null, shown: false, offset: 0, loadedAt: 0 };
+function packAccount(){ return typeof firebase !== "undefined" && firebase.auth().currentUser && !firebase.auth().currentUser.isAnonymous; }
+async function packRequest(path){
+  const u = firebase.auth().currentUser; if (!u || u.isAnonymous) throw Error("パックを開くにはIDを登録してログインしてね");
+  const token = await u.getIdToken();
+  const r = await fetch(S.pack.url + path, { method: "POST", headers: { Authorization: "Bearer " + token }, signal: AbortSignal.timeout(25000) });
+  const d = await r.json(); if (!r.ok) throw Error(d.error || "通信できませんでした。もう一度ためしてね"); return d;
+}
+function applyPackStatus(d){
+  S.pack.owned = new Set(d.owned || []); S.pack.day = d.day; S.pack.result = d.result || null; S.pack.offset = d.now - Date.now(); S.pack.nextReset = d.nextReset; S.pack.ready = true; S.pack.loadedAt = Date.now();
+  rebuildOwned();
+}
+async function refreshPack(){
+  if (!S.pack.url || !S.db || !packAccount() || S.pack.busy) return;
+  S.pack.busy = true; S.pack.error = ""; if (S.tab === "pack") renderPack();
+  try { applyPackStatus(await packRequest("/status")); }
+  catch(e){ S.pack.error = e.name === "TimeoutError" ? "通信がタイムアウトしました。再読み込みしてね" : e.message; }
+  finally { S.pack.busy = false; renderAll(); }
+}
+async function openDailyPack(){
+  if (S.pack.busy) return;
+  S.pack.busy = true; S.pack.error = ""; S.pack.shown = false; renderPack();
+  try { const d = await packRequest("/open"); applyPackStatus(d); S.pack.shown = true; }
+  catch(e){ S.pack.error = "結果を確認できませんでした。再読み込みすると、配布済みの結果も確認できます。" + (e.message ? "（" + e.message + "）" : ""); }
+  finally { S.pack.busy = false; renderAll(); }
+}
+function renderPack(){
+  const p = S.pack, box = $("#packContent"); if (!box) return;
+  let note = "", disabled = p.busy, label = "タップして開ける", action = "open";
+  if (!p.url){ note = "パックの公開準備中です。"; disabled = true; label = "準備中"; }
+  else if (!S.db){ note = "サーバーに接続してね。"; disabled = true; label = "接続待ち"; }
+  else if (!packAccount()){ note = 'パックを受け取るには、<button class="ghost" data-go="me">マイページでIDを登録・ログイン</button>してね。'; disabled = true; label = "ログインが必要です"; }
+  else if (!p.ready){ label = p.busy ? "所持カードを確認中…" : "再読み込み"; action = "refresh"; }
+  else if (p.result && p.result.day === p.day){ label = "今日の3枚をもう一度見る"; action = "show"; note = "今日のパックは受け取り済み。次は日本時間0:00に開けられます。"; }
+  else if (p.busy){ label = "パックを開封中…"; }
+  box.innerHTML = `<div class="pack-stage${p.busy ? " is-opening" : ""}"><button type="button" class="pack-pouch" data-pack="${action}" ${disabled ? "disabled" : ""} aria-label="${esc(label)}"><img src="assets/community-pack.png" alt="銀色の、みんなのカードパック。3枚入り" width="887" height="1774"></button></div><button class="primary pack-open" data-pack="${action}" ${disabled ? "disabled" : ""}>${esc(label)}</button><p class="pack-status" role="status">${note}</p>${p.error ? `<p class="pack-error" role="alert">${esc(p.error)}</p>` : ""}${p.url && packAccount() ? `<button class="small ghost" data-pack="refresh" ${p.busy ? "disabled" : ""}>再読み込み</button>` : ""}`;
+  if (p.shown && p.result){
+    box.innerHTML += `<div class="pack-results"><h3>${p.result.day === p.day ? "今日の" : esc(p.result.day) + "の"}パック</h3><div class="pack-cards">${p.result.cards.map((id,i) => { const c = S.cards.get(id); return `<figure style="--pack-i:${i}">${c ? `<button class="pack-card" data-pack-card="${esc(id)}" aria-label="${esc(c.name)}の詳細">${cardHTML(c)}</button><figcaption><b>${esc(c.name)}</b><span>作者：${esc(c.author || "？")}</span></figcaption>` : `<div class="pack-missing">このカードは削除されました</div>`}</figure>`; }).join("")}</div><p class="note">所持カードに追加しました。すでに持っているカードの所持数は増えません。</p><button class="primary" data-go="deck">デッキを作る</button></div>`;
+  }
+  if (p.url && S.db && packAccount() && !p.busy && !p.error && (!p.ready || Date.now() - p.loadedAt > 60000)) refreshPack();
+}
+$("#packContent").addEventListener("click", e => {
+  const c = e.target.closest("[data-pack-card]"); if(c){ const ids = S.pack.result.cards.filter(id => S.cards.has(id)); openCardView("list", ids, ids.indexOf(c.dataset.packCard)); return; }
+  const b = e.target.closest("[data-pack]"); if (!b || S.pack.busy) return;
+  if (b.dataset.pack === "refresh") refreshPack();
+  if (b.dataset.pack === "open") openDailyPack();
+  if (b.dataset.pack === "show"){ S.pack.shown = true; renderPack(); $(".pack-results")?.scrollIntoView({ behavior: "smooth", block: "start" }); }
+});
+document.addEventListener("visibilitychange", () => { if (!document.hidden && S.pack.url && Date.now() - S.pack.loadedAt > 60000) refreshPack(); });
+setInterval(() => { if (!document.hidden && S.tab === "pack" && S.pack.ready && Date.now() + S.pack.offset >= S.pack.nextReset && !S.pack.error) refreshPack(); }, 30000);
+// Deleted originals disappear from saved decks once the full server snapshot is known.
+const pruningDecks = new Set();
+function pruneDeletedDeckCards(){
+  if (!S.cardsReady || !S.decksReady) return;
+  Object.keys(S.deckEdit?.cards || {}).forEach(id => { if (!S.cards.has(id)) delete S.deckEdit.cards[id]; });
+  myDecks().forEach(d => {
+    if (pruningDecks.has(d.id) || !Array.isArray(d.cards)) return;
+    const cards = d.cards.filter(id => S.cards.has(id)); if (cards.length === d.cards.length) return;
+    const { id } = d;
+    pruningDecks.add(id);
+    S.db.runTransaction(async tx => {
+      const ref = S.db.doc("decks/" + id), snap = await tx.get(ref); if (!snap.exists) return;
+      const current = snap.data(), kept = current.cards.filter(k => S.cards.has(k));
+      if (kept.length !== current.cards.length) tx.update(ref, { cards: kept, key: current.key && kept.includes(current.key) ? current.key : null });
+    }).then(() => toast("削除されたカードをデッキから外しました。対戦前に枚数を確認してね")).catch(writeErr).finally(() => pruningDecks.delete(id));
+  });
+}
+function deckLimitIssue(ids){
+  const counts = new Map(); ids.forEach(id => { const base = skinBase(id); counts.set(base, (counts.get(base) || 0) + 1); });
+  for (const [id,n] of counts){ const c = S.cards.get(id), limit = cardLimit(c); if(c && limit > 0 && n > limit) return `「${c.name}」は${limit}枚までです（今は${n}枚）。デッキを編集してね`; }
+  return "";
+}
 /* ================= lobby ================= */
 $("#pname").addEventListener("change", e => { S.name = e.target.value.trim() || "プレイヤー"; e.target.value = S.name; ls.set("cb_name", S.name); saveProfile(); renderAll(); });
 $("#deckSel").addEventListener("change", e => ls.set("cb_deck", e.target.value));
@@ -5553,6 +5653,8 @@ function chosenDeckIds(){
   return d.cards.filter(c => S.cards.has(c) && (!S.tradesReady || owns(c)));
 }
 function deckOk(ids){
+  const limitIssue = deckLimitIssue(ids); if (limitIssue){ toast(limitIssue); return false; }
+  if (S.pack && S.pack.url && packAccount() && !S.pack.ready){ toast("所持カードを確認中です。通信状況を確認して、パック画面で再読み込みしてね"); return false; }
   ids = ids.filter(id => !isEx(S.cards.get(id)));
   if (!chosenSpire() && ids.length < MIN_DECK){ toast(`デッキのカードが足りません（${MIN_DECK}枚以上）`); return false; }
   if (!chosenSpire() && !ids.some(id => cardType(S.cards.get(id)) === "monster")){ toast("デッキにモンスターが入っていません"); return false; }
@@ -9001,7 +9103,7 @@ async function boot(){
   showIdx = Math.floor(Math.random() * 1000);
   renderAll();
   await connectFirebase();
-  subscribeData(); renderAll();
+  subscribeData(); refreshPack(); renderAll();
 }
 boot();
 })();

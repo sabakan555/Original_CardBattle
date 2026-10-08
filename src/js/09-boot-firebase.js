@@ -184,6 +184,6 @@ async function boot(){
   showIdx = Math.floor(Math.random() * 1000);
   renderAll();
   await connectFirebase();
-  subscribeData(); renderAll();
+  subscribeData(); refreshPack(); renderAll();
 }
 boot();

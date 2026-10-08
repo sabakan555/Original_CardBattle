@@ -1,0 +1,23 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {DatabaseSync} from 'node:sqlite';
+import {readFileSync} from 'node:fs';
+import {handle,dayInfo,eligible,chooseThree} from '../worker.mjs';
+class D1 {
+  constructor(){this.sql=new DatabaseSync(':memory:');this.sql.exec(readFileSync(new URL('../schema.sql',import.meta.url),'utf8'));}
+  prepare(text){const db=this.sql;return {args:[],text,bind(...args){this.args=args;return this;},async first(){return db.prepare(text).get(...this.args)||null;}};}
+  async batch(statements){this.sql.exec('BEGIN');try{const r=statements.map(s=>({results:this.sql.prepare(s.text).all(...s.args)}));this.sql.exec('COMMIT');return r;}catch(e){this.sql.exec('ROLLBACK');throw e;}}
+}
+const NOW=Date.parse('2026-10-08T14:59:59.000Z');
+const doc=(id,owner='other',extra={})=>({document:{name:'projects/x/databases/(default)/documents/cards/'+id,fields:{ownerId:{stringValue:owner},type:{stringValue:'monster'},...extra}}});
+const docs=[doc('a'),doc('b'),doc('c'),doc('d'),doc('self','me'),doc('out','other',{noPack:{booleanValue:true}}),doc('start','other',{starter:{booleanValue:true}})];
+function fetcher(pool=docs,anon=false){return async url=>url.includes('accounts:lookup')?Response.json({users:[{localId:'me',providerUserInfo:anon?[]:[{providerId:'password'}]}]}):Response.json(pool);}
+const req=path=>new Request('https://packs.example'+path,{method:'POST',headers:{Origin:'https://sabakan555.github.io',Authorization:'Bearer fake'}});
+test('JST midnight is controlled by server',()=>{assert.equal(dayInfo(NOW).day,'2026-10-08');assert.equal(dayInfo(NOW+1000).day,'2026-10-09');assert.equal(dayInfo(NOW).nextReset,NOW+1000);});
+test('pool excludes self, opt-out, starters, private and unknown owner',()=>{assert.deepEqual(docs.filter(d=>eligible(d.document,'me')).map(d=>d.document.name.split('/').at(-1)),['a','b','c','d']);assert.equal(eligible(doc('p','other',{public:{booleanValue:false}}).document,'me'),false);assert.equal(eligible(doc('x','').document,'me'),false);});
+test('sampling has three unique IDs and rejects insufficient pool',()=>{assert.equal(new Set(chooseThree(['a','a','b','c','d'])).size,3);assert.throws(()=>chooseThree(['a','a','b']));});
+test('repeat and concurrent requests persist one draw and only three inventory IDs',async()=>{const DB=new D1();const responses=await Promise.all(Array.from({length:12},()=>handle(req('/open'),{DB},fetcher(),NOW)));const results=await Promise.all(responses.map(r=>r.json()));assert(results.every(d=>JSON.stringify(d.result)===JSON.stringify(results[0].result)));assert.equal(DB.sql.prepare('SELECT COUNT(*) AS n FROM claims').get().n,1);assert.equal(DB.sql.prepare('SELECT COUNT(*) AS n FROM inventory').get().n,3);const replay=await (await handle(req('/status'),{DB},fetcher(),NOW)).json();assert.deepEqual(replay.result,results[0].result);});
+test('new day draws again; account ownership remains isolated',async()=>{const DB=new D1();await handle(req('/open'),{DB},fetcher(),NOW);await handle(req('/open'),{DB},fetcher(),NOW+1000);assert.equal(DB.sql.prepare('SELECT COUNT(*) AS n FROM claims').get().n,2);assert.equal(DB.sql.prepare('SELECT COUNT(*) AS n FROM inventory WHERE uid=?').get('else').n,0);});
+test('too few eligible cards never consumes entitlement',async()=>{const DB=new D1();const r=await handle(req('/open'),{DB},fetcher([doc('a'),doc('b')]),NOW);assert.equal(r.status,409);assert.equal(DB.sql.prepare('SELECT COUNT(*) AS n FROM claims').get().n,0);});
+test('anonymous, invalid token, foreign origin and missing auth denied',async()=>{const DB=new D1();assert.equal((await handle(req('/open'),{DB},fetcher(docs,true),NOW)).status,403);assert.equal((await handle(req('/open'),{DB},async()=>new Response('',{status:400}),NOW)).status,401);assert.equal((await handle(new Request('https://packs.example/open',{method:'POST',headers:{Origin:'https://evil.example'}}),{DB},fetcher(),NOW)).status,403);assert.equal((await handle(new Request('https://packs.example/open',{method:'POST'}),{DB},fetcher(),NOW)).status,401);});
+test('read failure consumes nothing; stored draw replays even if cards deleted',async()=>{const DB=new D1();const failed=async url=>url.includes('accounts:lookup')?fetcher()(url):new Response('',{status:403});assert.equal((await handle(req('/open'),{DB},failed,NOW)).status,503);assert.equal(DB.sql.prepare('SELECT COUNT(*) AS n FROM claims').get().n,0);const first=await (await handle(req('/open'),{DB},fetcher(),NOW)).json();const again=await (await handle(req('/open'),{DB},failed,NOW)).json();assert.deepEqual(first.result,again.result);});

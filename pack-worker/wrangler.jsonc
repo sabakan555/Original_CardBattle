@@ -1,0 +1,7 @@
+{
+  "name": "original-cardbattle-packs",
+  "main": "worker.mjs",
+  "compatibility_date": "2026-10-08",
+  "workers_dev": true,
+  "d1_databases": [{ "binding": "DB", "database_name": "original-cardbattle-packs", "database_id": "86fa2719-d0a3-4117-8de4-0b4ac74ab6a8" }]
+}

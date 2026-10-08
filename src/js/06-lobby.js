@@ -22,6 +22,8 @@ function chosenDeckIds(){
   return d.cards.filter(c => S.cards.has(c) && (!S.tradesReady || owns(c)));
 }
 function deckOk(ids){
+  const limitIssue = deckLimitIssue(ids); if (limitIssue){ toast(limitIssue); return false; }
+  if (S.pack && S.pack.url && packAccount() && !S.pack.ready){ toast("所持カードを確認中です。通信状況を確認して、パック画面で再読み込みしてね"); return false; }
   ids = ids.filter(id => !isEx(S.cards.get(id)));
   if (!chosenSpire() && ids.length < MIN_DECK){ toast(`デッキのカードが足りません（${MIN_DECK}枚以上）`); return false; }
   if (!chosenSpire() && !ids.some(id => cardType(S.cards.get(id)) === "monster")){ toast("デッキにモンスターが入っていません"); return false; }
