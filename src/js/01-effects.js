@@ -101,6 +101,7 @@ const KINDS = {
   synth:      { label: "合成（手札のカードの効果を、場のモンスターに付ける）", text: () => `手札を1枚えらび、場のモンスター1体にそのカードの効果を付ける（効果1つにつき、墓地のカード1枚を質量として重ねる）` },
   synthHand:  { label: "（合成：手札をえらぶ）", target: "hand", text: () => `効果を付けたい手札のカードをえらぶ` },
   synthTo:    { label: "（合成：付けるモンスターをえらぶ）", target: "any", text: () => `効果を付ける場のモンスターをえらぶ` },
+  mill:       { label: "自分の山札の上から○枚を墓地へ", n: true, text: n => `自分の山札の上から${n}枚を墓地に送る` },
   millBoth:   { label: "お互いの山札の上から○枚を墓地へ", n: true, text: n => `お互いの山札の上から${n || 1}枚を墓地に送る` },
   graveHand:  { label: "墓地のカードをえらんで手札に戻す（どのカードでも）", target: "graveAny", text: () => `自分の墓地のカード1枚を手札に戻す` },
   matCopy:    { label: "分裂：場のモンスターの質量1枚をコピーして自分の場に出す", target: "any", text: () => `場のモンスター1体をえらび、その質量1枚をコピーして自分の場に出す` },
@@ -571,7 +572,7 @@ const PER_DEFS = {
   sbN:      { label: "このカードのスペルブーストの回数", u: "1回", val: (st, s, c) => c ? ((P(st, s).sbLast || {})[c.id] || 0) : 0 },
   die:      { label: "サイコロの出た目", u: "1", val: (st, s, c, t, ctx) => ctx && ctx.roll && ctx.roll.kind === "die" ? ctx.roll.v : 0 }
 };
-const PER_OK = { dmg: true, block: true, manaNow: true, heal: true, draw: true, discard: true, vuln: true, weak: true, loseLp: true, atkUp: true, selfAtk: true, atkAll: true, atkDown: true, str: true, oppDraw: true, exhaustRand: true, manaMax: true, plate: true };
+const PER_OK = { dmg: true, block: true, manaNow: true, heal: true, draw: true, mill: true, discard: true, vuln: true, weak: true, loseLp: true, atkUp: true, selfAtk: true, atkAll: true, atkDown: true, str: true, oppDraw: true, exhaustRand: true, manaMax: true, plate: true };
 const perVal = (st, s, c, fx, t, ctx) => PER_DEFS[fx.per] ? PER_DEFS[fx.per].val(st, s, c, t, ctx, fx) : 0;
 const perText = m => !m.per || !PER_DEFS[m.per] ? "" : m.hits ? `（${perLab(m)}につき、もう1回）` : `（${perLab(m)}につき+${m.pm ?? 1}）`;
 const isNumCond = k => !!(COND_DEFS[k] && COND_DEFS[k].val);

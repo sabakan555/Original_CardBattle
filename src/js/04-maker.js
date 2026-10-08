@@ -461,7 +461,7 @@ const KIND_GROUPS = [
   { g: "ability", label: "能力を付与する（成長・2回攻撃・ブロッカーなど）", v: [["giveAb", "モンスターに能力を付与する"]] },
   { g: "turn",    label: "ターンを追加する", v: [["extraTurn", "追加ターン（このターンのあと、もう一度自分のターン）"]] },
   { g: "mana",    label: "マナ", v: [["manaNow", "マナを回復（このターン）"], ["manaMax", "最大マナを増やす"], ["manaDrain", "相手のマナを減らす"]] },
-  { g: "deck",    label: "山札・墓地をあやつる", v: [["scry", "山札の上を見て、1枚を上に・のこりを下に"], ["graveToTop", "墓地のカードを山札の一番上に"], ["playTop", "山札の一番上をプレイ（○枚）"], ["playTopEx", "山札の一番上をプレイして廃棄（○枚）"], ["drawUntil", "アタック以外を引くまで引く"], ["draft", "スパイア風カードを○枚から1枚えらんで墓地に"]] },
+  { g: "deck",    label: "山札・墓地をあやつる", v: [["mill", "自分の山札の上から○枚を墓地に送る"], ["scry", "山札の上を見て、1枚を上に・のこりを下に"], ["graveToTop", "墓地のカードを山札の一番上に"], ["playTop", "山札の一番上をプレイ（○枚）"], ["playTopEx", "山札の一番上をプレイして廃棄（○枚）"], ["drawUntil", "アタック以外を引くまで引く"], ["draft", "スパイア風カードを○枚から1枚えらんで墓地に"]] },
   { g: "exhaust", label: "カードを廃棄する", v: [["exhaustHand", "手札から○枚えらんで"], ["exhaustRand", "手札からランダムに○枚"], ["exhaustAll", "手札をすべて"], ["exhaustNonAtk", "手札のアタック以外をすべて"]] },
   { g: "rewrite", label: "カードを書きかえる（効果の追加・上書き・名前）", v: [["modAdd", "効果を追加する"], ["modRep", "効果を上書きする"], ["modClear", "効果をなくす"], ["modName", "名前を変える"]] },
   { g: "transform", label: "カードを変化させる", v: [["transformHand", "手札から○枚えらんで"], ["transformRand", "手札からランダムに○枚"], ["transformAtk", "手札のアタックすべて"], ["transformAll", "手札すべて"], ["transformSelf", "このカード自身"]] },
@@ -661,7 +661,7 @@ function loadFxForm(c){
 /* ---- the block builder in the card maker ---- */
 MK.blocks = [];
 // 効果の作り方: かんたん (よく使う効果だけ) / こだわり (ぜんぶ). Things already set on a card always stay visible.
-function isEasyKind(k){ return ["fusion", "destroySt", "destroyStAll", "dmg", "destroy", "killAtk", "atkDownAtk", "vuln", "charm", "atkDown", "selfAtk", "atkUp", "atkAll", "heal", "block", "draw", "discard", "revive", "reborn", "cancel", "negate", "manaNow", "manaMax"].includes(k); }
+function isEasyKind(k){ return ["fusion", "destroySt", "destroyStAll", "dmg", "destroy", "killAtk", "atkDownAtk", "vuln", "charm", "atkDown", "selfAtk", "atkUp", "atkAll", "heal", "block", "draw", "mill", "discard", "revive", "reborn", "cancel", "negate", "manaNow", "manaMax"].includes(k); }
 MK.easy = ls.get("cb_fxmode") !== "pro";
 function easyKinds(){ const ks = mkKinds(), e = ks.filter(isEasyKind); return e.length ? e : ks; }
 function syncProOn(){

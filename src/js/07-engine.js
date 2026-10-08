@@ -831,6 +831,7 @@ function applyEffect(st, s, c, target, ctx = {}, fx = normFx(c)){
       mm.xb = (mm.xb || []).concat(bl.slice(0, k));
       const hi = me.hand.indexOf(id); if (hi >= 0){ me.hand.splice(hi, 1); me.grave.push(id); }
       log(st, s, `${src}：「${sc.name}」の効果${k}つを「${card(mm.c).name}」に合成した（墓地${k}枚を質量に）${k < bl.length ? `。墓地が足りず${bl.length - k}つは付かなかった` : ""}`); break; }
+    case "mill": { const got = me.deck.splice(0, Math.min(Math.max(0, Math.floor(n)), me.deck.length)); me.grave.push(...got); log(st, s, got.length ? `${src}で自分の山札の上から${got.length}枚を墓地へ送った` : `${src}：墓地に送るカードがない`); break; }
     case "millBoth": { for (const o of [s, O(s)]){ const X = P(st, o), got = X.deck.splice(0, Math.min(n || 1, X.deck.length)); X.grave.push(...got); log(st, s, got.length ? `${src}で${X.name}の山札の上から${got.length}枚を墓地へ送った` : `${src}：${X.name}の山札がない`); } break; }
     case "graveHand": { const k = me.grave.lastIndexOf(target); if (k >= 0){ me.grave.splice(k, 1); me.hand.push(target); log(st, s, `${src}で墓地の「${card(target).name}」を手札に戻した`); } break; }
     case "stealGrave": { let k = 0; for (let r = 0; r < (n || 1) && op.grave.length; r++){ me.grave.push(op.grave.pop()); k++; } log(st, s, k ? `${src}で相手の墓地のカード${k}枚を自分の墓地に移した` : `${src}：相手の墓地にカードがない`); break; }
