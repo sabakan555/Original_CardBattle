@@ -1181,7 +1181,7 @@ function doRoll(st, s, c, b){
   const die = b.roll === "die", faces = Math.max(2, Math.min(100, Math.round(+b.faces || 6))), cn = die ? 1 : Math.max(1, Math.min(10, Math.round(+b.coins || 1)));
   const flips = die ? [] : Array.from({ length: cn }, () => Math.random() < .5 ? 1 : 0), v = die ? 1 + Math.floor(Math.random() * faces) : flips.reduce((t, x) => t + x, 0);
   log(st, s, `「${c ? c.name : "？"}」：${die ? `サイコロを振った → ${v}` : cn > 1 ? `コインを${cn}回投げた → ${flips.map(x => x ? "表" : "裏").join("・")}（表${v}枚）` : `コインを投げた → ${v ? "表" : "裏"}`}`);
-  ev(st, { type: "roll", s, kind: die ? "die" : "coin", v, faces, ...(cn > 1 ? { n: cn } : {}) });
+  ev(st, { type: "roll", s, kind: die ? "die" : "coin", v, faces, ...(cn > 1 ? { n: cn, fl: flips } : {}) });
   return { kind: die ? "die" : "coin", v, n: cn };
 }
 function runBlockGroup(st, s, c, bs, ctx, then){
@@ -1250,7 +1250,8 @@ function runEffects(st, s, c, effs, ctx, then){
     if (KINDS[e.kind] && KINDS[e.kind].each && e.n > 1){ for (let r = 0; r < e.n; r++) one.push({ kind: e.kind, n: 1, ...(e.into ? { into: e.into } : {}) }); }
     else one.push(...expandFx({ kind: e.kind, n: e.n, to: e.to, ...(e.into ? { into: e.into } : {}), ...(e.intoId ? { intoId: e.intoId } : {}), ...(e.per ? { per: e.per, pm: e.pm, hits: e.hits } : {}), ...(KINDS[e.kind] && KINDS[e.kind].mod ? { mt: e.mt, ms: e.ms, mpl: e.mpl, mc: e.mc, mn: e.mn, gk: e.gk, gn: e.gn, nm: e.nm, ge: e.ge } : {}), ...(e.side ? { side: e.side } : {}), ...(e.tn ? { tn: e.tn } : {}), ...(e.kind === "removeBoard" ? { rside: e.rside, rm: e.rm } : {}), ...(mfOn(e) ? { mfK: e.mfK, mfOp: e.mfOp, mfBy: e.mfBy, mfN: e.mfN } : {}), ...(KINDS[e.kind] && KINDS[e.kind].ctr ? { ctr: e.ctr, cw: e.cw } : {}), ...(e.per === "ctr" ? { pctr: e.pctr, pcw: e.pcw } : {}), ...(e.per === "usedNow" || e.per === "handF" ? { pf: e.pf, pfn: e.pfn } : {}), ...(e.kind === "giveAb" || e.kind === "loseAb" ? { ab: e.ab, gw: e.gw, gd: e.gd } : {}), ...(["dblNext", "freeNext", "setCost", "copyPick"].includes(e.kind) ? { pf: e.pf, pfn: e.pfn, cpw: e.cpw, sp: e.sp, sd: e.sd } : {}) }));
     // 「×○回」: the same effect again and again
-    const reps = e.timesDie ? (ctx && ctx.roll && ctx.roll.kind === "die" ? ctx.roll.v : 0) : Math.max(1, Math.min(20, e.times || 1));
+    const cr = ctx && ctx.roll && ctx.roll.kind === "coin" ? ctx.roll : null;
+    const reps = e.timesDie ? (ctx && ctx.roll && ctx.roll.kind === "die" ? ctx.roll.v : 0) : e.timesCoin ? (cr ? (e.timesCoin === "t" ? (cr.n || 1) - cr.v : cr.v) : 0) : Math.max(1, Math.min(20, e.times || 1));
     for (let r = 0; r < reps; r++) list.push(...one);
   });
   if (c && c.costX && ctx.x != null && list.length){ const one = list.splice(0); for (let r = 0; r < ctx.x; r++) list.push(...one); if (!ctx.x) log(st, s, `「${c.name}」：X が0なので効果なし`); }
