@@ -158,7 +158,7 @@ function useWhyShort(st, s, c){
   const w = whenOf(c); if (w) return `${WHEN_LABEL[w]}に使える`;
   const why = useBlockedWhy(st, s, c); if (why) return why.replace(/^このカードは|いまは/g, "").replace(/ません.*$/, "ない");
   const fx = normFx(c);
-  if (fx && (fx.kind === "negate" || fx.kind === "killAtk" || fx.kind === "atkDownAtk")) return "攻撃されたときに使える";
+  if (fx && (fx.kind === "negate" || fx.kind === "killAtk" || fx.kind === "atkDownAtk" || fx.kind === "dmgAtkAtk")) return "攻撃されたときに使える";
   const opts = fx ? targetOptions(st, s, fx.kind, { tagName: fx.into || "" }) : null;
   if (opts && !opts.length) return "効果の対象がいない";
   return "";
@@ -928,7 +928,7 @@ $("#board").addEventListener("click", e => {
     const id = from === "hand" ? P(st, me).hand[sel.i] : P(st, me).sz[sel.i]?.c;
     const why = useBlockedWhy(st, me, card(id)); if (why){ toast(why); return; }
     const fx = normFx(card(id));
-    if (fx && (fx.kind === "negate" || fx.kind === "killAtk" || fx.kind === "atkDownAtk")){ toast("このカードは相手に攻撃されたときに使えます"); return; }
+    if (fx && (fx.kind === "negate" || fx.kind === "killAtk" || fx.kind === "atkDownAtk" || fx.kind === "dmgAtkAtk")){ toast("このカードは相手に攻撃されたときに使えます"); return; }
     const opts = fx ? targetOptions(st, me, fx.kind, { tagName: fx.into || "" }) : null;
     if (opts && !opts.length){ toast("効果の対象がいないので発動できません"); return; }
     G.sel = null; withDiscard(card(id), from === "hand" ? sel.i : -1, d => act(st => activate(st, me, from, sel.i, { ...(d.length ? { disc: d } : {}), kick })));

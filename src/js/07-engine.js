@@ -1103,6 +1103,7 @@ function applyEffect(st, s, c, target, ctx = {}, fx = normFx(c)){
     case "manaDrain": if (op.mana){ const k = Math.min(n, op.mana.cur); op.mana.cur -= k; log(st, s, `${src}で${op.name}のマナを${k}減らした`); } else log(st, s, `${src}：相手はマナを使わないデッキなので効果なし`); break;
     case "negate": if (ctx.attack){ st.pending.negated = true; log(st, s, `${src}で攻撃を無効にした`); } else log(st, s, `${src}：無効にする攻撃がない`); break;
     case "atkDownAtk": { const am = ctx.attack && P(st, ctx.attack.by).mz[ctx.attack.from]; if (am){ am.mod = (am.mod || 0) - n; log(st, s, `${src}で攻撃してきた「${card(am.c).name}」のATK−${n}`); } else log(st, s, `${src}：攻撃してきたモンスターがいない`); break; }
+    case "dmgAtkAtk": { const am = ctx.attack && P(st, ctx.attack.by).mz[ctx.attack.from], d = am ? Math.max(0, +atkOf(am) || 0) : 0; if (am && d > 0 && isFinite(d)){ log(st, s, `${src}：攻撃してきた「${card(am.c).name}」のATK ${fmtN(d)}ぶんのダメージを${P(st, ctx.attack.by).name}に与えた`); dealDmg(st, ctx.attack.by, d); } else log(st, s, `${src}：攻撃してきたモンスターがいない`); break; }
     case "killAtk": if (ctx.attack){ destroyMonster(st, ctx.attack.by, ctx.attack.from, src); } else log(st, s, `${src}：攻撃してきたモンスターがいない`); break;
     case "win": {
       let ok = true;
@@ -1611,7 +1612,7 @@ function usableIn(st, s, c, win){
   if (useBlockedWhy(st, s, c, win)) return false;
   const fx = normFx(c);
   if (win === "summoned" && whenOf(c) !== "oppSummon") return false;
-  if (fx && (fx.kind === "negate" || fx.kind === "killAtk" || fx.kind === "atkDownAtk") && win !== "attack" && win !== "chainAttack") return false;
+  if (fx && (fx.kind === "negate" || fx.kind === "killAtk" || fx.kind === "atkDownAtk" || fx.kind === "dmgAtkAtk") && win !== "attack" && win !== "chainAttack") return false;
   if (fx && fx.kind === "cancel" && win !== "chain" && win !== "chainAttack" && win !== "summon") return false;
   if (fx && fx.kind === "reflectFx"){ const top = st.chain && st.chain[st.chain.length - 1]; if ((win !== "chain" && win !== "chainAttack") || !top || top.summon || top.s === s || top.cancel) return false; }
   if (win === "summon" && (!fx || fx.kind !== "cancel")) return false;

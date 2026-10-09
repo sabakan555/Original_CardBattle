@@ -178,6 +178,7 @@ const KINDS = {
   reflectDmg: { label: "ダメージを跳ね返す（このターン、自分が受けるダメージを相手が受ける）", text: () => `このターン、自分が受けるダメージを相手に跳ね返す` },
   negate:     { label: "攻撃を無効にする（罠）", trap: true, text: () => `相手の攻撃を無効にする` },
   atkDownAtk: { label: "攻撃してきたモンスターのATKダウン", n: true, trap: true, text: n => `攻撃してきたモンスターのATK−${n}` },
+  dmgAtkAtk:  { label: "攻撃してきたモンスターのATKぶんのダメージを相手に与える（罠）", trap: true, text: () => `攻撃してきたモンスターのATKぶんのダメージを相手に与える` },
   killAtk:    { label: "攻撃モンスターを破壊（罠）", trap: true, text: () => `攻撃してきたモンスターを破壊` },
   manaNow:    { label: "マナを回復（このターン）", n: true, text: n => `マナを${n}回復する` },
   manaMax:    { label: "最大マナを増やす", n: true, text: n => `最大マナを${n}増やす` },

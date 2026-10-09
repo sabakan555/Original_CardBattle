@@ -19,12 +19,12 @@ const deckSpireVal = d => d && d.spire ? (d.spc === "silent" ? "silent" : true) 
 function chosenSpire(){ const id = $("#deckSel").value; const d = allDeckOptions().find(x => x.id === id); return deckSpireVal(d); }
 function chosenDeckIds(){
   const id = $("#deckSel").value; const d = allDeckOptions().find(x => x.id === id) || starterDeck();
-  return d.cards.filter(c => S.cards.has(c) && (!S.tradesReady || owns(c)));
+  return d.cards.filter(c => S.cards.has(c) && (!S.tradesReady || owns(c) || (Array.isArray(d.borrow) && d.borrow.includes(c))));
 }
 function deckOk(ids){
   const limitIssue = deckLimitIssue(ids); if (limitIssue){ toast(limitIssue); return false; }
   const selectedDeck = allDeckOptions().find(d => d.id === $("#deckSel").value);
-  if (S.pack && S.pack.url && packAccount() && !S.pack.ready && selectedDeck && selectedDeck.cards.some(id => S.cards.has(id) && !owns(id))){ toast("このデッキの所持カードを確認中です。パック画面で再読み込みしてね"); return false; }
+  if (S.pack && S.pack.url && packAccount() && !S.pack.ready && selectedDeck && selectedDeck.cards.some(id => S.cards.has(id) && !owns(id) && !(Array.isArray(selectedDeck.borrow) && selectedDeck.borrow.includes(id)))){ toast("このデッキの所持カードを確認中です。パック画面で再読み込みしてね"); return false; }
   ids = ids.filter(id => !isEx(S.cards.get(id)));
   if (!chosenSpire() && ids.length < MIN_DECK){ toast(`デッキのカードが足りません（${MIN_DECK}枚以上）`); return false; }
   if (!chosenSpire() && !ids.some(id => cardType(S.cards.get(id)) === "monster")){ toast("デッキにモンスターが入っていません"); return false; }

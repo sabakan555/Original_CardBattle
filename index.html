@@ -514,6 +514,7 @@ body.dm-lock{overflow:hidden}
 .fieldz .card{--w:64px}
 .die-face{display:inline-flex;align-items:center;justify-content:center;min-width:1.6em;padding:0 .12em;box-sizing:border-box;height:1.6em;border-radius:.28em;background:#fff;color:#1e2328;box-shadow:inset 0 -4px 0 rgba(0,0,0,.18),0 4px 14px rgba(0,0,0,.4);font-weight:900;margin-right:.2em}
 .coin-face{display:inline-flex;align-items:center;justify-content:center;width:1.6em;height:1.6em;border-radius:50%;background:radial-gradient(circle at 35% 30%,#ffe9a3,#e0a52b 70%);color:#5b3a00;font-weight:900;box-shadow:0 4px 14px rgba(0,0,0,.4);margin-right:.2em}
+.pool-item.borrowed{position:relative}.borrow-tag{position:absolute;z-index:3;top:4px;left:4px;background:#7a4fd0;color:#fff;font-size:11px;font-weight:700;border-radius:99px;padding:1px 8px;pointer-events:none}
 .by-link{all:unset;cursor:pointer;text-decoration:underline;text-underline-offset:2px;color:inherit;font:inherit}.by-link:hover,.by-link:focus-visible{color:var(--accent,#66e5e0);outline:none}
 .coin-row{display:flex;gap:.15em;justify-content:center;font-size:.8em}.coin-row .coin-face{margin:0}
 .coin-face.t{background:radial-gradient(circle at 35% 30%,#e8eef5,#9aa6b4 70%);color:#2c333b}
@@ -2096,6 +2097,7 @@ const KINDS = {
   reflectDmg: { label: "ダメージを跳ね返す（このターン、自分が受けるダメージを相手が受ける）", text: () => `このターン、自分が受けるダメージを相手に跳ね返す` },
   negate:     { label: "攻撃を無効にする（罠）", trap: true, text: () => `相手の攻撃を無効にする` },
   atkDownAtk: { label: "攻撃してきたモンスターのATKダウン", n: true, trap: true, text: n => `攻撃してきたモンスターのATK−${n}` },
+  dmgAtkAtk:  { label: "攻撃してきたモンスターのATKぶんのダメージを相手に与える（罠）", trap: true, text: () => `攻撃してきたモンスターのATKぶんのダメージを相手に与える` },
   killAtk:    { label: "攻撃モンスターを破壊（罠）", trap: true, text: () => `攻撃してきたモンスターを破壊` },
   manaNow:    { label: "マナを回復（このターン）", n: true, text: n => `マナを${n}回復する` },
   manaMax:    { label: "最大マナを増やす", n: true, text: n => `最大マナを${n}増やす` },
@@ -4237,7 +4239,7 @@ const KIND_GROUPS = [
   { g: "rewrite", label: "カードを書きかえる（効果の追加・上書き・名前）", v: [["modAdd", "効果を追加する"], ["modRep", "効果を上書きする"], ["modClear", "効果をなくす"], ["modName", "名前を変える"]] },
   { g: "transform", label: "カードを変化させる", v: [["transformHand", "手札から○枚えらんで"], ["transformRand", "手札からランダムに○枚"], ["transformAtk", "手札のアタックすべて"], ["transformAll", "手札すべて"], ["transformSelf", "このカード自身"]] },
   { g: "give",    label: "相手にカードを送りこむ", v: [["oppDraw", "相手に○枚引かせる"], ["oppGenHand", "名前を指定したカードを相手の手札に"], ["oppGenDeck", "名前を指定したカードを相手の山札に混ぜる"], ["oppSummon", "名前を指定したモンスターを相手の場に出す"], ["oppSetNamed", "名前を指定した魔法・罠を相手の場にセット"]] },
-  { g: "negate",  label: "打ち消す・無効にする", v: [["cancel", "魔法・罠の発動かモンスターの召喚を打ち消す"], ["reflectFx", "相手の魔法・罠を打ち消して、その効果を自分が使う（跳ね返す）"], ["negate", "相手の攻撃を無効にする（罠・速攻魔法）"], ["reflectDmg", "このターン、自分が受けるダメージを相手に跳ね返す"]] },
+  { g: "negate",  label: "打ち消す・無効にする", v: [["cancel", "魔法・罠の発動かモンスターの召喚を打ち消す"], ["reflectFx", "相手の魔法・罠を打ち消して、その効果を自分が使う（跳ね返す）"], ["negate", "相手の攻撃を無効にする（罠・速攻魔法）"], ["dmgAtkAtk", "攻撃してきたモンスターのATKぶんのダメージを相手に与える（罠・速攻魔法）"], ["reflectDmg", "このターン、自分が受けるダメージを相手に跳ね返す"]] },
   { g: "equip",   label: "装備を動かす", v: [["moveEquips", "別のモンスターに付けかえる"], ["equipsToHand", "ほかの装備を手札に戻す"]] },
   { g: "minus",   label: "自分にデメリット", v: [["loseLp", "LPを失う（ブロックでは防げない）"], ["selfDisc", "手札をえらんで捨てる"], ["selfDiscRand", "手札をランダムに捨てる"], ["selfDiscAll", "手札をすべて捨てる"], ["thisNoAtk", "このモンスターは攻撃できない（このターン）"], ["thisTopOnly", "一番ATKが高い相手にしか攻撃できない"], ["selfNoAtk", "自分のモンスターは攻撃できない（このターン）"], ["destroyOwn", "自分のモンスター1体を破壊"], ["destroyThis", "このモンスターを破壊"], ["destroyOwnAll", "自分のモンスターをすべて破壊"], ["oppStr", "相手が筋力を得る"], ["noDraw", "このターンもう引けない"]] },
   { g: "ctr",     label: "カウンター（乗せる・取り除く）", v: [["ctrAdd", "カウンターを乗せる"], ["ctrDel", "カウンターを取り除く"]] },
@@ -5100,13 +5102,13 @@ function renderDeck(){
   const m = $("#deckMeter"); m.textContent = (sp ? `${n}枚（スパイアデッキは枚数自由）` : `${n}枚（モンスター ${deckMonsters()}）`) + (deckExCount() ? `＋EX ${deckExCount()}枚` : ""); m.className = "meter " + (ok ? "ok" : "ng");
   $("#btnDeckDel").hidden = !S.deckEdit.id;
   { const ids = []; for (const [id, k] of Object.entries(S.deckEdit.cards)) for (let i = 0; i < k; i++) ids.push(id); $("#deckView").innerHTML = deckViewHTML(ids, $("#deckMana").checked); $("#deckViewNote").textContent = `${ids.length}枚・押すとくわしく見られる`; }
-  const pool0 = [...S.userCards].filter(c => owns(c.id) || S.deckEdit.cards[c.id]).sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0)).concat(S.starters).filter(c => !c.token || S.deckEdit.cards[c.id]);
+  const pool0 = [...S.userCards].filter(c => owns(c.id) || S.deckEdit.cards[c.id] || isBorrowed(c.id)).sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0)).concat(S.starters).filter(c => !c.token || S.deckEdit.cards[c.id]);
   const pool = sortCards(pool0.filter(c => matchCard(c, S.filt.deck) && (fitsDeck(c, $("#deckMana").checked) || S.deckEdit.cards[c.id])), S.filt.deck.sort);
   S.deckPoolIds = pool.map(c => c.id);
   setCount("deck", pool.length, pool0.length);
   $("#deckPool").innerHTML = (pool.length ? "" : `<p class="muted">条件に合うカードがありません。</p>`) + pool.map(c => {
     const k = famCount(c.id), lim = cardLimit(c), shown = k ? card(famPick(c.id)) : c;
-    return `<div class="pool-item">${cardHTML(shown, "sm", "", { mana: $("#deckMana").checked })}<div class="cnt"><button class="small" data-dm="${esc(c.id)}" ${k ? "" : "disabled"} aria-label="へらす">−</button><b>${k}/${lim || "∞"}</b><button class="small" data-dp="${esc(c.id)}" ${lim && k >= lim ? "disabled" : ""} aria-label="ふやす">＋</button></div></div>`;
+    return `<div class="pool-item${isBorrowed(c.id) ? " borrowed" : ""}">${isBorrowed(c.id) ? `<span class="borrow-tag" title="持っていないけど、このデッキでは借りて使える">借りもの</span>` : ""}${cardHTML(shown, "sm", "", { mana: $("#deckMana").checked })}<div class="cnt"><button class="small" data-dm="${esc(c.id)}" ${k ? "" : "disabled"} aria-label="へらす">−</button><b>${k}/${lim || "∞"}</b><button class="small" data-dp="${esc(c.id)}" ${lim && k >= lim ? "disabled" : ""} aria-label="ふやす">＋</button></div></div>`;
   }).join("");
 }
 $("#deckMana").addEventListener("change", renderDeck);
@@ -5121,7 +5123,7 @@ $("#deckViewBox").addEventListener("toggle", () => ls.set("cb_dkv", $("#deckView
 $("#deckSpire").addEventListener("change", () => { $("#deckSpcRow").hidden = !$("#deckSpire").checked; renderDeck(); });
 $("#deckEditSel").addEventListener("change", e => {
   const d = S.decks.find(x => x.id === e.target.value);
-  S.deckEdit = { id: d ? d.id : null, cards: {}, key: (d && d.key) || null };
+  S.deckEdit = { id: d ? d.id : null, cards: {}, key: (d && d.key) || null, borrow: d && Array.isArray(d.borrow) ? d.borrow.slice() : [] };
   if (d) d.cards.forEach(id => S.deckEdit.cards[id] = (S.deckEdit.cards[id] || 0) + 1);
   $("#deckName").value = d ? d.name : "";
   $("#deckMana").checked = !!(d && d.mana); $("#deckSpire").checked = !!(d && d.spire); $("#deckSpc").value = d && d.spc === "silent" ? "silent" : ""; $("#deckSpcRow").hidden = !$("#deckSpire").checked;
@@ -5147,15 +5149,17 @@ $("#deckPool").addEventListener("click", e => {
   if (m) famAdd(m.dataset.dm, -1);
   if (p || m) renderDeck();
 });
+// 借りもの: 持っていないけど、このデッキの中でだけ使えるカード（ほかの人のデッキをコピーしたとき）
+const isBorrowed = id => !!(S.deckEdit && (S.deckEdit.borrow || []).includes(id) && !owns(id));
 $("#btnDeckSave").addEventListener("click", async () => {
   if (!$("#deckSpire").checked && deckCount() < MIN_DECK){ toast(`デッキは${MIN_DECK}枚以上にしてね`); return; }
   if (!$("#deckSpire").checked && !deckMonsters()){ toast("モンスターを1枚以上入れてね"); return; }
   const name = $("#deckName").value.trim() || "マイデッキ";
   const cards = []; for (const [id, k] of Object.entries(S.deckEdit.cards)) for (let i = 0; i < k; i++) cards.push(id);
   const limitIssue = deckLimitIssue(cards); if (limitIssue){ toast(limitIssue); return; }
-  if (cards.some(id => !S.cards.has(id) || !owns(id))){ toast("使えないカードが入っています。デッキを編集してね"); return; }
+  if (cards.some(id => !S.cards.has(id) || (!owns(id) && !isBorrowed(id)))){ toast("使えないカードが入っています。デッキを編集してね"); return; }
   const id = S.deckEdit.id || uid("d");
-  try{ await saveDeckDoc(id, { name, owner: S.name, ownerId: (S.decks.find(d => d.id === id) || {}).ownerId || S.uid || null, cards, mana: $("#deckMana").checked, spire: $("#deckSpire").checked, spc: $("#deckSpire").checked && $("#deckSpc").value === "silent" ? "silent" : null, key: S.deckEdit.key && S.deckEdit.cards[S.deckEdit.key] ? S.deckEdit.key : null, updatedAt: Date.now() }); S.deckEdit.id = id; ls.set("cb_deck", id); toast("デッキを保存しました"); renderDeck(); }
+  try{ await saveDeckDoc(id, { name, owner: S.name, ownerId: (S.decks.find(d => d.id === id) || {}).ownerId || S.uid || null, cards, mana: $("#deckMana").checked, spire: $("#deckSpire").checked, spc: $("#deckSpire").checked && $("#deckSpc").value === "silent" ? "silent" : null, key: S.deckEdit.key && S.deckEdit.cards[S.deckEdit.key] ? S.deckEdit.key : null, borrow: (b => b.length ? b : null)([...new Set(cards.filter(id => !owns(id)))]), updatedAt: Date.now() }); S.deckEdit.id = id; ls.set("cb_deck", id); toast("デッキを保存しました"); renderDeck(); }
   catch(e){ writeErr(e); }
 });
 let deckDelArm = false;
@@ -5430,9 +5434,9 @@ const canUseCard = id => S.cards.has(id) && (typeof owns !== "function" || owns(
 const dkQText = x => `${x.name || ""} ${x.owner || ""}`.toLowerCase();
 const dkQHit = x => !S.dkQ || dkQText(x).includes(S.dkQ.toLowerCase());
 function copyDeckToEditor(d){
-  const cards = d.cards.filter(canUseCard), miss = d.cards.length - cards.length;
+  const cards = d.cards.filter(id => S.cards.has(id)), bor = [...new Set(cards.filter(id => !canUseCard(id)))], miss = bor.length;
   openDeckEditor("");
-  S.deckEdit = { id: null, cards: {}, key: d.key && cards.includes(d.key) ? d.key : null }; cards.forEach(id => S.deckEdit.cards[id] = (S.deckEdit.cards[id] || 0) + 1);
+  S.deckEdit = { id: null, cards: {}, key: d.key && cards.includes(d.key) ? d.key : null, borrow: bor }; cards.forEach(id => S.deckEdit.cards[id] = (S.deckEdit.cards[id] || 0) + 1);
   $("#deckName").value = d.name.replace(/【コスト】/, "") + "のコピー"; $("#deckMana").checked = !!d.mana; $("#deckSpire").checked = !!d.spire; $("#deckSpc").value = d.spc === "silent" ? "silent" : ""; $("#deckSpcRow").hidden = !d.spire; renderDeck();
   return miss;
 }
@@ -5469,7 +5473,7 @@ function renderDeckList(){
         </div>
       </div>
       ${picker}
-      ${theirs && miss ? `<p class="note dk-miss" style="margin:0">持っていないカードが ${miss} 枚あります。コピーするとそのカードは外れます</p>` : ""}
+      ${theirs && miss ? `<p class="note dk-miss" style="margin:0">持っていないカードが ${miss} 枚あります。コピーすると「借りもの」としてそのまま使えます</p>` : ""}
       <div class="dk-actions">${theirs ? `<button class="primary dk-play" data-dtake>コピーして自分のデッキにする</button>` : `<button class="primary dk-play" data-dplay>このデッキで対戦</button>`}</div>
       <div class="dk-actions">${own ? `<button data-dedit>デッキ編集</button><button data-dthumb>${S.thumbPick ? "サムネ選びをやめる" : "サムネを変える"}</button><button class="danger small" data-ddel>${S.dkDelArm === d.id ? "本当に消す" : "デッキ削除"}</button>` : `<button data-dcopy>これをもとに作る</button>`}</div>
     </div>
@@ -5511,14 +5515,14 @@ $("#deckList").addEventListener("click", async e => {
   if (!d) return;
   if (g("[data-dplay]")){ ls.set("cb_deck", d.id); S.tab = "play"; ls.set("cb_tab", "play"); renderAll(); window.scrollTo(0, 0); toast(`「${d.name}」で対戦できます`); return; }
   if (g("[data-dedit]")){ openDeckEditor(d.id); return; }
-  if (g("[data-dcopy]")){ const miss = copyDeckToEditor(d); if (miss) toast(`持っていないカード ${miss} 枚は外しました`); return; }
+  if (g("[data-dcopy]")){ const miss = copyDeckToEditor(d); if (miss) toast(`持っていないカード ${miss} 種類は「借りもの」として入れました`); return; }
   if (g("[data-dtake]")){
-    const cards = d.cards.filter(canUseCard), miss = d.cards.length - cards.length;
+    const cards = d.cards.filter(id => S.cards.has(id)), bor = [...new Set(cards.filter(id => !canUseCard(id)))], miss = bor.length;
     const main = cards.filter(id => !isEx(S.cards.get(id))), mons = main.filter(id => cardType(S.cards.get(id)) === "monster").length;
     const issue = (typeof deckLimitIssue === "function" ? deckLimitIssue(cards) : "") || (!d.spire && (main.length < MIN_DECK || !mons) ? `このままだと${!mons ? "モンスターが入っていない" : `${MIN_DECK}枚に足りない`}ので、編集してから保存してね` : "");
     if (!cards.length || issue){ copyDeckToEditor(d); toast(issue || "使えるカードがありませんでした"); return; }
     const id = uid("d"), name = d.name.replace(/【コスト】/, "") + "のコピー";
-    try{ await saveDeckDoc(id, { name, owner: S.name, ownerId: S.uid || null, cards, mana: !!d.mana, spire: !!d.spire, spc: d.spire && d.spc === "silent" ? "silent" : null, key: d.key && cards.includes(d.key) ? d.key : null, updatedAt: Date.now() }); S.deckPick = id; ls.set("cb_deck", id); toast(`「${name}」を自分のデッキに入れました${miss ? `（持っていないカード ${miss} 枚は外しました）` : ""}`); renderDeckList(); }
+    try{ await saveDeckDoc(id, { name, owner: S.name, ownerId: S.uid || null, cards, mana: !!d.mana, spire: !!d.spire, spc: d.spire && d.spc === "silent" ? "silent" : null, key: d.key && cards.includes(d.key) ? d.key : null, borrow: bor.length ? bor : null, updatedAt: Date.now() }); S.deckPick = id; ls.set("cb_deck", id); toast(`「${name}」を自分のデッキに入れました${miss ? `（持っていないカード ${miss} 種類は借りています）` : ""}`); renderDeckList(); }
     catch(err){ writeErr(err); }
     return;
   }
@@ -5718,12 +5722,12 @@ const deckSpireVal = d => d && d.spire ? (d.spc === "silent" ? "silent" : true) 
 function chosenSpire(){ const id = $("#deckSel").value; const d = allDeckOptions().find(x => x.id === id); return deckSpireVal(d); }
 function chosenDeckIds(){
   const id = $("#deckSel").value; const d = allDeckOptions().find(x => x.id === id) || starterDeck();
-  return d.cards.filter(c => S.cards.has(c) && (!S.tradesReady || owns(c)));
+  return d.cards.filter(c => S.cards.has(c) && (!S.tradesReady || owns(c) || (Array.isArray(d.borrow) && d.borrow.includes(c))));
 }
 function deckOk(ids){
   const limitIssue = deckLimitIssue(ids); if (limitIssue){ toast(limitIssue); return false; }
   const selectedDeck = allDeckOptions().find(d => d.id === $("#deckSel").value);
-  if (S.pack && S.pack.url && packAccount() && !S.pack.ready && selectedDeck && selectedDeck.cards.some(id => S.cards.has(id) && !owns(id))){ toast("このデッキの所持カードを確認中です。パック画面で再読み込みしてね"); return false; }
+  if (S.pack && S.pack.url && packAccount() && !S.pack.ready && selectedDeck && selectedDeck.cards.some(id => S.cards.has(id) && !owns(id) && !(Array.isArray(selectedDeck.borrow) && selectedDeck.borrow.includes(id)))){ toast("このデッキの所持カードを確認中です。パック画面で再読み込みしてね"); return false; }
   ids = ids.filter(id => !isEx(S.cards.get(id)));
   if (!chosenSpire() && ids.length < MIN_DECK){ toast(`デッキのカードが足りません（${MIN_DECK}枚以上）`); return false; }
   if (!chosenSpire() && !ids.some(id => cardType(S.cards.get(id)) === "monster")){ toast("デッキにモンスターが入っていません"); return false; }
@@ -7141,6 +7145,7 @@ function applyEffect(st, s, c, target, ctx = {}, fx = normFx(c)){
     case "manaDrain": if (op.mana){ const k = Math.min(n, op.mana.cur); op.mana.cur -= k; log(st, s, `${src}で${op.name}のマナを${k}減らした`); } else log(st, s, `${src}：相手はマナを使わないデッキなので効果なし`); break;
     case "negate": if (ctx.attack){ st.pending.negated = true; log(st, s, `${src}で攻撃を無効にした`); } else log(st, s, `${src}：無効にする攻撃がない`); break;
     case "atkDownAtk": { const am = ctx.attack && P(st, ctx.attack.by).mz[ctx.attack.from]; if (am){ am.mod = (am.mod || 0) - n; log(st, s, `${src}で攻撃してきた「${card(am.c).name}」のATK−${n}`); } else log(st, s, `${src}：攻撃してきたモンスターがいない`); break; }
+    case "dmgAtkAtk": { const am = ctx.attack && P(st, ctx.attack.by).mz[ctx.attack.from], d = am ? Math.max(0, +atkOf(am) || 0) : 0; if (am && d > 0 && isFinite(d)){ log(st, s, `${src}：攻撃してきた「${card(am.c).name}」のATK ${fmtN(d)}ぶんのダメージを${P(st, ctx.attack.by).name}に与えた`); dealDmg(st, ctx.attack.by, d); } else log(st, s, `${src}：攻撃してきたモンスターがいない`); break; }
     case "killAtk": if (ctx.attack){ destroyMonster(st, ctx.attack.by, ctx.attack.from, src); } else log(st, s, `${src}：攻撃してきたモンスターがいない`); break;
     case "win": {
       let ok = true;
@@ -7649,7 +7654,7 @@ function usableIn(st, s, c, win){
   if (useBlockedWhy(st, s, c, win)) return false;
   const fx = normFx(c);
   if (win === "summoned" && whenOf(c) !== "oppSummon") return false;
-  if (fx && (fx.kind === "negate" || fx.kind === "killAtk" || fx.kind === "atkDownAtk") && win !== "attack" && win !== "chainAttack") return false;
+  if (fx && (fx.kind === "negate" || fx.kind === "killAtk" || fx.kind === "atkDownAtk" || fx.kind === "dmgAtkAtk") && win !== "attack" && win !== "chainAttack") return false;
   if (fx && fx.kind === "cancel" && win !== "chain" && win !== "chainAttack" && win !== "summon") return false;
   if (fx && fx.kind === "reflectFx"){ const top = st.chain && st.chain[st.chain.length - 1]; if ((win !== "chain" && win !== "chainAttack") || !top || top.summon || top.s === s || top.cancel) return false; }
   if (win === "summon" && (!fx || fx.kind !== "cancel")) return false;
@@ -8071,7 +8076,7 @@ function useWhyShort(st, s, c){
   const w = whenOf(c); if (w) return `${WHEN_LABEL[w]}に使える`;
   const why = useBlockedWhy(st, s, c); if (why) return why.replace(/^このカードは|いまは/g, "").replace(/ません.*$/, "ない");
   const fx = normFx(c);
-  if (fx && (fx.kind === "negate" || fx.kind === "killAtk" || fx.kind === "atkDownAtk")) return "攻撃されたときに使える";
+  if (fx && (fx.kind === "negate" || fx.kind === "killAtk" || fx.kind === "atkDownAtk" || fx.kind === "dmgAtkAtk")) return "攻撃されたときに使える";
   const opts = fx ? targetOptions(st, s, fx.kind, { tagName: fx.into || "" }) : null;
   if (opts && !opts.length) return "効果の対象がいない";
   return "";
@@ -8841,7 +8846,7 @@ $("#board").addEventListener("click", e => {
     const id = from === "hand" ? P(st, me).hand[sel.i] : P(st, me).sz[sel.i]?.c;
     const why = useBlockedWhy(st, me, card(id)); if (why){ toast(why); return; }
     const fx = normFx(card(id));
-    if (fx && (fx.kind === "negate" || fx.kind === "killAtk" || fx.kind === "atkDownAtk")){ toast("このカードは相手に攻撃されたときに使えます"); return; }
+    if (fx && (fx.kind === "negate" || fx.kind === "killAtk" || fx.kind === "atkDownAtk" || fx.kind === "dmgAtkAtk")){ toast("このカードは相手に攻撃されたときに使えます"); return; }
     const opts = fx ? targetOptions(st, me, fx.kind, { tagName: fx.into || "" }) : null;
     if (opts && !opts.length){ toast("効果の対象がいないので発動できません"); return; }
     G.sel = null; withDiscard(card(id), from === "hand" ? sel.i : -1, d => act(st => activate(st, me, from, sel.i, { ...(d.length ? { disc: d } : {}), kick })));

@@ -466,7 +466,7 @@ const KIND_GROUPS = [
   { g: "rewrite", label: "カードを書きかえる（効果の追加・上書き・名前）", v: [["modAdd", "効果を追加する"], ["modRep", "効果を上書きする"], ["modClear", "効果をなくす"], ["modName", "名前を変える"]] },
   { g: "transform", label: "カードを変化させる", v: [["transformHand", "手札から○枚えらんで"], ["transformRand", "手札からランダムに○枚"], ["transformAtk", "手札のアタックすべて"], ["transformAll", "手札すべて"], ["transformSelf", "このカード自身"]] },
   { g: "give",    label: "相手にカードを送りこむ", v: [["oppDraw", "相手に○枚引かせる"], ["oppGenHand", "名前を指定したカードを相手の手札に"], ["oppGenDeck", "名前を指定したカードを相手の山札に混ぜる"], ["oppSummon", "名前を指定したモンスターを相手の場に出す"], ["oppSetNamed", "名前を指定した魔法・罠を相手の場にセット"]] },
-  { g: "negate",  label: "打ち消す・無効にする", v: [["cancel", "魔法・罠の発動かモンスターの召喚を打ち消す"], ["reflectFx", "相手の魔法・罠を打ち消して、その効果を自分が使う（跳ね返す）"], ["negate", "相手の攻撃を無効にする（罠・速攻魔法）"], ["reflectDmg", "このターン、自分が受けるダメージを相手に跳ね返す"]] },
+  { g: "negate",  label: "打ち消す・無効にする", v: [["cancel", "魔法・罠の発動かモンスターの召喚を打ち消す"], ["reflectFx", "相手の魔法・罠を打ち消して、その効果を自分が使う（跳ね返す）"], ["negate", "相手の攻撃を無効にする（罠・速攻魔法）"], ["dmgAtkAtk", "攻撃してきたモンスターのATKぶんのダメージを相手に与える（罠・速攻魔法）"], ["reflectDmg", "このターン、自分が受けるダメージを相手に跳ね返す"]] },
   { g: "equip",   label: "装備を動かす", v: [["moveEquips", "別のモンスターに付けかえる"], ["equipsToHand", "ほかの装備を手札に戻す"]] },
   { g: "minus",   label: "自分にデメリット", v: [["loseLp", "LPを失う（ブロックでは防げない）"], ["selfDisc", "手札をえらんで捨てる"], ["selfDiscRand", "手札をランダムに捨てる"], ["selfDiscAll", "手札をすべて捨てる"], ["thisNoAtk", "このモンスターは攻撃できない（このターン）"], ["thisTopOnly", "一番ATKが高い相手にしか攻撃できない"], ["selfNoAtk", "自分のモンスターは攻撃できない（このターン）"], ["destroyOwn", "自分のモンスター1体を破壊"], ["destroyThis", "このモンスターを破壊"], ["destroyOwnAll", "自分のモンスターをすべて破壊"], ["oppStr", "相手が筋力を得る"], ["noDraw", "このターンもう引けない"]] },
   { g: "ctr",     label: "カウンター（乗せる・取り除く）", v: [["ctrAdd", "カウンターを乗せる"], ["ctrDel", "カウンターを取り除く"]] },
