@@ -7,11 +7,13 @@ const RARITY = { common: "コモン", uncommon: "アンコモン", rare: "レア
 const rarityOf = c => c && RARITY[c.rarity] ? c.rarity : "common";
 const spireKind = c => { const t = cardType(c); if (c && c.sk && t === "magic") return c.persist ? "power" : c.sk === "attack" ? "attack" : "skill"; return t === "monster" ? "attack" : t === "trap" || (t === "magic" && c.persist) ? "power" : "skill"; };
 const typeLabel = c => { if (c && c.potionView) return "ポーション"; const t = cardType(c); if (t === "monster" && c && c.token) return "トークン"; if (t === "monster" && c && c.ex) return "EXモンスター"; return isQuick(c) ? "速攻魔法" : isField(c) ? "フィールド魔法" : isPersist(c) ? "永続" + TYPE_LABEL[t] : TYPE_LABEL[t]; };
-const TRIGS = { evolve: "エボルヴしたとき", ctrReach: "カウンターが○個以上になったとき", summon: "召喚したとき", ssummon: "特殊召喚したとき", attack: "攻撃するとき", kill: "戦闘で相手を破壊したとき", destroyed: "破壊されたとき", battleLose: "バトルに負けたとき", turnStart: "自分のターンのはじめ", turnEnd: "自分のターンの終わり", enter: "場に出たとき", while: "場にいる間", anyUse: "魔法・罠が発動したとき", attach: "装備したとき", use: "発動したとき", act: "起動（ボタンで使う）" };
-const MON_TRIGS = ["summon", "ssummon", "enter", "while", "act", "evolve", "ctrReach", "anyUse", "attack", "kill", "destroyed", "battleLose", "turnStart", "turnEnd"];
+const TRIGS = { evolve: "エボルヴしたとき", ctrReach: "カウンターが○個以上になったとき", summon: "召喚したとき", ssummon: "特殊召喚したとき", attack: "攻撃するとき", kill: "戦闘で相手を破壊したとき", destroyed: "破壊されたとき", battleLose: "バトルに負けたとき", turnStart: "自分のターンのはじめ", turnEnd: "自分のターンの終わり", enter: "場に出たとき", while: "場にいる間", anyUse: "魔法・罠が発動したとき", attach: "装備したとき", use: "発動したとき", act: "起動（ボタンで使う）", oppAttack: "相手が攻撃してきたとき" };
+const MON_TRIGS = ["summon", "ssummon", "enter", "while", "act", "evolve", "ctrReach", "anyUse", "attack", "oppAttack", "kill", "destroyed", "battleLose", "turnStart", "turnEnd"];
+// 攻撃に答える効果（攻撃を無効・攻撃モンスターを破壊など）: 罠のほか、「相手が攻撃してきたとき」の効果でも使える
+const ATK_REPLY = ["negate", "atkDownAtk", "dmgAtkAtk", "killAtk"];
 const EQ_TRIGS = ["attach", "attack", "turnStart", "turnEnd", "destroyed", "battleLose"];
 // 永続魔法・永続罠 (スパイア風 のパワー): stay face-up in the magic/trap zone; their effect fires on one of these
-const PERSIST_TRIG_LABEL = { use: "発動したとき", while: "場にある間", anyUse: "魔法・罠が発動したとき", turnStart: "自分のターンのはじめ", turnEnd: "自分のターンのおわり", mySummon: "自分がモンスターを召喚するたび", exhaust: "自分のカードが廃棄されるたび", monDestroyed: "モンスターが破壊されるたび", myLoseLp: "自分のターンにLPを失うたび", blockGain: "自分がブロックを得るたび", vulnApply: "相手に弱体を付与するたび", atkPlay: "自分がアタックを使うたび" };
+const PERSIST_TRIG_LABEL = { use: "発動したとき", while: "場にある間", anyUse: "魔法・罠が発動したとき", oppAttack: "相手が攻撃してきたとき", turnStart: "自分のターンのはじめ", turnEnd: "自分のターンのおわり", mySummon: "自分がモンスターを召喚するたび", exhaust: "自分のカードが廃棄されるたび", monDestroyed: "モンスターが破壊されるたび", myLoseLp: "自分のターンにLPを失うたび", blockGain: "自分がブロックを得るたび", vulnApply: "相手に弱体を付与するたび", atkPlay: "自分がアタックを使うたび" };
 const PERSIST_TRIGS = Object.keys(PERSIST_TRIG_LABEL);
 // レリック (カード以外): always on; 「手に入れたとき」 + the same timings as 永続 cards
 const RELIC_TRIG_LABEL = { gain: "手に入れたとき", ...Object.fromEntries(Object.entries(PERSIST_TRIG_LABEL).filter(([k]) => k !== "use" && k !== "while")) };
@@ -688,6 +690,7 @@ function blocksOf(c){
   if (Array.isArray(c.blocks)) return c.blocks.filter(b => b && typeof b === "object").map(b => ({
     trig: normTrig(c, b.trig), join: b.join === "or" ? "or" : "and", roll: b.roll === "die" || b.roll === "coin" ? b.roll : "", faces: Math.max(2, Math.min(100, Math.round(+b.faces || 6))), ...(b.roll === "coin" && +b.coins > 1 ? { coins: Math.min(10, Math.round(+b.coins)) } : {}), delay: Math.max(0, Math.min(9, Math.round(+b.delay || 0))),
     ...(b.trig === "act" ? { ap: b.ap === "game" || b.ap === "free" ? b.ap : "turn", an: Math.max(1, Math.min(9, Math.round(+b.an || 1))) } : {}),
+    ...(+b.lim > 0 && b.trig !== "act" && b.trig !== "while" ? { lim: Math.min(9, Math.round(+b.lim)) } : {}),
     ...(b.trig === "ctrReach" ? { rc: String(b.rc || ctrDefault()), rn: Math.max(1, Math.min(99, Math.round(+b.rn || 1))), rw: b.rw === "me" ? "me" : "self" } : {}),
     ...(b.trig === "act" && b.cost && b.cost.id && +b.cost.n > 0 ? { cost: { id: String(b.cost.id), n: Math.min(99, Math.round(+b.cost.n)), w: b.cost.w === "me" || b.cost.w === "field" ? b.cost.w : "self" } } : {}),
     ...(+b.necro > 0 ? { necro: Math.min(40, Math.round(+b.necro)) } : {}), ...(b.trig === "act" && +b.mcost > 0 ? { mcost: Math.min(99, Math.round(+b.mcost)) } : {}),
@@ -740,13 +743,15 @@ function clockMark(html){ return html ? html.replace(/【次の自分のター�
 const boonText = g => `${g.to === "pick" ? "自分、または相手" : g.to === "op" ? "相手" : "自分"}に効果を付与する${g.dur ? `（${g.dur}回）` : "（ずっと）"}：`;
 // 起動効果の回数: ap = turn（1ターンに○回）/ game（ゲーム中に○回）/ free（制限なし）
 const actLim = b => ({ per: b && (b.ap === "game" || b.ap === "free") ? b.ap : "turn", n: Math.max(1, Math.min(9, Math.round(+(b && b.an) || 1))) });
+// 「1ターンに○度だけ」: 見出し【…】のおわりに足す（見出しがなければ前に付ける）
+const limHead = (h, b) => !(b && b.lim > 0) ? h : h.endsWith("】") ? h.slice(0, -1) + `・1ターンに${b.lim}度】` : `【1ターンに${b.lim}度だけ】` + h;
 const actLimText = b => { const L = actLim(b); return L.per === "free" ? "・何回でも" : L.per === "game" ? `・ゲーム中に${L.n}回` : `・1ターンに${L.n}回`; };
 function blockText(c, b, detail = false){
   const t = cardType(c), isMon = t === "monster" || t === "equip";
   const head = c && c.relicView ? `【${RELIC_TRIG_LABEL[b.trig] || ""}】` : isMon ? (b.trig === "act" ? `【起動${actLimText(b)}】` + ((L => L.length ? L.join("、") + "：" : "")([b.mcost > 0 ? `マナを${b.mcost}払う` : "", b.cost ? ctrCostText(b.cost) : ""].filter(Boolean))) : b.trig === "ctrReach" ? `【${ctrReachHead(b)}】` : `【${trigLabel(t, b.trig)}】`) : isField(c) && b.trig !== "use" ? `【${fieldTrigLabel(c, b.trig)}】` : isPersist(c) && b.trig !== "use" ? `【${PERSIST_TRIG_LABEL[b.trig]}】` : "";
   const br = b.roll === "die" && b.dieBr && b.dieBr.length ? b.dieBr : null;
   const brText = br ? br.map(x => `${x.lo === x.hi ? x.lo : `${x.lo}〜${x.hi}`}が出たら、${effsText(c, x.then, detail)}`).join(detail ? "。\n" : "。") : "";
-  let s = (b.cont ? "さらに、" : head) + (b.necro > 0 ? `【ネクロマンス${b.necro}】` : "") + delayText(b.delay) + (b.roll === "die" ? `サイコロ${b.faces && b.faces !== 6 ? `（${b.faces}面）` : ""}を振る。` : b.roll === "coin" ? (b.coins > 1 ? `コインを${b.coins}回投げる。` : "コインを投げる。") : "") + condsText(b) + (b.then.length ? (b.one && b.then.length > 1 ? "次の効果から1つえらんで発動する：" + (detail ? "\n" : "") + b.then.map(e => effsText(c, [e])).join(detail ? "\nまたは、" : "、または、") : effsText(c, b.then, detail)) + (br ? (detail ? "。\n" : "。") : "") : br ? "" : "なにもしない") + brText;
+  let s = (b.cont ? "さらに、" : limHead(head, b)) + (b.necro > 0 ? `【ネクロマンス${b.necro}】` : "") + delayText(b.delay) + (b.roll === "die" ? `サイコロ${b.faces && b.faces !== 6 ? `（${b.faces}面）` : ""}を振る。` : b.roll === "coin" ? (b.coins > 1 ? `コインを${b.coins}回投げる。` : "コインを投げる。") : "") + condsText(b) + (b.then.length ? (b.one && b.then.length > 1 ? "次の効果から1つえらんで発動する：" + (detail ? "\n" : "") + b.then.map(e => effsText(c, [e])).join(detail ? "\nまたは、" : "、または、") : effsText(c, b.then, detail)) + (br ? (detail ? "。\n" : "。") : "") : br ? "" : "なにもしない") + brText;
   if (b.conds.length && b.else.length) s += `。${detail ? "\n" : ""}そうでなければ、${effsText(c, b.else, detail)}`;
   if (b.grant){ const pre = head + delayText(b.delay), g = b.grant; s = pre + boonText(g) + `「自分のターンの${g.at === "turnStart" ? "はじめ" : "おわり"}に、${s.slice(pre.length)}」`; }
   if (isField(c) && !fieldMine(c)) s = s.replace(/(自分|相手)のモンスターすべて/g, "お互いのモンスターすべて");

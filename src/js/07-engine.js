@@ -1193,7 +1193,7 @@ function comboCount(st, s, cb, ctx = {}){
 // run a card's main effect and (if its condition holds) its extra effect, in order
 function runCard(st, s, c, trig, ctx = {}, then){
   ctx = { ...ctx, hit: {} };
-  const bs = blockGroups(blocksOf(c)).map(g => g.filter(b => (b.trig === trig && (trig !== "ctrReach" || ctrReachHit(b, ctx))) || ((trig === "summon" || trig === "ssummon") && b.trig === "enter" && cardType(c) === "monster"))).filter(g => g.length);
+  const bs = blockGroups(blocksOf(c).map((b, i) => ({ ...b, _bi: i }))).map(g => g.filter(b => (b.trig === trig && (trig !== "ctrReach" || ctrReachHit(b, ctx))) || ((trig === "summon" || trig === "ssummon") && b.trig === "enter" && cardType(c) === "monster"))).filter(g => g.length);
   const step = (st2, k) => { if (k >= bs.length){ then && then(st2); return; } runBlockGroup(st2, s, c, bs[k], ctx, st3 => step(st3, k + 1)); };
   step(st, 0);
 }
@@ -1212,8 +1212,15 @@ function runBlockGroup(st, s, c, bs, ctx, then){
   if (isHumanHere(s)){ G.chooseQ.push({ ask: true, s, c, ctx, then, fx: { kind: "__block", ask: "どの効果ブロックを発動する？" }, pick1: bs.map((b, k) => ({ name: b.bn || `効果 ${k + 1}`, text: blockText(c, b, true) })), p1go: go }); return; }
   go(st, Math.floor(Math.random() * bs.length));
 }
+// 「1ターンに○度だけ」: 場のモンスター・永続カードはその1枚ごと、それ以外はカードごとに、効果ブロックが出た回数を数える
+function limKey(st, s, c, b, ctx){ const p = P(st, s), u = ctx && ctx.eqU ? "e" + ctx.eqU : ctx && ctx.mon ? "m" + ctx.mon.u : ctx && ctx.pz != null && p.sz[ctx.pz] ? "z" + p.sz[ctx.pz].u : "c"; return `${u}:${c && c.id}:${b._bi}`; }
+function limUsed(st, s, k){ const t = P(st, s).limT; return t && t.no === st.turnNo ? t.c[k] || 0 : 0; }
+function limAdd(st, s, k){ const p = P(st, s); if (!p.limT || p.limT.no !== st.turnNo) p.limT = { no: st.turnNo, c: {} }; p.limT.c[k] = (p.limT.c[k] || 0) + 1; }
 function runBlock(st, s, c, b, ctx, then){
+  const lk = b.lim > 0 && b._bi != null && !ctx.delayed && !ctx.granted ? limKey(st, s, c, b, ctx) : null;
+  if (lk && limUsed(st, s, lk) >= b.lim){ log(st, s, `「${c ? c.name : "？"}」：この効果は1ターンに${b.lim}度だけ（このターンはもう出ない）`); then && then(st); return; }
   if (b.delay > 0 && !ctx.delayed){
+    if (lk) limAdd(st, s, lk);
     st.un = (st.un || 0) + 1; const p = P(st, s);
     (p.timers = p.timers || []).push({ u: st.un, c: c && c.id || null, name: c && c.name || "？", b: { trig: b.trig, join: b.join, ...(b.one ? { one: true } : {}), conds: b.conds, then: b.then, else: b.else, roll: b.roll || "", faces: b.faces, coins: b.coins, dieBr: b.dieBr || [], grant: b.grant || null }, left: b.delay, ctx: { zone: ctx.zone ?? null, mon: ctx.mon || null } });
     log(st, s, `「${c ? c.name : "？"}」：${b.delay === 1 ? "次の自分のターンのはじめ" : b.delay + "ターン後の自分のターンのはじめ"}に効果が出る（時計 ${b.delay}）`);
@@ -1228,6 +1235,7 @@ function runBlock(st, s, c, b, ctx, then){
     return go(st, Math.random() < .5 ? 0 : 1);
   }
   if (b.grant && !ctx.granted){
+    if (lk) limAdd(st, s, lk);
     st.un = (st.un || 0) + 1; const to = b.grant.to === "op" ? O(s) : s, p = P(st, to);
     (p.boons = p.boons || []).push({ u: st.un, c: c && c.id || null, name: c && c.name || "？", at: b.grant.at, dur: b.grant.dur || 0, left: b.grant.dur || 0, b: { trig: b.grant.at, join: b.join, ...(b.one ? { one: true } : {}), conds: b.conds, then: b.then, else: b.else, roll: b.roll || "", faces: b.faces, coins: b.coins, dieBr: b.dieBr || [] } });
     log(st, s, `「${c ? c.name : "？"}」：${P(st, to).name}に効果を付与した（${P(st, to).name}のターンの${b.grant.at === "turnStart" ? "はじめ" : "おわり"}に出る${b.grant.dur ? `・${b.grant.dur}回` : "・ずっと"}）`);
@@ -1239,6 +1247,7 @@ function runBlock(st, s, c, b, ctx, then){
   const plain = b.conds.filter(x => x.k !== "ask"), ask = b.conds.find(x => x.k === "ask"), or = b.join === "or";
   const base = plain.length ? (or ? plain.some(x => condMet(st, s, c, x, ctx)) : plain.every(x => condMet(st, s, c, x, ctx))) : !or;
   const go = (st2, ok) => {
+    if (lk && ok) limAdd(st2, s, lk);
     if (b.conds.length && !ok) log(st2, s, `「${c.name}」：条件に合わなかった${b.else.length ? "" : "（効果なし）"}`);
     const br = ok && ctx.roll && ctx.roll.kind === "die" && b.dieBr && b.dieBr.length ? b.dieBr.find(x => ctx.roll.v >= x.lo && ctx.roll.v <= x.hi) : null;
     if (ok && b.one && b.then.length > 1 && !br) return pickOne(st2, s, c, b.then, ctx, then);
@@ -1754,9 +1763,17 @@ function declareAttack(st, s, from, to, noRevo){
   return true;
 }
 function attackGo(st, s, from){
-  const go = st2 => { const pd = st2.pending; if (!pd || pd.type !== "attack" || pd.by !== s || st2.winner) return; pd.wait = responseOptions(st2, O(s), "attack").length > 0; if (!pd.wait) resolveAttack(st2); };
+  const go = st2 => { const pd = st2.pending; if (!pd || pd.type !== "attack" || pd.by !== s || st2.winner) return; if (pd.negated){ resolveAttack(st2); return; } pd.wait = responseOptions(st2, O(s), "attack").length > 0; if (!pd.wait) resolveAttack(st2); };
   const L = monTrigList(st, s, from, "attack").filter(x => hasTrig(x.c, "attack"));
-  if (L.length) runList(st, L, go); else go(st);
+  const reply = st2 => { const pd = st2.pending; if (!pd || pd.type !== "attack" || pd.by !== s || st2.winner) return; const R = oppAttackList(st2, O(s), { attack: { by: s, from } }); if (R.length) runList(st2, R, go); else go(st2); };
+  if (L.length) runList(st, L, reply); else reply(st);
+}
+// 「相手が攻撃してきたとき」: 攻撃された側 d のモンスター（と装備）・永続カード
+function oppAttackList(st, d, actx){
+  const L = [];
+  P(st, d).mz.forEach((m, i) => { if (m) monTrigList(st, d, i, "oppAttack").forEach(x => { if (x.s === d && hasTrig(x.c, "oppAttack")) L.push({ ...x, ctx: { ...x.ctx, ...actx } }); }); });
+  const PL = persistList(st, d, "oppAttack", actx); PL.forEach(x => log(st, d, `${x.c.relicView ? "レリック" : "永続"}「${x.c.name}」の効果！`));
+  return L.concat(PL);
 }
 // choice: null (pass) or { from: "sz"|"hand", i }
 function respond(st, s, choice){
