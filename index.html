@@ -906,6 +906,9 @@ nav.tabs button{position:relative}
 .dk-thumb{position:absolute;inset:0;background:#fff center 30%/cover no-repeat}
 .dk-name{position:absolute;left:0;right:0;top:0;padding:3px 9px;background:linear-gradient(rgba(10,12,30,.9),rgba(10,12,30,.6));color:#fff;font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .dk-tag{position:absolute;right:6px;bottom:6px;background:#2f6fd0;color:#fff;font-size:11px;border-radius:99px;padding:0 8px}
+.dk-by{position:absolute;left:6px;bottom:6px;max-width:calc(100% - 64px);background:rgba(10,12,30,.75);color:#fff;font-size:11px;border-radius:99px;padding:0 8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dk-q{width:100%}
+.dk-owner{display:block;font-family:var(--ui);font-size:13px}
 .dk-right{display:flex;flex-direction:column;gap:12px}
 .dk-key{position:relative;height:200px;border-radius:14px;overflow:hidden;border:2px solid #f2c14e;background:#fff center 30%/cover no-repeat}
 .dk-keylbl{position:absolute;left:0;top:0;background:linear-gradient(90deg,#f2c14e,#e0953a);color:#1e2328;font-weight:800;font-size:13px;padding:2px 16px;border-bottom-right-radius:12px}
@@ -5403,11 +5406,24 @@ function renderDeckTab(){
   $("#deckList").hidden = S.deckView === "edit"; $("#deckEditWrap").hidden = S.deckView !== "edit";
   if (S.deckView === "edit") renderDeck(); else renderDeckList();
 }
+// みんなのデッキ: decks other players saved. You can copy one and use it as your own.
+function otherDecks(){ return S.decks.filter(d => d && !d.builtin && !isMine(d, "owner") && Array.isArray(d.cards) && d.cards.some(id => S.cards.has(id))).sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0)); }
+const canUseCard = id => S.cards.has(id) && (typeof owns !== "function" || owns(id));
+const dkQText = x => `${x.name || ""} ${x.owner || ""}`.toLowerCase();
+const dkQHit = x => !S.dkQ || dkQText(x).includes(S.dkQ.toLowerCase());
+function copyDeckToEditor(d){
+  const cards = d.cards.filter(canUseCard), miss = d.cards.length - cards.length;
+  openDeckEditor("");
+  S.deckEdit = { id: null, cards: {}, key: d.key && cards.includes(d.key) ? d.key : null }; cards.forEach(id => S.deckEdit.cards[id] = (S.deckEdit.cards[id] || 0) + 1);
+  $("#deckName").value = d.name.replace(/【コスト】/, "") + "のコピー"; $("#deckMana").checked = !!d.mana; $("#deckSpire").checked = !!d.spire; $("#deckSpc").value = d.spc === "silent" ? "silent" : ""; $("#deckSpcRow").hidden = !d.spire; renderDeck();
+  return miss;
+}
 function renderDeckList(){
-  const mine = myDecks(), built = [...builtinDecks()], all = [...mine, ...built];
+  const mine = myDecks(), built = [...builtinDecks()], others = otherDecks(), all = [...mine, ...built, ...others];
   if (!all.some(d => d.id === S.deckPick)) S.deckPick = (all.find(d => d.id === ls.get("cb_deck", "")) || all[0]).id;
-  const d = all.find(x => x.id === S.deckPick), own = !d.builtin;
-  const tile = x => { const k = deckKey(x); return `<button class="dk-tile${x.id === S.deckPick ? " on" : ""}" data-dpick="${esc(x.id)}"><span class="dk-thumb" style="${bgUrl(k)}"></span><span class="dk-name">${esc(x.name)}</span>${x.mana ? `<span class="dk-tag">コスト</span>` : ""}</button>`; };
+  const d = all.find(x => x.id === S.deckPick), own = !d.builtin && isMine(d, "owner"), theirs = !d.builtin && !own;
+  const miss = theirs ? d.cards.filter(id => !canUseCard(id)).length : 0;
+  const tile = (x, by) => { const k = deckKey(x); return `<button class="dk-tile${x.id === S.deckPick ? " on" : ""}" data-dpick="${esc(x.id)}"${by ? ` data-dq="${esc(dkQText(x))}"${dkQHit(x) ? "" : " hidden"}` : ""}><span class="dk-thumb" style="${bgUrl(k)}"></span><span class="dk-name">${esc(x.name)}</span>${by ? `<span class="dk-by">${esc(x.owner || "だれか")}</span>` : ""}${x.mana ? `<span class="dk-tag">コスト</span>` : ""}</button>`; };
   const cs = d.cards.map(id => S.cards.get(id)).filter(Boolean), key = deckKey(d);
   const cnt = { monster: 0, magic: 0, equip: 0, trap: 0 }; cs.forEach(c => cnt[cardType(c)]++);
   let buckets, cap;
@@ -5419,21 +5435,24 @@ function renderDeckList(){
     <div class="box dk-left">
       <div class="row" style="justify-content:space-between"><h2 style="margin:0">デッキ一覧</h2><button class="small primary" data-dnew>＋ 新しいデッキ</button></div>
       <h3 class="dk-h">自分のデッキ　<span class="note">${mine.length}</span></h3>
-      <div class="dk-grid">${mine.map(tile).join("") || `<p class="muted" style="margin:0">まだデッキがありません。「＋ 新しいデッキ」から作ろう</p>`}</div>
+      <div class="dk-grid">${mine.map(x => tile(x)).join("") || `<p class="muted" style="margin:0">まだデッキがありません。「＋ 新しいデッキ」から作ろう</p>`}</div>
       <h3 class="dk-h">はじめからあるデッキ</h3>
-      <div class="dk-grid">${built.map(tile).join("")}</div>
+      <div class="dk-grid">${built.map(x => tile(x)).join("")}</div>
+      <h3 class="dk-h">みんなのデッキ　<span class="note">${others.length}</span></h3>
+      ${others.length ? `<input type="search" class="dk-q" data-dqin placeholder="デッキ名・作った人でさがす" aria-label="みんなのデッキをさがす" value="${esc(S.dkQ || "")}"><div class="dk-grid">${others.map(x => tile(x, true)).join("")}</div><p class="muted dk-qnone" style="margin:0"${others.some(dkQHit) ? " hidden" : ""}>見つかりませんでした</p>` : `<p class="muted" style="margin:0">ほかの人のデッキはまだありません</p>`}
     </div>
     <div class="dk-right">
       <div class="dk-key" style="${bgUrl(key)}"><span class="dk-keylbl">キーカード</span>${key ? `<span class="dk-keyname">${esc(key.name)}</span>` : ""}</div>
       <div class="box" style="display:flex;flex-direction:column;gap:12px">
-        <div class="dk-title"><h2>${esc(d.name)}${d.mana ? `<span class="note">　コストデッキ</span>` : ""}</h2><span class="dk-total">${cs.length}<small> 枚</small></span></div>
+        <div class="dk-title"><h2>${esc(d.name)}${d.mana ? `<span class="note">　コストデッキ</span>` : ""}${theirs ? `<span class="note dk-owner">作った人：${esc(d.owner || "だれか")}</span>` : ""}</h2><span class="dk-total">${cs.length}<small> 枚</small></span></div>
         <div class="dk-stats">
           <div><div class="dk-cap">${cap}</div><div class="dk-bars">${buckets.map(([l, n]) => `<div class="dk-bar"><b>${n}</b><i style="height:${Math.round(n / mx * 82)}%"></i><span>${l}</span></div>`).join("")}</div></div>
           <dl class="dk-types"><dt>モンスター</dt><dd>${cnt.monster}</dd><dt>魔法</dt><dd>${cnt.magic}</dd><dt>装備</dt><dd>${cnt.equip}</dd><dt>罠</dt><dd>${cnt.trap}</dd></dl>
         </div>
       </div>
       ${picker}
-      <div class="dk-actions"><button class="primary dk-play" data-dplay>このデッキで対戦</button></div>
+      ${theirs && miss ? `<p class="note dk-miss" style="margin:0">持っていないカードが ${miss} 枚あります。コピーするとそのカードは外れます</p>` : ""}
+      <div class="dk-actions">${theirs ? `<button class="primary dk-play" data-dtake>コピーして自分のデッキにする</button>` : `<button class="primary dk-play" data-dplay>このデッキで対戦</button>`}</div>
       <div class="dk-actions">${own ? `<button data-dedit>デッキ編集</button><button data-dthumb>${S.thumbPick ? "サムネ選びをやめる" : "サムネを変える"}</button><button class="danger small" data-ddel>${S.dkDelArm === d.id ? "本当に消す" : "デッキ削除"}</button>` : `<button data-dcopy>これをもとに作る</button>`}</div>
     </div>
   </div>`;
@@ -5468,16 +5487,22 @@ function openDeckEditor(id){
 }
 $("#deckList").addEventListener("click", async e => {
   if (stripClick(e, "gal")) return;
-  const g = s => e.target.closest(s), d = [...myDecks(), ...builtinDecks()].find(x => x.id === S.deckPick);
+  const g = s => e.target.closest(s), d = [...myDecks(), ...builtinDecks(), ...otherDecks()].find(x => x.id === S.deckPick);
   if (g("[data-dpick]")){ S.deckPick = g("[data-dpick]").dataset.dpick; S.thumbPick = false; S.dkDelArm = null; renderDeckList(); if (matchMedia("(max-width:860px)").matches) $(".dk-right").scrollIntoView({ behavior: "smooth", block: "start" }); return; }
   if (g("[data-dnew]")){ openDeckEditor(""); return; }
   if (!d) return;
   if (g("[data-dplay]")){ ls.set("cb_deck", d.id); S.tab = "play"; ls.set("cb_tab", "play"); renderAll(); window.scrollTo(0, 0); toast(`「${d.name}」で対戦できます`); return; }
   if (g("[data-dedit]")){ openDeckEditor(d.id); return; }
-  if (g("[data-dcopy]")){
-    openDeckEditor("");
-    S.deckEdit = { id: null, cards: {}, key: d.key || null }; d.cards.forEach(id => S.deckEdit.cards[id] = (S.deckEdit.cards[id] || 0) + 1);
-    $("#deckName").value = d.name.replace(/【コスト】/, "") + "のコピー"; $("#deckMana").checked = !!d.mana; $("#deckSpire").checked = !!d.spire; $("#deckSpc").value = d.spc === "silent" ? "silent" : ""; $("#deckSpcRow").hidden = !d.spire; renderDeck(); return;
+  if (g("[data-dcopy]")){ const miss = copyDeckToEditor(d); if (miss) toast(`持っていないカード ${miss} 枚は外しました`); return; }
+  if (g("[data-dtake]")){
+    const cards = d.cards.filter(canUseCard), miss = d.cards.length - cards.length;
+    const main = cards.filter(id => !isEx(S.cards.get(id))), mons = main.filter(id => cardType(S.cards.get(id)) === "monster").length;
+    const issue = (typeof deckLimitIssue === "function" ? deckLimitIssue(cards) : "") || (!d.spire && (main.length < MIN_DECK || !mons) ? `このままだと${!mons ? "モンスターが入っていない" : `${MIN_DECK}枚に足りない`}ので、編集してから保存してね` : "");
+    if (!cards.length || issue){ copyDeckToEditor(d); toast(issue || "使えるカードがありませんでした"); return; }
+    const id = uid("d"), name = d.name.replace(/【コスト】/, "") + "のコピー";
+    try{ await saveDeckDoc(id, { name, owner: S.name, ownerId: S.uid || null, cards, mana: !!d.mana, spire: !!d.spire, spc: d.spire && d.spc === "silent" ? "silent" : null, key: d.key && cards.includes(d.key) ? d.key : null, updatedAt: Date.now() }); S.deckPick = id; ls.set("cb_deck", id); toast(`「${name}」を自分のデッキに入れました${miss ? `（持っていないカード ${miss} 枚は外しました）` : ""}`); renderDeckList(); }
+    catch(err){ writeErr(err); }
+    return;
   }
   if (g("[data-dthumb]")){ S.thumbPick = !S.thumbPick; renderDeckList(); return; }
   if (g("[data-dkey]")){
@@ -5491,6 +5516,12 @@ $("#deckList").addEventListener("click", async e => {
     S.dkDelArm = null;
     try{ await deleteDeckDoc(d.id); S.deckPick = null; toast("デッキを消しました"); renderDeckList(); } catch(err){ writeErr(err); }
   }
+});
+$("#deckList").addEventListener("input", e => {
+  const q = e.target.closest("[data-dqin]"); if (!q) return;
+  S.dkQ = q.value.trim(); const t = S.dkQ.toLowerCase(); let any = false;
+  document.querySelectorAll("#deckList [data-dq]").forEach(b => { const hit = !t || b.dataset.dq.includes(t); b.hidden = !hit; any = any || hit; });
+  const none = $("#deckList .dk-qnone"); if (none) none.hidden = any;
 });
 $("#btnDeckBack").addEventListener("click", () => { S.deckView = "list"; if (S.deckEdit.id) S.deckPick = S.deckEdit.id; renderAll(); window.scrollTo(0, 0); });
 

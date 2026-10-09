@@ -894,6 +894,9 @@ nav.tabs button{position:relative}
 .dk-thumb{position:absolute;inset:0;background:#fff center 30%/cover no-repeat}
 .dk-name{position:absolute;left:0;right:0;top:0;padding:3px 9px;background:linear-gradient(rgba(10,12,30,.9),rgba(10,12,30,.6));color:#fff;font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .dk-tag{position:absolute;right:6px;bottom:6px;background:#2f6fd0;color:#fff;font-size:11px;border-radius:99px;padding:0 8px}
+.dk-by{position:absolute;left:6px;bottom:6px;max-width:calc(100% - 64px);background:rgba(10,12,30,.75);color:#fff;font-size:11px;border-radius:99px;padding:0 8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dk-q{width:100%}
+.dk-owner{display:block;font-family:var(--ui);font-size:13px}
 .dk-right{display:flex;flex-direction:column;gap:12px}
 .dk-key{position:relative;height:200px;border-radius:14px;overflow:hidden;border:2px solid #f2c14e;background:#fff center 30%/cover no-repeat}
 .dk-keylbl{position:absolute;left:0;top:0;background:linear-gradient(90deg,#f2c14e,#e0953a);color:#1e2328;font-weight:800;font-size:13px;padding:2px 16px;border-bottom-right-radius:12px}
