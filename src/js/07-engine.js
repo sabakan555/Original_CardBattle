@@ -1181,7 +1181,7 @@ function doRoll(st, s, c, b){
   const die = b.roll === "die", faces = Math.max(2, Math.min(100, Math.round(+b.faces || 6))), cn = die ? 1 : Math.max(1, Math.min(10, Math.round(+b.coins || 1)));
   const flips = die ? [] : Array.from({ length: cn }, () => Math.random() < .5 ? 1 : 0), v = die ? 1 + Math.floor(Math.random() * faces) : flips.reduce((t, x) => t + x, 0);
   log(st, s, `「${c ? c.name : "？"}」：${die ? `サイコロを振った → ${v}` : cn > 1 ? `コインを${cn}回投げた → ${flips.map(x => x ? "表" : "裏").join("・")}（表${v}枚）` : `コインを投げた → ${v ? "表" : "裏"}`}`);
-  ev(st, { type: "roll", s, kind: die ? "die" : "coin", v, faces, ...(cn > 1 ? { n: cn, fl: flips } : {}) });
+  ev(st, { type: "roll", s, kind: die ? "die" : "coin", v, faces, ...(cn > 1 ? { cn, fl: flips } : {}) });
   return { kind: die ? "die" : "coin", v, n: cn };
 }
 function runBlockGroup(st, s, c, bs, ctx, then){

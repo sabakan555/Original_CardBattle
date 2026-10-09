@@ -495,7 +495,7 @@ function animateEvent(e){
   }
   if (e.type === "fusion") fusionFx(e);
   if (e.type === "counter") fxEl("fxstamp", "打ち消し！");
-  if (e.type === "roll") fxEl("fxstamp roll", e.kind === "die" ? `<span class="die-face">${e.v}</span><small>サイコロ${e.faces && e.faces !== 6 ? `（${e.faces}面）` : ""}</small>` : e.n > 1 ? `<span class="coin-row">${(e.fl || []).map(x => `<span class="coin-face ${x ? "h" : "t"}">${x ? "表" : "裏"}</span>`).join("")}</span><small>表${e.v}枚・裏${e.n - e.v}枚</small>` : `<span class="coin-face ${e.v ? "h" : "t"}">${e.v ? "表" : "裏"}</span><small>コイントス</small>`);
+  if (e.type === "roll") fxEl("fxstamp roll", e.kind === "die" ? `<span class="die-face">${e.v}</span><small>サイコロ${e.faces && e.faces !== 6 ? `（${e.faces}面）` : ""}</small>` : e.cn > 1 && Array.isArray(e.fl) ? `<span class="coin-row">${e.fl.map(x => `<span class="coin-face ${x ? "h" : "t"}">${x ? "表" : "裏"}</span>`).join("")}</span><small>表${e.v}枚・裏${e.cn - e.v}枚</small>` : `<span class="coin-face ${e.v ? "h" : "t"}">${e.v ? "表" : "裏"}</span><small>コイントス</small>`);
   if (e.type === "gain"){
     const mine = sideOf(e.s) === "me", who = mine ? "" : "相手が";
     if (e.what === "card"){ const c = card(e.c); fxEl("fxspell " + (mine ? "mine" : "theirs"), `<div class="lbl">${who}カード獲得！</div>${cardHTML(c, "", "", mOpt(e.s))}`); return; }
