@@ -2298,7 +2298,7 @@ function normCombo(c){
 /* ---- special summon from the hand: the card's own condition + what you pay instead (a normal summon is not used up) ---- */
 const SS_CONDS = {
   none:    { label: "条件なし", text: () => "" },
-  oppHas:  { label: "相手の場にモンスターがいる", text: () => "相手の場にモンスターがいるなら、" },
+  oppHas:  { label: "相手の場にモンスターが○体以上いる", n: true, text: n => `相手の場にモンスターが${Math.max(1, +n || 1) > 1 ? Math.max(1, +n || 1) + "体以上" : ""}いるなら、` },
   myEmpty: { label: "自分の場にモンスターがいない", text: () => "自分の場にモンスターがいないなら、" },
   oppMore: { label: "相手のモンスターが自分より多い", text: () => "相手の場のモンスターが自分より多いなら、" },
   lp:      { label: "自分のLPが○以下", n: true, text: n => `自分のLPが${n}以下なら、` },
@@ -5125,6 +5125,7 @@ function famSkin(id, to){
   famIds(id).forEach(k => delete S.deckEdit.cards[k]); if (tot) S.deckEdit.cards[to] = tot; if (keyIn) S.deckEdit.key = to;
 }
 $("#deckPool").addEventListener("click", e => {
+  const p = e.target.closest("[data-dp]"), m = e.target.closest("[data-dm]");
   if (p) famAdd(p.dataset.dp, 1);
   if (m) famAdd(m.dataset.dm, -1);
   if (p || m) renderDeck();
@@ -7420,7 +7421,7 @@ function ssBlock(st, s, hi){
   if (!canPay(st, s, c)) return "マナが足りない";
   const mine = p.mz.filter(Boolean).length;
   let ok = true;
-  if (ss.cond === "oppHas") ok = op.mz.some(Boolean);
+  if (ss.cond === "oppHas") ok = op.mz.filter(Boolean).length >= Math.max(1, +ss.n || 1);
   if (ss.cond === "myEmpty") ok = !mine;
   if (ss.cond === "oppMore") ok = op.mz.filter(Boolean).length > mine;
   if (ss.cond === "lp") ok = p.lp <= ss.n;

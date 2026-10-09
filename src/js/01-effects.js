@@ -382,7 +382,7 @@ function normCombo(c){
 /* ---- special summon from the hand: the card's own condition + what you pay instead (a normal summon is not used up) ---- */
 const SS_CONDS = {
   none:    { label: "条件なし", text: () => "" },
-  oppHas:  { label: "相手の場にモンスターがいる", text: () => "相手の場にモンスターがいるなら、" },
+  oppHas:  { label: "相手の場にモンスターが○体以上いる", n: true, text: n => `相手の場にモンスターが${Math.max(1, +n || 1) > 1 ? Math.max(1, +n || 1) + "体以上" : ""}いるなら、` },
   myEmpty: { label: "自分の場にモンスターがいない", text: () => "自分の場にモンスターがいないなら、" },
   oppMore: { label: "相手のモンスターが自分より多い", text: () => "相手の場のモンスターが自分より多いなら、" },
   lp:      { label: "自分のLPが○以下", n: true, text: n => `自分のLPが${n}以下なら、` },

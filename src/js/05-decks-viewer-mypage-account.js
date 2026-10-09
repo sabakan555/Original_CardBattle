@@ -57,6 +57,7 @@ function famSkin(id, to){
   famIds(id).forEach(k => delete S.deckEdit.cards[k]); if (tot) S.deckEdit.cards[to] = tot; if (keyIn) S.deckEdit.key = to;
 }
 $("#deckPool").addEventListener("click", e => {
+  const p = e.target.closest("[data-dp]"), m = e.target.closest("[data-dm]");
   if (p) famAdd(p.dataset.dp, 1);
   if (m) famAdd(m.dataset.dm, -1);
   if (p || m) renderDeck();

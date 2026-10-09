@@ -1400,7 +1400,7 @@ function ssBlock(st, s, hi){
   if (!canPay(st, s, c)) return "マナが足りない";
   const mine = p.mz.filter(Boolean).length;
   let ok = true;
-  if (ss.cond === "oppHas") ok = op.mz.some(Boolean);
+  if (ss.cond === "oppHas") ok = op.mz.filter(Boolean).length >= Math.max(1, +ss.n || 1);
   if (ss.cond === "myEmpty") ok = !mine;
   if (ss.cond === "oppMore") ok = op.mz.filter(Boolean).length > mine;
   if (ss.cond === "lp") ok = p.lp <= ss.n;
