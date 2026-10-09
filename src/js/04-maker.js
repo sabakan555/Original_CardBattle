@@ -724,6 +724,7 @@ function bkNormalize(){
     b.conds = b.conds || []; b.else = b.else || []; b.join = b.join === "or" ? "or" : "and";
     const unLegacy = e => { const lg = TO_LEGACY[e.kind]; return lg && kinds.includes(lg[0]) ? { ...e, kind: lg[0], to: lg[1] } : e; };
     b.then = (b.then || []).map(unLegacy).filter(e => kinds.includes(e.kind)); b.else = b.else.map(unLegacy).filter(e => kinds.includes(e.kind));
+    if (b.trig === "while") [...b.then, ...b.else].forEach(e => { if (e.kind !== "giveAb") return; if (!GAB_STATIC_W.includes(e.gw)) e.gw = "mineAll"; if (!gabStaticList().includes(e.ab)) e.ab = "haste"; delete e.gd; });
     if (b.roll !== "die" || (b.dieBr && !b.dieBr.length)) b.dieBr = null; else if (b.dieBr) b.dieBr.forEach(x => { x.then = (x.then || []).map(unLegacy).filter(e => kinds.includes(e.kind)); });
   });
 }
@@ -745,7 +746,7 @@ function renderBlocksUI(){
       + (e.kind === "dblNext" || e.kind === "freeNext" || (e.kind === "setCost" && e.sp !== "pick") ? usedPfUI(e, opt) : "")
       + (e.kind === "setCost" ? `<select data-f="sp" aria-label="どのカード">${opt("filter", "手札の（しぼる）", e.sp === "pick" ? "pick" : "filter")}${opt("pick", "1枚えらぶ", e.sp === "pick" ? "pick" : "filter")}</select><select data-f="sd" aria-label="いつまで">${opt("turn", "このターン", e.sd === "used" ? "used" : "turn")}${opt("used", "使うまで", e.sd === "used" ? "used" : "turn")}</select>` : "")
       + (e.kind === "copyPick" ? `<select data-f="cpw" aria-label="いつ加える">${opt("", "いま", e.cpw || "")}${opt("next", "次の自分のターンのはじめ", e.cpw || "")}</select>` : "")
-      + (e.kind === "giveAb" ? gabUI(e, opt) : "")
+      + (e.kind === "giveAb" ? gabUI(e, opt, (MK.blocks[bi] || {}).trig === "while") : "")
       + (e.kind === "loseAb" ? `<select data-f="gw" aria-label="だれの">${Object.entries(GAB_W).map(([v, l]) => opt(v, l, GAB_W[e.gw] ? e.gw : "self")).join("")}</select><select data-f="ab" aria-label="どの能力">${labList().map(v => opt(v, v === "all" ? "すべての能力" : ABS[v].label, labKey(e))).join("")}</select><select data-f="gd" aria-label="いつまで">${Object.entries(GAB_D).map(([v, l]) => opt(v, l, e.gd || "")).join("")}</select>` : "")
       + (mfAble(e) ? `<span class="bk-mf"><select data-f="mfK" aria-label="しぼる">${opt("", "しぼらない", e.mfK || "")}${opt("cost", "コストが", e.mfK || "")}${opt("atk", "ATKが", e.mfK || "")}</select>${MF_K[e.mfK] ? `<select data-f="mfBy" aria-label="くらべるもの">${Object.entries(MF_BY).map(([k, d]) => opt(k, d.label, MF_BY[e.mfBy] ? e.mfBy : "n")).join("")}</select>${(MF_BY[e.mfBy] ? e.mfBy : "n") === "n" ? `<input type="number" data-f="mfN" min="0" max="9999" value="${esc(e.mfN ?? 0)}" style="width:64px" aria-label="数">` : `<label class="note">＋<input type="number" data-f="mfN" min="-99" max="99" value="${esc(e.mfN ?? 0)}" style="width:52px" aria-label="たす数"></label>`}<select data-f="mfOp" aria-label="以下・以上">${opt("le", "以下", e.mfOp === "ge" ? "ge" : "le")}${opt("ge", "以上", e.mfOp === "ge" ? "ge" : "le")}</select><span class="note">のモンスターだけ</span>` : ""}</span>` : "")
       + (e.kind === "removeBoard" ? `<select data-f="rside" aria-label="どちらの場">${Object.entries(RB_SIDE).map(([k, l]) => opt(k, l + "の場", e.rside || "op")).join("")}</select><select data-f="rm" aria-label="どうする">${Object.entries(RB_MODE).map(([k, l]) => opt(k, l, e.rm || "destroy")).join("")}</select>` : "")
@@ -809,13 +810,13 @@ function setG(o, g){ if (g) Object.defineProperty(o, "_g", { value: g, writable:
 // 同じ名前のカードが何枚もあるときは「どのカード？」をえらべる（1枚だけなら自動でそれに決まる）
 // だれに: 「自分／相手」＋「○体／全体／ランダムに○回」（数は ○体・ランダム のときだけ）
 // 能力を付与する: だれに・どの能力（数・カード名）・いつまで
-function gabUI(e, opt){
-  const k = gabKey(e), d = ABS[k];
-  return `<select data-f="gw" aria-label="だれに">${Object.entries(GAB_W).map(([v, l]) => opt(v, l, GAB_W[e.gw] ? e.gw : "self")).join("")}</select>`
-    + `<select data-f="ab" aria-label="どの能力">${gabList().map(v => opt(v, ABS[v].label, k)).join("")}</select>`
+function gabUI(e, opt, wh){
+  const k = gabKey(e), d = ABS[k], ws = wh ? GAB_STATIC_W : Object.keys(GAB_W);
+  return `<select data-f="gw" aria-label="だれに">${ws.map(v => opt(v, GAB_W[v], ws.includes(e.gw) ? e.gw : "self")).join("")}</select>`
+    + `<select data-f="ab" aria-label="どの能力">${(wh ? gabStaticList() : gabList()).map(v => opt(v, ABS[v].label, k)).join("")}</select>`
     + (d.n ? `<input type="number" data-f="n" min="0" max="9999" value="${esc(e.n != null ? e.n : d.n)}" aria-label="数" style="width:72px">` : "")
     + (d.name ? `<input type="text" data-f="into" list="cardNames" maxlength="40" value="${esc(e.into || "")}" placeholder="${esc(d.ph || "カード名")}" aria-label="カード名">` : "")
-    + `<select data-f="gd" aria-label="いつまで">${Object.entries(GAB_D).map(([v, l]) => opt(v, l, e.gd || "")).join("")}</select>`;
+    + (wh ? "" : `<select data-f="gd" aria-label="いつまで">${Object.entries(GAB_D).map(([v, l]) => opt(v, l, e.gd || "")).join("")}</select>`);
 }
 function usedPfUI(e, opt){ const pf = USED_PF[e.pf] ? e.pf : "any"; return `<select data-f="pf" aria-label="どんなカード">${Object.entries(USED_PF).map(([k, l]) => opt(k, l, pf)).join("")}</select>` + (["name", "part", "tag"].includes(pf) ? `<input type="text" data-f="pfn" list="${pf === "tag" ? "tagNames" : "cardNames"}" maxlength="40" value="${esc(e.pfn || "")}" placeholder="${pf === "tag" ? "タグ" : pf === "part" ? "名前に入る文字" : "カード名"}" aria-label="名前" style="width:120px">` : ""); }
 function toUI(e, opt){

@@ -22,6 +22,9 @@ const GAB_W = { self: "このモンスター", mine: "自分のモンスター1�
 const GAB_D = { "": "ずっと", turn: "このターンだけ", next: "次の自分のターンの終わりまで" };
 const GAB_NG = new Set(["sympathy", "sbAtk"]);
 const gabList = () => Object.keys(ABS).filter(k => ABS[k].only !== "eq" && !GAB_NG.has(k));
+// 「場にいる間」の能力付与: 出している間だけつく。だれには このモンスター／自分のすべて／相手のすべて、成長はなし
+const GAB_STATIC_W = ["self", "mineAll", "oppAll"];
+const gabStaticList = () => gabList().filter(k => k !== "evoTurn" && k !== "evoAtk");
 const gabKey = e => e && ABS[e.ab] && gabList().includes(e.ab) ? e.ab : "evoTurn";
 function gabAbility(e){ const k = gabKey(e), d = ABS[k]; return { k, ...(d.n ? { n: Math.max(0, Math.round(e && e.n != null ? +e.n : d.n)) } : {}), ...(d.name ? { name: String(e && e.into || "") } : {}) }; }
 function gabText(e){ const a = gabAbility(e), w = GAB_W[e && e.gw] ? e.gw : "self", d = GAB_D[e && e.gd] != null && e.gd ? GAB_D[e.gd] + "、" : ""; return `${d}${GAB_W[w]}は${ABS[a.k].kw ? kwStr(a) : abPhrase(a)}を得る`; }

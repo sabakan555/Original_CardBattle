@@ -69,7 +69,27 @@ function modApply(st, s, c, fx, target, src){
   log(st, s, `${src}で${modTargetText(fx)}を書きかえた（${out.length}枚）`);
 }
 // 場にいる間: 場のモンスターと表の永続カードの「場にいる間」の効果（ATKの増減・○倍）を、そのつど計算する
-const STATIC_KINDS = ["selfAtk", "atkUp", "atkAll", "atkDown", "atkDownAll", "atkMul"];
+const STATIC_KINDS = ["selfAtk", "atkUp", "atkAll", "atkDown", "atkDownAll", "atkMul", "giveAb"];
+// 場にいる間の「能力を付与する」: 出しているカードがある間だけ、モンスター m（s 側）がその能力を持つ
+function staticAbs(st, s, m){
+  const out = []; if (!st || !st.players || staticAbs.busy) return out;
+  staticAbs.busy = true;
+  try{
+    const srcs = [];
+    for (const o of ["a", "b"]){ const p = P(st, o); p.mz.forEach((x, i) => { if (x && !sealedM(x)) srcs.push({ o, c: monCard(x), mon: x, ctx: { zone: i, mon: { s: o, i, u: x.u } } }); }); p.sz.forEach((z, i) => { if (z && z.face && (isPersist(card(z.c)) || z.fcp)) srcs.push({ o, c: card(z.c), mon: null, ctx: { pz: i } }); }); if (st.field && (!card(st.field.c).fieldMine || st.field.o === o)) srcs.push({ o, c: card(st.field.c), mon: null, ctx: { field: true } }); }
+    srcs.forEach(src => blocksOf(src.c).forEach(b => {
+      if (b.trig !== "while") return;
+      const plain = b.conds.filter(x => x.k !== "ask"), ok = !plain.length || (b.join === "or" ? plain.some(x => condMet(st, src.o, src.c, x, src.ctx)) : plain.every(x => condMet(st, src.o, src.c, x, src.ctx)));
+      (ok ? b.then : b.else).forEach(e => {
+        if (e.kind !== "giveAb") return;
+        const w = e.gw || "self"; if (!GAB_STATIC_W.includes(w)) return;
+        if (w === "self" ? src.mon !== m : (w === "mineAll") !== (s === src.o)) return;
+        const a = gabAbility(e); if (gabStaticList().includes(a.k)) out.push({ ...a, mult: 1, gab: true, stat: true, from: src.c.name });
+      });
+    }));
+  } finally { staticAbs.busy = false; }
+  return out;
+}
 function staticAtk(m){
   const out = { add: 0, mul: 1 }; if (typeof G === "undefined" || !G || !G.st || !G.st.players || staticAtk.busy) return out;
   const st = G.st; let ms = null;
@@ -536,6 +556,7 @@ function monAbs(st, s, i){
   const es = eqsOf(m);
   es.forEach((e, k) => absOf(card(e.c)).forEach(a => { if (a.k !== "double") out.push({ ...a, mult: eqMult(es, k), eqU: e.u }); }));
   (m.gab || []).forEach(g => { if (ABS[g.k] && (!g.until || st.turnNo <= g.until)) out.push({ ...g, mult: 1, gab: true }); });
+  out.push(...staticAbs(st, s, m));
   const lab = (m.lab || []).filter(x => !x.until || st.turnNo <= x.until);
   return lab.length ? out.filter(a => !lab.some(x => x.k === "all" || x.k === a.k)) : out;
 }

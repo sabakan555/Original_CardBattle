@@ -3177,6 +3177,9 @@ const GAB_W = { self: "このモンスター", mine: "自分のモンスター1�
 const GAB_D = { "": "ずっと", turn: "このターンだけ", next: "次の自分のターンの終わりまで" };
 const GAB_NG = new Set(["sympathy", "sbAtk"]);
 const gabList = () => Object.keys(ABS).filter(k => ABS[k].only !== "eq" && !GAB_NG.has(k));
+// 「場にいる間」の能力付与: 出している間だけつく。だれには このモンスター／自分のすべて／相手のすべて、成長はなし
+const GAB_STATIC_W = ["self", "mineAll", "oppAll"];
+const gabStaticList = () => gabList().filter(k => k !== "evoTurn" && k !== "evoAtk");
 const gabKey = e => e && ABS[e.ab] && gabList().includes(e.ab) ? e.ab : "evoTurn";
 function gabAbility(e){ const k = gabKey(e), d = ABS[k]; return { k, ...(d.n ? { n: Math.max(0, Math.round(e && e.n != null ? +e.n : d.n)) } : {}), ...(d.name ? { name: String(e && e.into || "") } : {}) }; }
 function gabText(e){ const a = gabAbility(e), w = GAB_W[e && e.gw] ? e.gw : "self", d = GAB_D[e && e.gd] != null && e.gd ? GAB_D[e.gd] + "、" : ""; return `${d}${GAB_W[w]}は${ABS[a.k].kw ? kwStr(a) : abPhrase(a)}を得る`; }
@@ -4497,6 +4500,7 @@ function bkNormalize(){
     b.conds = b.conds || []; b.else = b.else || []; b.join = b.join === "or" ? "or" : "and";
     const unLegacy = e => { const lg = TO_LEGACY[e.kind]; return lg && kinds.includes(lg[0]) ? { ...e, kind: lg[0], to: lg[1] } : e; };
     b.then = (b.then || []).map(unLegacy).filter(e => kinds.includes(e.kind)); b.else = b.else.map(unLegacy).filter(e => kinds.includes(e.kind));
+    if (b.trig === "while") [...b.then, ...b.else].forEach(e => { if (e.kind !== "giveAb") return; if (!GAB_STATIC_W.includes(e.gw)) e.gw = "mineAll"; if (!gabStaticList().includes(e.ab)) e.ab = "haste"; delete e.gd; });
     if (b.roll !== "die" || (b.dieBr && !b.dieBr.length)) b.dieBr = null; else if (b.dieBr) b.dieBr.forEach(x => { x.then = (x.then || []).map(unLegacy).filter(e => kinds.includes(e.kind)); });
   });
 }
@@ -4518,7 +4522,7 @@ function renderBlocksUI(){
       + (e.kind === "dblNext" || e.kind === "freeNext" || (e.kind === "setCost" && e.sp !== "pick") ? usedPfUI(e, opt) : "")
       + (e.kind === "setCost" ? `<select data-f="sp" aria-label="どのカード">${opt("filter", "手札の（しぼる）", e.sp === "pick" ? "pick" : "filter")}${opt("pick", "1枚えらぶ", e.sp === "pick" ? "pick" : "filter")}</select><select data-f="sd" aria-label="いつまで">${opt("turn", "このターン", e.sd === "used" ? "used" : "turn")}${opt("used", "使うまで", e.sd === "used" ? "used" : "turn")}</select>` : "")
       + (e.kind === "copyPick" ? `<select data-f="cpw" aria-label="いつ加える">${opt("", "いま", e.cpw || "")}${opt("next", "次の自分のターンのはじめ", e.cpw || "")}</select>` : "")
-      + (e.kind === "giveAb" ? gabUI(e, opt) : "")
+      + (e.kind === "giveAb" ? gabUI(e, opt, (MK.blocks[bi] || {}).trig === "while") : "")
       + (e.kind === "loseAb" ? `<select data-f="gw" aria-label="だれの">${Object.entries(GAB_W).map(([v, l]) => opt(v, l, GAB_W[e.gw] ? e.gw : "self")).join("")}</select><select data-f="ab" aria-label="どの能力">${labList().map(v => opt(v, v === "all" ? "すべての能力" : ABS[v].label, labKey(e))).join("")}</select><select data-f="gd" aria-label="いつまで">${Object.entries(GAB_D).map(([v, l]) => opt(v, l, e.gd || "")).join("")}</select>` : "")
       + (mfAble(e) ? `<span class="bk-mf"><select data-f="mfK" aria-label="しぼる">${opt("", "しぼらない", e.mfK || "")}${opt("cost", "コストが", e.mfK || "")}${opt("atk", "ATKが", e.mfK || "")}</select>${MF_K[e.mfK] ? `<select data-f="mfBy" aria-label="くらべるもの">${Object.entries(MF_BY).map(([k, d]) => opt(k, d.label, MF_BY[e.mfBy] ? e.mfBy : "n")).join("")}</select>${(MF_BY[e.mfBy] ? e.mfBy : "n") === "n" ? `<input type="number" data-f="mfN" min="0" max="9999" value="${esc(e.mfN ?? 0)}" style="width:64px" aria-label="数">` : `<label class="note">＋<input type="number" data-f="mfN" min="-99" max="99" value="${esc(e.mfN ?? 0)}" style="width:52px" aria-label="たす数"></label>`}<select data-f="mfOp" aria-label="以下・以上">${opt("le", "以下", e.mfOp === "ge" ? "ge" : "le")}${opt("ge", "以上", e.mfOp === "ge" ? "ge" : "le")}</select><span class="note">のモンスターだけ</span>` : ""}</span>` : "")
       + (e.kind === "removeBoard" ? `<select data-f="rside" aria-label="どちらの場">${Object.entries(RB_SIDE).map(([k, l]) => opt(k, l + "の場", e.rside || "op")).join("")}</select><select data-f="rm" aria-label="どうする">${Object.entries(RB_MODE).map(([k, l]) => opt(k, l, e.rm || "destroy")).join("")}</select>` : "")
@@ -4582,13 +4586,13 @@ function setG(o, g){ if (g) Object.defineProperty(o, "_g", { value: g, writable:
 // 同じ名前のカードが何枚もあるときは「どのカード？」をえらべる（1枚だけなら自動でそれに決まる）
 // だれに: 「自分／相手」＋「○体／全体／ランダムに○回」（数は ○体・ランダム のときだけ）
 // 能力を付与する: だれに・どの能力（数・カード名）・いつまで
-function gabUI(e, opt){
-  const k = gabKey(e), d = ABS[k];
-  return `<select data-f="gw" aria-label="だれに">${Object.entries(GAB_W).map(([v, l]) => opt(v, l, GAB_W[e.gw] ? e.gw : "self")).join("")}</select>`
-    + `<select data-f="ab" aria-label="どの能力">${gabList().map(v => opt(v, ABS[v].label, k)).join("")}</select>`
+function gabUI(e, opt, wh){
+  const k = gabKey(e), d = ABS[k], ws = wh ? GAB_STATIC_W : Object.keys(GAB_W);
+  return `<select data-f="gw" aria-label="だれに">${ws.map(v => opt(v, GAB_W[v], ws.includes(e.gw) ? e.gw : "self")).join("")}</select>`
+    + `<select data-f="ab" aria-label="どの能力">${(wh ? gabStaticList() : gabList()).map(v => opt(v, ABS[v].label, k)).join("")}</select>`
     + (d.n ? `<input type="number" data-f="n" min="0" max="9999" value="${esc(e.n != null ? e.n : d.n)}" aria-label="数" style="width:72px">` : "")
     + (d.name ? `<input type="text" data-f="into" list="cardNames" maxlength="40" value="${esc(e.into || "")}" placeholder="${esc(d.ph || "カード名")}" aria-label="カード名">` : "")
-    + `<select data-f="gd" aria-label="いつまで">${Object.entries(GAB_D).map(([v, l]) => opt(v, l, e.gd || "")).join("")}</select>`;
+    + (wh ? "" : `<select data-f="gd" aria-label="いつまで">${Object.entries(GAB_D).map(([v, l]) => opt(v, l, e.gd || "")).join("")}</select>`);
 }
 function usedPfUI(e, opt){ const pf = USED_PF[e.pf] ? e.pf : "any"; return `<select data-f="pf" aria-label="どんなカード">${Object.entries(USED_PF).map(([k, l]) => opt(k, l, pf)).join("")}</select>` + (["name", "part", "tag"].includes(pf) ? `<input type="text" data-f="pfn" list="${pf === "tag" ? "tagNames" : "cardNames"}" maxlength="40" value="${esc(e.pfn || "")}" placeholder="${pf === "tag" ? "タグ" : pf === "part" ? "名前に入る文字" : "カード名"}" aria-label="名前" style="width:120px">` : ""); }
 function toUI(e, opt){
@@ -6111,7 +6115,27 @@ function modApply(st, s, c, fx, target, src){
   log(st, s, `${src}で${modTargetText(fx)}を書きかえた（${out.length}枚）`);
 }
 // 場にいる間: 場のモンスターと表の永続カードの「場にいる間」の効果（ATKの増減・○倍）を、そのつど計算する
-const STATIC_KINDS = ["selfAtk", "atkUp", "atkAll", "atkDown", "atkDownAll", "atkMul"];
+const STATIC_KINDS = ["selfAtk", "atkUp", "atkAll", "atkDown", "atkDownAll", "atkMul", "giveAb"];
+// 場にいる間の「能力を付与する」: 出しているカードがある間だけ、モンスター m（s 側）がその能力を持つ
+function staticAbs(st, s, m){
+  const out = []; if (!st || !st.players || staticAbs.busy) return out;
+  staticAbs.busy = true;
+  try{
+    const srcs = [];
+    for (const o of ["a", "b"]){ const p = P(st, o); p.mz.forEach((x, i) => { if (x && !sealedM(x)) srcs.push({ o, c: monCard(x), mon: x, ctx: { zone: i, mon: { s: o, i, u: x.u } } }); }); p.sz.forEach((z, i) => { if (z && z.face && (isPersist(card(z.c)) || z.fcp)) srcs.push({ o, c: card(z.c), mon: null, ctx: { pz: i } }); }); if (st.field && (!card(st.field.c).fieldMine || st.field.o === o)) srcs.push({ o, c: card(st.field.c), mon: null, ctx: { field: true } }); }
+    srcs.forEach(src => blocksOf(src.c).forEach(b => {
+      if (b.trig !== "while") return;
+      const plain = b.conds.filter(x => x.k !== "ask"), ok = !plain.length || (b.join === "or" ? plain.some(x => condMet(st, src.o, src.c, x, src.ctx)) : plain.every(x => condMet(st, src.o, src.c, x, src.ctx)));
+      (ok ? b.then : b.else).forEach(e => {
+        if (e.kind !== "giveAb") return;
+        const w = e.gw || "self"; if (!GAB_STATIC_W.includes(w)) return;
+        if (w === "self" ? src.mon !== m : (w === "mineAll") !== (s === src.o)) return;
+        const a = gabAbility(e); if (gabStaticList().includes(a.k)) out.push({ ...a, mult: 1, gab: true, stat: true, from: src.c.name });
+      });
+    }));
+  } finally { staticAbs.busy = false; }
+  return out;
+}
 function staticAtk(m){
   const out = { add: 0, mul: 1 }; if (typeof G === "undefined" || !G || !G.st || !G.st.players || staticAtk.busy) return out;
   const st = G.st; let ms = null;
@@ -6578,6 +6602,7 @@ function monAbs(st, s, i){
   const es = eqsOf(m);
   es.forEach((e, k) => absOf(card(e.c)).forEach(a => { if (a.k !== "double") out.push({ ...a, mult: eqMult(es, k), eqU: e.u }); }));
   (m.gab || []).forEach(g => { if (ABS[g.k] && (!g.until || st.turnNo <= g.until)) out.push({ ...g, mult: 1, gab: true }); });
+  out.push(...staticAbs(st, s, m));
   const lab = (m.lab || []).filter(x => !x.until || st.turnNo <= x.until);
   return lab.length ? out.filter(a => !lab.some(x => x.k === "all" || x.k === a.k)) : out;
 }
@@ -8437,7 +8462,7 @@ function detailInfo(z, s, i){
     info.equips = es.map((e, k) => `「${card(e.c).name}」${eqMult(es, k) > 1 ? "（×2）" : ""}${e.o !== owner ? "（相手の）" : ""}${e.used ? "（使用ずみ）" : ""}`);
     info.cap = `${eqUsed(slot)} / ${eqCapOf(card(slot.c))}`;
     info.mats = (slot.mats || []).map(id => card(id).name); info.evoU = (slot.evoU || []).map(x => card(x.c).name); info.xbFx = (slot.xb || []).filter(b => b.xfr); info.xbNo = (slot.xb || []).filter(b => !b.xfr);
-    info.gab = monAbs(G.st, owner, i).filter(a => a.gab).map(a => { const x = { ...a, n: a.n0 != null ? a.n0 : a.n }; return (ABS[a.k].kw ? kwStr(x) : abPhrase(x)) + (a.until ? `（${a.until >= G.st.turnNo + 1 ? "次の自分のターンの終わりまで" : "このターンだけ"}）` : ""); });
+    info.gab = monAbs(G.st, owner, i).filter(a => a.gab).map(a => { const x = { ...a, n: a.n0 != null ? a.n0 : a.n }; return (ABS[a.k].kw ? kwStr(x) : abPhrase(x)) + (a.stat ? `（「${a.from}」が場にいる間）` : a.until ? `（${a.until >= G.st.turnNo + 1 ? "次の自分のターンの終わりまで" : "このターンだけ"}）` : ""); });
     info.abs = [...new Set(monAbs(G.st, owner, i).filter(a => a.eqU).map(a => ABS[a.k].text && ABS[a.k].n ? ABS[a.k].text((a.n || 0) * a.mult, a.name || "") : ABS[a.k].label))];
     info.eqList = es.map((e, k) => ({ c: e.c, mult: eqMult(es, k), used: !!e.used, opp: e.o !== owner, mana: !!P(G.st, e.o).mana }));
     if ((slot.seals || []).length) info.seal = `封印 ${slot.seals.length}（ないものとして扱う。同じタグのモンスターを出すと1つはがれる）`;
