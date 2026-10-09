@@ -502,6 +502,7 @@ body.dm-lock{overflow:hidden}
 .fieldz .card{--w:64px}
 .die-face{display:inline-flex;align-items:center;justify-content:center;min-width:1.6em;padding:0 .12em;box-sizing:border-box;height:1.6em;border-radius:.28em;background:#fff;color:#1e2328;box-shadow:inset 0 -4px 0 rgba(0,0,0,.18),0 4px 14px rgba(0,0,0,.4);font-weight:900;margin-right:.2em}
 .coin-face{display:inline-flex;align-items:center;justify-content:center;width:1.6em;height:1.6em;border-radius:50%;background:radial-gradient(circle at 35% 30%,#ffe9a3,#e0a52b 70%);color:#5b3a00;font-weight:900;box-shadow:0 4px 14px rgba(0,0,0,.4);margin-right:.2em}
+.by-link{all:unset;cursor:pointer;text-decoration:underline;text-underline-offset:2px;color:inherit;font:inherit}.by-link:hover,.by-link:focus-visible{color:var(--accent,#66e5e0);outline:none}
 .coin-row{display:flex;gap:.15em;justify-content:center;font-size:.8em}.coin-row .coin-face{margin:0}
 .coin-face.t{background:radial-gradient(circle at 35% 30%,#e8eef5,#9aa6b4 70%);color:#2c333b}
 .fxstamp.roll small{display:block}

@@ -514,6 +514,7 @@ body.dm-lock{overflow:hidden}
 .fieldz .card{--w:64px}
 .die-face{display:inline-flex;align-items:center;justify-content:center;min-width:1.6em;padding:0 .12em;box-sizing:border-box;height:1.6em;border-radius:.28em;background:#fff;color:#1e2328;box-shadow:inset 0 -4px 0 rgba(0,0,0,.18),0 4px 14px rgba(0,0,0,.4);font-weight:900;margin-right:.2em}
 .coin-face{display:inline-flex;align-items:center;justify-content:center;width:1.6em;height:1.6em;border-radius:50%;background:radial-gradient(circle at 35% 30%,#ffe9a3,#e0a52b 70%);color:#5b3a00;font-weight:900;box-shadow:0 4px 14px rgba(0,0,0,.4);margin-right:.2em}
+.by-link{all:unset;cursor:pointer;text-decoration:underline;text-underline-offset:2px;color:inherit;font:inherit}.by-link:hover,.by-link:focus-visible{color:var(--accent,#66e5e0);outline:none}
 .coin-row{display:flex;gap:.15em;justify-content:center;font-size:.8em}.coin-row .coin-face{margin:0}
 .coin-face.t{background:radial-gradient(circle at 35% 30%,#e8eef5,#9aa6b4 70%);color:#2c333b}
 .fxstamp.roll small{display:block}
@@ -3673,6 +3674,9 @@ function ctrFilterHTML(cur){
   return `<option value="">カウンター：指定なし</option>` + ids.map(id => `<option value="${esc(id)}"${id === cur ? " selected" : ""}>${esc(ctrName(id))}（${cnt[id] || 0}）</option>`).join("");
 }
 // タグの絞り込み: 今あるカードのタグ（開くたびに作りなおす）
+// 作者でしぼる: カードを作った人の一覧（多い順）
+const authorOf = c => String(c && c.author || "").trim();
+function authorOptionsHTML(cur){ const cnt = new Map(); [...S.cards.values()].forEach(c => { if (!c || c.tut || c.skinOf) return; const a = authorOf(c); if (a) cnt.set(a, (cnt.get(a) || 0) + 1); }); const L = [...cnt.keys()].sort((a, b) => cnt.get(b) - cnt.get(a) || a.localeCompare(b, "ja")); if (cur && !L.includes(cur)) L.unshift(cur); return `<option value="">作者：指定なし</option>` + L.map(a => `<option value="${esc(a)}"${a === cur ? " selected" : ""}>${esc(a)}（${cnt.get(a) || 0}）</option>`).join(""); }
 function tagOptionsHTML(cur){ const L = [...new Set([...S.cards.values()].filter(c => c && !c.tut).flatMap(c => tagsOf(c)))].sort((a, b) => a.localeCompare(b, "ja")); if (cur && !L.includes(cur)) L.unshift(cur); return `<option value="">タグ：指定なし</option>` + L.map(t => `<option value="${esc(t)}"${t === cur ? " selected" : ""}>#${esc(t)}</option>`).join(""); }
 const SORTS = { new: "新しい順", atkDesc: "ATKが高い順", atkAsc: "ATKが低い順", costAsc: "コストが低い順", costDesc: "コストが高い順", name: "名前順" };
 // list is already in "new" order (user cards newest first, then starters)
@@ -3728,6 +3732,7 @@ function initFilters(key, onChange){
     <select id="${key}Fx" aria-label="効果で絞り込み">${fxOptionsHTML("")}</select>
     <select id="${key}Dm" aria-label="使えるデッキで絞り込み"><option value="">デッキ：指定なし</option><option value="cost">コストデッキ専用</option><option value="normal">コスト以外（ふつうのデッキ専用）</option><option value="both">どちらでも</option></select>
     <select id="${key}Tag" aria-label="タグで絞り込み">${tagOptionsHTML("")}</select>
+    <select id="${key}Author" aria-label="作者で絞り込み">${authorOptionsHTML("")}</select>
     ${key === "gal" ? "" : `<select id="${key}Ctr" aria-label="カウンターで絞り込み">${ctrFilterHTML("")}</select>`}
     <select id="${key}Sort" aria-label="並べ替え">${Object.entries(SORTS).map(([k, v]) => `<option value="${k}">${v}</option>`).join("")}</select>
     <span class="count" id="${key}Count"></span>`;
@@ -3736,6 +3741,7 @@ function initFilters(key, onChange){
   { const fs = $("#" + key + "Fx"), fill = () => { fs.innerHTML = fxOptionsHTML(f.fx || ""); }; fs.addEventListener("focus", fill); fs.addEventListener("mousedown", fill); fs.addEventListener("change", e => { f.fx = e.target.value; onChange(); }); }
   $("#" + key + "Sort").addEventListener("change", e => { f.sort = e.target.value; onChange(); });
   $("#" + key + "Dm").addEventListener("change", e => { f.dm = e.target.value; onChange(); });
+  { const au = $("#" + key + "Author"), fill = () => { au.innerHTML = authorOptionsHTML(f.author || ""); }; au.addEventListener("focus", fill); au.addEventListener("mousedown", fill); au.addEventListener("change", e => { f.author = e.target.value; onChange(); }); }
   { const tg = $("#" + key + "Tag"); const fill = () => { tg.innerHTML = tagOptionsHTML(f.tag); }; tg.addEventListener("focus", fill); tg.addEventListener("mousedown", fill); tg.addEventListener("change", e => { f.tag = e.target.value; onChange(); }); }
   { const cs = $("#" + key + "Ctr"), fill = () => { cs.innerHTML = ctrFilterHTML(f.ctr || ""); }; if (cs) cs.addEventListener("focus", fill); if (cs) cs.addEventListener("mousedown", fill); if (cs) cs.addEventListener("change", e => { f.ctr = e.target.value; onChange(); }); }
   $("#" + key + "Type").addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return; f.type = b.dataset.v; box.querySelectorAll("#" + key + "Type button").forEach(x => x.setAttribute("aria-pressed", x === b)); onChange(); });
@@ -3745,6 +3751,7 @@ function matchCard(c, f){
   if (f.type === "quick" ? !isQuick(c) : (f.type !== "all" && t !== f.type)) return false;
   if (f.dm && deckModeOf(c) !== f.dm) return false;
   if (f.tag && !tagsOf(c).includes(f.tag)) return false;
+  if (f.author && authorOf(c) !== f.author) return false;
   if (f.ctr && !cardCtrIds(c).includes(f.ctr)) return false;
   if (f.q){
     const hay = normQ([c.name, plainRuby(c.effect), plainRuby(c.flavor), fxText(c), tagsOf(c).join(" "), c.frame === "spire" ? "スパイア" : "", t === "equip" ? eqText(c) : monAbsText(c), TYPE_LABEL[t], c.author].join(" "));
@@ -5012,7 +5019,7 @@ function renderGallery(){
   const items2 = list.map(c => {
     if (c.starter) return `<div class="g-item">${cardHTML(c, "sm")}<div class="meta">${esc(c.author)}</div>${isAdmin() ? `<div class="row g-btns"><button class="small" data-edit="${esc(c.id)}" title="はじめからあるカードを編集（管理者）">編集</button></div>` : ""}</div>`;
     const mine = isMine(c);
-    return `<div class="g-item">${cardHTML(c, "sm")}<div class="meta">by ${esc(c.author || "？")}</div>${!mine && S.db ? tradeBtnHTML(c) : ""}${mine ? `<div class="row" style="gap:6px"><button class="small" data-edit="${esc(c.id)}">編集</button><button class="small danger" data-del="${esc(c.id)}">${delArm === c.id ? "本当に消す" : "消す"}</button></div>${isAdmin() && S.starters.some(b => b.name === c.name) ? `<button class="small g-wide" data-toBuiltin="${esc(c.id)}">${delArm === "b:" + c.id ? "本当に？（このカードは消えます）" : "はじめからあるカードと入れ替え"}</button>` : ""}` : ""}</div>`;
+    return `<div class="g-item">${cardHTML(c, "sm")}<div class="meta">by ${authorOf(c) ? `<button type="button" class="by-link" data-by="${esc(authorOf(c))}" title="この人のカードだけ見る">${esc(authorOf(c))}</button>` : "？"}</div>${!mine && S.db ? tradeBtnHTML(c) : ""}${mine ? `<div class="row" style="gap:6px"><button class="small" data-edit="${esc(c.id)}">編集</button><button class="small danger" data-del="${esc(c.id)}">${delArm === c.id ? "本当に消す" : "消す"}</button></div>${isAdmin() && S.starters.some(b => b.name === c.name) ? `<button class="small g-wide" data-toBuiltin="${esc(c.id)}">${delArm === "b:" + c.id ? "本当に？（このカードは消えます）" : "はじめからあるカードと入れ替え"}</button>` : ""}` : ""}</div>`;
   });
   renderPotGallery();
   if ((S.filt.gal || {}).type === "counter"){ const L = ctrGalList(); setCount("gal", L.length, L.length); $("#gallery").innerHTML = L.map(ctrTileHTML).join("") + `<div class="ctr-tile ctr-new"><button type="button" class="primary" data-ctrnewg>＋ 新しいカウンターを作る</button><span class="note">カード工房の「カード以外 → カウンター」で作れます</span></div>`; return; }
@@ -5020,6 +5027,10 @@ function renderGallery(){
   if ((S.filt.gal || {}).type === "potion"){ const L = potionList(); setCount("gal", L.length, L.length); $("#gallery").innerHTML = L.map(potItemHTML).join("") || `<p class="muted">ポーションがありません。上の「つくるもの」で「カード以外」をえらぶと作れます。</p>`; return; }
   $("#gallery").innerHTML = ctrBanner(S.filt.gal) + (items2.join("") || (total ? `<p class="muted">条件に合うカードがありません。</p>` : `<p class="muted">まだ自分のカードはありません。上で描いてみよう！</p>`));
 }
+$("#gallery").addEventListener("click", e => {
+  const by = e.target.closest("[data-by]"); if (!by) return;
+  e.stopPropagation(); S.filt.gal.author = by.dataset.by; const sel = $("#galAuthor"); if (sel){ sel.innerHTML = authorOptionsHTML(S.filt.gal.author); sel.value = S.filt.gal.author; } renderGallery(); toast(`「${by.dataset.by}」さんのカードだけ表示しています`);
+}, true);
 $("#gallery").addEventListener("click", async e => {
   { const f = S.filt.gal, cc = e.target.closest("[data-ctrcards]");
     if (cc){ f.ctr = cc.dataset.ctrcards; f.type = "all"; document.querySelectorAll("#galType button").forEach(x => x.setAttribute("aria-pressed", x.dataset.v === "all")); renderGallery(); return; }

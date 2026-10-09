@@ -122,6 +122,9 @@ function ctrFilterHTML(cur){
   return `<option value="">カウンター：指定なし</option>` + ids.map(id => `<option value="${esc(id)}"${id === cur ? " selected" : ""}>${esc(ctrName(id))}（${cnt[id] || 0}）</option>`).join("");
 }
 // タグの絞り込み: 今あるカードのタグ（開くたびに作りなおす）
+// 作者でしぼる: カードを作った人の一覧（多い順）
+const authorOf = c => String(c && c.author || "").trim();
+function authorOptionsHTML(cur){ const cnt = new Map(); [...S.cards.values()].forEach(c => { if (!c || c.tut || c.skinOf) return; const a = authorOf(c); if (a) cnt.set(a, (cnt.get(a) || 0) + 1); }); const L = [...cnt.keys()].sort((a, b) => cnt.get(b) - cnt.get(a) || a.localeCompare(b, "ja")); if (cur && !L.includes(cur)) L.unshift(cur); return `<option value="">作者：指定なし</option>` + L.map(a => `<option value="${esc(a)}"${a === cur ? " selected" : ""}>${esc(a)}（${cnt.get(a) || 0}）</option>`).join(""); }
 function tagOptionsHTML(cur){ const L = [...new Set([...S.cards.values()].filter(c => c && !c.tut).flatMap(c => tagsOf(c)))].sort((a, b) => a.localeCompare(b, "ja")); if (cur && !L.includes(cur)) L.unshift(cur); return `<option value="">タグ：指定なし</option>` + L.map(t => `<option value="${esc(t)}"${t === cur ? " selected" : ""}>#${esc(t)}</option>`).join(""); }
 const SORTS = { new: "新しい順", atkDesc: "ATKが高い順", atkAsc: "ATKが低い順", costAsc: "コストが低い順", costDesc: "コストが高い順", name: "名前順" };
 // list is already in "new" order (user cards newest first, then starters)
@@ -177,6 +180,7 @@ function initFilters(key, onChange){
     <select id="${key}Fx" aria-label="効果で絞り込み">${fxOptionsHTML("")}</select>
     <select id="${key}Dm" aria-label="使えるデッキで絞り込み"><option value="">デッキ：指定なし</option><option value="cost">コストデッキ専用</option><option value="normal">コスト以外（ふつうのデッキ専用）</option><option value="both">どちらでも</option></select>
     <select id="${key}Tag" aria-label="タグで絞り込み">${tagOptionsHTML("")}</select>
+    <select id="${key}Author" aria-label="作者で絞り込み">${authorOptionsHTML("")}</select>
     ${key === "gal" ? "" : `<select id="${key}Ctr" aria-label="カウンターで絞り込み">${ctrFilterHTML("")}</select>`}
     <select id="${key}Sort" aria-label="並べ替え">${Object.entries(SORTS).map(([k, v]) => `<option value="${k}">${v}</option>`).join("")}</select>
     <span class="count" id="${key}Count"></span>`;
@@ -185,6 +189,7 @@ function initFilters(key, onChange){
   { const fs = $("#" + key + "Fx"), fill = () => { fs.innerHTML = fxOptionsHTML(f.fx || ""); }; fs.addEventListener("focus", fill); fs.addEventListener("mousedown", fill); fs.addEventListener("change", e => { f.fx = e.target.value; onChange(); }); }
   $("#" + key + "Sort").addEventListener("change", e => { f.sort = e.target.value; onChange(); });
   $("#" + key + "Dm").addEventListener("change", e => { f.dm = e.target.value; onChange(); });
+  { const au = $("#" + key + "Author"), fill = () => { au.innerHTML = authorOptionsHTML(f.author || ""); }; au.addEventListener("focus", fill); au.addEventListener("mousedown", fill); au.addEventListener("change", e => { f.author = e.target.value; onChange(); }); }
   { const tg = $("#" + key + "Tag"); const fill = () => { tg.innerHTML = tagOptionsHTML(f.tag); }; tg.addEventListener("focus", fill); tg.addEventListener("mousedown", fill); tg.addEventListener("change", e => { f.tag = e.target.value; onChange(); }); }
   { const cs = $("#" + key + "Ctr"), fill = () => { cs.innerHTML = ctrFilterHTML(f.ctr || ""); }; if (cs) cs.addEventListener("focus", fill); if (cs) cs.addEventListener("mousedown", fill); if (cs) cs.addEventListener("change", e => { f.ctr = e.target.value; onChange(); }); }
   $("#" + key + "Type").addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return; f.type = b.dataset.v; box.querySelectorAll("#" + key + "Type button").forEach(x => x.setAttribute("aria-pressed", x === b)); onChange(); });
@@ -194,6 +199,7 @@ function matchCard(c, f){
   if (f.type === "quick" ? !isQuick(c) : (f.type !== "all" && t !== f.type)) return false;
   if (f.dm && deckModeOf(c) !== f.dm) return false;
   if (f.tag && !tagsOf(c).includes(f.tag)) return false;
+  if (f.author && authorOf(c) !== f.author) return false;
   if (f.ctr && !cardCtrIds(c).includes(f.ctr)) return false;
   if (f.q){
     const hay = normQ([c.name, plainRuby(c.effect), plainRuby(c.flavor), fxText(c), tagsOf(c).join(" "), c.frame === "spire" ? "スパイア" : "", t === "equip" ? eqText(c) : monAbsText(c), TYPE_LABEL[t], c.author].join(" "));
