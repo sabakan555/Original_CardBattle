@@ -107,9 +107,9 @@ function staticAtk(m){
         const pn = e.per && PER_DEFS[e.per] ? (e.pm ?? 1) * PER_DEFS[e.per].val(st, src.o, src.c, null, src.ctx, e) : 0;
         if (e.kind === "selfAtk" && self) out.add += n + pn;
         else if (e.kind === "atkMul" && self) out.mul *= Math.max(0, n || 1);
-        else if ((e.kind === "atkAll" || (e.kind === "atkUp" && all)) && mine) out.add += n;
-        else if (e.kind === "atkUp" && !all && self) out.add += n;
-        else if ((e.kind === "atkDownAll" || (e.kind === "atkDown" && all)) && ((e.side === "me") === mine)) out.add -= n;
+        else if ((e.kind === "atkAll" || (e.kind === "atkUp" && all)) && mine) out.add += n + pn;
+        else if (e.kind === "atkUp" && !all && self) out.add += n + pn;
+        else if ((e.kind === "atkDownAll" || (e.kind === "atkDown" && all)) && ((e.side === "me") === mine)) out.add -= n + pn;
       });
     }));
   } finally { staticAtk.busy = false; }
@@ -1182,6 +1182,8 @@ function runEffect(st, s, c, ctx = {}, then, fx = normFx(c)){
     if (!yes){ then && then(st); return; }
     fx = { ...fx, ask: "" };
   }
+  if (fx.per && !fx.hits && fx.per !== "tgtVuln" && PER_DEFS[fx.per]) fx = { ...fx, n: (+fx.n || 0) + (fx.pm ?? 1) * perVal(st, s, c, fx, null, ctx), per: null };
+  if (fx.eachN){ const k = Math.max(0, Math.min(40, Math.round(+fx.n || 0))), one = { ...fx, n: 1, eachN: false }, go = (st2, r) => { if (r <= 0 || st2.winner){ then && then(st2); return; } runEffect(st2, s, c, ctx, st3 => go(st3, r - 1), one); }; go(st, k); return; }
   // 合成: 手札のカード → 付けるモンスターの順にえらぶ
   if (fx.kind === "synth"){ if (!ctx.hit) ctx = { ...ctx, hit: {} }; const h = ctx.hit; h.synthId = null; runEffect(st, s, c, ctx, st2 => { if (!h.synthId){ then && then(st2); return; } runEffect(st2, s, c, ctx, then, { kind: "synthTo" }); }, { kind: "synthHand" }); return; }
   if (fx.kind === "draft" && !ctx.draft) ctx = { ...ctx, draft: draftPick(fx.n, P(st, s).spc) };
@@ -1354,7 +1356,9 @@ function runEffects(st, s, c, effs, ctx, then){
   const list = [];
   (effs || []).forEach(e => {
     const one = [];
-    if (KINDS[e.kind] && KINDS[e.kind].each && e.n > 1){ for (let r = 0; r < e.n; r++) one.push({ kind: e.kind, n: 1, ...(e.into ? { into: e.into } : {}) }); }
+    // 1枚ずつの効果に「ふえる」: 枚数は使うときに決めてから1枚ずつおこなう（runEffect の eachN）
+    if (KINDS[e.kind] && KINDS[e.kind].each && e.per && PER_DEFS[e.per]) one.push({ kind: e.kind, n: e.n, ...(e.into ? { into: e.into } : {}), per: e.per, pm: e.pm, hits: e.hits, pf: e.pf, pfn: e.pfn, pctr: e.pctr, pcw: e.pcw, eachN: true });
+    else if (KINDS[e.kind] && KINDS[e.kind].each && e.n > 1){ for (let r = 0; r < e.n; r++) one.push({ kind: e.kind, n: 1, ...(e.into ? { into: e.into } : {}) }); }
     else one.push(...expandFx({ kind: e.kind, n: e.n, to: e.to, ...(e.into ? { into: e.into } : {}), ...(e.intoId ? { intoId: e.intoId } : {}), ...(e.per ? { per: e.per, pm: e.pm, hits: e.hits } : {}), ...(KINDS[e.kind] && KINDS[e.kind].mod ? { mt: e.mt, ms: e.ms, mpl: e.mpl, mc: e.mc, mn: e.mn, gk: e.gk, gn: e.gn, nm: e.nm, ge: e.ge } : {}), ...(e.side ? { side: e.side } : {}), ...(e.tn ? { tn: e.tn } : {}), ...(e.kind === "removeBoard" ? { rside: e.rside, rm: e.rm } : {}), ...(mfOn(e) ? { mfK: e.mfK, mfOp: e.mfOp, mfBy: e.mfBy, mfN: e.mfN } : {}), ...(KINDS[e.kind] && KINDS[e.kind].ctr ? { ctr: e.ctr, cw: e.cw } : {}), ...(e.per === "ctr" ? { pctr: e.pctr, pcw: e.pcw } : {}), ...(e.per === "usedNow" || e.per === "handF" ? { pf: e.pf, pfn: e.pfn } : {}), ...(e.kind === "giveAb" || e.kind === "loseAb" ? { ab: e.ab, gw: e.gw, gd: e.gd } : {}), ...(["dblNext", "freeNext", "setCost", "copyPick"].includes(e.kind) ? { pf: e.pf, pfn: e.pfn, cpw: e.cpw, sp: e.sp, sd: e.sd } : {}) }));
     // 「×○回」: the same effect again and again
     const cr = ctx && ctx.roll && ctx.roll.kind === "coin" ? ctx.roll : null;
