@@ -80,6 +80,7 @@ const KINDS = {
   oppStr:     { label: "相手が筋力を得る", n: true, text: n => `相手は筋力${n}を得る` },
   oppStrDown: { label: "相手の筋力を下げる（相手の次のターンの終わりまで）", n: true, text: n => `相手の次のターンの終わりまで、相手は筋力${n}を失う` },
   loseLp:     { label: "自分のLPを失う", n: true, text: n => `自分のLPを${n}失う` },
+  oppHeal:    { label: "相手のLPを回復（デメリット）", n: true, text: n => `相手のLPを${n}回復する` },
   selfDisc:      { label: "自分の手札をえらんで捨てる（デメリット）", n: true, target: "hand", each: true, text: n => `自分の手札を${n}枚えらんで捨てる` },
   selfDiscRand:  { label: "自分の手札をランダムに捨てる（デメリット）", n: true, text: n => `自分の手札をランダムに${n}枚捨てる` },
   selfDiscAll:   { label: "自分の手札をすべて捨てる（デメリット）", text: () => `自分の手札をすべて捨てる` },
@@ -608,7 +609,7 @@ const PER_DEFS = {
   heads:    { label: "コインの表", u: "1枚", val: (st, s, c, t, ctx) => ctx && ctx.roll && ctx.roll.kind === "coin" ? ctx.roll.v : 0 },
   tails:    { label: "コインの裏", u: "1枚", val: (st, s, c, t, ctx) => ctx && ctx.roll && ctx.roll.kind === "coin" ? (ctx.roll.n || 1) - ctx.roll.v : 0 }
 };
-const PER_OK = { dmg: true, block: true, manaNow: true, heal: true, draw: true, mill: true, discard: true, vuln: true, weak: true, loseLp: true, atkUp: true, selfAtk: true, atkAll: true, atkDown: true, str: true, oppDraw: true, exhaustRand: true, manaMax: true, plate: true };
+const PER_OK = { dmg: true, block: true, manaNow: true, heal: true, draw: true, mill: true, discard: true, vuln: true, weak: true, loseLp: true, oppHeal: true, atkUp: true, selfAtk: true, atkAll: true, atkDown: true, str: true, oppDraw: true, exhaustRand: true, manaMax: true, plate: true };
 const perVal = (st, s, c, fx, t, ctx) => PER_DEFS[fx.per] ? PER_DEFS[fx.per].val(st, s, c, t, ctx, fx) : 0;
 const perText = m => !m.per || !PER_DEFS[m.per] ? "" : m.hits ? `（${perLab(m)}につき、もう1回）` : `（${perLab(m)}につき+${m.pm ?? 1}）`;
 const isNumCond = k => !!(COND_DEFS[k] && COND_DEFS[k].val);
