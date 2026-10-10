@@ -98,7 +98,7 @@
           <div class="c-atk" id="eqRow" hidden>ATK ± <input type="number" id="mkEq" step="1" value="200"></div>
         </div>
       </div></div>
-      <div class="row" style="justify-content:center"><button type="button" class="small" id="btnPreview" title="保存したときに、図鑑や対戦でどう見えるかを確かめる">👀 完成を見る</button></div>
+      <div class="row" style="justify-content:center"><button type="button" class="small" id="btnPreview" title="保存したときに、図鑑や対戦でどう見えるかを確かめる">👀 完成を見る</button><span id="infRow"><button class="small" id="mkInf" type="button" title="ATKは上限なし。カードのATKの欄に「∞」と打ってもOK">ATKを∞にする</button></span></div>
       <div class="row" id="mkViewRow" hidden style="justify-content:center;gap:8px"><span class="note">見ているのは：</span><div class="seg" id="mkView"><button data-v="cost" aria-pressed="false">コストデッキ版</button><button data-v="free" aria-pressed="true">コストなし版</button></div></div>
       <p class="note" id="mkViewNote" hidden style="margin:0;max-width:340px;text-align:center">生贄召喚と攻撃の条件は、コストデッキとコストなしデッキで別々に決められます（効果のちがいは「もし：自分がコストデッキを使っている」で）</p>
       </div>
@@ -164,7 +164,6 @@
 
         <div class="mk-pane" data-pane="fx" hidden>
           <div class="row" id="fxModeRow"><div class="seg" id="mkFxMode"><button type="button" data-m="easy" aria-pressed="true">かんたん</button><button type="button" data-m="pro" aria-pressed="false">こだわり</button></div><span class="note" id="fxModeNote"></span></div>
-          <div class="row" id="infRow" style="gap:8px"><button class="small" id="mkInf" type="button">ATKを∞にする</button><span class="note">ATKは上限なし。欄に「∞」と打ってもOK</span></div>
           <details class="mk-sec pro-only" id="payRow">
             <summary><span class="mk-st">使うときのコスト（追加コスト）</span><span class="mk-sum" id="sumCost"></span></summary>
             <div class="fxform cost-box">
@@ -234,7 +233,7 @@
                 <label data-cat="card"><input type="checkbox" id="mkRetain"> 保留（ターンの終わりに手札から捨てられない・スパイアデッキ）</label>
                 <label data-cat="card"><input type="checkbox" id="mkEthereal"> エセリアル（ターンの終わりに手札にあると廃棄される）</label>
                 <label data-cat="card"><input type="checkbox" id="mkCascade"> 続唱（コストを払って使ったとき、山札からコストが小さいカードを1枚タダで使える・モンスターと魔法・コストデッキ用）</label>
-                <label data-cat="card" data-q="ゆうごう 融合 ふゅーじょん シャドバ"><input type="checkbox" id="mkHf"> フュージョン（シャドバの融合風・手札のこのカードに、ほかの手札をフュージョンできる・モンスターと魔法）<select id="mkHfM" aria-label="フュージョンできるカード" hidden><option value="tag">タグ</option><option value="part">名前に入る文字</option><option value="name">名前がぴったり</option><option value="monster">モンスターなら何でも</option><option value="magic">魔法なら何でも</option><option value="any">どのカードでも</option></select><input type="text" id="mkHfW" list="tagNames" maxlength="40" placeholder="タグ・名前" aria-label="フュージョンできるカードの名前・タグ" style="width:120px" hidden></label>
+                <label data-cat="card" data-q="ゆうごう 融合 ふゅーじょん シャドバ"><input type="checkbox" id="mkHf"> フュージョン（シャドバの融合風・EXデッキの「融合モンスター」とは別・手札のこのカードに、ほかの手札をフュージョンできる・モンスターと魔法）<select id="mkHfM" aria-label="フュージョンできるカード" hidden><option value="tag">タグ</option><option value="part">名前に入る文字</option><option value="name">名前がぴったり</option><option value="monster">モンスターなら何でも</option><option value="magic">魔法なら何でも</option><option value="any">どのカードでも</option></select><input type="text" id="mkHfW" list="tagNames" maxlength="40" placeholder="タグ・名前" aria-label="フュージョンできるカードの名前・タグ" style="width:120px" hidden></label>
                 <label data-cat="card"><input type="checkbox" id="mkSly"> スライ（手札から捨てられたら、タダで使う・魔法と罠）</label>
               </div>
               <h3 style="margin:0" id="absHead" hidden>能力</h3>
@@ -262,14 +261,14 @@
             </div>
           </details>
           <details class="mk-sec" id="secFusion">
-            <summary><span class="mk-st">融合モンスター</span><span class="mk-sum" id="sumFusion"></span></summary>
+            <summary><span class="mk-st">融合モンスター（EXデッキ・素材を決める）</span><span class="mk-sum" id="sumFusion"></span></summary>
             <div class="fxform">
               <label class="row" style="gap:6px;font-weight:700;cursor:pointer"><input type="checkbox" id="mkFusion"> 融合モンスターにする（EXデッキに入り、「融合召喚」の効果でだけ出せる）</label>
               <div id="fusionMats" class="bk-col" hidden></div>
             </div>
           </details>
           <details class="mk-sec pro-only" id="secSs">
-            <summary><span class="mk-st">召喚の条件（生贄・特殊召喚）</span><span class="mk-sum" id="sumSs"></span></summary>
+            <summary><span class="mk-st">召喚の条件（生贄・特殊召喚・ゴッドリンク）</span><span class="mk-sum" id="sumSs"></span></summary>
             <div class="fxform" id="ssBox">
               <label class="row" style="gap:6px;font-weight:700">生贄召喚：召喚するとき自分のモンスターを<select id="mkTrib"><option value="0">0（いらない）</option><option value="1">1</option><option value="2">2</option><option value="3">3</option></select>体 墓地へ送る</label>
               <label class="row" style="gap:6px;font-weight:700">要求質量：召喚するとき墓地のカードを<input type="number" id="mkMass" min="0" max="40" step="1" value="0" style="width:64px">枚 このモンスターの下に重ねる<span class="note" style="font-weight:400">（0ならなし。破壊されたら墓地にもどる）</span></label>

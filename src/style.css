@@ -431,6 +431,9 @@ ruby rt{font-size:.5em;line-height:1;font-style:normal}
 @media (prefers-reduced-motion:reduce){.pop.anim{animation:none}}
 @media (max-width:560px){.pop{top:auto;bottom:calc(16px + env(safe-area-inset-bottom,0px));right:16px}.pop .card.detail{--w:150px}}
 .detailcard{display:flex;justify-content:center}
+.bk-more{grid-column:1/-1;margin:2px 0 4px}.bk-more>summary{cursor:pointer;font-size:12.5px;font-weight:700;color:var(--muted);list-style:none;padding:4px 0}.bk-more>summary::-webkit-details-marker{display:none}.bk-more>summary::before{content:"▸ "}.bk-more[open]>summary::before{content:"▾ "}.bk-more-on{color:var(--accent,#66e5e0)}.bk-more>.bk-grid{margin-top:6px}
+.bk-n{display:inline-flex;align-items:center;gap:4px}
+#infRow{margin-left:6px}
 .zoom-card{position:fixed;z-index:9000;pointer-events:none;filter:drop-shadow(0 14px 30px rgba(0,0,0,.6))}
 .zoom-card .card{--w:250px}
 .zoom-card.touch{left:50%;top:50%;transform:translate(-50%,-50%)}
