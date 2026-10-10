@@ -3780,7 +3780,7 @@ function initFilters(key, onChange){
   box.innerHTML = `<input type="search" id="${key}Q" placeholder="カード名・効果でさがす" aria-label="カード検索">
     <div class="seg" id="${key}Type">${[["all", "すべて"], ["monster", "モンスター"], ["magic", "魔法"], ["quick", "速攻魔法"], ["equip", "装備"], ["trap", "罠"], ...(key === "gal" ? [["potion", "ポーション"], ["relic", "レリック"], ["counter", "カウンター"]] : [])].map(([v, l]) => `<button data-v="${v}" aria-pressed="${v === "all"}">${l}</button>`).join("")}</div>
     <select id="${key}Fx" aria-label="効果で絞り込み">${fxOptionsHTML("")}</select>
-    <select id="${key}Dm" aria-label="使えるデッキで絞り込み"><option value="">デッキ：指定なし</option><option value="cost">コストデッキ専用</option><option value="normal">コスト以外（ふつうのデッキ専用）</option><option value="both">どちらでも</option></select>
+    <select id="${key}Dm" aria-label="使えるデッキで絞り込み"><option value="">デッキ：指定なし</option><option value="cost">コストデッキ専用</option><option value="normal">コストデッキ以外（ふつうのデッキで使える・コストなしで表示）</option><option value="both">どちらでも</option></select>
     <select id="${key}Tag" aria-label="タグで絞り込み">${tagOptionsHTML("")}</select>
     <select id="${key}Author" aria-label="作者で絞り込み">${authorOptionsHTML("")}</select>
     ${key === "gal" ? "" : `<select id="${key}Ctr" aria-label="カウンターで絞り込み">${ctrFilterHTML("")}</select>`}
@@ -3799,7 +3799,8 @@ function initFilters(key, onChange){
 function matchCard(c, f){
   const t = cardType(c), nf = normFx(c);
   if (f.type === "quick" ? !isQuick(c) : (f.type !== "all" && t !== f.type)) return false;
-  if (f.dm && deckModeOf(c) !== f.dm) return false;
+  // 「コストデッキ以外」: ふつうのデッキ専用＋どちらでも入るカード（どちらでものカードはコストなしの見た目で出す）
+  if (f.dm === "normal" ? deckModeOf(c) === "cost" : f.dm && deckModeOf(c) !== f.dm) return false;
   if (f.tag && !tagsOf(c).includes(f.tag)) return false;
   if (f.author && authorOf(c) !== f.author) return false;
   if (f.ctr && !cardCtrIds(c).includes(f.ctr)) return false;
@@ -5082,10 +5083,11 @@ function renderGallery(){
   list = sortCards(list.filter(c => matchCard(c, S.filt.gal)), S.filt.gal.sort);
   S.galIds = list.map(c => c.id);
   setCount("gal", list.length, total);
+  const galOpt = (S.filt.gal || {}).dm === "normal" ? { mana: false } : {};
   const items2 = list.map(c => {
-    if (c.starter) return `<div class="g-item">${cardHTML(c, "sm")}<div class="meta">${esc(c.author)}</div>${isAdmin() ? `<div class="row g-btns"><button class="small" data-edit="${esc(c.id)}" title="はじめからあるカードを編集（管理者）">編集</button></div>` : ""}</div>`;
+    if (c.starter) return `<div class="g-item">${cardHTML(c, "sm", "", galOpt)}<div class="meta">${esc(c.author)}</div>${isAdmin() ? `<div class="row g-btns"><button class="small" data-edit="${esc(c.id)}" title="はじめからあるカードを編集（管理者）">編集</button></div>` : ""}</div>`;
     const mine = isMine(c);
-    return `<div class="g-item">${cardHTML(c, "sm")}<div class="meta">by ${authorOf(c) ? `<button type="button" class="by-link" data-by="${esc(authorOf(c))}" title="この人のカードだけ見る">${esc(authorOf(c))}</button>` : "？"}</div>${!mine && S.db ? tradeBtnHTML(c) : ""}${mine ? `<div class="row" style="gap:6px"><button class="small" data-edit="${esc(c.id)}">編集</button><button class="small danger" data-del="${esc(c.id)}">${delArm === c.id ? "本当に消す" : "消す"}</button></div>${isAdmin() && S.starters.some(b => b.name === c.name) ? `<button class="small g-wide" data-toBuiltin="${esc(c.id)}">${delArm === "b:" + c.id ? "本当に？（このカードは消えます）" : "はじめからあるカードと入れ替え"}</button>` : ""}` : ""}</div>`;
+    return `<div class="g-item">${cardHTML(c, "sm", "", galOpt)}<div class="meta">by ${authorOf(c) ? `<button type="button" class="by-link" data-by="${esc(authorOf(c))}" title="この人のカードだけ見る">${esc(authorOf(c))}</button>` : "？"}</div>${!mine && S.db ? tradeBtnHTML(c) : ""}${mine ? `<div class="row" style="gap:6px"><button class="small" data-edit="${esc(c.id)}">編集</button><button class="small danger" data-del="${esc(c.id)}">${delArm === c.id ? "本当に消す" : "消す"}</button></div>${isAdmin() && S.starters.some(b => b.name === c.name) ? `<button class="small g-wide" data-toBuiltin="${esc(c.id)}">${delArm === "b:" + c.id ? "本当に？（このカードは消えます）" : "はじめからあるカードと入れ替え"}</button>` : ""}` : ""}</div>`;
   });
   renderPotGallery();
   if ((S.filt.gal || {}).type === "counter"){ const L = ctrGalList(); setCount("gal", L.length, L.length); $("#gallery").innerHTML = L.map(ctrTileHTML).join("") + `<div class="ctr-tile ctr-new"><button type="button" class="primary" data-ctrnewg>＋ 新しいカウンターを作る</button><span class="note">カード工房の「カード以外 → カウンター」で作れます</span></div>`; return; }
@@ -5240,7 +5242,7 @@ function openCardView(ctx, ids, i){ if (!ids || !ids.length || i < 0 || i >= ids
 function closeCardView(){ const v = $("#cardView"); v.hidden = true; v.innerHTML = ""; CV.ctx = null; }
 function renderCardView(){
   const c = S.cards.get(CV.ids[CV.i]); if (!c){ closeCardView(); return; }
-  const t = cardType(c), mana = CV.ctx === "deck" ? $("#deckMana").checked : undefined, ft = fxText(c, true), lim = cardLimit(c), rows = [];
+  const t = cardType(c), mana = CV.ctx === "deck" ? $("#deckMana").checked : CV.ctx === "list" && (S.filt.gal || {}).dm === "normal" ? false : undefined, ft = fxText(c, true), lim = cardLimit(c), rows = [];
   rows.push(["種類", typeLabel(c)]);
   if (t === "monster") rows.push(["ATK", fmtN(baseAtk(c))]);
   if (t === "equip") rows.push(["ATK", `${(c.eqN || 0) >= 0 ? "+" : "−"}${Math.abs(c.eqN || 0)}`], ["装備コスト", String(eqCostOf(c))]);

@@ -178,7 +178,7 @@ function initFilters(key, onChange){
   box.innerHTML = `<input type="search" id="${key}Q" placeholder="カード名・効果でさがす" aria-label="カード検索">
     <div class="seg" id="${key}Type">${[["all", "すべて"], ["monster", "モンスター"], ["magic", "魔法"], ["quick", "速攻魔法"], ["equip", "装備"], ["trap", "罠"], ...(key === "gal" ? [["potion", "ポーション"], ["relic", "レリック"], ["counter", "カウンター"]] : [])].map(([v, l]) => `<button data-v="${v}" aria-pressed="${v === "all"}">${l}</button>`).join("")}</div>
     <select id="${key}Fx" aria-label="効果で絞り込み">${fxOptionsHTML("")}</select>
-    <select id="${key}Dm" aria-label="使えるデッキで絞り込み"><option value="">デッキ：指定なし</option><option value="cost">コストデッキ専用</option><option value="normal">コスト以外（ふつうのデッキ専用）</option><option value="both">どちらでも</option></select>
+    <select id="${key}Dm" aria-label="使えるデッキで絞り込み"><option value="">デッキ：指定なし</option><option value="cost">コストデッキ専用</option><option value="normal">コストデッキ以外（ふつうのデッキで使える・コストなしで表示）</option><option value="both">どちらでも</option></select>
     <select id="${key}Tag" aria-label="タグで絞り込み">${tagOptionsHTML("")}</select>
     <select id="${key}Author" aria-label="作者で絞り込み">${authorOptionsHTML("")}</select>
     ${key === "gal" ? "" : `<select id="${key}Ctr" aria-label="カウンターで絞り込み">${ctrFilterHTML("")}</select>`}
@@ -197,7 +197,8 @@ function initFilters(key, onChange){
 function matchCard(c, f){
   const t = cardType(c), nf = normFx(c);
   if (f.type === "quick" ? !isQuick(c) : (f.type !== "all" && t !== f.type)) return false;
-  if (f.dm && deckModeOf(c) !== f.dm) return false;
+  // 「コストデッキ以外」: ふつうのデッキ専用＋どちらでも入るカード（どちらでものカードはコストなしの見た目で出す）
+  if (f.dm === "normal" ? deckModeOf(c) === "cost" : f.dm && deckModeOf(c) !== f.dm) return false;
   if (f.tag && !tagsOf(c).includes(f.tag)) return false;
   if (f.author && authorOf(c) !== f.author) return false;
   if (f.ctr && !cardCtrIds(c).includes(f.ctr)) return false;

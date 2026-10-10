@@ -1261,10 +1261,11 @@ function renderGallery(){
   list = sortCards(list.filter(c => matchCard(c, S.filt.gal)), S.filt.gal.sort);
   S.galIds = list.map(c => c.id);
   setCount("gal", list.length, total);
+  const galOpt = (S.filt.gal || {}).dm === "normal" ? { mana: false } : {};
   const items2 = list.map(c => {
-    if (c.starter) return `<div class="g-item">${cardHTML(c, "sm")}<div class="meta">${esc(c.author)}</div>${isAdmin() ? `<div class="row g-btns"><button class="small" data-edit="${esc(c.id)}" title="はじめからあるカードを編集（管理者）">編集</button></div>` : ""}</div>`;
+    if (c.starter) return `<div class="g-item">${cardHTML(c, "sm", "", galOpt)}<div class="meta">${esc(c.author)}</div>${isAdmin() ? `<div class="row g-btns"><button class="small" data-edit="${esc(c.id)}" title="はじめからあるカードを編集（管理者）">編集</button></div>` : ""}</div>`;
     const mine = isMine(c);
-    return `<div class="g-item">${cardHTML(c, "sm")}<div class="meta">by ${authorOf(c) ? `<button type="button" class="by-link" data-by="${esc(authorOf(c))}" title="この人のカードだけ見る">${esc(authorOf(c))}</button>` : "？"}</div>${!mine && S.db ? tradeBtnHTML(c) : ""}${mine ? `<div class="row" style="gap:6px"><button class="small" data-edit="${esc(c.id)}">編集</button><button class="small danger" data-del="${esc(c.id)}">${delArm === c.id ? "本当に消す" : "消す"}</button></div>${isAdmin() && S.starters.some(b => b.name === c.name) ? `<button class="small g-wide" data-toBuiltin="${esc(c.id)}">${delArm === "b:" + c.id ? "本当に？（このカードは消えます）" : "はじめからあるカードと入れ替え"}</button>` : ""}` : ""}</div>`;
+    return `<div class="g-item">${cardHTML(c, "sm", "", galOpt)}<div class="meta">by ${authorOf(c) ? `<button type="button" class="by-link" data-by="${esc(authorOf(c))}" title="この人のカードだけ見る">${esc(authorOf(c))}</button>` : "？"}</div>${!mine && S.db ? tradeBtnHTML(c) : ""}${mine ? `<div class="row" style="gap:6px"><button class="small" data-edit="${esc(c.id)}">編集</button><button class="small danger" data-del="${esc(c.id)}">${delArm === c.id ? "本当に消す" : "消す"}</button></div>${isAdmin() && S.starters.some(b => b.name === c.name) ? `<button class="small g-wide" data-toBuiltin="${esc(c.id)}">${delArm === "b:" + c.id ? "本当に？（このカードは消えます）" : "はじめからあるカードと入れ替え"}</button>` : ""}` : ""}</div>`;
   });
   renderPotGallery();
   if ((S.filt.gal || {}).type === "counter"){ const L = ctrGalList(); setCount("gal", L.length, L.length); $("#gallery").innerHTML = L.map(ctrTileHTML).join("") + `<div class="ctr-tile ctr-new"><button type="button" class="primary" data-ctrnewg>＋ 新しいカウンターを作る</button><span class="note">カード工房の「カード以外 → カウンター」で作れます</span></div>`; return; }
