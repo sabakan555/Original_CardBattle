@@ -259,6 +259,7 @@ const KW_DESC = {
   "エボルヴ": "自分の3ターン目から、1ターンに1回・ゲーム中に2回まで、場のモンスターのボタンからエボルヴできる。エボルヴするとATKが（ ）上がり、そのターンは出たばかりでも相手のモンスターに攻撃できる。「エボルヴしたとき」の効果も出る",
   "スペルブースト": "このカードが手札にある間、自分が魔法を使うたびに強くなる（コストが下がる・ATKが上がる）。同じカードが手札に何枚あっても、全部いっしょに強くなる",
   "シンパシー": "（ ）に書いてある場所の、そのカード1枚（1体）につき、このモンスターを召喚するコストが1（数が書いてあればその数）少なくなる。コストは1より少なくはならない。「 」はタグか、名前に入る文字",
+  "融合": "自分のターンに1回、手札のこのカードに、（ ）のカードを手札から好きな枚数融合できる。融合したカードは廃棄札になる。融合した枚数で強くなるカードがある（使ったときの枚数が、そのカードにずっと残る）",
   "続唱": "コストを払って手札から使ったとき（モンスターの召喚・魔法の発動）、山札の上から、このカードよりコストが小さいモンスターか魔法が出るまでめくる。それをタダで使ってもよい。めくった残りはランダムな順で山札の下に置く（コストを使うデッキでだけ働く）",
   "ゴッドリンク": "左Gは右どなり、右Gは左どなりのゾーンに、リンクできるゴッドがいると、リンクして1体のモンスターとして扱う。ATKは合計、能力は全員ぶん、攻撃は合わせて1回（1体でも召喚酔いでなければ攻撃できる）。破壊されるときは、ATKが一番低いゴッド1体だけが場を離れる",
   "2回攻撃": "1ターンに2回攻撃できる", "速攻": "出たターンから攻撃できる（召喚酔いしない）", "直接攻撃": "相手の場にモンスターがいても、相手に直接攻撃できる",
@@ -361,6 +362,14 @@ const glOf = c => c && cardType(c) === "monster" && c.gl && (c.gl.l || c.gl.r) ?
 const glKw = c => { const g = glOf(c); return g ? `《ゴッドリンク》（${[g.r ? "左G" : "", g.l ? "右G" : ""].filter(Boolean).join("・")}${g.w ? `・「${g.w}」` : ""}）` : ""; };
 // デュエマ枠の絵柄: 左G は絵が右はしまで、右G は左はしまで、左右G は両はしまで
 const glFrameCls = c => { const g = glOf(c); return !g ? "" : g.l && g.r ? "dmg-lr" : g.r ? "dmg-r" : "dmg-l"; };
+// 融合（シャドバ）: 手札のこのカードに、条件に合うほかの手札を融合する。{ m: any|tag|part|name|monster|magic, w: 文字 }
+const HF_M = { any: "カード", monster: "モンスター", magic: "魔法", tag: "タグ", part: "名前に入る文字", name: "名前がぴったり" };
+const hfOf = c => c && (cardType(c) === "monster" || cardType(c) === "magic") && c.hf && HF_M[c.hf.m] ? c.hf : null;
+const hfDesc = g => { const w = String(g.w || "").trim() || "？"; return g.m === "tag" ? `タグ「${w}」のカード` : g.m === "part" ? `名前に「${w}」が入ったカード` : g.m === "name" ? `「${w}」` : g.m === "monster" ? "モンスター" : g.m === "magic" ? "魔法" : "カード"; };
+function hfMatch(g, x){ if (!g || !x) return false; const w = String(g.w || "").trim(), t = cardType(x);
+  if (g.m === "monster") return t === "monster"; if (g.m === "magic") return t === "magic"; if (g.m === "any") return true; if (!w) return false;
+  if (g.m === "tag") return tagsOf(x).includes(w); if (g.m === "part") return normQ(String(x.name || "")).includes(normQ(w)); return x.name === w || plainRuby(x.nameRuby || "") === w; }
+const hfKw = c => { const g = hfOf(c); return g ? `《融合》（${hfDesc(g)}）` : ""; };
 const cascadeOn = c => !!(c && c.cascade && (cardType(c) === "monster" || cardType(c) === "magic"));
 // カードのコストは 0〜99 と ∞（costInf：ふつうには払えない。踏み倒しなら使える）
 const MAX_COST = 99, MANA_LIMIT = 99;
@@ -529,7 +538,7 @@ function whenText(c){ const w = whenOf(c); return w ? `【${WHEN_LABEL[w]}に発
 function fusionMatText(x){ return x.m === "any" ? "モンスター" : x.m === "tag" ? `タグ「${x.v || "？"}」のモンスター` : `「${x.v || "？"}」`; }
 function fusionText(c){ return c && cardType(c) === "monster" && Array.isArray(c.fusion) && c.fusion.length ? `【融合】${c.fusion.map(fusionMatText).join("＋")}` : ""; }
 const spOptText = c => !c || (cardType(c) !== "magic" && cardType(c) !== "trap") ? "" : [c.strig ? "《S・トリガー》" : "", c.flashback && cardType(c) === "magic" ? "《フラッシュバック》" : "", +c.kick > 0 ? `《キッカー》（${+c.kick}）` : ""].join("");
-function fxText(c, detail = false){ const t = fxTextB(c, detail), k = c ? (cascadeOn(c) ? "《続唱》" : "") + glKw(c) + (c.innate ? "《天賦》" : "") + (c.retain ? "《保留》" : "") + (c.ethereal ? "《エセリアル》" : "") + (c.sly ? "《スライ》" : "") : ""; return k ? k + (t ? (detail ? "。\n" : "。") + t : "") : t; }
+function fxText(c, detail = false){ const t = fxTextB(c, detail), k = c ? (cascadeOn(c) ? "《続唱》" : "") + glKw(c) + hfKw(c) + (c.innate ? "《天賦》" : "") + (c.retain ? "《保留》" : "") + (c.ethereal ? "《エセリアル》" : "") + (c.sly ? "《スライ》" : "") : ""; return k ? k + (t ? (detail ? "。\n" : "。") + t : "") : t; }
 function fxTextB(c, detail = false){ return (c && c.token && cardType(c) !== "monster" ? "【トークン】" : "") + (c && c.ex && cardType(c) !== "monster" ? "【EX】" : "") + (c && !c.noUse ? whenText(c) : "") + [fusionText(c) ? fusionText(c) + "（「融合召喚」の効果でだけ出せる）" : "", c && c.noUse && (cardType(c) === "magic" || cardType(c) === "trap") ? "このカードは発動できない" : "", isPersist(c) ? "【永続】使ったあとも場に残る" : "", spOptText(c), isField(c) ? `【フィールド】お互いに1枚だけ場に置ける（新しいフィールドが出ると、前のフィールドは墓地へ）。${fieldMine(c) ? "効果は出した人にだけ効く" : "効果はお互いに効く"}` : "", extraCostText(c), costMechText(c), dmEvoText(c), mugText(c), revoText(c), tribText(c), massText(c), anySumText(c), atkCondText(c), ssText(c), fxText0(c, detail)].filter(Boolean).join(detail ? "。\n" : "。"); }
 /* ================= effect blocks: いつ / もし / なにを / ちがったら =================
    c.blocks = [{ trig, conds: [{k, op, n | name, where, match | text}], join: "and"|"or", then: [{kind, n, to}], else: [...] }]
@@ -554,6 +563,7 @@ const COND_DEFS = {
   card:     { label: "特定のカードがある" },
   costDeck: { label: "自分がコストデッキを使っている" },
   glOn:     { label: "このモンスターがGリンクしている（ゴッドリンク用）", gl: true },
+  hfN:      { label: "このカードに融合したカードの枚数（融合用）", who: "このカードに融合したカードが", unit: "枚", hf: true, val: (st, s, c, ctx) => hfCount(st, ctx) },
   ask:      { label: "質問して「はい」と答えた" },
   used:     { label: "発動したカード（「魔法・罠が発動したとき」用）" },
   die:      { label: "サイコロの目（「まず」でサイコロを振ったとき）", who: "サイコロの目が", unit: "", roll: true, val: (st, s, c, ctx) => ctx && ctx.roll && ctx.roll.kind === "die" ? ctx.roll.v : 0 },
@@ -573,7 +583,10 @@ const COND_DEFS = {
 };
 const OPS = { ge: "以上", le: "以下", eq: "" };
 // 「○1つにつき」: what a number can grow with (ダメージ / ブロック / マナ / 回復, or the number of hits)
+// このカードに融合したカードの枚数: 使ったとき（ctx.hfN）か、場のモンスター（m.hfN）
+function hfCount(st, ctx){ if (ctx && ctx.hfN != null) return +ctx.hfN || 0; const m = ctx && ctx.mon ? monAt(st, ctx.mon) : null; return m && m.hfN || 0; }
 const PER_DEFS = {
+  hfN:      { label: "このカードに融合したカード", u: "1枚", hf: true, val: (st, s, c, t, ctx) => hfCount(st, ctx) },
   myBlock:  { label: "自分のブロック", u: "1", val: (st, s) => P(st, s).block || 0 },
   mass5:    { label: "このモンスターの質量5枚", u: "", val: (st, s, c, t, ctx) => { const m = ctx && ctx.mon && monAt(st, ctx.mon); return m ? Math.floor((m.mats || []).length / 5) : 0; } },
   mass:     { label: "このモンスターの質量", u: "1枚", val: (st, s, c, t, ctx) => { const m = ctx && ctx.mon && monAt(st, ctx.mon); return m ? (m.mats || []).length : 0; } },

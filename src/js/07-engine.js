@@ -1457,6 +1457,29 @@ function withDiscard(c, hi, go){
   if (!n || !G || G.mode === "spectate"){ go([]); return; }
   G.costPick = { name: c.name, hi, need: n, picked: [], go, tag: c.payDiscTag || "" }; renderAll();
 }
+// 融合（シャドバ）: なぜ今は融合できないか（"" ならできる）・融合できる手札・融合する
+function hfOpts(st, s, hi){ const p = P(st, s), g = hfOf(card(p.hand[hi])); return g ? p.hand.map((id, j) => j).filter(j => j !== hi && hfMatch(g, card(p.hand[j]))) : []; }
+function hfWhy(st, s, hi){
+  const p = P(st, s), c = card(p.hand[hi]); if (!hfOf(c)) return "融合できないカード";
+  if (st.turn !== s || st.pending || st.winner) return "自分のターンだけ";
+  if (p.hfT && p.hfT.no === st.turnNo && p.hfT.ids.includes(c.id)) return "このターンはもう融合した";
+  if (!hfOpts(st, s, hi).length) return "融合できる手札がない";
+  return "";
+}
+function fuseHand(st, s, hi, picks){
+  if (hfWhy(st, s, hi)) return false;
+  const p = P(st, s), id = p.hand[hi], ok = new Set(hfOpts(st, s, hi));
+  picks = [...new Set((picks || []).map(Number))].filter(j => ok.has(j)); if (!picks.length) return false;
+  const gone = picks.sort((a, b) => b - a).map(j => p.hand.splice(j, 1)[0]).reverse();
+  (p.exile = p.exile || []).push(...gone);
+  const n = ((p.hf || {})[id] || 0) + gone.length; p.hf = { ...(p.hf || {}), [id]: n };
+  if (!p.hfT || p.hfT.no !== st.turnNo) p.hfT = { no: st.turnNo, ids: [] }; p.hfT.ids.push(id);
+  log(st, s, `「${card(id).name}」に${gone.map(x => `「${card(x).name}」`).join("")}を融合した（融合 ${n}枚）`);
+  ev(st, { type: "spell", s, c: id });
+  return true;
+}
+// 手札から出したとき: 融合した枚数を受けとる（手札の記録は消える）
+function hfTake(p, id){ const n = (p.hf || {})[id] || 0; if (p.hf && p.hf[id] != null){ const o = { ...p.hf }; delete o[id]; p.hf = o; } return n; }
 function canSummonNow(st, s){ return P(st, s).mana ? true : !st.summoned; }
 function canAct(st, s){ return !(G && G.spectate) && st.turn === s && !st.pending && !st.askQ && !st.winner && !(G && G.chooseQ.length); }
 // mats: 質量にする墓地の場所（なければ古い順に自動）
@@ -1470,18 +1493,19 @@ function summon(st, s, hi, zi, disc, trib, mats){
   if (!pay(st, s, card(id))) return false;
   let matIds = [];
   if (ms){ matIds = mats.slice().sort((a, b) => b - a).map(j => p.grave.splice(j, 1)[0]).reverse(); log(st, s, `墓地の${matIds.map(x => `「${card(x).name}」`).join("")}を質量にした`); }
-  p.hand.splice(hi, 1); if (!p.mana) st.summoned = true;
+  p.hand.splice(hi, 1); if (!p.mana) st.summoned = true; const hfN = hfTake(p, id);
   discardCost(st, s, card(id), shiftPicks(disc, hi));
   if (need){ log(st, s, `${trib.map(i => `「${card(p.mz[i].c).name}」`).join("")}を生贄にした`); trib.forEach(i => sendToGrave(st, s, i)); z = (zi != null && !p.mz[zi]) ? zi : trib.includes(z) || z < 0 ? trib[0] : z; }
   const label = `「${card(id).name}」（ATK ${fmtN(baseAtk(card(id)))}）を${evo ? `「${card(p.mz[z].c).name}」から進化` : "召喚"}${p.mana ? `（コスト${costLabel(card(id))}）` : ""}`;
   // the opponent gets a window only if they hold something that can counter it
   if (responseOptions(st, O(s), "summon").length){
-    st.chain = [{ s, c: id, summon: true, cast: true, z, ctx: { zone: z }, mats: matIds, ...(evo ? { evo: true, bu: p.mz[z].u } : {}) }];
+    st.chain = [{ s, c: id, summon: true, cast: true, hfN, z, ctx: { zone: z }, mats: matIds, ...(evo ? { evo: true, bu: p.mz[z].u } : {}) }];
     log(st, s, `${label}しようとしている…`);
     st.pending = { type: "chain", by: s, wait: true, resume: null };
     return true;
   }
   if (evo) evoPut(st, s, z, id); else { p.mz[z] = mkMon(st, id); if (matIds.length) p.mz[z].mats = matIds; }
+  if (hfN && p.mz[z]) p.mz[z].hfN = hfN;
   log(st, s, label); ev(st, { type: "summon", s, z });
   trigger(st, s, card(id), "summon", { zone: z, mon: { s, i: z, u: p.mz[z].u }, cast: true });
   persistFire(st, s, "mySummon", {});
@@ -1583,7 +1607,7 @@ function activate(st, s, from, i, ctx = {}){
   // キッカー: 人は「キッカーも払って発動」で、CPUは払えるときはいつも払う
   { const kk = Math.max(0, +c.kick || 0); if (kk && p.mana && (ctx.kick || (ctx.kick == null && typeof G !== "undefined" && G && G.mode === "cpu" && s !== G.slot)) && p.mana.cur >= kk){ p.mana.cur -= kk; ctx = { ...ctx, kicked: true }; log(st, s, `「${c.name}」：キッカー${kk}を払った！`); } }
   if (c.costX){ ctx = { ...ctx, x: p.lastPaid || 0 }; log(st, s, `「${c.name}」：X = ${p.lastPaid || 0}`); }
-  if (from === "hand") p.hand.splice(i, 1);
+  if (from === "hand"){ p.hand.splice(i, 1); const hn = hfTake(p, id); if (hn) ctx = { ...ctx, hfN: hn }; }
   else if (from === "grave") p.grave.splice(i, 1);
   else { var wasCp = !!(p.sz[i] && p.sz[i].cp); p.sz[i] = null; }
   countPlay(st, s, c);
@@ -1657,7 +1681,7 @@ function resolveChain(st, resume){
         runCard(st2, link.s, c, "summon", { zone: link.z, mon: { s: link.s, i: link.z, u: p.mz[link.z].u }, cast: !!link.cast }, st3 => persistFire(st3, link.s, "mySummon", {}, step)); return; }
       let z = p.mz[link.z] ? glZone(st2, link.s, link.c) : link.z;
       if (z < 0){ p.grave.push(link.c); log(st2, link.s, `場がいっぱいで「${c.name}」は出られなかった`); step(st2); return; }
-      p.mz[z] = mkMon(st2, link.c); if ((link.mats || []).length) p.mz[z].mats = link.mats.slice();
+      p.mz[z] = mkMon(st2, link.c); if ((link.mats || []).length) p.mz[z].mats = link.mats.slice(); if (link.hfN) p.mz[z].hfN = link.hfN;
       log(st2, link.s, `「${c.name}」の${link.special ? "特殊召喚" : "召喚"}に成功！`); ev(st2, { type: "summon", s: link.s, z });
       runCard(st2, link.s, c, link.special ? "ssummon" : "summon", { zone: z, mon: { s: link.s, i: z, u: p.mz[z].u }, cast: !!link.cast && !link.special }, st3 => persistFire(st3, link.s, "mySummon", {}, step));
       return;

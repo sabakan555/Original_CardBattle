@@ -85,6 +85,8 @@ function cpuStep(st, s){
     if (ss.cost === "discard") picks = p.hand.map((id, j) => j).filter(j => j !== i).sort((a, b) => cmpNum(cardType(card(p.hand[a])) === "monster" ? baseAtk(card(p.hand[a])) : 0, cardType(card(p.hand[b])) === "monster" ? baseAtk(card(p.hand[b])) : 0)).slice(0, ss.cn);
     if (specialSummon(st, s, i, picks)) return;
   }
+  // 融合: 融合できるカードがあれば、条件に合う手札をぜんぶ融合する
+  for (let i = 0; i < p.hand.length; i++){ if (!hfOf(card(p.hand[i])) || hfWhy(st, s, i)) continue; const o = hfOpts(st, s, i); if (o.length && fuseHand(st, s, i, o)) return; }
   // 2. summon strongest
   if (canSummonNow(st, s)){
     const mons = p.hand.map((id, i) => [i, card(id)]).filter(([, c]) => cardType(c) === "monster" && canPay(st, s, c) && !(ssOf(c) || {}).only && massOf(c) <= p.grave.length).sort((a, b) => cmpNum(baseAtk(b[1]), baseAtk(a[1])));
@@ -150,7 +152,7 @@ function exAutoReturn(){
   if (!G || G.spectate || !G.st || !G.st.players) return;
   const p = P(G.st, G.slot), t = p && p.exTemp; if (!t) return;
   if (!exTempOk(p)){ setTimeout(() => { if (G && P(G.st, G.slot).exTemp === t) act(st => { P(st, G.slot).exTemp = null; }); }, 0); return; }
-  const busy = G.ssPick || G.mugPick || G.costPick || G.eqPlace || G.equipFrom != null || (G.sel && G.sel.z === "hand" && G.sel.i === t.i) || (G.chooseQ || []).length;
+  const busy = G.hfPick || G.ssPick || G.mugPick || G.costPick || G.eqPlace || G.equipFrom != null || (G.sel && G.sel.z === "hand" && G.sel.i === t.i) || (G.chooseQ || []).length;
   if (!busy) setTimeout(() => { if (G && P(G.st, G.slot).exTemp === t) act(st => { exReturnP(st, G.slot); }); }, 0);
 }
 // short reason why card c can't be activated on your own turn ("" = it can)
@@ -324,6 +326,7 @@ function renderBoard0(){
       if (t === "magic"){ const full = isPersist(c) && freeZone(pm.sz) < 0, why = useWhyShort(st, me, c); acts += `<button class="mg" data-act="activateHand" ${afford && !full && !why ? "" : "disabled"}>発動する${full ? "（魔法・罠ゾーンがいっぱい）" : why ? `（${why}）` : short}</button>`; if (+c.kick > 0 && pm.mana) acts += `<button class="mg" data-act="activateHandKick" ${afford && !full && !why && pm.mana.cur >= effCost(st, me, c) + +c.kick ? "" : "disabled"}>キッカー${+c.kick}も払って発動</button>`; }
       if (t === "equip" && afford){ const any = ["a", "b"].some(o => P(st, o).mz.some((m, j) => m && canEquipOn(st, pm.hand[sel.i], o, j))); hint = any ? `光っているモンスターをクリックして装備（相手のでもOK）。装備コスト ${eqCostOf(c)}` : "装備できるモンスターがいません（キャパが足りない）"; }
       if (t !== "monster" && t !== "equip" && c.frame !== "spire") acts += `<button class="${t === "trap" ? "tr" : ""}" data-act="set" ${freeZone(pm.sz) < 0 ? "disabled" : ""}>セットする</button>`;
+      if (hfOf(c)){ const why = hfWhy(st, me, sel.i), n = (pm.hf || {})[c.id] || 0; acts += `<button class="mg" data-act="hfuse" ${why ? "disabled" : ""}>融合する${why ? `（${why}）` : ""}${n ? `［いま${n}枚］` : ""}</button>`; }
       // the same buttons right under the hand, so you don't have to look back up to the battle zone
       handActs = acts.slice(a0);
     }
@@ -525,7 +528,7 @@ function detailInfo(z, s, i){
   if (!G || !G.st || !G.st.started) return null;
   const owner = s === "me" ? G.slot : O(G.slot), X = P(G.st, owner);
   if (z === "hand" && G.spectate) return null;
-  if (z === "hand") return X.hand[i] ? { id: X.hand[i], where: "手札", mana: !!X.mana } : null;
+  if (z === "hand") return X.hand[i] ? { id: X.hand[i], where: "手札", mana: !!X.mana, hfN: (X.hf || {})[X.hand[i]] || 0 } : null;
   const slot = X[z] && X[z][i]; if (!slot) return null;
   if (z === "sz" && (s === "op" || G.spectate) && !slot.face) return { hidden: true, sleeve: X.sleeve };
   const info = { mana: !!X.mana, id: slot.c, mod: z === "mz" ? modOf(slot) : 0, attacked: slot.attacked, where: z === "mz" ? (s === "me" ? "自分の場" : "相手の場") : (slot.face ? "魔法・罠ゾーン" : "セット中"), setTurn: z === "sz" ? slot.turn : null };
@@ -537,6 +540,7 @@ function detailInfo(z, s, i){
     info.gab = monAbs(G.st, owner, i).filter(a => a.gab).map(a => { const x = { ...a, n: a.n0 != null ? a.n0 : a.n }; return (ABS[a.k].kw ? kwStr(x) : abPhrase(x)) + (a.stat ? `（「${a.from}」が場にいる間）` : a.until ? `（${a.until >= G.st.turnNo + 1 ? "次の自分のターンの終わりまで" : "このターンだけ"}）` : ""); });
     info.abs = [...new Set(monAbs(G.st, owner, i).filter(a => a.eqU).map(a => ABS[a.k].text && ABS[a.k].n ? ABS[a.k].text((a.n || 0) * a.mult, a.name || "") : ABS[a.k].label))];
     info.eqList = es.map((e, k) => ({ c: e.c, mult: eqMult(es, k), used: !!e.used, opp: e.o !== owner, mana: !!P(G.st, e.o).mana }));
+    if (slot.hfN) info.hfN = slot.hfN;
     { const L = glGroup(G.st, owner, i); if (L.length > 1) info.glIds = L.map(j => { const m = P(G.st, owner).mz[j]; return { id: m.c, mod: modOf(m), me: j === i }; }); }
     { const L = glGroup(G.st, owner, i); if (L.length > 1) info.gl = `${L.map(j => `「${card(P(G.st, owner).mz[j].c).name}」`).join("と")}がリンクして1体のモンスター（ATKは合計、能力は全員ぶん、攻撃は合わせて1回）`; }
     if ((slot.seals || []).length) info.seal = `封印 ${slot.seals.length}（ないものとして扱う。同じタグのモンスターを出すと1つはがれる）`;
@@ -581,6 +585,7 @@ function renderDetail(info, anim){
 
   if (info.seal) rows.push(["封印", info.seal]);
   if (info.gl) rows.push(["ゴッドリンク", info.gl]);
+  if (info.hfN) rows.push(["融合", `${info.hfN}枚融合している`]);
   if (info.charm) rows.push(["状態", info.charm]);
   if (info.evoU && info.evoU.length) rows.push(["下のカード", `${info.evoU.length}枚：${info.evoU.map(n => `「${n}」`).join("")}`]);
   if (info.mats && info.mats.length) rows.push(["質量", `${info.mats.length}枚：${info.mats.map(n => `「${n}」`).join("")}`]);
@@ -750,6 +755,10 @@ function renderOverlay(){
       const ok = mp.pf.length === x.nf && mp.pg.length === x.ng;
       html = `<div class="box"><h2 style="margin:0">「${esc(card(mp.id).name)}」の無月の門</h2><p class="muted" style="margin:0">下に重ねるカードをえらんでね</p>${x.nf ? `<h3 style="margin:6px 0 0">場のモンスター（${mp.pf.length} / ${x.nf}）</h3><div class="gallery">${fl}</div>` : ""}${x.ng ? `<h3 style="margin:6px 0 0">墓地のカード（${mp.pg.length} / ${x.ng}）</h3><div class="gallery">${gl}</div>` : ""}<div class="row"><button class="primary" data-muggo ${ok ? "" : "disabled"}>重ねて召喚する</button><button class="ghost" data-close="mugpick">やめる</button></div></div>`;
     }
+  } else if (G.hfPick && canAct(st, me) && hfOf(card(P(st, me).hand[G.hfPick.hi]))){
+    const hp = G.hfPick, pm = P(st, me), c = card(pm.hand[hp.hi]), opts = hfOpts(st, me, hp.hi);
+    const list = opts.map(i => { const on = hp.picked.includes(i); return cardHTML(card(pm.hand[i]), `sm pick ${on ? "sel" : ""}`, `data-hfpick="${i}" tabindex="0" role="button" aria-pressed="${on}"`, mOpt(me)); }).join("");
+    html = `<div class="box"><h2 style="margin:0">「${esc(c.name)}」に融合する</h2><p class="muted" style="margin:0">融合する${esc(hfDesc(hfOf(c)))}を好きなだけえらんでね（${hp.picked.length}枚）。融合したカードは廃棄札になります</p><div class="gallery">${list}</div><div class="row"><button class="primary" data-hfgo ${hp.picked.length ? "" : "disabled"}>融合する</button><button class="ghost" data-close="hfpick">やめる</button></div></div>`;
   } else if (G.ssPick && canAct(st, me)){
     const sp = G.ssPick, pm = P(st, me), c = card(pm.hand[sp.hi]);
     const opts = sp.kind === "evo" ? evoBases(st, me, c) : sp.kind === "tribute" ? pm.mz.map((m, i) => m && (!sp.tag || hasTag(m.c, sp.tag)) ? i : -1).filter(i => i >= 0) : sp.kind === "mass" ? pm.grave.map((id, i) => i) : pm.hand.map((id, i) => i).filter(i => i !== sp.hi);
@@ -801,6 +810,8 @@ $("#overlay").addEventListener("click", e => {
   { const mf = e.target.closest("[data-mugf]"), mg = e.target.closest("[data-mugg]"), mp = G.mugPick;
     if (mp && (mf || mg)){ const x = mugCands(st0(), mp.s).find(d => d.id === mp.id); if (x){ const key = mf ? "pf" : "pg", need = mf ? x.nf : x.ng, i = +(mf || mg).dataset[mf ? "mugf" : "mugg"]; if (mp[key].includes(i)) mp[key] = mp[key].filter(v => v !== i); else if (need === 1) mp[key] = [i]; else if (mp[key].length < need) mp[key].push(i); } renderAll(); return; }
     if (mp && e.target.closest("[data-muggo]")){ G.mugPick = null; act(st => { const x = mugPicked(st, mp.s, mp.id, mp.pf, mp.pg); if (x) mugDo(st, mp.s, x); else log(st, mp.s, "無月の門：えらんだカードが使えなくなっていた"); }); return; } }
+  { const hk = e.target.closest("[data-hfpick]"); if (hk && G.hfPick){ const i = +hk.dataset.hfpick, hp = G.hfPick; hp.picked = hp.picked.includes(i) ? hp.picked.filter(x => x !== i) : [...hp.picked, i]; renderAll(); return; } }
+  if (e.target.closest("[data-hfgo]") && G.hfPick){ const hp = G.hfPick; G.hfPick = null; act(st => fuseHand(st, G.slot, hp.hi, hp.picked)); return; }
   if (spk && G.ssPick){ const i = +spk.dataset.sspick, sp = G.ssPick; if (sp.picked.includes(i)) sp.picked = sp.picked.filter(x => x !== i); else if (sp.picked.length < sp.need) sp.picked.push(i); renderAll(); return; }
   if (e.target.closest("[data-ssgo]") && G.ssPick){ const sp = G.ssPick; G.ssPick = null; if (sp.kind === "evo") withDiscard(card(P(st0(), G.slot).hand[sp.hi]), sp.hi, d => act(st => summon(st, G.slot, sp.hi, sp.picked[0], d))); else if (sp.kind === "mass") withDiscard(card(P(st0(), G.slot).hand[sp.hi]), sp.hi, d => act(st => summon(st, G.slot, sp.hi, sp.zi ?? null, d, null, sp.picked))); else if (sp.normal) withDiscard(card(P(st0(), G.slot).hand[sp.hi]), sp.hi, d => act(st => summon(st, G.slot, sp.hi, null, d, sp.picked))); else act(st => specialSummon(st, G.slot, sp.hi, sp.picked)); return; }
   const ep = e.target.closest("[data-eqpos]");
@@ -849,6 +860,7 @@ $("#overlay").addEventListener("click", e => {
   if (k === "gh"){ G.graveHand = false; renderAll(); }
   if (k === "eqplace"){ G.eqPlace = null; renderAll(); }
   if (k === "sspick"){ G.ssPick = null; renderAll(); }
+  if (k === "hfpick"){ G.hfPick = null; renderAll(); }
   if (k === "mugpick"){ G.mugPick = null; renderAll(); if (G.mode === "cpu") scheduleCpu(); }
   if (k === "potion"){ G.potPick = null; renderAll(); }
   if (k === "costpick"){ G.costPick = null; renderAll(); }
@@ -932,6 +944,7 @@ $("#board").addEventListener("click", e => {
   if (k === "cancelEq"){ G.equipFrom = null; renderAll(); return; }
   if (k === "direct"){ const from = G.atkFrom; G.atkFrom = null; G.sel = null; act(st => declareAttack(st, me, from, "direct")); return; }
   if (!sel) return;
+  if (k === "hfuse" && sel && sel.z === "hand"){ G.sel = null; G.hfPick = { hi: sel.i, picked: [] }; renderAll(); return; }
   if (k === "summon" && isDmEvo(card(P(st, me).hand[sel.i]))){ G.sel = null; const hi = sel.i, B = evoBases(st, me, card(P(st, me).hand[hi])); if (B.length > 1){ G.ssPick = { hi, kind: "evo", need: 1, picked: [], normal: true }; renderAll(); } else withDiscard(card(P(st, me).hand[hi]), hi, d => act(st => summon(st, me, hi, B[0], d))); return; }
   if (k === "summon" && massOf(card(P(st, me).hand[sel.i]))){ G.sel = null; G.ssPick = { hi: sel.i, kind: "mass", need: massOf(card(P(st, me).hand[sel.i])), picked: [], normal: true }; renderAll(); return; }
   if (k === "summon"){ G.sel = null; const tn = tribOf(card(P(st, me).hand[sel.i]), st, me); if (tn){ G.ssPick = { hi: sel.i, kind: "tribute", need: tn, picked: [], normal: true, tag: card(P(st, me).hand[sel.i]).tribTag || "" }; renderAll(); } else withDiscard(card(P(st, me).hand[sel.i]), sel.i, d => act(st => summon(st, me, sel.i, null, d))); }
