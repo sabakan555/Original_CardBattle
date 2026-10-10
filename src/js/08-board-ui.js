@@ -221,7 +221,22 @@ function testAct(k){
 }
 document.addEventListener("click", e => { if (e.target.closest && e.target.closest("[data-testmode]")) startTest(null); });
 const ACT_ICON = `<svg viewBox="0 0 40 40" aria-hidden="true"><path d="M20 3l3.6 9.2 9.4-3.3-4.3 9 8.3 5.6-9.7 1.6.6 9.9L20 30.4 12.1 35l.6-9.9-9.7-1.6 8.3-5.6-4.3-9 9.4 3.3z" fill="#fde7c9" stroke="#e08a00" stroke-width="1.5" stroke-linejoin="round"/></svg>`;
-function renderBoard(){
+function renderBoard(){ const r = renderBoard0(); glJoin(); return r; }
+// ゴッドリンク: リンクしている2〜3枚を、ゾーンのすきまをつめて1枚のようにくっつける（「G・リンク」の帯も1本にまとめる）
+function glJoin(){
+  const root = document.getElementById("board"); if (!root) return;
+  const groups = {};
+  root.querySelectorAll(".card[data-glg]").forEach(el => { el.style.translate = ""; (groups[el.dataset.glg] = groups[el.dataset.glg] || []).push(el); });
+  Object.values(groups).forEach(L => {
+    if (L.length < 2) return;
+    L.sort((a, b) => a.dataset.glp - b.dataset.glp);
+    const R = L.map(el => el.getBoundingClientRect()), w = R.reduce((t, r) => t + r.width, 0), cx = (R[0].left + R[R.length - 1].right) / 2;
+    let x = cx - w / 2;
+    L.forEach((el, k) => { el.style.translate = `${Math.round(x - R[k].left)}px 0`; x += R[k].width; const b = el.querySelector(".glx"); if (b){ if (k){ b.style.display = "none"; } else { b.style.right = `${-Math.round(w - R[0].width) - 3}px`; b.classList.remove("gl-r"); } } });
+  });
+}
+addEventListener("resize", () => { if (typeof G !== "undefined" && G && G.st) glJoin(); });
+function renderBoard0(){
   recordResult();
   exAutoReturn();
   const st = G.st, me = G.slot, op = O(me), pm = P(st, me), po = P(st, op);
@@ -522,6 +537,7 @@ function detailInfo(z, s, i){
     info.gab = monAbs(G.st, owner, i).filter(a => a.gab).map(a => { const x = { ...a, n: a.n0 != null ? a.n0 : a.n }; return (ABS[a.k].kw ? kwStr(x) : abPhrase(x)) + (a.stat ? `（「${a.from}」が場にいる間）` : a.until ? `（${a.until >= G.st.turnNo + 1 ? "次の自分のターンの終わりまで" : "このターンだけ"}）` : ""); });
     info.abs = [...new Set(monAbs(G.st, owner, i).filter(a => a.eqU).map(a => ABS[a.k].text && ABS[a.k].n ? ABS[a.k].text((a.n || 0) * a.mult, a.name || "") : ABS[a.k].label))];
     info.eqList = es.map((e, k) => ({ c: e.c, mult: eqMult(es, k), used: !!e.used, opp: e.o !== owner, mana: !!P(G.st, e.o).mana }));
+    { const L = glGroup(G.st, owner, i); if (L.length > 1) info.glIds = L.map(j => { const m = P(G.st, owner).mz[j]; return { id: m.c, mod: modOf(m), me: j === i }; }); }
     { const L = glGroup(G.st, owner, i); if (L.length > 1) info.gl = `${L.map(j => `「${card(P(G.st, owner).mz[j].c).name}」`).join("と")}がリンクして1体のモンスター（ATKは合計、能力は全員ぶん、攻撃は合わせて1回）`; }
     if ((slot.seals || []).length) info.seal = `封印 ${slot.seals.length}（ないものとして扱う。同じタグのモンスターを出すと1つはがれる）`;
     if (charmActive(G.st, slot)) info.charm = `魅了されている（「${card(slot.charm.c).name}」）`;
@@ -589,7 +605,7 @@ function renderDetail(info, anim){
   // equips stuck on this monster, shown as cards from left to right (tap one to read it)
   const eqRow = info.eqList && info.eqList.length ? `<div class="eqrow"><div class="eqlbl">装備（左から順）　${esc(info.cap || "")}</div><div class="eqlist">${info.eqList.map((e, k) => `${k ? `<span class="eqarr">→</span>` : ""}<button class="eqi" data-eqcid="${esc(e.c)}" aria-label="「${esc(card(e.c).name)}」の詳細">${cardHTML(card(e.c), "xs", "", { mana: e.mana })}${e.mult > 1 || e.used || e.opp ? `<span class="eqtag">${[e.mult > 1 ? "×2" : "", e.used ? "使用ずみ" : "", e.opp ? "相手の" : ""].filter(Boolean).join("・")}</span>` : ""}</button>`).join("")}</div></div>` : "";
   const back = G.detailBack ? `<button class="small ghost eqback" data-detailback>← もどる</button>` : "";
-  box.innerHTML = `${CLOSE}<h3>カード詳細</h3>${back}<div class="detailcard">${cardHTML(c, "detail", "", { mod: info.mod, mana: info.mana })}</div>${eqRow}${ownFx}${xbFx}<dl class="dl">${rows.map(([k, v]) => `<dt>${k}</dt><dd>${tkLink(esc(v))}</dd>`).join("")}</dl>${actDetail(c)}`;
+  box.innerHTML = `${CLOSE}<h3>カード詳細</h3>${back}${info.glIds && info.glIds.length > 1 ? `<div class="detailcard gl-join" style="--gln:${info.glIds.length}">${info.glIds.map(x => cardHTML(card(x.id), "detail" + (x.me ? " gl-me" : ""), "", { mod: x.mod, mana: info.mana })).join("")}</div><p class="note gl-cap" style="margin:4px 0 0;text-align:center">${info.glIds.map(x => `「${esc(card(x.id).name)}」`).join("＋")}がGリンク中</p>` : `<div class="detailcard">${cardHTML(c, "detail", "", { mod: info.mod, mana: info.mana })}</div>`}${eqRow}${ownFx}${xbFx}<dl class="dl">${rows.map(([k, v]) => `<dt>${k}</dt><dd>${tkLink(esc(v))}</dd>`).join("")}</dl>${actDetail(c)}`;
 }
 // 詳細: 起動効果を持つ自分の場のモンスターなら「発動する」
 function actDetail(c){

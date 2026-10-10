@@ -202,6 +202,7 @@ label.f{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:13p
 .ctr-on{grid-column:1/-1;display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:6px 10px;border-radius:10px;background:rgba(255,255,255,.07)}
 .ctr-hint{margin:8px 0 0;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .glx{position:absolute;left:-3px;right:-3px;bottom:-7px;z-index:5;text-align:center;font-size:10px;line-height:15px;font-weight:900;letter-spacing:.04em;color:#3a2500;background:linear-gradient(90deg,#e9b93b,#fff2bf,#e9b93b);border:1px solid #9a6a00;border-radius:99px;pointer-events:none}
+.card.gl-on{z-index:1}.card.gl-on:hover,.card.gl-on.pick:hover{z-index:2}
 .glx.gl-l{border-top-left-radius:0;border-bottom-left-radius:0;left:-10px}.glx.gl-r{border-top-right-radius:0;border-bottom-right-radius:0;right:-10px}
 .sealx{position:absolute;inset:0;z-index:6;display:grid;place-items:center;background:repeating-linear-gradient(135deg,rgba(20,20,30,.72) 0 10px,rgba(40,40,60,.72) 10px 20px);border-radius:inherit;color:#ffe9a8;font-weight:900;font-size:clamp(12px,calc(var(--w,150px)*.13),28px);letter-spacing:.1em;text-shadow:0 2px 4px #000;pointer-events:none}
 .card-shot{position:fixed;left:-10000px;top:0;display:inline-block;padding:30px;pointer-events:none;background:transparent}.card-shot>.card{--w:480px!important;margin:0}
@@ -424,6 +425,7 @@ ruby rt{font-size:.5em;line-height:1;font-style:normal}
 @media (prefers-reduced-motion:reduce){.pop.anim{animation:none}}
 @media (max-width:560px){.pop{top:auto;bottom:calc(16px + env(safe-area-inset-bottom,0px));right:16px}.pop .card.detail{--w:150px}}
 .detailcard{display:flex;justify-content:center}
+.pop .detailcard.gl-join{gap:0}.pop .detailcard.gl-join .card.detail{--w:calc(244px / var(--gln,2))}
 .card.detail{--w:200px}
 .dl{display:grid;grid-template-columns:auto 1fr;gap:4px 10px;margin:0;font-size:13px}
 .dl dt{font-weight:700;color:var(--muted);white-space:nowrap}
@@ -1047,6 +1049,7 @@ nav.tabs button{position:relative}
   .pop .detailcard{grid-row:span 3}
   .pop>.fxr-big,.pop>.dl,.pop>.eqrow~*{grid-column:2}
   .pop .card.detail{--w:62px!important}
+  .pop .detailcard.gl-join .card.detail{--w:calc(124px / var(--gln,2))!important}
   .pop .dl{font-size:11.5px;gap:1px 8px;line-height:1.45}
   .pop .note{font-size:11.5px;margin:0}
   .pop .eqrow{grid-column:2;padding:0 0 4px;border-top:none}

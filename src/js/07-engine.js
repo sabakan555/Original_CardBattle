@@ -582,7 +582,7 @@ function glZone(st, s, id){
   const z = free.find(nb); return z == null ? free[0] : z;
 }
 // 盤面の「G・リンク」帯
-function glBadge(st, s, i, h){ const L = glGroup(st, s, i); if (L.length < 2) return h; return h.replace(/<\/div>$/, `<span class="glx${L[0] < i ? " gl-l" : ""}${L[L.length - 1] > i ? " gl-r" : ""}" title="ゴッドリンク中（${L.length}体で1体のモンスター）">G・リンク</span></div>`); }
+function glBadge(st, s, i, h){ const L = glGroup(st, s, i); if (L.length < 2) return h; h = h.replace(/^<div class="card /, `<div data-glg="${s}:${L[0]}" data-glp="${i - L[0]}" class="card gl-on `); return h.replace(/<\/div>$/, `<span class="glx${L[0] < i ? " gl-l" : ""}${L[L.length - 1] > i ? " gl-r" : ""}" title="ゴッドリンク中（${L.length}体で1体のモンスター）">G・リンク</span></div>`); }
 const abN = (st, s, i, ab) => monAbs(st, s, i).filter(a => a.k === ab).reduce((t, a) => t + (a.n || 0) * a.mult, 0);
 const maxAttacks = (st, s, i) => hasAb(st, s, i, "twice") ? 2 : 1;
 function equipsOn(st, s, i){ return eqsOf(P(st, s).mz[i]).map(e => e.c); }
