@@ -27,16 +27,16 @@
 <section class="home" id="home" hidden>
   <div class="home-title"><h1 class="logo">ORIGINAL  CARD BATTLE</h1><p class="sub">みんなでカード描いてバトルしようぜの会</p></div>
   <nav class="home-menu" aria-label="メニュー">
-    <button class="hbtn" data-go="play" aria-label="Battle（対戦）"><span class="en">Battle</span></button>
-    <button class="hbtn" data-go="make" aria-label="Card（カード工房）"><span class="en">Card</span></button>
-    <button class="hbtn" data-go="deck" aria-label="Deck（デッキ）"><span class="en">Deck</span></button>
-    <button class="hbtn" data-go="pack" aria-label="Pack（カードパック）"><span class="en">Pack</span></button>
+    <button class="hbtn" data-go="play" aria-label="Battle（対戦）"><span class="en">Battle</span><span class="jp">対戦</span></button>
+    <button class="hbtn" data-go="make" aria-label="Card（カード工房）"><span class="en">Card</span><span class="jp">カード工房</span></button>
+    <button class="hbtn" data-go="deck" aria-label="Deck（デッキ）"><span class="en">Deck</span><span class="jp">デッキ</span></button>
+    <button class="hbtn" data-go="pack" aria-label="Pack（カードパック）"><span class="en">Pack</span><span class="jp">カードパック</span></button>
   </nav>
   <div class="showcase" id="showcase" aria-live="polite"></div>
   <div class="home-foot">
     <button class="me-chip" data-go="me" title="マイページをひらく"><span class="av" id="meAv"></span><span class="nm" id="meName">Player</span></button>
     <button class="tut-home" data-tut="battle">はじめての人へ ▶ 練習バトル</button>
-    <button class="guide-btn" data-go="rules" aria-label="Guide（ルール）"><span class="en">Guide</span></button>
+    <button class="guide-btn" data-go="rules" aria-label="Guide（ルール）"><span class="en">Guide</span><span class="jp">ルール</span></button>
   </div>
 </section>
 <div class="sheet" id="sheet">
@@ -61,6 +61,7 @@
           <h2>対戦のじゅんび</h2>
           <label class="f">プレイヤー名<input type="text" id="pname" maxlength="16"></label>
           <label class="f">使うデッキ<select id="deckSel"></select></label>
+          <label class="row" style="gap:6px;font-size:13px;cursor:pointer;flex-wrap:nowrap;align-items:flex-start"><input type="checkbox" id="optManual" style="flex:none;margin-top:3px"> 対戦中に「手動で効果を処理」のボタンを出す（LP±・1枚引く・墓地から手札へなど。自由に書いた効果を手で処理するとき用）</label>
           <div id="offlineNote" class="offline" hidden>サーバーにつながっていないので、オンライン対戦とカードの共有は使えません（config.js の設定を確認してね）。いまはこのブラウザだけに保存され、CPU練習ができます。</div>
         </div>
         <div class="box" style="display:flex;flex-direction:column;gap:14px">
@@ -84,14 +85,15 @@
 
   <!-- MAKE -->
   <section id="tab-make" hidden>
+    <div class="seg mk-view" id="makeView" role="tablist" aria-label="カード工房とカード図鑑"><button type="button" role="tab" data-mv="draw" aria-pressed="true">カードを描く</button><button type="button" role="tab" data-mv="gal" aria-pressed="false">カード図鑑</button></div>
     <div class="maker">
       <div class="mk-left"><div class="card editor" id="editCard"><span class="holo-fx" aria-hidden="true"></span><span class="m-gem" aria-hidden="true"></span><div class="c-in">
         <span class="c-cost" id="mkCostBadge" hidden></span><div class="c-name"><input type="text" id="mkName" maxlength="40" placeholder="カード名"><span class="c-tribe-n" id="mkTribeN" hidden></span></div>
         <div class="c-art"><span class="c-tribe" id="mkTribe" hidden></span><canvas id="cv" width="560" height="400" aria-label="イラストを描くところ"></canvas><div class="fl-guide" id="flGuide" hidden>ここから下は半透明の文字の欄</div><div class="c-tab" id="mkTab">モンスター</div></div>
         <div class="c-text">
           <div class="fxline" id="mkFxLine"></div>
-          <textarea id="mkEff" maxlength="120" placeholder="カードに書く文（なくてもいい）。書くと、自動の効果の文の代わりにカードに出る。本来の効果はカードを開くと見られる"></textarea>
-          <textarea id="mkFlv" maxlength="80" placeholder="フレーバーテキスト（なくてもいい）"></textarea>
+          <textarea id="mkEff" maxlength="120" placeholder="カードに書く文（なくてもOK）" title="書くと、自動の効果の文の代わりにカードに出る。本来の効果はカードを開くと見られる"></textarea>
+          <textarea id="mkFlv" maxlength="80" placeholder="フレーバーテキスト（なくてもOK）"></textarea>
           <div class="c-atk" id="atkRow">ATK <input type="text" inputmode="numeric" id="mkAtk" value="300" aria-label="ATK（∞も入力できます）"></div>
           <div class="c-atk" id="eqRow" hidden>ATK ± <input type="number" id="mkEq" step="1" value="200"></div>
         </div>
@@ -298,7 +300,7 @@
         <div class="row mk-save"><button class="primary" id="btnSave">カードを保存</button><button id="btnTest" title="保存しないで、対戦画面でこのカードの効果を試す">🧪 この内容でテストする</button><button id="btnShot" title="いま作っているカードを画像（PNG）で保存">📷 画像で保存</button><button class="ghost" id="btnNew" hidden>新しく描く</button></div>
       </div>
     </div>
-    <div style="margin-top:28px">
+    <div id="galWrap" hidden>
       <div class="row" style="justify-content:space-between;margin-bottom:12px">
         <h2 style="margin:0">カード図鑑</h2>
         <div class="seg" id="galFilter"><button aria-pressed="true" data-f="all">みんなのカード</button><button aria-pressed="false" data-f="mine">自分のカード</button></div>
@@ -320,8 +322,8 @@
       <div class="row">
         <label class="f">編集するデッキ<select id="deckEditSel"></select></label>
         <label class="f">デッキ名<input type="text" id="deckName" maxlength="20" placeholder="例: かわいい軍団"></label>
-        <label class="row" style="gap:6px;font-weight:700;font-size:14px;cursor:pointer"><input type="checkbox" id="deckMana"> コストデッキ（マナを使って遊ぶ）</label>
-        <label class="row" style="gap:6px;font-weight:700;font-size:14px;cursor:pointer"><input type="checkbox" id="deckSpire"> スパイアデッキ（「選択の祭壇」が最初から場にあって、山札切れで負けない）</label>
+        <label class="row" style="gap:6px;font-weight:700;font-size:14px;cursor:pointer"><input type="checkbox" id="deckMana" style="flex:none;margin-top:4px"> コストデッキ（マナを使って遊ぶ）</label>
+        <label class="row" style="gap:6px;font-weight:700;font-size:14px;cursor:pointer"><input type="checkbox" id="deckSpire" style="flex:none;margin-top:4px"> スパイアデッキ（「選択の祭壇」が最初から場にあって、山札切れで負けない）</label>
         <label class="row" id="deckSpcRow" style="gap:6px;font-size:14px" hidden>キャラ<select id="deckSpc"><option value="">アイアンクラッド（#アイアンクラッドのカードが出る）</option><option value="silent">サイレント（#サイレントのカードが出る）</option></select></label>
       </div>
       <div class="row">
@@ -405,6 +407,7 @@
 
   <!-- RULES -->
   <section id="tab-rules" class="rules" hidden>
+    <details class="box kw-box" id="rulesKwBox"><summary><h2 style="display:inline">キーワード・能力の一覧</h2> <span class="note" id="rulesKwN"></span></summary><input type="search" id="rulesKwQ" placeholder="さがす（例：速攻・ゴッドリンク・フュージョン）" aria-label="キーワードをさがす"><dl class="kw-list" id="rulesKw"></dl></details>
     <div class="box tut-box"><h2>チュートリアル</h2><p class="note">画面の光っているところを押しながら、遊び方を覚えられます。</p><div class="row"><button class="primary" data-tut="battle">練習バトルをやる（5分）</button><button data-tut="maker">カード工房の案内</button></div></div>
     <div class="grid2">
       <div class="box">

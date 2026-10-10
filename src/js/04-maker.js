@@ -1279,6 +1279,10 @@ $("#gallery").addEventListener("click", e => {
   const by = e.target.closest("[data-by]"); if (!by) return;
   e.stopPropagation(); S.filt.gal.author = by.dataset.by; const sel = $("#galAuthor"); if (sel){ sel.innerHTML = authorOptionsHTML(S.filt.gal.author); sel.value = S.filt.gal.author; } renderGallery(); toast(`「${by.dataset.by}」さんのカードだけ表示しています`);
 }, true);
+{ const q = $("#rulesKwQ"); if (q) q.addEventListener("input", renderRulesKw); }
+$("#makeView").addEventListener("click", e => { const b = e.target.closest("[data-mv]"); if (!b) return; setMakeView(b.dataset.mv); renderAll(); window.scrollTo(0, 0); });
+// 図鑑の「編集」: カードを描く画面にもどってから読みこむ
+$("#gallery").addEventListener("click", e => { if (e.target.closest("[data-edit]")) setMakeView("draw"); }, true);
 $("#gallery").addEventListener("click", async e => {
   { const f = S.filt.gal, cc = e.target.closest("[data-ctrcards]");
     if (cc){ f.ctr = cc.dataset.ctrcards; f.type = "all"; document.querySelectorAll("#galType button").forEach(x => x.setAttribute("aria-pressed", x.dataset.v === "all")); renderGallery(); return; }

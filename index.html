@@ -337,6 +337,9 @@ ruby rt{font-size:.5em;line-height:1;font-style:normal}
 .fxform{display:flex;flex-direction:column;gap:8px;background:#f4f6f9;border:2px dashed var(--line);border-radius:14px;padding:12px}
 .fxform select,.fxform input{padding:4px 8px}
 .fxform input[type=number]{width:6.5em}
+.mk-view{display:inline-flex;margin:0 0 14px}.mk-view button{padding:6px 18px;font-size:15px}
+.flt-more{flex-basis:100%;order:5}.flt-more>summary{cursor:pointer;font-weight:700;font-size:13px;color:var(--muted);list-style:none;display:inline-flex;align-items:center;gap:6px}.flt-more>summary::-webkit-details-marker{display:none}.flt-more>summary::before{content:"▸";transition:transform .15s}.flt-more[open]>summary::before{transform:rotate(90deg)}
+.flt-more .flt-on{color:var(--accent,#66e5e0)}.flt-more-in{display:flex;flex-wrap:wrap;gap:8px 10px;margin-top:8px}
 .filters{display:flex;flex-wrap:wrap;gap:10px 14px;align-items:center;margin-bottom:16px;background:var(--paper);border:2px solid var(--ink);border-radius:16px;padding:10px 14px}
 .filters input[type=search]{font:inherit;color:var(--ink);background:var(--paper);border:2px solid var(--ink);border-radius:999px;padding:5px 14px;width:min(260px,100%)}
 .filters .seg button{padding:3px 11px;font-size:13px}
@@ -368,6 +371,7 @@ ruby rt{font-size:.5em;line-height:1;font-style:normal}
 .mk-sec .abs-list label{padding:4px 0;border-bottom:1px dashed var(--line)}
 .mk-sec .abs-list label:last-child{border-bottom:none}
 .mk-save{padding-top:4px}
+@media (max-width:640px){.mk-save{display:grid!important;grid-template-columns:1.25fr 1fr 1fr;gap:6px!important}.mk-save>button{padding:6px 6px;font-size:12.5px;line-height:1.25;white-space:normal;min-height:40px}.mk-save>button[hidden]{display:none}}
 @media (max-width:640px){.mk-save{position:sticky;bottom:calc(84px + env(safe-area-inset-bottom,0px));z-index:3;padding:8px 10px;margin:0 -6px;border-radius:14px;background:rgba(14,16,36,.92);border:1px solid var(--line);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}}
 .g-item .g-btns{gap:6px;flex-wrap:nowrap;justify-content:center}
 .g-item .g-wide{max-width:124px;white-space:normal;line-height:1.3;font-size:11.5px}
@@ -415,7 +419,9 @@ ruby rt{font-size:.5em;line-height:1;font-style:normal}
 .turnline .me{color:#1b5e8a}.turnline .op{color:var(--hit)}
 .lastlog{font-size:14px;min-height:1.4em;text-wrap:balance}
 .actions{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
+#deckEditWrap label.row:has(>#deckMana),#deckEditWrap label.row:has(>#deckSpire){flex-wrap:nowrap;align-items:flex-start}
 .hand-acts{margin:4px 0 6px}
+@media (min-width:861px){.hand-acts{display:none}}
 .hand{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;padding-top:6px;min-height:140px}
 .hand .card{--w:clamp(76px,15vw,112px)}
 .side{display:flex;flex-direction:column;gap:14px}
@@ -437,6 +443,11 @@ ruby rt{font-size:.5em;line-height:1;font-style:normal}
 @media (prefers-reduced-motion:reduce){.pop.anim{animation:none}}
 @media (max-width:560px){.pop{top:auto;bottom:calc(16px + env(safe-area-inset-bottom,0px));right:16px}.pop .card.detail{--w:150px}}
 .detailcard{display:flex;justify-content:center}
+.zoom-card{position:fixed;z-index:9000;pointer-events:none;filter:drop-shadow(0 14px 30px rgba(0,0,0,.6))}
+.zoom-card .card{--w:250px}
+.zoom-card.touch{left:50%;top:50%;transform:translate(-50%,-50%)}
+.zoom-card.touch .card{--w:min(300px,76vw)}
+#board .card[data-z]{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
 .pop .detailcard.gl-join{gap:0}.pop .detailcard.gl-join .card.detail{--w:calc(244px / var(--gln,2))}
 .card.detail{--w:200px}
 .dl{display:grid;grid-template-columns:auto 1fr;gap:4px 10px;margin:0;font-size:13px}
@@ -644,6 +655,10 @@ body.dm-lock{overflow:hidden}
 @keyframes tutDot{50%{opacity:.25;transform:translateY(-3px)}}
 body.tut-on #detailPop{display:none!important}
 .tut-ask{position:fixed;right:16px;bottom:16px;z-index:8500;width:min(340px,calc(100vw - 32px));background:#fffbea;color:#1f2233;border:3px solid #ffd76a;border-radius:14px;padding:14px 16px;box-shadow:0 12px 34px rgba(0,0,0,.5);line-height:1.6}
+/* はじめての人への案内: ホームの右上（タイトルの横のあいているところ）に出す */
+.tut-ask{top:16px;bottom:auto}
+@media (min-width:761px){.tut-ask{position:absolute}}
+@media (max-width:760px){.tut-ask{left:12px;right:12px;top:auto;bottom:12px;width:auto;padding:10px 12px;font-size:14px;line-height:1.5}.tut-ask .note{display:none}.tut-ask p{margin:2px 0 6px}}
 .tut-ask p{margin:6px 0}.tut-ask .note{color:#666;font-size:12px}.tut-ask .ghost{color:#555;border-color:#bbb}
 .tut-home{position:relative;padding:10px 16px;border-radius:999px;background:#ffd76a;color:#1f2233;font-weight:800;border:none;box-shadow:0 4px 0 #b88f1d}
 .tut-box{margin-bottom:16px}
@@ -836,7 +851,7 @@ body{background:#232842 var(--bgimg,linear-gradient(90deg,#232842 0%,#2f3659 65.
 @media (max-width:760px){
   .home{grid-template-columns:1fr;grid-template-rows:auto auto auto auto}
   .logo{white-space:normal}
-  .showcase{grid-row:2}
+  .showcase{grid-row:2;padding-top:26px}
   .showcase .card{--w:170px}
   .home-menu{grid-row:3}
   .home-foot{grid-row:4;flex-wrap:wrap}
@@ -963,8 +978,8 @@ nav.tabs button{position:relative}
 .dk-edit-main{min-width:0}
 .dk-side{order:-1}
 @media (min-width:641px){
-  .dk-edit-grid{display:grid;grid-template-columns:minmax(0,1fr) 270px;gap:16px;align-items:start}
-  .dk-side{order:0;position:sticky;top:12px;max-height:calc(100vh - 24px);overflow:auto;margin-bottom:0}
+  .dk-edit-grid{display:grid;grid-template-columns:270px minmax(0,1fr);gap:16px;align-items:start}
+  .dk-side{order:-1;position:sticky;top:12px;max-height:calc(100vh - 24px);overflow:auto;margin-bottom:0}
   .dk-side .dkv-grid{grid-template-columns:1fr;gap:3px}
   .dk-side .dk-strip{height:32px}
   .dk-side .dkv-head{flex-direction:column;align-items:flex-start;gap:8px}
@@ -1092,6 +1107,16 @@ nav.tabs button{position:relative}
 .recent .rc{display:flex;flex-direction:column;align-items:center;gap:2px}
 .recent .rc .card{--w:46px}
 .recent .rc small{font-size:10px;color:var(--muted)}
+/* ---- 読みやすさ: 小さすぎた文字（UIのラベル）を少し大きく ---- */
+.bk-cap{font-size:12px}.noart{font-size:12px}.g-item .meta{font-size:12.5px}.recent .rc small{font-size:11px}
+@media (max-width:860px){.pop .eqlbl,.pop .note{font-size:12px}}
+.guide-btn:has(.jp){padding-left:clamp(36px,calc(var(--hu)*7),110px)}.guide-btn .jp{font-size:clamp(13px,calc(var(--hu)*1.4),20px)!important}
+.hbtn .jp,.guide-btn .jp{font-family:var(--ui);font-weight:700;font-size:clamp(14px,calc(var(--hu)*1.7),24px);margin-left:.7em;opacity:.9;align-self:center;text-shadow:2px 1px 0 rgba(70,80,110,.7)}
+.kw-box>summary{cursor:pointer;list-style:none}.kw-box>summary::-webkit-details-marker{display:none}.kw-box>summary h2::before{content:"▸ ";color:var(--muted)}.kw-box[open]>summary h2::before{content:"▾ "}
+.kw-box input[type=search]{margin:10px 0;width:min(360px,100%)}
+.kw-list{display:grid;grid-template-columns:max-content minmax(0,1fr);gap:6px 14px;margin:0;font-size:14px;line-height:1.6}
+.kw-list dt{font-weight:800;color:var(--accent,#66e5e0);white-space:nowrap}.kw-list dd{margin:0}
+@media (max-width:560px){.kw-list{grid-template-columns:1fr;gap:0}.kw-list dd{margin-bottom:8px}}
 .recent .rc.theirs small{color:#ff9f8a}
 .card.attacking{box-shadow:0 0 0 3px #ff7a59,0 0 18px rgba(255,122,89,.8)!important}
 .card.atk-tgt{box-shadow:0 0 0 3px #ffd166,0 0 18px rgba(255,209,102,.8)!important}
@@ -1435,16 +1460,16 @@ div.f{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:13px}
 <section class="home" id="home" hidden>
   <div class="home-title"><h1 class="logo">ORIGINAL  CARD BATTLE</h1><p class="sub">みんなでカード描いてバトルしようぜの会</p></div>
   <nav class="home-menu" aria-label="メニュー">
-    <button class="hbtn" data-go="play" aria-label="Battle（対戦）"><span class="en">Battle</span></button>
-    <button class="hbtn" data-go="make" aria-label="Card（カード工房）"><span class="en">Card</span></button>
-    <button class="hbtn" data-go="deck" aria-label="Deck（デッキ）"><span class="en">Deck</span></button>
-    <button class="hbtn" data-go="pack" aria-label="Pack（カードパック）"><span class="en">Pack</span></button>
+    <button class="hbtn" data-go="play" aria-label="Battle（対戦）"><span class="en">Battle</span><span class="jp">対戦</span></button>
+    <button class="hbtn" data-go="make" aria-label="Card（カード工房）"><span class="en">Card</span><span class="jp">カード工房</span></button>
+    <button class="hbtn" data-go="deck" aria-label="Deck（デッキ）"><span class="en">Deck</span><span class="jp">デッキ</span></button>
+    <button class="hbtn" data-go="pack" aria-label="Pack（カードパック）"><span class="en">Pack</span><span class="jp">カードパック</span></button>
   </nav>
   <div class="showcase" id="showcase" aria-live="polite"></div>
   <div class="home-foot">
     <button class="me-chip" data-go="me" title="マイページをひらく"><span class="av" id="meAv"></span><span class="nm" id="meName">Player</span></button>
     <button class="tut-home" data-tut="battle">はじめての人へ ▶ 練習バトル</button>
-    <button class="guide-btn" data-go="rules" aria-label="Guide（ルール）"><span class="en">Guide</span></button>
+    <button class="guide-btn" data-go="rules" aria-label="Guide（ルール）"><span class="en">Guide</span><span class="jp">ルール</span></button>
   </div>
 </section>
 <div class="sheet" id="sheet">
@@ -1469,6 +1494,7 @@ div.f{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:13px}
           <h2>対戦のじゅんび</h2>
           <label class="f">プレイヤー名<input type="text" id="pname" maxlength="16"></label>
           <label class="f">使うデッキ<select id="deckSel"></select></label>
+          <label class="row" style="gap:6px;font-size:13px;cursor:pointer;flex-wrap:nowrap;align-items:flex-start"><input type="checkbox" id="optManual" style="flex:none;margin-top:3px"> 対戦中に「手動で効果を処理」のボタンを出す（LP±・1枚引く・墓地から手札へなど。自由に書いた効果を手で処理するとき用）</label>
           <div id="offlineNote" class="offline" hidden>サーバーにつながっていないので、オンライン対戦とカードの共有は使えません（config.js の設定を確認してね）。いまはこのブラウザだけに保存され、CPU練習ができます。</div>
         </div>
         <div class="box" style="display:flex;flex-direction:column;gap:14px">
@@ -1492,14 +1518,15 @@ div.f{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:13px}
 
   <!-- MAKE -->
   <section id="tab-make" hidden>
+    <div class="seg mk-view" id="makeView" role="tablist" aria-label="カード工房とカード図鑑"><button type="button" role="tab" data-mv="draw" aria-pressed="true">カードを描く</button><button type="button" role="tab" data-mv="gal" aria-pressed="false">カード図鑑</button></div>
     <div class="maker">
       <div class="mk-left"><div class="card editor" id="editCard"><span class="holo-fx" aria-hidden="true"></span><span class="m-gem" aria-hidden="true"></span><div class="c-in">
         <span class="c-cost" id="mkCostBadge" hidden></span><div class="c-name"><input type="text" id="mkName" maxlength="40" placeholder="カード名"><span class="c-tribe-n" id="mkTribeN" hidden></span></div>
         <div class="c-art"><span class="c-tribe" id="mkTribe" hidden></span><canvas id="cv" width="560" height="400" aria-label="イラストを描くところ"></canvas><div class="fl-guide" id="flGuide" hidden>ここから下は半透明の文字の欄</div><div class="c-tab" id="mkTab">モンスター</div></div>
         <div class="c-text">
           <div class="fxline" id="mkFxLine"></div>
-          <textarea id="mkEff" maxlength="120" placeholder="カードに書く文（なくてもいい）。書くと、自動の効果の文の代わりにカードに出る。本来の効果はカードを開くと見られる"></textarea>
-          <textarea id="mkFlv" maxlength="80" placeholder="フレーバーテキスト（なくてもいい）"></textarea>
+          <textarea id="mkEff" maxlength="120" placeholder="カードに書く文（なくてもOK）" title="書くと、自動の効果の文の代わりにカードに出る。本来の効果はカードを開くと見られる"></textarea>
+          <textarea id="mkFlv" maxlength="80" placeholder="フレーバーテキスト（なくてもOK）"></textarea>
           <div class="c-atk" id="atkRow">ATK <input type="text" inputmode="numeric" id="mkAtk" value="300" aria-label="ATK（∞も入力できます）"></div>
           <div class="c-atk" id="eqRow" hidden>ATK ± <input type="number" id="mkEq" step="1" value="200"></div>
         </div>
@@ -1706,7 +1733,7 @@ div.f{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:13px}
         <div class="row mk-save"><button class="primary" id="btnSave">カードを保存</button><button id="btnTest" title="保存しないで、対戦画面でこのカードの効果を試す">🧪 この内容でテストする</button><button id="btnShot" title="いま作っているカードを画像（PNG）で保存">📷 画像で保存</button><button class="ghost" id="btnNew" hidden>新しく描く</button></div>
       </div>
     </div>
-    <div style="margin-top:28px">
+    <div id="galWrap" hidden>
       <div class="row" style="justify-content:space-between;margin-bottom:12px">
         <h2 style="margin:0">カード図鑑</h2>
         <div class="seg" id="galFilter"><button aria-pressed="true" data-f="all">みんなのカード</button><button aria-pressed="false" data-f="mine">自分のカード</button></div>
@@ -1728,8 +1755,8 @@ div.f{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:13px}
       <div class="row">
         <label class="f">編集するデッキ<select id="deckEditSel"></select></label>
         <label class="f">デッキ名<input type="text" id="deckName" maxlength="20" placeholder="例: かわいい軍団"></label>
-        <label class="row" style="gap:6px;font-weight:700;font-size:14px;cursor:pointer"><input type="checkbox" id="deckMana"> コストデッキ（マナを使って遊ぶ）</label>
-        <label class="row" style="gap:6px;font-weight:700;font-size:14px;cursor:pointer"><input type="checkbox" id="deckSpire"> スパイアデッキ（「選択の祭壇」が最初から場にあって、山札切れで負けない）</label>
+        <label class="row" style="gap:6px;font-weight:700;font-size:14px;cursor:pointer"><input type="checkbox" id="deckMana" style="flex:none;margin-top:4px"> コストデッキ（マナを使って遊ぶ）</label>
+        <label class="row" style="gap:6px;font-weight:700;font-size:14px;cursor:pointer"><input type="checkbox" id="deckSpire" style="flex:none;margin-top:4px"> スパイアデッキ（「選択の祭壇」が最初から場にあって、山札切れで負けない）</label>
         <label class="row" id="deckSpcRow" style="gap:6px;font-size:14px" hidden>キャラ<select id="deckSpc"><option value="">アイアンクラッド（#アイアンクラッドのカードが出る）</option><option value="silent">サイレント（#サイレントのカードが出る）</option></select></label>
       </div>
       <div class="row">
@@ -1813,6 +1840,7 @@ div.f{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:13px}
 
   <!-- RULES -->
   <section id="tab-rules" class="rules" hidden>
+    <details class="box kw-box" id="rulesKwBox"><summary><h2 style="display:inline">キーワード・能力の一覧</h2> <span class="note" id="rulesKwN"></span></summary><input type="search" id="rulesKwQ" placeholder="さがす（例：速攻・ゴッドリンク・フュージョン）" aria-label="キーワードをさがす"><dl class="kw-list" id="rulesKw"></dl></details>
     <div class="box tut-box"><h2>チュートリアル</h2><p class="note">画面の光っているところを押しながら、遊び方を覚えられます。</p><div class="row"><button class="primary" data-tut="battle">練習バトルをやる（5分）</button><button data-tut="maker">カード工房の案内</button></div></div>
     <div class="grid2">
       <div class="box">
@@ -3689,7 +3717,17 @@ function watchRoom(code){
   }, () => toast("通信が切れました"));
   S.tab = "play"; renderAll();
 }
+// ルールのキーワード一覧: KW_DESC（カードのキーワードを押したときの説明）から作る
+function renderRulesKw(){
+  const box = $("#rulesKw"); if (!box) return;
+  const q = normQ(($("#rulesKwQ") || {}).value || "").trim();
+  const L = Object.entries(KW_DESC).sort((a, b) => a[0].localeCompare(b[0], "ja"));
+  const hit = L.filter(([k, d]) => !q || normQ(k + " " + d).includes(q));
+  box.innerHTML = hit.map(([k, d]) => `<dt>《${esc(k)}》</dt><dd>${esc(d)}</dd>`).join("") || `<p class="muted" style="margin:0">見つかりませんでした</p>`;
+  const n = $("#rulesKwN"); if (n) n.textContent = `${L.length}こ`;
+}
 function renderAll(){
+  { const a = document.getElementById("tutAsk"); if (a) a.hidden = S.tab !== "home" || (typeof G !== "undefined" && !!G); document.body.classList.toggle("has-tutask", !!a && !a.hidden); }
   watchRooms(S.tab === "play" && !G && !!S.db);
   $("#home").hidden = S.tab !== "home"; $("#sheet").hidden = S.tab === "home";
   if (S.tab === "home"){ renderHome(); renderOverlay(); return; }
@@ -3697,8 +3735,9 @@ function renderAll(){
   for (const t of ["play", "make", "deck", "pack", "trade", "me", "rules"]) $("#tab-" + t).hidden = S.tab !== t;
   if (S.tab === "me") renderMe();
   if (S.tab === "play") renderPlay();
-  if (S.tab === "make"){ renderGallery(); if (typeof fitCanvas === "function") setTimeout(fitCanvas); }
+  if (S.tab === "make"){ syncMakeView(); renderGallery(); if (typeof fitCanvas === "function") setTimeout(fitCanvas); }
   if (S.tab === "deck") renderDeckTab();
+  if (S.tab === "rules") renderRulesKw();
   if (S.tab === "trade") renderTrade();
   if (S.tab === "pack") renderPack();
   renderTradeBadge();
@@ -3783,13 +3822,16 @@ function initFilters(key, onChange){
   const box = $("#" + key + "Filters");
   box.innerHTML = `<input type="search" id="${key}Q" placeholder="カード名・効果でさがす" aria-label="カード検索">
     <div class="seg" id="${key}Type">${[["all", "すべて"], ["monster", "モンスター"], ["magic", "魔法"], ["quick", "速攻魔法"], ["equip", "装備"], ["trap", "罠"], ...(key === "gal" ? [["potion", "ポーション"], ["relic", "レリック"], ["counter", "カウンター"]] : [])].map(([v, l]) => `<button data-v="${v}" aria-pressed="${v === "all"}">${l}</button>`).join("")}</div>
+    <select id="${key}Sort" aria-label="並べ替え">${Object.entries(SORTS).map(([k, v]) => `<option value="${k}">${v}</option>`).join("")}</select>
+    <span class="count" id="${key}Count"></span>
+    <details class="flt-more" id="${key}More"${ls.get("cb_fltMore_" + key, false) ? " open" : ""}><summary>くわしく絞り込む（効果・デッキ・タグ・作者${key === "gal" ? "" : "・カウンター"}）<span class="flt-on" id="${key}MoreOn"></span></summary><div class="flt-more-in">
     <select id="${key}Fx" aria-label="効果で絞り込み">${fxOptionsHTML("")}</select>
     <select id="${key}Dm" aria-label="使えるデッキで絞り込み"><option value="">デッキ：指定なし</option><option value="cost">コストデッキ専用</option><option value="normal">コストデッキ以外（ふつうのデッキで使える・コストなしで表示）</option><option value="both">どちらでも</option></select>
     <select id="${key}Tag" aria-label="タグで絞り込み">${tagOptionsHTML("")}</select>
     <select id="${key}Author" aria-label="作者で絞り込み">${authorOptionsHTML("")}</select>
     ${key === "gal" ? "" : `<select id="${key}Ctr" aria-label="カウンターで絞り込み">${ctrFilterHTML("")}</select>`}
-    <select id="${key}Sort" aria-label="並べ替え">${Object.entries(SORTS).map(([k, v]) => `<option value="${k}">${v}</option>`).join("")}</select>
-    <span class="count" id="${key}Count"></span>`;
+    </div></details>`;
+  { const d = $("#" + key + "More"); d.addEventListener("toggle", () => ls.set("cb_fltMore_" + key, d.open)); }
   const f = S.filt[key];
   $("#" + key + "Q").addEventListener("input", e => { f.q = e.target.value; onChange(); });
   { const fs = $("#" + key + "Fx"), fill = () => { fs.innerHTML = fxOptionsHTML(f.fx || ""); }; fs.addEventListener("focus", fill); fs.addEventListener("mousedown", fill); fs.addEventListener("change", e => { f.fx = e.target.value; onChange(); }); }
@@ -3822,7 +3864,13 @@ function matchCard(c, f){
   }
   return true;
 }
-function setCount(key, shown, total){ const el = $("#" + key + "Count"); if (el) el.textContent = shown === total ? `${total}枚` : `${shown} / ${total}枚`; }
+// Card タブ: いま「カードを描く」と「カード図鑑」のどちらを見ているか
+S.makeView = ls.get("cb_makeView", "draw") === "gal" ? "gal" : "draw";
+function syncMakeView(){ const v = S.makeView === "gal" ? "gal" : "draw", mk = document.querySelector("#tab-make > .maker"), gw = $("#galWrap"); if (mk) mk.hidden = v !== "draw"; if (gw) gw.hidden = v !== "gal"; document.querySelectorAll("#makeView [data-mv]").forEach(b => b.setAttribute("aria-pressed", b.dataset.mv === v)); }
+function setMakeView(v){ S.makeView = v === "gal" ? "gal" : "draw"; ls.set("cb_makeView", S.makeView); syncMakeView(); }
+// くわしく絞り込む: えらんでいる数を見出しに出す
+function fltMoreSync(key){ const f = S.filt[key] || {}, n = ["fx", "dm", "tag", "author", "ctr"].filter(k => f[k]).length, el = $("#" + key + "MoreOn"); if (el) el.textContent = n ? `（${n}つ指定中）` : ""; }
+function setCount(key, shown, total){ fltMoreSync(key); const el = $("#" + key + "Count"); if (el) el.textContent = shown === total ? `${total}枚` : `${shown} / ${total}枚`; }
 
 /* ================= maker ================= */
 const cv = $("#cv"), cx = cv.getContext("2d");
@@ -5105,6 +5153,10 @@ $("#gallery").addEventListener("click", e => {
   const by = e.target.closest("[data-by]"); if (!by) return;
   e.stopPropagation(); S.filt.gal.author = by.dataset.by; const sel = $("#galAuthor"); if (sel){ sel.innerHTML = authorOptionsHTML(S.filt.gal.author); sel.value = S.filt.gal.author; } renderGallery(); toast(`「${by.dataset.by}」さんのカードだけ表示しています`);
 }, true);
+{ const q = $("#rulesKwQ"); if (q) q.addEventListener("input", renderRulesKw); }
+$("#makeView").addEventListener("click", e => { const b = e.target.closest("[data-mv]"); if (!b) return; setMakeView(b.dataset.mv); renderAll(); window.scrollTo(0, 0); });
+// 図鑑の「編集」: カードを描く画面にもどってから読みこむ
+$("#gallery").addEventListener("click", e => { if (e.target.closest("[data-edit]")) setMakeView("draw"); }, true);
 $("#gallery").addEventListener("click", async e => {
   { const f = S.filt.gal, cc = e.target.closest("[data-ctrcards]");
     if (cc){ f.ctr = cc.dataset.ctrcards; f.type = "all"; document.querySelectorAll("#galType button").forEach(x => x.setAttribute("aria-pressed", x.dataset.v === "all")); renderGallery(); return; }
@@ -8173,7 +8225,8 @@ function after(){
 const CPU_SPD = { fast: [.5, "はやい"], normal: [1, "ふつう"], slow: [2, "ゆっくり"] };
 function cpuSpd(){ const v = ls.get("cb_cpuspd", "normal"); return CPU_SPD[v] ? v : "normal"; }
 function cpuDelay(){ return Math.round(900 * CPU_SPD[cpuSpd()][0]); }
-const manualOn = () => !!ls.get("cb_manual", false);
+const manualPanelOn = () => !!ls.get("cb_manualPanel", false);
+const manualOn = () => !!ls.get("cb_manual", false) && (manualPanelOn() || !!(typeof G !== "undefined" && G && G.test));
 function scheduleCpu(){
   if (!G || G.mode !== "cpu" || G.cpuT || G.st.winner || G.chooseQ.length || G.mugPick) return;
   const st = G.st, c = "b";
@@ -8451,7 +8504,8 @@ function renderBoard0(){
         if (ss){ const why = ssBlock(st, me, sel.i); acts += `<button class="mg" data-act="ssummon" ${why ? "disabled" : ""}>特殊召喚する${why ? `（${why}）` : ""}</button>`; }
       }
       if (!afford && t !== "monster") hint = `今は使えません${short}${c.frame === "spire" ? "" : "。セットはできます"}`;
-      else if (t !== "equip") hint = "光っている魔法・罠ゾーンをクリックしてもセットできます";
+      else if (t === "magic" || t === "trap") hint = "光っている魔法・罠ゾーンをクリックしてもセットできます";
+      else if (t === "monster" && afford) hint = "光っているモンスターゾーンをクリックしても召喚できます";
       if (t === "magic"){ const full = isPersist(c) && freeZone(pm.sz) < 0, why = useWhyShort(st, me, c); acts += `<button class="mg" data-act="activateHand" ${afford && !full && !why ? "" : "disabled"}>発動する${full ? "（魔法・罠ゾーンがいっぱい）" : why ? `（${why}）` : short}</button>`; if (+c.kick > 0 && pm.mana) acts += `<button class="mg" data-act="activateHandKick" ${afford && !full && !why && pm.mana.cur >= effCost(st, me, c) + +c.kick ? "" : "disabled"}>キッカー${+c.kick}も払って発動</button>`; }
       if (t === "equip" && afford){ const any = ["a", "b"].some(o => P(st, o).mz.some((m, j) => m && canEquipOn(st, pm.hand[sel.i], o, j))); hint = any ? `光っているモンスターをクリックして装備（相手のでもOK）。装備コスト ${eqCostOf(c)}` : "装備できるモンスターがいません（キャパが足りない）"; }
       if (t !== "monster" && t !== "equip" && c.frame !== "spire") acts += `<button class="${t === "trap" ? "tr" : ""}" data-act="set" ${freeZone(pm.sz) < 0 ? "disabled" : ""}>セットする</button>`;
@@ -8529,8 +8583,8 @@ function renderBoard0(){
         ${G.mode === "cpu" ? `<label class="row cpuspd" style="gap:8px">CPUの速さ<select data-cpuspd aria-label="CPUの速さ">${Object.entries(CPU_SPD).map(([k, v]) => `<option value="${k}"${cpuSpd() === k ? " selected" : ""}>${v[1]}</option>`).join("")}</select></label>` : ""}
       </div>
       ${G.test ? testBoxHTML(st, pm) : ""}
-      <div class="box">
-        <h3>手動で効果を処理</h3>
+      ${manualPanelOn() || G.test ? `<div class="box">
+        <h3>手動で効果を処理${G.test ? "" : `<button class="small ghost" data-act="manualOff" style="float:right;margin-top:-2px">かくす</button>`}</h3>
         <div class="adj">
           <span>自分のLP</span><div class="seg">${[-100, -50, 50, 100].map(d => `<button data-adj="me" data-d="${d}" ${st.winner ? "disabled" : ""}>${d > 0 ? "+" : "−"}${Math.abs(d)}</button>`).join("")}</div>
           <span>相手のLP</span><div class="seg">${[-100, -50, 50, 100].map(d => `<button data-adj="op" data-d="${d}" ${st.winner ? "disabled" : ""}>${d > 0 ? "+" : "−"}${Math.abs(d)}</button>`).join("")}</div>
@@ -8538,7 +8592,7 @@ function renderBoard0(){
         <div class="row" style="margin-top:10px"><button class="small" data-act="draw" ${st.winner ? "disabled" : ""}>1枚引く</button><button class="small" data-act="graveHand" ${st.winner ? "disabled" : ""}>墓地から手札へ</button></div>
         <label class="row" style="gap:6px;margin-top:8px;cursor:pointer;flex-wrap:nowrap;align-items:center"><input type="checkbox" style="flex:none;width:auto" data-manualtog ${manualOn() ? "checked" : ""}> 場のカードに手動ボタン（ATK±・墓地へ送る）を出す</label>
         <div class="row" style="margin-top:8px"><button class="small danger" data-act="surrender" ${st.winner ? "disabled" : ""}>${G.surArm ? "本当に投了" : "投了"}</button><button class="small ghost" data-act="leave">ぬける</button></div>
-      </div>
+      </div>` : `<div class="box"><div class="row"><button class="small danger" data-act="surrender" ${st.winner ? "disabled" : ""}>${G.surArm ? "本当に投了" : "投了"}</button><button class="small ghost" data-act="leave">ぬける</button><button class="small ghost" data-act="manualOn" title="LP±・1枚引く・墓地から手札へ・場のカードの手動ボタン">手動ボタンを出す</button></div></div>`}
       <div class="box"><h3>ログ</h3><ul class="log">${logHTML}</ul></div>
     </aside>
   </div>`;
@@ -9066,6 +9120,7 @@ $("#board").addEventListener("click", e => {
   if (k === "surrender"){ if (!G.surArm){ G.surArm = true; renderAll(); setTimeout(() => { if (G){ G.surArm = false; renderAll(); } }, 3000); return; } act(st => { st.winner = O(me); st.why = `${nm(st, me)} が投了`; log(st, me, "投了した"); }); return; }
   if (k === "draw"){ act(st => drawN(st, me, 1, "（手動）")); return; }
   if (k === "graveHand"){ G.graveHand = true; renderAll(); return; }
+  if (k === "manualOn" || k === "manualOff"){ ls.set("cb_manualPanel", k === "manualOn"); const o = document.getElementById("optManual"); if (o) o.checked = k === "manualOn"; renderAll(); return; }
   if (!canAct(st, me)) return;
   if (k === "endTurn"){ G.sel = null; G.atkFrom = null; G.eqPlace = null; act(st => { exReturn(st); return endTurn(st, me); }); return; }
   if (k === "cancelAtk"){ G.atkFrom = null; G.atkTo = null; renderAll(); return; }
@@ -9244,7 +9299,7 @@ function tutTick(){
 // はじめて来た人に「練習バトルをやる？」と聞く（1回だけ）
 function tutAskFirst(){
   if (ls.get("cb_tutSeen", false) || document.getElementById("tutAsk") || G) return;
-  const d = document.createElement("div"); d.id = "tutAsk"; d.className = "tut-ask";
+  const d = document.createElement("div"); d.id = "tutAsk"; d.className = "tut-ask"; d.hidden = S.tab !== "home";
   d.innerHTML = `<b>はじめての人へ</b><p>5分くらいの練習バトルで、遊び方を覚えよう！</p><div class="row"><button class="primary" data-tut="battle">練習バトルをやる</button><button class="ghost" data-tutno>あとで</button></div><p class="note">あとからでも「Guide」から始められます</p>`;
   document.body.appendChild(d);
 }
@@ -9255,6 +9310,34 @@ document.addEventListener("click", e => {
 addEventListener("resize", () => { if (TUT.on) tutTick(); });
 addEventListener("scroll", () => { if (TUT.on) tutTick(); }, { passive: true });
 setTimeout(tutAskFirst, 1800);
+{ const o = document.getElementById("optManual"); if (o){ o.checked = manualPanelOn(); o.addEventListener("change", () => { ls.set("cb_manualPanel", o.checked); }); } }
+// 盤面のカードを大きく見る: PCはカーソルを乗せて少し待つと横に、スマホは長押しで画面のまん中に出る
+(function(){
+  let tm = null, cur = null, longFired = false, sx = 0, sy = 0;
+  const box = () => { let z = document.getElementById("zoomCard"); if (!z){ z = document.createElement("div"); z.id = "zoomCard"; z.className = "zoom-card"; z.hidden = true; z.setAttribute("aria-hidden", "true"); document.body.appendChild(z); } return z; };
+  const hide = () => { clearTimeout(tm); tm = null; cur = null; const z = document.getElementById("zoomCard"); if (z && !z.hidden){ z.hidden = true; z.innerHTML = ""; } };
+  const place = (x, y) => { const z = document.getElementById("zoomCard"); if (!z || z.hidden || z.classList.contains("touch")) return; const w = z.offsetWidth, h = z.offsetHeight; let L = x + 20, T = y - h / 2; if (L + w > innerWidth - 8) L = x - w - 20; z.style.left = Math.max(8, L) + "px"; z.style.top = Math.max(8, Math.min(innerHeight - h - 8, T)) + "px"; };
+  const show = (el, x, y, touch) => {
+    if (typeof G === "undefined" || !G || !G.st) return;
+    const info = detailInfo(el.z, el.s, +el.i); if (!info || info.hidden || !info.id) return;
+    const z = box(); z.innerHTML = cardHTML(card(info.id), "zoom", "", { mod: info.mod, mana: info.mana }); z.classList.toggle("touch", !!touch); z.hidden = false;
+    if (touch){ z.style.left = ""; z.style.top = ""; } else place(x, y);
+  };
+  // 盤面はときどき描きなおされるので、要素ではなく「どこのカードか」（z・s・i）をおぼえておく
+  const target = e => { const el = e.target && e.target.closest && e.target.closest("#board .card[data-z][data-i]"); return el ? { z: el.dataset.z, s: el.dataset.s, i: el.dataset.i } : null; };
+  const same = (a, b) => !!a && !!b && a.z === b.z && a.s === b.s && a.i === b.i;
+  document.addEventListener("pointerover", e => { if (e.pointerType !== "mouse") return; const el = target(e); if (same(el, cur)) return; hide(); if (!el) return; cur = el; const x = e.clientX, y = e.clientY; tm = setTimeout(() => show(el, x, y, false), 350); });
+  document.addEventListener("pointermove", e => {
+    if (e.pointerType === "mouse"){ if (cur) place(e.clientX, e.clientY); return; }
+    if (cur && !longFired && Math.hypot(e.clientX - sx, e.clientY - sy) > 10) hide();
+  });
+  document.addEventListener("pointerdown", e => { if (e.pointerType === "mouse"){ hide(); return; } hide(); const el = target(e); if (!el) return; cur = el; longFired = false; sx = e.clientX; sy = e.clientY; tm = setTimeout(() => { longFired = true; show(el, 0, 0, true); }, 450); });
+  ["pointerup", "pointercancel"].forEach(t => document.addEventListener(t, e => { if (e.pointerType !== "mouse") hide(); }));
+  // 長押しで見たあとの「はなした」は、カードを選ぶクリックにしない
+  document.addEventListener("click", e => { if (longFired){ longFired = false; e.stopPropagation(); e.preventDefault(); } }, true);
+  document.addEventListener("contextmenu", e => { if (target(e)) e.preventDefault(); });
+  addEventListener("scroll", () => { if (cur) hide(); }, { passive: true });
+})();
 
 
 /* ================= boot ================= */

@@ -325,6 +325,9 @@ ruby rt{font-size:.5em;line-height:1;font-style:normal}
 .fxform{display:flex;flex-direction:column;gap:8px;background:#f4f6f9;border:2px dashed var(--line);border-radius:14px;padding:12px}
 .fxform select,.fxform input{padding:4px 8px}
 .fxform input[type=number]{width:6.5em}
+.mk-view{display:inline-flex;margin:0 0 14px}.mk-view button{padding:6px 18px;font-size:15px}
+.flt-more{flex-basis:100%;order:5}.flt-more>summary{cursor:pointer;font-weight:700;font-size:13px;color:var(--muted);list-style:none;display:inline-flex;align-items:center;gap:6px}.flt-more>summary::-webkit-details-marker{display:none}.flt-more>summary::before{content:"▸";transition:transform .15s}.flt-more[open]>summary::before{transform:rotate(90deg)}
+.flt-more .flt-on{color:var(--accent,#66e5e0)}.flt-more-in{display:flex;flex-wrap:wrap;gap:8px 10px;margin-top:8px}
 .filters{display:flex;flex-wrap:wrap;gap:10px 14px;align-items:center;margin-bottom:16px;background:var(--paper);border:2px solid var(--ink);border-radius:16px;padding:10px 14px}
 .filters input[type=search]{font:inherit;color:var(--ink);background:var(--paper);border:2px solid var(--ink);border-radius:999px;padding:5px 14px;width:min(260px,100%)}
 .filters .seg button{padding:3px 11px;font-size:13px}
@@ -356,6 +359,7 @@ ruby rt{font-size:.5em;line-height:1;font-style:normal}
 .mk-sec .abs-list label{padding:4px 0;border-bottom:1px dashed var(--line)}
 .mk-sec .abs-list label:last-child{border-bottom:none}
 .mk-save{padding-top:4px}
+@media (max-width:640px){.mk-save{display:grid!important;grid-template-columns:1.25fr 1fr 1fr;gap:6px!important}.mk-save>button{padding:6px 6px;font-size:12.5px;line-height:1.25;white-space:normal;min-height:40px}.mk-save>button[hidden]{display:none}}
 @media (max-width:640px){.mk-save{position:sticky;bottom:calc(84px + env(safe-area-inset-bottom,0px));z-index:3;padding:8px 10px;margin:0 -6px;border-radius:14px;background:rgba(14,16,36,.92);border:1px solid var(--line);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}}
 .g-item .g-btns{gap:6px;flex-wrap:nowrap;justify-content:center}
 .g-item .g-wide{max-width:124px;white-space:normal;line-height:1.3;font-size:11.5px}
@@ -403,7 +407,9 @@ ruby rt{font-size:.5em;line-height:1;font-style:normal}
 .turnline .me{color:#1b5e8a}.turnline .op{color:var(--hit)}
 .lastlog{font-size:14px;min-height:1.4em;text-wrap:balance}
 .actions{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
+#deckEditWrap label.row:has(>#deckMana),#deckEditWrap label.row:has(>#deckSpire){flex-wrap:nowrap;align-items:flex-start}
 .hand-acts{margin:4px 0 6px}
+@media (min-width:861px){.hand-acts{display:none}}
 .hand{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;padding-top:6px;min-height:140px}
 .hand .card{--w:clamp(76px,15vw,112px)}
 .side{display:flex;flex-direction:column;gap:14px}
@@ -425,6 +431,11 @@ ruby rt{font-size:.5em;line-height:1;font-style:normal}
 @media (prefers-reduced-motion:reduce){.pop.anim{animation:none}}
 @media (max-width:560px){.pop{top:auto;bottom:calc(16px + env(safe-area-inset-bottom,0px));right:16px}.pop .card.detail{--w:150px}}
 .detailcard{display:flex;justify-content:center}
+.zoom-card{position:fixed;z-index:9000;pointer-events:none;filter:drop-shadow(0 14px 30px rgba(0,0,0,.6))}
+.zoom-card .card{--w:250px}
+.zoom-card.touch{left:50%;top:50%;transform:translate(-50%,-50%)}
+.zoom-card.touch .card{--w:min(300px,76vw)}
+#board .card[data-z]{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
 .pop .detailcard.gl-join{gap:0}.pop .detailcard.gl-join .card.detail{--w:calc(244px / var(--gln,2))}
 .card.detail{--w:200px}
 .dl{display:grid;grid-template-columns:auto 1fr;gap:4px 10px;margin:0;font-size:13px}
@@ -632,6 +643,10 @@ body.dm-lock{overflow:hidden}
 @keyframes tutDot{50%{opacity:.25;transform:translateY(-3px)}}
 body.tut-on #detailPop{display:none!important}
 .tut-ask{position:fixed;right:16px;bottom:16px;z-index:8500;width:min(340px,calc(100vw - 32px));background:#fffbea;color:#1f2233;border:3px solid #ffd76a;border-radius:14px;padding:14px 16px;box-shadow:0 12px 34px rgba(0,0,0,.5);line-height:1.6}
+/* はじめての人への案内: ホームの右上（タイトルの横のあいているところ）に出す */
+.tut-ask{top:16px;bottom:auto}
+@media (min-width:761px){.tut-ask{position:absolute}}
+@media (max-width:760px){.tut-ask{left:12px;right:12px;top:auto;bottom:12px;width:auto;padding:10px 12px;font-size:14px;line-height:1.5}.tut-ask .note{display:none}.tut-ask p{margin:2px 0 6px}}
 .tut-ask p{margin:6px 0}.tut-ask .note{color:#666;font-size:12px}.tut-ask .ghost{color:#555;border-color:#bbb}
 .tut-home{position:relative;padding:10px 16px;border-radius:999px;background:#ffd76a;color:#1f2233;font-weight:800;border:none;box-shadow:0 4px 0 #b88f1d}
 .tut-box{margin-bottom:16px}
@@ -824,7 +839,7 @@ body{background:#232842 var(--bgimg,linear-gradient(90deg,#232842 0%,#2f3659 65.
 @media (max-width:760px){
   .home{grid-template-columns:1fr;grid-template-rows:auto auto auto auto}
   .logo{white-space:normal}
-  .showcase{grid-row:2}
+  .showcase{grid-row:2;padding-top:26px}
   .showcase .card{--w:170px}
   .home-menu{grid-row:3}
   .home-foot{grid-row:4;flex-wrap:wrap}
@@ -951,8 +966,8 @@ nav.tabs button{position:relative}
 .dk-edit-main{min-width:0}
 .dk-side{order:-1}
 @media (min-width:641px){
-  .dk-edit-grid{display:grid;grid-template-columns:minmax(0,1fr) 270px;gap:16px;align-items:start}
-  .dk-side{order:0;position:sticky;top:12px;max-height:calc(100vh - 24px);overflow:auto;margin-bottom:0}
+  .dk-edit-grid{display:grid;grid-template-columns:270px minmax(0,1fr);gap:16px;align-items:start}
+  .dk-side{order:-1;position:sticky;top:12px;max-height:calc(100vh - 24px);overflow:auto;margin-bottom:0}
   .dk-side .dkv-grid{grid-template-columns:1fr;gap:3px}
   .dk-side .dk-strip{height:32px}
   .dk-side .dkv-head{flex-direction:column;align-items:flex-start;gap:8px}
@@ -1080,6 +1095,16 @@ nav.tabs button{position:relative}
 .recent .rc{display:flex;flex-direction:column;align-items:center;gap:2px}
 .recent .rc .card{--w:46px}
 .recent .rc small{font-size:10px;color:var(--muted)}
+/* ---- 読みやすさ: 小さすぎた文字（UIのラベル）を少し大きく ---- */
+.bk-cap{font-size:12px}.noart{font-size:12px}.g-item .meta{font-size:12.5px}.recent .rc small{font-size:11px}
+@media (max-width:860px){.pop .eqlbl,.pop .note{font-size:12px}}
+.guide-btn:has(.jp){padding-left:clamp(36px,calc(var(--hu)*7),110px)}.guide-btn .jp{font-size:clamp(13px,calc(var(--hu)*1.4),20px)!important}
+.hbtn .jp,.guide-btn .jp{font-family:var(--ui);font-weight:700;font-size:clamp(14px,calc(var(--hu)*1.7),24px);margin-left:.7em;opacity:.9;align-self:center;text-shadow:2px 1px 0 rgba(70,80,110,.7)}
+.kw-box>summary{cursor:pointer;list-style:none}.kw-box>summary::-webkit-details-marker{display:none}.kw-box>summary h2::before{content:"▸ ";color:var(--muted)}.kw-box[open]>summary h2::before{content:"▾ "}
+.kw-box input[type=search]{margin:10px 0;width:min(360px,100%)}
+.kw-list{display:grid;grid-template-columns:max-content minmax(0,1fr);gap:6px 14px;margin:0;font-size:14px;line-height:1.6}
+.kw-list dt{font-weight:800;color:var(--accent,#66e5e0);white-space:nowrap}.kw-list dd{margin:0}
+@media (max-width:560px){.kw-list{grid-template-columns:1fr;gap:0}.kw-list dd{margin-bottom:8px}}
 .recent .rc.theirs small{color:#ff9f8a}
 .card.attacking{box-shadow:0 0 0 3px #ff7a59,0 0 18px rgba(255,122,89,.8)!important}
 .card.atk-tgt{box-shadow:0 0 0 3px #ffd166,0 0 18px rgba(255,209,102,.8)!important}

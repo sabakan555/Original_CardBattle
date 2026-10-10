@@ -44,7 +44,8 @@ function after(){
 const CPU_SPD = { fast: [.5, "はやい"], normal: [1, "ふつう"], slow: [2, "ゆっくり"] };
 function cpuSpd(){ const v = ls.get("cb_cpuspd", "normal"); return CPU_SPD[v] ? v : "normal"; }
 function cpuDelay(){ return Math.round(900 * CPU_SPD[cpuSpd()][0]); }
-const manualOn = () => !!ls.get("cb_manual", false);
+const manualPanelOn = () => !!ls.get("cb_manualPanel", false);
+const manualOn = () => !!ls.get("cb_manual", false) && (manualPanelOn() || !!(typeof G !== "undefined" && G && G.test));
 function scheduleCpu(){
   if (!G || G.mode !== "cpu" || G.cpuT || G.st.winner || G.chooseQ.length || G.mugPick) return;
   const st = G.st, c = "b";
@@ -322,7 +323,8 @@ function renderBoard0(){
         if (ss){ const why = ssBlock(st, me, sel.i); acts += `<button class="mg" data-act="ssummon" ${why ? "disabled" : ""}>特殊召喚する${why ? `（${why}）` : ""}</button>`; }
       }
       if (!afford && t !== "monster") hint = `今は使えません${short}${c.frame === "spire" ? "" : "。セットはできます"}`;
-      else if (t !== "equip") hint = "光っている魔法・罠ゾーンをクリックしてもセットできます";
+      else if (t === "magic" || t === "trap") hint = "光っている魔法・罠ゾーンをクリックしてもセットできます";
+      else if (t === "monster" && afford) hint = "光っているモンスターゾーンをクリックしても召喚できます";
       if (t === "magic"){ const full = isPersist(c) && freeZone(pm.sz) < 0, why = useWhyShort(st, me, c); acts += `<button class="mg" data-act="activateHand" ${afford && !full && !why ? "" : "disabled"}>発動する${full ? "（魔法・罠ゾーンがいっぱい）" : why ? `（${why}）` : short}</button>`; if (+c.kick > 0 && pm.mana) acts += `<button class="mg" data-act="activateHandKick" ${afford && !full && !why && pm.mana.cur >= effCost(st, me, c) + +c.kick ? "" : "disabled"}>キッカー${+c.kick}も払って発動</button>`; }
       if (t === "equip" && afford){ const any = ["a", "b"].some(o => P(st, o).mz.some((m, j) => m && canEquipOn(st, pm.hand[sel.i], o, j))); hint = any ? `光っているモンスターをクリックして装備（相手のでもOK）。装備コスト ${eqCostOf(c)}` : "装備できるモンスターがいません（キャパが足りない）"; }
       if (t !== "monster" && t !== "equip" && c.frame !== "spire") acts += `<button class="${t === "trap" ? "tr" : ""}" data-act="set" ${freeZone(pm.sz) < 0 ? "disabled" : ""}>セットする</button>`;
@@ -400,8 +402,8 @@ function renderBoard0(){
         ${G.mode === "cpu" ? `<label class="row cpuspd" style="gap:8px">CPUの速さ<select data-cpuspd aria-label="CPUの速さ">${Object.entries(CPU_SPD).map(([k, v]) => `<option value="${k}"${cpuSpd() === k ? " selected" : ""}>${v[1]}</option>`).join("")}</select></label>` : ""}
       </div>
       ${G.test ? testBoxHTML(st, pm) : ""}
-      <div class="box">
-        <h3>手動で効果を処理</h3>
+      ${manualPanelOn() || G.test ? `<div class="box">
+        <h3>手動で効果を処理${G.test ? "" : `<button class="small ghost" data-act="manualOff" style="float:right;margin-top:-2px">かくす</button>`}</h3>
         <div class="adj">
           <span>自分のLP</span><div class="seg">${[-100, -50, 50, 100].map(d => `<button data-adj="me" data-d="${d}" ${st.winner ? "disabled" : ""}>${d > 0 ? "+" : "−"}${Math.abs(d)}</button>`).join("")}</div>
           <span>相手のLP</span><div class="seg">${[-100, -50, 50, 100].map(d => `<button data-adj="op" data-d="${d}" ${st.winner ? "disabled" : ""}>${d > 0 ? "+" : "−"}${Math.abs(d)}</button>`).join("")}</div>
@@ -409,7 +411,7 @@ function renderBoard0(){
         <div class="row" style="margin-top:10px"><button class="small" data-act="draw" ${st.winner ? "disabled" : ""}>1枚引く</button><button class="small" data-act="graveHand" ${st.winner ? "disabled" : ""}>墓地から手札へ</button></div>
         <label class="row" style="gap:6px;margin-top:8px;cursor:pointer;flex-wrap:nowrap;align-items:center"><input type="checkbox" style="flex:none;width:auto" data-manualtog ${manualOn() ? "checked" : ""}> 場のカードに手動ボタン（ATK±・墓地へ送る）を出す</label>
         <div class="row" style="margin-top:8px"><button class="small danger" data-act="surrender" ${st.winner ? "disabled" : ""}>${G.surArm ? "本当に投了" : "投了"}</button><button class="small ghost" data-act="leave">ぬける</button></div>
-      </div>
+      </div>` : `<div class="box"><div class="row"><button class="small danger" data-act="surrender" ${st.winner ? "disabled" : ""}>${G.surArm ? "本当に投了" : "投了"}</button><button class="small ghost" data-act="leave">ぬける</button><button class="small ghost" data-act="manualOn" title="LP±・1枚引く・墓地から手札へ・場のカードの手動ボタン">手動ボタンを出す</button></div></div>`}
       <div class="box"><h3>ログ</h3><ul class="log">${logHTML}</ul></div>
     </aside>
   </div>`;
@@ -937,6 +939,7 @@ $("#board").addEventListener("click", e => {
   if (k === "surrender"){ if (!G.surArm){ G.surArm = true; renderAll(); setTimeout(() => { if (G){ G.surArm = false; renderAll(); } }, 3000); return; } act(st => { st.winner = O(me); st.why = `${nm(st, me)} が投了`; log(st, me, "投了した"); }); return; }
   if (k === "draw"){ act(st => drawN(st, me, 1, "（手動）")); return; }
   if (k === "graveHand"){ G.graveHand = true; renderAll(); return; }
+  if (k === "manualOn" || k === "manualOff"){ ls.set("cb_manualPanel", k === "manualOn"); const o = document.getElementById("optManual"); if (o) o.checked = k === "manualOn"; renderAll(); return; }
   if (!canAct(st, me)) return;
   if (k === "endTurn"){ G.sel = null; G.atkFrom = null; G.eqPlace = null; act(st => { exReturn(st); return endTurn(st, me); }); return; }
   if (k === "cancelAtk"){ G.atkFrom = null; G.atkTo = null; renderAll(); return; }
@@ -1115,7 +1118,7 @@ function tutTick(){
 // はじめて来た人に「練習バトルをやる？」と聞く（1回だけ）
 function tutAskFirst(){
   if (ls.get("cb_tutSeen", false) || document.getElementById("tutAsk") || G) return;
-  const d = document.createElement("div"); d.id = "tutAsk"; d.className = "tut-ask";
+  const d = document.createElement("div"); d.id = "tutAsk"; d.className = "tut-ask"; d.hidden = S.tab !== "home";
   d.innerHTML = `<b>はじめての人へ</b><p>5分くらいの練習バトルで、遊び方を覚えよう！</p><div class="row"><button class="primary" data-tut="battle">練習バトルをやる</button><button class="ghost" data-tutno>あとで</button></div><p class="note">あとからでも「Guide」から始められます</p>`;
   document.body.appendChild(d);
 }
@@ -1126,5 +1129,33 @@ document.addEventListener("click", e => {
 addEventListener("resize", () => { if (TUT.on) tutTick(); });
 addEventListener("scroll", () => { if (TUT.on) tutTick(); }, { passive: true });
 setTimeout(tutAskFirst, 1800);
+{ const o = document.getElementById("optManual"); if (o){ o.checked = manualPanelOn(); o.addEventListener("change", () => { ls.set("cb_manualPanel", o.checked); }); } }
+// 盤面のカードを大きく見る: PCはカーソルを乗せて少し待つと横に、スマホは長押しで画面のまん中に出る
+(function(){
+  let tm = null, cur = null, longFired = false, sx = 0, sy = 0;
+  const box = () => { let z = document.getElementById("zoomCard"); if (!z){ z = document.createElement("div"); z.id = "zoomCard"; z.className = "zoom-card"; z.hidden = true; z.setAttribute("aria-hidden", "true"); document.body.appendChild(z); } return z; };
+  const hide = () => { clearTimeout(tm); tm = null; cur = null; const z = document.getElementById("zoomCard"); if (z && !z.hidden){ z.hidden = true; z.innerHTML = ""; } };
+  const place = (x, y) => { const z = document.getElementById("zoomCard"); if (!z || z.hidden || z.classList.contains("touch")) return; const w = z.offsetWidth, h = z.offsetHeight; let L = x + 20, T = y - h / 2; if (L + w > innerWidth - 8) L = x - w - 20; z.style.left = Math.max(8, L) + "px"; z.style.top = Math.max(8, Math.min(innerHeight - h - 8, T)) + "px"; };
+  const show = (el, x, y, touch) => {
+    if (typeof G === "undefined" || !G || !G.st) return;
+    const info = detailInfo(el.z, el.s, +el.i); if (!info || info.hidden || !info.id) return;
+    const z = box(); z.innerHTML = cardHTML(card(info.id), "zoom", "", { mod: info.mod, mana: info.mana }); z.classList.toggle("touch", !!touch); z.hidden = false;
+    if (touch){ z.style.left = ""; z.style.top = ""; } else place(x, y);
+  };
+  // 盤面はときどき描きなおされるので、要素ではなく「どこのカードか」（z・s・i）をおぼえておく
+  const target = e => { const el = e.target && e.target.closest && e.target.closest("#board .card[data-z][data-i]"); return el ? { z: el.dataset.z, s: el.dataset.s, i: el.dataset.i } : null; };
+  const same = (a, b) => !!a && !!b && a.z === b.z && a.s === b.s && a.i === b.i;
+  document.addEventListener("pointerover", e => { if (e.pointerType !== "mouse") return; const el = target(e); if (same(el, cur)) return; hide(); if (!el) return; cur = el; const x = e.clientX, y = e.clientY; tm = setTimeout(() => show(el, x, y, false), 350); });
+  document.addEventListener("pointermove", e => {
+    if (e.pointerType === "mouse"){ if (cur) place(e.clientX, e.clientY); return; }
+    if (cur && !longFired && Math.hypot(e.clientX - sx, e.clientY - sy) > 10) hide();
+  });
+  document.addEventListener("pointerdown", e => { if (e.pointerType === "mouse"){ hide(); return; } hide(); const el = target(e); if (!el) return; cur = el; longFired = false; sx = e.clientX; sy = e.clientY; tm = setTimeout(() => { longFired = true; show(el, 0, 0, true); }, 450); });
+  ["pointerup", "pointercancel"].forEach(t => document.addEventListener(t, e => { if (e.pointerType !== "mouse") hide(); }));
+  // 長押しで見たあとの「はなした」は、カードを選ぶクリックにしない
+  document.addEventListener("click", e => { if (longFired){ longFired = false; e.stopPropagation(); e.preventDefault(); } }, true);
+  document.addEventListener("contextmenu", e => { if (target(e)) e.preventDefault(); });
+  addEventListener("scroll", () => { if (cur) hide(); }, { passive: true });
+})();
 
 
