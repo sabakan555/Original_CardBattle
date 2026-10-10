@@ -260,7 +260,7 @@ const KW_DESC = {
   "スペルブースト": "このカードが手札にある間、自分が魔法を使うたびに強くなる（コストが下がる・ATKが上がる）。同じカードが手札に何枚あっても、全部いっしょに強くなる",
   "シンパシー": "（ ）に書いてある場所の、そのカード1枚（1体）につき、このモンスターを召喚するコストが1（数が書いてあればその数）少なくなる。コストは1より少なくはならない。「 」はタグか、名前に入る文字",
   "続唱": "コストを払って手札から使ったとき（モンスターの召喚・魔法の発動）、山札の上から、このカードよりコストが小さいモンスターか魔法が出るまでめくる。それをタダで使ってもよい。めくった残りはランダムな順で山札の下に置く（コストを使うデッキでだけ働く）",
-  "ゴッドリンク": "（ ）の側のとなりのゾーンに、リンクできるゴッドがいると、リンクして1体のモンスターとして扱う。ATKは合計、能力は全員ぶん、攻撃は合わせて1回（1体でも召喚酔いでなければ攻撃できる）。破壊されるときは、ATKが一番低いゴッド1体だけが場を離れる",
+  "ゴッドリンク": "左Gは右どなり、右Gは左どなりのゾーンに、リンクできるゴッドがいると、リンクして1体のモンスターとして扱う。ATKは合計、能力は全員ぶん、攻撃は合わせて1回（1体でも召喚酔いでなければ攻撃できる）。破壊されるときは、ATKが一番低いゴッド1体だけが場を離れる",
   "2回攻撃": "1ターンに2回攻撃できる", "速攻": "出たターンから攻撃できる（召喚酔いしない）", "直接攻撃": "相手の場にモンスターがいても、相手に直接攻撃できる",
   "戦闘耐性": "戦闘では破壊されない", "効果耐性": "効果では破壊されない", "攻撃不可": "攻撃できない", "強者狙い": "相手の場で一番ATKが高いモンスターにしか攻撃できない",
   "挑発": "相手はこのモンスターにしか攻撃できず、効果の対象にもこのモンスターしか選べない", "鉄壁": "戦闘で受けるダメージが（ ）の数だけ減る",
@@ -358,7 +358,9 @@ const MAX_MANA = 10;
 const hasCost = c => !!c && c.cost != null && c.cost !== "" && !isNaN(+c.cost);
 // ゴッドリンク（デュエマ）: { l: 左どなりとリンク, r: 右どなりとリンク, w: リンクできる相手（名前かタグに入る文字・空ならどのゴッドとも） }
 const glOf = c => c && cardType(c) === "monster" && c.gl && (c.gl.l || c.gl.r) ? c.gl : null;
-const glKw = c => { const g = glOf(c); return g ? `《ゴッドリンク》（${[g.l ? "左G" : "", g.r ? "右G" : ""].filter(Boolean).join("・")}${g.w ? `・「${g.w}」` : ""}）` : ""; };
+const glKw = c => { const g = glOf(c); return g ? `《ゴッドリンク》（${[g.r ? "左G" : "", g.l ? "右G" : ""].filter(Boolean).join("・")}${g.w ? `・「${g.w}」` : ""}）` : ""; };
+// デュエマ枠の絵柄: 左G は絵が右はしまで、右G は左はしまで、左右G は両はしまで
+const glFrameCls = c => { const g = glOf(c); return !g ? "" : g.l && g.r ? "dmg-lr" : g.r ? "dmg-r" : "dmg-l"; };
 const cascadeOn = c => !!(c && c.cascade && (cardType(c) === "monster" || cardType(c) === "magic"));
 // カードのコストは 0〜99 と ∞（costInf：ふつうには払えない。踏み倒しなら使える）
 const MAX_COST = 99, MANA_LIMIT = 99;
@@ -551,6 +553,7 @@ const COND_DEFS = {
   sameHand: { label: "手札のこのカードの枚数", who: "手札にこのカードが", unit: "枚", val: (st, s, c, ctx) => P(st, s).hand.filter(id => id === c.id).length + (ctx && ctx.fromHand ? 1 : 0) },
   card:     { label: "特定のカードがある" },
   costDeck: { label: "自分がコストデッキを使っている" },
+  glOn:     { label: "このモンスターがGリンクしている（ゴッドリンク用）", gl: true },
   ask:      { label: "質問して「はい」と答えた" },
   used:     { label: "発動したカード（「魔法・罠が発動したとき」用）" },
   die:      { label: "サイコロの目（「まず」でサイコロを振ったとき）", who: "サイコロの目が", unit: "", roll: true, val: (st, s, c, ctx) => ctx && ctx.roll && ctx.roll.kind === "die" ? ctx.roll.v : 0 },
@@ -601,6 +604,7 @@ function condPhrase(x){
   if (x.k === "card"){ const cnt = +(x.cnt ?? 1), op = x.op === "le" ? "le" : "ge"; return `${x.match === "tag" ? `タグ「${x.name || "？"}」のカード` : x.match === "part" ? `名前に「${x.name || "？"}」が入ったカード` : `「${x.name || "？"}」`}が自分の${WHERE[x.where] || WHERE.field}に${cnt === 1 && op === "ge" ? "ある" : `${cnt}枚${OPS[op]}ある`}`; }
   if (x.k === "ask") return `${x.who === "op" ? "相手が" : ""}「${x.text || "？"}」に「はい」`;
   if (x.k === "costDeck") return "自分がコストデッキを使っている";
+  if (x.k === "glOn") return "このモンスターがGリンクしている";
   if (x.k === "stronger") return `${{ me: "自分の場に", any: "場に" }[x.side] || "相手の場に"}このモンスターよりATKが高いモンスターが${x.has === "no" ? "いない" : "いる"}`;
   if (x.k === "coinH") return "コインが表";
   if (x.k === "used") return `${{ me: "自分が", op: "相手が" }[x.who] || ""}発動したカードが${usedWhat(x)}`;
@@ -622,6 +626,7 @@ function strongerCount(st, s, c, ctx, side){
 function condMet(st, s, c, x, ctx){
   if (x.k === "kicked") return !!(ctx && ctx.kicked);
   if (x.k === "costDeck") return !!P(st, s).mana;
+  if (x.k === "glOn"){ const m = ctx && ctx.mon ? monAt(st, ctx.mon) : ctx && ctx.zone != null ? P(st, s).mz[ctx.zone] : null; if (!m) return false; for (const o of ["a", "b"]){ const i = P(st, o).mz.indexOf(m); if (i >= 0) return glGroup(st, o, i).length > 1; } return false; }
   if (x.k === "stronger"){ const n = strongerCount(st, s, c, ctx, x.side || "op"); return x.has === "no" ? n === 0 : n > 0; }
   if (x.k === "used"){
     const u = ctx && ctx.used; if (!u) return false;

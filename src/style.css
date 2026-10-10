@@ -1321,6 +1321,12 @@ div.f{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:13px}
 .card.dm .c-in{position:static;display:block;height:auto;background:none;border-radius:0;overflow:visible}
 .card.dm .c-art{position:absolute;left:calc(var(--du)*93);top:calc(var(--du)*120);width:calc(var(--du)*512);height:calc(var(--du)*433);aspect-ratio:auto;border:none;background:#c7cdeb;overflow:visible;z-index:auto}
 .card.dm.magic .c-art,.card.dm.equip .c-art,.card.dm.trap .c-art{left:calc(var(--du)*57);top:calc(var(--du)*109);width:calc(var(--du)*513);height:calc(var(--du)*445)}
+.card.dm.dmg-r .c-art{width:calc(var(--du)*537.44);z-index:3}
+.card.dm.dmg-l .c-art{left:0;width:calc(var(--du)*537.44);z-index:3}
+.card.dm.dmg-lr .c-art{left:calc(var(--du)*-.28);top:calc(var(--du)*118.91);width:calc(var(--du)*630.73);height:calc(var(--du)*434.09);z-index:3}
+.card.dm.dmg-l .c-tab{left:calc(var(--du)*49)}
+.card.dm.dmg-l{background:var(--dmf) calc(var(--du)*517) 0/100% 100% no-repeat}.card.dm.dmg-lr .c-tab{left:calc(var(--du)*49.28);top:calc(var(--du)*444.09)}
+.card.dm[class*="dmg-"] .c-cost,.card.dm[class*="dmg-"] .c-atk,.card.dm[class*="dmg-"] .c-tab,.card.dm[class*="dmg-"] .c-name{z-index:4}
 .card.dm .c-art>img,.card.dm .c-art>canvas{position:relative;z-index:1;width:100%;height:100%;object-fit:cover;display:block}
 .card.dm .c-art .noart{position:relative;z-index:1;display:grid;place-items:center;width:100%;height:100%;font-size:calc(var(--du)*28);color:#5a5f7a}
 .card.dm .m-gem,.card.dm .fl-guide,.card.dm .c-bgart{display:none!important}
