@@ -115,10 +115,17 @@ function staticAtk(m){
   } finally { staticAtk.busy = false; }
   return out;
 }
+// ATKを○にする: いまのATKがちょうど○になるように効果のアップ・ダウン（mod）を合わせる（あとから来たアップ・ダウンはその上に足される）
+function setAtk(m, n){
+  m.zero = false; m.fix = null;
+  for (let i = 0; i < 6; i++){ const a = atkOf(m); if (a === n) return; if (!isFinite(a)) break; m.mod = (m.mod || 0) + (n - a); }
+  if (atkOf(m) !== n) m.fix = n; // ∞のモンスターなど、足し引きで合わせられないときは数字を固定
+}
 function atkOf(m){
   if (!m) return 0;
   if (!atkOf.gl && typeof G !== "undefined" && G && G.st && G.st.players) for (const o of ["a", "b"]){ const i = P(G.st, o).mz.indexOf(m); if (i < 0) continue; const L = glGroup(G.st, o, i); if (L.length > 1){ atkOf.gl = true; try{ return L.reduce((t, j) => t + atkOf(P(G.st, o).mz[j]), 0); } finally{ atkOf.gl = false; } } break; }
   if (m.zero) return 0;
+  if (m.fix != null) return m.fix;
   const c = card(m.c), es = eqsOf(m), sa = staticAtk(m); let v = baseAtk(c) + (m.mod || 0) + (m.tmp || 0) + sa.add;
   es.forEach((e, k) => { v += (card(e.c).eqN || 0) * eqMult(es, k); });
   absOf(c).forEach(a => { if (a.k === "eqBonus" && a.name){ const w = normQ(a.name); if (es.some(e => normQ(card(e.c).name).includes(w))) v += a.n || 0; } });
@@ -516,6 +523,8 @@ function autoTarget(st, s, kind, opts, fx){
   // 合成: 自分の一番強いモンスターに付ける
   if (kind === "synthTo"){ const own = opts.filter(o => String(o).split(":")[0] === s); const L = own.length ? own : opts; return L.slice().sort((a, b) => { const [sa, ia] = String(a).split(":"), [sb, ib] = String(b).split(":"); return cmpNum(atkOf(P(st, sb).mz[+ib]), atkOf(P(st, sa).mz[+ia])); })[0]; }
   if (kind === "giveAb" || kind === "loseAb") return opts.slice().sort((a, b) => { const A = String(a).split(":"), B = String(b).split(":"); return cmpNum(atkOf(P(st, B[0]).mz[+B[1]]), atkOf(P(st, A[0]).mz[+A[1]])); })[0];
+  // ATKを○にする: 自分のモンスターなら一番上がるもの、相手のなら一番下がるもの
+  if (kind === "atkSet" && fx){ const T = P(st, fx.side === "me" ? s : O(s)), sg = fx.side === "me" ? 1 : -1, v = o => { const m = T.mz[+o]; const a = m ? atkOf(m) : 0; return sg * ((+fx.n || 0) - (isFinite(a) ? a : 1e9)); }; return opts.slice().sort((a, b) => v(b) - v(a))[0]; }
   if (fx && fx.side === "me"){ const own = P(st, s), v = o => o === "p" ? 1e9 : (m => m ? atkOf(m) : 0)(own.mz[typeof o === "string" ? +o.slice(2) : o]); return opts.slice().sort((a, b) => v(a) - v(b))[0]; }
   // CPU スパイア attack: finish the strongest monster it can destroy now, otherwise the one closest to dying
   if (opts.length && opts.every(o => typeof o === "string" && o.startsWith("m:"))){
@@ -1057,10 +1066,12 @@ function applyEffect(st, s, c, target, ctx = {}, fx = normFx(c)){
       if (keep == null){ me.deck.unshift(...top); break; }
       const rest = top.filter((_, i) => i !== k); me.deck.push(...rest); me.deck.unshift(keep);
       log(st, s, `${src}：山札の上を${top.length}枚見て、1枚を一番上に、${rest.length}枚を一番下に置いた`); break; }
+    case "atkSet": { const m = opT.mz[target]; if (m){ setAtk(m, n); log(st, s, `${src}で「${card(m.c).name}」のATKを${fmtN(n)}にした`); } break; }
+    case "atkSetAll": opT.mz.forEach(m => { if (m && mfOk(st, s, fx, m)) setAtk(m, n); }); log(st, s, `${src}で${OS === s ? "自分" : "相手"}のモンスターすべてのATKを${fmtN(n)}にした`); break;
     case "atkZero": { const m = opT.mz[target]; if (m){ m.zero = true; log(st, s, `${src}で「${card(m.c).name}」のATKを0にした`); } break; }
-    case "atkReset": { const [os, oi] = String(target).split(":"), m = P(st, os) && P(st, os).mz[+oi]; if (m){ m.mod = 0; m.tmp = 0; m.tmpBy = null; m.mul = 1; m.zero = false; log(st, s, `${src}で「${card(m.c).name}」のATKを元の数字に戻した`); } break; }
+    case "atkReset": { const [os, oi] = String(target).split(":"), m = P(st, os) && P(st, os).mz[+oi]; if (m){ m.mod = 0; m.tmp = 0; m.tmpBy = null; m.mul = 1; m.zero = false; m.fix = null; log(st, s, `${src}で「${card(m.c).name}」のATKを元の数字に戻した`); } break; }
     case "atkSwap": { const me2 = ctx.mon && monAt(st, ctx.mon), t2 = opT.mz[target]; if (!me2 || !t2) { log(st, s, `${src}：入れかえる相手がいない`); break; }
-      const a = atkOf(me2), b = atkOf(t2); if (!isFinite(a) || !isFinite(b)) break; me2.zero = t2.zero = false;
+      const a = atkOf(me2), b = atkOf(t2); if (!isFinite(a) || !isFinite(b)) break; me2.zero = t2.zero = false; me2.fix = t2.fix = null;
       me2.mod = (me2.mod || 0) + (b - atkOf(me2)); t2.mod = (t2.mod || 0) + (a - atkOf(t2)); log(st, s, `${src}：「${card(me2.c).name}」と「${card(t2.c).name}」のATKを入れかえた（${fmtN(a)} ⇔ ${fmtN(b)}）`); break; }
     case "destroyOthers": {
       const selfMon = ctx.mon ? monAt(st, ctx.mon) : null, host = ctx.eqU ? (findEq(st, ctx.eqU) || {}) : {}, hostM = host.s ? P(st, host.s).mz[host.i] : null;
