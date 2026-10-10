@@ -259,6 +259,8 @@ const KW_DESC = {
   "エボルヴ": "自分の3ターン目から、1ターンに1回・ゲーム中に2回まで、場のモンスターのボタンからエボルヴできる。エボルヴするとATKが（ ）上がり、そのターンは出たばかりでも相手のモンスターに攻撃できる。「エボルヴしたとき」の効果も出る",
   "スペルブースト": "このカードが手札にある間、自分が魔法を使うたびに強くなる（コストが下がる・ATKが上がる）。同じカードが手札に何枚あっても、全部いっしょに強くなる",
   "シンパシー": "（ ）に書いてある場所の、そのカード1枚（1体）につき、このモンスターを召喚するコストが1（数が書いてあればその数）少なくなる。コストは1より少なくはならない。「 」はタグか、名前に入る文字",
+  "続唱": "コストを払って手札から使ったとき（モンスターの召喚・魔法の発動）、山札の上から、このカードよりコストが小さいモンスターか魔法が出るまでめくる。それをタダで使ってもよい。めくった残りはランダムな順で山札の下に置く（コストを使うデッキでだけ働く）",
+  "ゴッドリンク": "（ ）の側のとなりのゾーンに、リンクできるゴッドがいると、リンクして1体のモンスターとして扱う。ATKは合計、能力は全員ぶん、攻撃は合わせて1回（1体でも召喚酔いでなければ攻撃できる）。破壊されるときは、ATKが一番低いゴッド1体だけが場を離れる",
   "2回攻撃": "1ターンに2回攻撃できる", "速攻": "出たターンから攻撃できる（召喚酔いしない）", "直接攻撃": "相手の場にモンスターがいても、相手に直接攻撃できる",
   "戦闘耐性": "戦闘では破壊されない", "効果耐性": "効果では破壊されない", "攻撃不可": "攻撃できない", "強者狙い": "相手の場で一番ATKが高いモンスターにしか攻撃できない",
   "挑発": "相手はこのモンスターにしか攻撃できず、効果の対象にもこのモンスターしか選べない", "鉄壁": "戦闘で受けるダメージが（ ）の数だけ減る",
@@ -354,6 +356,10 @@ const cardType = c => (c && (c.type === "magic" || c.type === "trap" || c.type =
 const MAX_MANA = 10;
 // cost is only what the card's creator set; no cost means 0
 const hasCost = c => !!c && c.cost != null && c.cost !== "" && !isNaN(+c.cost);
+// ゴッドリンク（デュエマ）: { l: 左どなりとリンク, r: 右どなりとリンク, w: リンクできる相手（名前かタグに入る文字・空ならどのゴッドとも） }
+const glOf = c => c && cardType(c) === "monster" && c.gl && (c.gl.l || c.gl.r) ? c.gl : null;
+const glKw = c => { const g = glOf(c); return g ? `《ゴッドリンク》（${[g.l ? "左G" : "", g.r ? "右G" : ""].filter(Boolean).join("・")}${g.w ? `・「${g.w}」` : ""}）` : ""; };
+const cascadeOn = c => !!(c && c.cascade && (cardType(c) === "monster" || cardType(c) === "magic"));
 // カードのコストは 0〜99 と ∞（costInf：ふつうには払えない。踏み倒しなら使える）
 const MAX_COST = 99, MANA_LIMIT = 99;
 function costOf(c){ return !hasCost(c) ? 0 : c.costInf ? Infinity : Math.max(0, Math.min(MAX_COST, +c.cost)); }
@@ -521,7 +527,7 @@ function whenText(c){ const w = whenOf(c); return w ? `【${WHEN_LABEL[w]}に発
 function fusionMatText(x){ return x.m === "any" ? "モンスター" : x.m === "tag" ? `タグ「${x.v || "？"}」のモンスター` : `「${x.v || "？"}」`; }
 function fusionText(c){ return c && cardType(c) === "monster" && Array.isArray(c.fusion) && c.fusion.length ? `【融合】${c.fusion.map(fusionMatText).join("＋")}` : ""; }
 const spOptText = c => !c || (cardType(c) !== "magic" && cardType(c) !== "trap") ? "" : [c.strig ? "《S・トリガー》" : "", c.flashback && cardType(c) === "magic" ? "《フラッシュバック》" : "", +c.kick > 0 ? `《キッカー》（${+c.kick}）` : ""].join("");
-function fxText(c, detail = false){ const t = fxTextB(c, detail), k = c ? (c.innate ? "《天賦》" : "") + (c.retain ? "《保留》" : "") + (c.ethereal ? "《エセリアル》" : "") + (c.sly ? "《スライ》" : "") : ""; return k ? k + (t ? (detail ? "。\n" : "。") + t : "") : t; }
+function fxText(c, detail = false){ const t = fxTextB(c, detail), k = c ? (cascadeOn(c) ? "《続唱》" : "") + glKw(c) + (c.innate ? "《天賦》" : "") + (c.retain ? "《保留》" : "") + (c.ethereal ? "《エセリアル》" : "") + (c.sly ? "《スライ》" : "") : ""; return k ? k + (t ? (detail ? "。\n" : "。") + t : "") : t; }
 function fxTextB(c, detail = false){ return (c && c.token && cardType(c) !== "monster" ? "【トークン】" : "") + (c && c.ex && cardType(c) !== "monster" ? "【EX】" : "") + (c && !c.noUse ? whenText(c) : "") + [fusionText(c) ? fusionText(c) + "（「融合召喚」の効果でだけ出せる）" : "", c && c.noUse && (cardType(c) === "magic" || cardType(c) === "trap") ? "このカードは発動できない" : "", isPersist(c) ? "【永続】使ったあとも場に残る" : "", spOptText(c), isField(c) ? `【フィールド】お互いに1枚だけ場に置ける（新しいフィールドが出ると、前のフィールドは墓地へ）。${fieldMine(c) ? "効果は出した人にだけ効く" : "効果はお互いに効く"}` : "", extraCostText(c), costMechText(c), dmEvoText(c), mugText(c), revoText(c), tribText(c), massText(c), anySumText(c), atkCondText(c), ssText(c), fxText0(c, detail)].filter(Boolean).join(detail ? "。\n" : "。"); }
 /* ================= effect blocks: いつ / もし / なにを / ちがったら =================
    c.blocks = [{ trig, conds: [{k, op, n | name, where, match | text}], join: "and"|"or", then: [{kind, n, to}], else: [...] }]

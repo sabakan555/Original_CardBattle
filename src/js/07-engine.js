@@ -117,6 +117,7 @@ function staticAtk(m){
 }
 function atkOf(m){
   if (!m) return 0;
+  if (!atkOf.gl && typeof G !== "undefined" && G && G.st && G.st.players) for (const o of ["a", "b"]){ const i = P(G.st, o).mz.indexOf(m); if (i < 0) continue; const L = glGroup(G.st, o, i); if (L.length > 1){ atkOf.gl = true; try{ return L.reduce((t, j) => t + atkOf(P(G.st, o).mz[j]), 0); } finally{ atkOf.gl = false; } } break; }
   if (m.zero) return 0;
   const c = card(m.c), es = eqsOf(m), sa = staticAtk(m); let v = baseAtk(c) + (m.mod || 0) + (m.tmp || 0) + sa.add;
   es.forEach((e, k) => { v += (card(e.c).eqN || 0) * eqMult(es, k); });
@@ -539,7 +540,8 @@ function autoTarget(st, s, kind, opts, fx){
 /* ---- equips stick to a monster: m.eqs = [{ c, o (owner), u }] from left to right ---- */
 // born: the turn it came out — 召喚酔い: it can attack from its owner's next turn (unless it has 速攻)
 function mkMon(st, id){ st.un = (st.un || 0) + 1; const m = { c: id, mod: 0, attacked: false, eqs: [], u: st.un, born: st.turnNo }; if (st.sbAtkPend && st.sbAtkPend.id === id){ m.mod += st.sbAtkPend.add; st.sbAtkPend = null; } return m; }
-const sick = (st, s, i) => { const m = P(st, s).mz[i]; return !!m && m.born === st.turnNo && !m.evoDM && !hasAb(st, s, i, "haste"); };
+const sick = (st, s, i) => glGroup(st, s, i).every(j => sick1(st, s, j));
+const sick1 = (st, s, i) => { const m = P(st, s).mz[i]; return !!m && m.born === st.turnNo && !m.evoDM && !hasAb(st, s, i, "haste"); };
 const monAt = (st, ref) => { const m = ref && P(st, ref.s).mz[ref.i]; return m && m.u === ref.u ? m : null; };
 function findEq(st, u){ for (const s of ["a", "b"]){ const mz = P(st, s).mz; for (let i = 0; i < mz.length; i++){ const k = eqsOf(mz[i]).findIndex(e => e.u === u); if (k >= 0) return { s, i, k, e: mz[i].eqs[k] }; } } return null; }
 // all equips on monster (s,i) go to their owners' graveyards
@@ -557,10 +559,30 @@ function monAbs(st, s, i){
   es.forEach((e, k) => absOf(card(e.c)).forEach(a => { if (a.k !== "double") out.push({ ...a, mult: eqMult(es, k), eqU: e.u }); }));
   (m.gab || []).forEach(g => { if (ABS[g.k] && (!g.until || st.turnNo <= g.until)) out.push({ ...g, mult: 1, gab: true }); });
   out.push(...staticAbs(st, s, m));
+  if (!monAbs.gl){ const GL = glGroup(st, s, i); if (GL.length > 1){ monAbs.gl = true; try{ GL.forEach(j => { if (j !== i) out.push(...monAbs(st, s, j).map(a => ({ ...a, glFrom: j }))); }); } finally{ monAbs.gl = false; } } }
   const lab = (m.lab || []).filter(x => !x.until || st.turnNo <= x.until);
   return lab.length ? out.filter(a => !lab.some(x => x.k === "all" || x.k === a.k)) : out;
 }
 function hasAb(st, s, i, ab){ return monAbs(st, s, i).some(a => a.k === ab); }
+// ゴッドリンク: A（左）の右G と B（右）の左G がそろい、おたがいが相手をリンクできる相手と認めるとリンクする
+function glAccept(x, y){ const w = normQ(String((glOf(x) || {}).w || "")).trim(); return !w || normQ(String(y.name || "")).includes(w) || tagsOf(y).some(t => normQ(String(t)).includes(w)); }
+function glPair(x, y){ const gx = glOf(x), gy = glOf(y); return !!(gx && gy && gx.r && gy.l && glAccept(x, y) && glAccept(y, x)); }
+function glLinked(st, s, a){ const p = P(st, s), A = p.mz[a], B = p.mz[a + 1]; return !!(A && B && !sealedM(A) && !sealedM(B) && glPair(monCard(A), monCard(B))); }
+// リンクしているひとかたまり（ゾーン番号のならび）。リンクしていなければ [i]
+function glGroup(st, s, i){
+  const p = st && st.players && P(st, s); if (!p || !p.mz[i] || !glOf(monCard(p.mz[i]))) return [i];
+  let lo = i, hi = i; while (lo > 0 && glLinked(st, s, lo - 1)) lo--; while (hi < p.mz.length - 1 && glLinked(st, s, hi)) hi++;
+  const L = []; for (let j = lo; j <= hi; j++) L.push(j); return L;
+}
+// ゴッドを出すゾーン: リンクできるとなりがあればそこ、なければ左から空いているところ
+function glZone(st, s, id){
+  const p = P(st, s), c = card(id), free = p.mz.map((m, z) => m ? -1 : z).filter(z => z >= 0); if (!free.length) return -1;
+  if (!glOf(c)) return free[0];
+  const nb = z => (z > 0 && p.mz[z - 1] && !sealedM(p.mz[z - 1]) && glPair(monCard(p.mz[z - 1]), c)) || (z < p.mz.length - 1 && p.mz[z + 1] && !sealedM(p.mz[z + 1]) && glPair(c, monCard(p.mz[z + 1])));
+  const z = free.find(nb); return z == null ? free[0] : z;
+}
+// 盤面の「G・リンク」帯
+function glBadge(st, s, i, h){ const L = glGroup(st, s, i); if (L.length < 2) return h; return h.replace(/<\/div>$/, `<span class="glx${L[0] < i ? " gl-l" : ""}${L[L.length - 1] > i ? " gl-r" : ""}" title="ゴッドリンク中（${L.length}体で1体のモンスター）">G・リンク</span></div>`); }
 const abN = (st, s, i, ab) => monAbs(st, s, i).filter(a => a.k === ab).reduce((t, a) => t + (a.n || 0) * a.mult, 0);
 const maxAttacks = (st, s, i) => hasAb(st, s, i, "twice") ? 2 : 1;
 function equipsOn(st, s, i){ return eqsOf(P(st, s).mz[i]).map(e => e.c); }
@@ -743,6 +765,7 @@ function ev(st, e){ if (e.type === "summon" && e.s && e.z != null){ const m = P(
 // returns true if the monster actually left the field. opt.battle: destroyed by battle; opt.force: manual (no protection)
 function destroyMonster(st, s, i, why, opt = {}){
   const p = P(st, s), m = p.mz[i]; if (!m) return false;
+  if (!opt.glOne){ const L = glGroup(st, s, i); if (L.length > 1){ const solo = j => { atkOf.gl = true; try{ return atkOf(p.mz[j]); } finally{ atkOf.gl = false; } }; const v = L.slice().sort((a, b) => cmpNum(solo(a), solo(b)))[0]; log(st, s, `ゴッドリンク：${L.map(j => `「${card(p.mz[j].c).name}」`).join("")}のうち「${card(p.mz[v].c).name}」だけが場を離れる`); return destroyMonster(st, s, v, why, { ...opt, glOne: true }); } }
   const name = card(m.c).name;
   // opt.rule: ダメージカウンターがATKに届いた → ルールによる破壊 (効果での破壊ではないので、耐性も身代わりも効かない)
   if (!opt.force && !opt.rule){
@@ -1192,10 +1215,51 @@ function comboCount(st, s, cb, ctx = {}){
 }
 // run a card's main effect and (if its condition holds) its extra effect, in order
 function runCard(st, s, c, trig, ctx = {}, then){
+  if (cascadeOn(c) && !ctx.cascaded && ((trig === "summon" && ctx.cast) || (trig === "use" && (ctx.fromHand || ctx.cast)))){ ctx.cascaded = true; return doCascade(st, s, c, st2 => runCard(st2, s, c, trig, ctx, then)); }
   ctx = { ...ctx, hit: {} };
   const bs = blockGroups(blocksOf(c).map((b, i) => ({ ...b, _bi: i }))).map(g => g.filter(b => (b.trig === trig && (trig !== "ctrReach" || ctrReachHit(b, ctx))) || ((trig === "summon" || trig === "ssummon") && b.trig === "enter" && cardType(c) === "monster"))).filter(g => g.length);
   const step = (st2, k) => { if (k >= bs.length){ then && then(st2); return; } runBlockGroup(st2, s, c, bs[k], ctx, st3 => step(st3, k + 1)); };
   step(st, 0);
+}
+// 続唱（MTG）: 山札の上から、このカードよりコストが小さいモンスターか魔法が出るまでめくり、それをタダで使ってよい。めくった残りはランダムな順で山札の下へ
+function cascadeOk(st, s, x, lim){
+  const t = cardType(x); if (!x || (t !== "monster" && t !== "magic") || !hasCost(x) || !(costOf(x) < lim)) return false;
+  if (t === "monster") return !isFusion(x) && !isEx(x) && !isDmEvo(x) && !tribOf(x, st, s) && !massOf(x) && !(ssOf(x) || {}).only;
+  return !x.noUse && !useBlockedWhy(st, s, x);
+}
+function doCascade(st, s, c, then){
+  const p = P(st, s), src = `「${c.name}」の続唱`;
+  if (!p.mana){ log(st, s, `${src}：コストを使うデッキでだけ働く`); then && then(st); return; }
+  const lim = costOf(c), shown = []; let hit = null;
+  while (p.deck.length){ const id = p.deck.shift(); if (cascadeOk(st, s, card(id), lim)){ hit = id; break; } shown.push(id); }
+  log(st, s, `${src}：山札の上から${shown.length + (hit ? 1 : 0)}枚めくった${hit ? `→「${card(hit).name}」（コスト${costLabel(card(hit))}）` : "（コストが小さいカードは出なかった）"}`);
+  const bottom = st2 => P(st2, s).deck.push(...shuffle(shown));
+  if (!hit){ bottom(st); then && then(st); return; }
+  const go = (st2, k) => {
+    if (k){ shown.push(hit); bottom(st2); log(st2, s, `${src}：「${card(hit).name}」は使わずに山札の下へ`); then && then(st2); return; }
+    bottom(st2); castFree(st2, s, hit, src, then);
+  };
+  if (isHumanHere(s)){ G.chooseQ.push({ ask: true, s, c, ctx: {}, then, fx: { kind: "__block", ask: `続唱：「${card(hit).name}」をタダで使う？` }, pick1: [{ name: "タダで使う", text: fxText(card(hit)) || card(hit).name }, { name: "使わない", text: "めくったカードと一緒に山札の下へ" }], p1go: go }); return; }
+  go(st, 0);
+}
+// 続唱で出たカードを、コストを払わずに使う（モンスターは召喚・魔法は発動。どちらも「使った」扱いなので、続唱があればまた続唱する）
+function castFree(st, s, id, src, then){
+  const p = P(st, s), c = card(id);
+  if (cardType(c) === "monster"){
+    const z = glZone(st, s, id);
+    if (z < 0){ p.grave.push(id); log(st, s, `${src}：場がいっぱいなので「${c.name}」は墓地へ`); then && then(st); return; }
+    p.mz[z] = mkMon(st, id); ev(st, { type: "summon", s, z }); log(st, s, `${src}で「${c.name}」をタダで召喚！`);
+    runCard(st, s, c, "summon", { zone: z, mon: { s, i: z, u: p.mz[z].u }, cast: true }, st2 => persistFire(st2, s, "mySummon", {}, then));
+    return;
+  }
+  const pz = isPersist(c) ? freeZone(p.sz) : -1;
+  if (isPersist(c) && pz < 0){ p.deck.push(id); log(st, s, `${src}：魔法・罠ゾーンがいっぱいなので「${c.name}」は山札の下へ`); then && then(st); return; }
+  log(st, s, `${src}で「${c.name}」をタダで発動！`); ev(st, { type: "spell", s, c: id }); countPlay(st, s, c);
+  if (isField(c)) placeField(st, s, id);
+  else if (pz >= 0){ st.un = (st.un || 0) + 1; p.sz[pz] = { c: id, turn: st.turnNo, face: true, u: st.un }; }
+  else if (exhausts(c)) exileCard(st, s, id, src);
+  else p.grave.push(id);
+  runCard(st, s, c, "use", { x: 0, cast: true }, st2 => onCardUsed(st2, s, c, then));
 }
 // one block: check もし (a 質問 is asked last, only when it can still change the result), then なにを or ちがったら
 // サイコロ／コイン: 結果は ctx.roll に入り、その効果ブロックの条件・「出た目1につき」・「出た目の回数」で使える
@@ -1400,7 +1464,7 @@ function summon(st, s, hi, zi, disc, trib, mats){
   const p = P(st, s), id = p.hand[hi], evo = isDmEvo(card(id)), need = evo ? 0 : tribOf(card(id), st, s), ms = evo ? 0 : massOf(card(id));
   if (evo){ const B = evoBases(st, s, card(id)); if (!B.length) return false; if (zi == null || !B.includes(+zi)) zi = B.sort((a, b) => cmpNum(atkOf(p.mz[a]), atkOf(p.mz[b])))[0]; zi = +zi; }
   if (ms){ if (p.grave.length < ms) return false; let L = [...new Set((mats || []).map(Number))].filter(j => p.grave[j] != null); if (L.length !== ms) L = p.grave.map((_, j) => j).slice(0, ms); mats = L; }
-  let z = evo ? zi : (zi != null && !p.mz[zi]) ? zi : freeZone(p.mz);
+  let z = evo ? zi : (zi != null && !p.mz[zi]) ? zi : glZone(st, s, id);
   if (need){ const tt = card(id).tribTag; trib = [...new Set((trib || []).map(Number))].filter(i => p.mz[i] && (!tt || hasTag(p.mz[i].c, tt))); if (trib.length !== need) return false; }
   if (!canSummonNow(st, s) || (z < 0 && !need) || cardType(card(id)) !== "monster" || !canPay(st, s, card(id)) || (ssOf(card(id)) || {}).only || isFusion(card(id))) return false;
   if (!pay(st, s, card(id))) return false;
@@ -1412,14 +1476,14 @@ function summon(st, s, hi, zi, disc, trib, mats){
   const label = `「${card(id).name}」（ATK ${fmtN(baseAtk(card(id)))}）を${evo ? `「${card(p.mz[z].c).name}」から進化` : "召喚"}${p.mana ? `（コスト${costLabel(card(id))}）` : ""}`;
   // the opponent gets a window only if they hold something that can counter it
   if (responseOptions(st, O(s), "summon").length){
-    st.chain = [{ s, c: id, summon: true, z, ctx: { zone: z }, mats: matIds, ...(evo ? { evo: true, bu: p.mz[z].u } : {}) }];
+    st.chain = [{ s, c: id, summon: true, cast: true, z, ctx: { zone: z }, mats: matIds, ...(evo ? { evo: true, bu: p.mz[z].u } : {}) }];
     log(st, s, `${label}しようとしている…`);
     st.pending = { type: "chain", by: s, wait: true, resume: null };
     return true;
   }
   if (evo) evoPut(st, s, z, id); else { p.mz[z] = mkMon(st, id); if (matIds.length) p.mz[z].mats = matIds; }
   log(st, s, label); ev(st, { type: "summon", s, z });
-  trigger(st, s, card(id), "summon", { zone: z, mon: { s, i: z, u: p.mz[z].u } });
+  trigger(st, s, card(id), "summon", { zone: z, mon: { s, i: z, u: p.mz[z].u }, cast: true });
   persistFire(st, s, "mySummon", {});
   summonedWindow(st, s, z, false);
   return true;
@@ -1590,12 +1654,12 @@ function resolveChain(st, resume){
       if (link.evo){ const b = p.mz[link.z];
         if (!b || b.u !== link.bu){ p.grave.push(link.c); log(st2, link.s, `進化元がいなくなって、「${c.name}」は出られなかった`); step(st2); return; }
         evoPut(st2, link.s, link.z, link.c); log(st2, link.s, `「${c.name}」が「${card(b.c).name}」から進化した！`); ev(st2, { type: "summon", s: link.s, z: link.z });
-        runCard(st2, link.s, c, "summon", { zone: link.z, mon: { s: link.s, i: link.z, u: p.mz[link.z].u } }, st3 => persistFire(st3, link.s, "mySummon", {}, step)); return; }
-      let z = p.mz[link.z] ? freeZone(p.mz) : link.z;
+        runCard(st2, link.s, c, "summon", { zone: link.z, mon: { s: link.s, i: link.z, u: p.mz[link.z].u }, cast: !!link.cast }, st3 => persistFire(st3, link.s, "mySummon", {}, step)); return; }
+      let z = p.mz[link.z] ? glZone(st2, link.s, link.c) : link.z;
       if (z < 0){ p.grave.push(link.c); log(st2, link.s, `場がいっぱいで「${c.name}」は出られなかった`); step(st2); return; }
       p.mz[z] = mkMon(st2, link.c); if ((link.mats || []).length) p.mz[z].mats = link.mats.slice();
       log(st2, link.s, `「${c.name}」の${link.special ? "特殊召喚" : "召喚"}に成功！`); ev(st2, { type: "summon", s: link.s, z });
-      runCard(st2, link.s, c, link.special ? "ssummon" : "summon", { zone: z, mon: { s: link.s, i: z, u: p.mz[z].u } }, st3 => persistFire(st3, link.s, "mySummon", {}, step));
+      runCard(st2, link.s, c, link.special ? "ssummon" : "summon", { zone: z, mon: { s: link.s, i: z, u: p.mz[z].u }, cast: !!link.cast && !link.special }, st3 => persistFire(st3, link.s, "mySummon", {}, step));
       return;
     }
     if (link.negated){
@@ -1747,6 +1811,7 @@ function declareAttack(st, s, from, to, noRevo){
   if (to === "direct" ? !T.direct : !T.L.includes(to)) return false;
   m.atkCount = (m.atkCount || 0) + 1; m.atkTotal = (m.atkTotal || 0) + 1;
   m.attacked = m.atkCount >= maxAttacks(st, s, from);
+  glGroup(st, s, from).forEach(j => { const x = P(st, s).mz[j]; if (x && x !== m){ x.atkCount = m.atkCount; x.attacked = m.attacked; } });
   if (!m.revealed && hasAb(st, s, from, "stealth")){ m.revealed = true; log(st, s, `「${card(m.c).name}」の隠密がとけた`); }
   ev(st, { type: "attack", s, from, to, c: m.c });
   const target = to === "direct" ? "直接攻撃" : `「${card(P(st, O(s)).mz[to].c).name}」に攻撃`;

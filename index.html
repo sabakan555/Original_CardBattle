@@ -213,6 +213,8 @@ label.f{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:13p
 .ctr-big{width:72px;height:72px;border-radius:50%;object-fit:cover;background:#fff;box-shadow:0 0 0 4px var(--cc,#666)}.ctr-big0{display:grid;place-items:center;font-size:34px;font-weight:700;color:var(--cc,#666)}
 .ctr-on{grid-column:1/-1;display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:6px 10px;border-radius:10px;background:rgba(255,255,255,.07)}
 .ctr-hint{margin:8px 0 0;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.glx{position:absolute;left:-3px;right:-3px;bottom:-7px;z-index:5;text-align:center;font-size:10px;line-height:15px;font-weight:900;letter-spacing:.04em;color:#3a2500;background:linear-gradient(90deg,#e9b93b,#fff2bf,#e9b93b);border:1px solid #9a6a00;border-radius:99px;pointer-events:none}
+.glx.gl-l{border-top-left-radius:0;border-bottom-left-radius:0;left:-10px}.glx.gl-r{border-top-right-radius:0;border-bottom-right-radius:0;right:-10px}
 .sealx{position:absolute;inset:0;z-index:6;display:grid;place-items:center;background:repeating-linear-gradient(135deg,rgba(20,20,30,.72) 0 10px,rgba(40,40,60,.72) 10px 20px);border-radius:inherit;color:#ffe9a8;font-weight:900;font-size:clamp(12px,calc(var(--w,150px)*.13),28px);letter-spacing:.1em;text-shadow:0 2px 4px #000;pointer-events:none}
 .card-shot{position:fixed;left:-10000px;top:0;display:inline-block;padding:30px;pointer-events:none;background:transparent}.card-shot>.card{--w:480px!important;margin:0}
 .cost-box{display:flex;flex-direction:column;gap:12px}.cost-grp{display:flex;flex-direction:column;gap:6px}.cost-gh{font-weight:700;font-size:13px;opacity:.85;border-bottom:1px solid var(--line);padding-bottom:3px}.cost-line{display:grid;grid-template-columns:7.2em minmax(0,1fr);gap:8px;align-items:start}.cost-line>.cost-k{margin-top:7px}.cost-in{display:flex;gap:6px;flex-wrap:wrap;align-items:center;min-width:0}.cost-in select{width:auto;max-width:12em}.cost-in .note{font-size:11px}.cost-sub{display:flex;gap:6px;flex-wrap:wrap;align-items:center;flex-basis:100%;padding-left:22px}.cost-sub[hidden]{display:none}.cost-on{gap:4px;cursor:pointer}.cost-k{font-weight:700;font-size:12px;padding:2px 6px;border-radius:99px;background:rgba(127,127,127,.18);text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}@media (max-width:520px){.cost-line{grid-template-columns:1fr}.cost-k{justify-self:start}}.ctr-grid{display:flex;flex-wrap:wrap;gap:6px 14px;margin:6px 0}.ctr-item{display:flex;align-items:center;gap:6px}
@@ -1626,6 +1628,7 @@ div.f{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:13px}
                 <label data-cat="card"><input type="checkbox" id="mkInnate"> 天賦（ゲーム開始時と自分のターンのはじめ、山札にあれば一番上に置く）</label>
                 <label data-cat="card"><input type="checkbox" id="mkRetain"> 保留（ターンの終わりに手札から捨てられない・スパイアデッキ）</label>
                 <label data-cat="card"><input type="checkbox" id="mkEthereal"> エセリアル（ターンの終わりに手札にあると廃棄される）</label>
+                <label data-cat="card"><input type="checkbox" id="mkCascade"> 続唱（コストを払って使ったとき、山札からコストが小さいカードを1枚タダで使える・モンスターと魔法・コストデッキ用）</label>
                 <label data-cat="card"><input type="checkbox" id="mkSly"> スライ（手札から捨てられたら、タダで使う・魔法と罠）</label>
               </div>
               <h3 style="margin:0" id="absHead" hidden>能力</h3>
@@ -1665,6 +1668,7 @@ div.f{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:13px}
               <label class="row" style="gap:6px;font-weight:700">生贄召喚：召喚するとき自分のモンスターを<select id="mkTrib"><option value="0">0（いらない）</option><option value="1">1</option><option value="2">2</option><option value="3">3</option></select>体 墓地へ送る</label>
               <label class="row" style="gap:6px;font-weight:700">要求質量：召喚するとき墓地のカードを<input type="number" id="mkMass" min="0" max="40" step="1" value="0" style="width:64px">枚 このモンスターの下に重ねる<span class="note" style="font-weight:400">（0ならなし。破壊されたら墓地にもどる）</span></label>
               <label class="row" style="gap:6px;cursor:pointer"><input type="checkbox" id="mkAnySum"> 自分のターンのはじめ、墓地に質量が足りていれば手札・山札・墓地のどこからでも召喚できる（ナナシ）</label>
+              <div class="row" id="glRow" style="gap:6px 10px;flex-wrap:wrap;align-items:center"><label class="row" style="gap:6px;font-weight:700;cursor:pointer"><input type="checkbox" id="mkGl"> ゴッドリンク（となりのゴッドとリンクして1体になる・デュエマ風）</label><select id="mkGlSide" aria-label="リンクする側"><option value="l">左G（左どなりとリンク）</option><option value="r">右G（右どなりとリンク）</option><option value="lr">左G・右G（両どなり）</option></select><input type="text" id="mkGlW" list="cardNames" maxlength="40" placeholder="リンクできる相手（名前かタグに入る文字・空ならどのゴッドとも）" aria-label="リンクできる相手" style="min-width:220px"></div>
               <label class="row" style="gap:6px">生贄にできるのはタグ<input type="text" id="mkTribTag" list="tagNames" maxlength="40" placeholder="（なんでも）" style="width:140px">のモンスターだけ</label>
               <label class="row" style="gap:6px;font-weight:700;cursor:pointer"><input type="checkbox" id="ssOn"> 手札から特殊召喚できる</label>
               <div id="ssOpts" hidden>
@@ -2178,6 +2182,8 @@ const KW_DESC = {
   "エボルヴ": "自分の3ターン目から、1ターンに1回・ゲーム中に2回まで、場のモンスターのボタンからエボルヴできる。エボルヴするとATKが（ ）上がり、そのターンは出たばかりでも相手のモンスターに攻撃できる。「エボルヴしたとき」の効果も出る",
   "スペルブースト": "このカードが手札にある間、自分が魔法を使うたびに強くなる（コストが下がる・ATKが上がる）。同じカードが手札に何枚あっても、全部いっしょに強くなる",
   "シンパシー": "（ ）に書いてある場所の、そのカード1枚（1体）につき、このモンスターを召喚するコストが1（数が書いてあればその数）少なくなる。コストは1より少なくはならない。「 」はタグか、名前に入る文字",
+  "続唱": "コストを払って手札から使ったとき（モンスターの召喚・魔法の発動）、山札の上から、このカードよりコストが小さいモンスターか魔法が出るまでめくる。それをタダで使ってもよい。めくった残りはランダムな順で山札の下に置く（コストを使うデッキでだけ働く）",
+  "ゴッドリンク": "（ ）の側のとなりのゾーンに、リンクできるゴッドがいると、リンクして1体のモンスターとして扱う。ATKは合計、能力は全員ぶん、攻撃は合わせて1回（1体でも召喚酔いでなければ攻撃できる）。破壊されるときは、ATKが一番低いゴッド1体だけが場を離れる",
   "2回攻撃": "1ターンに2回攻撃できる", "速攻": "出たターンから攻撃できる（召喚酔いしない）", "直接攻撃": "相手の場にモンスターがいても、相手に直接攻撃できる",
   "戦闘耐性": "戦闘では破壊されない", "効果耐性": "効果では破壊されない", "攻撃不可": "攻撃できない", "強者狙い": "相手の場で一番ATKが高いモンスターにしか攻撃できない",
   "挑発": "相手はこのモンスターにしか攻撃できず、効果の対象にもこのモンスターしか選べない", "鉄壁": "戦闘で受けるダメージが（ ）の数だけ減る",
@@ -2273,6 +2279,10 @@ const cardType = c => (c && (c.type === "magic" || c.type === "trap" || c.type =
 const MAX_MANA = 10;
 // cost is only what the card's creator set; no cost means 0
 const hasCost = c => !!c && c.cost != null && c.cost !== "" && !isNaN(+c.cost);
+// ゴッドリンク（デュエマ）: { l: 左どなりとリンク, r: 右どなりとリンク, w: リンクできる相手（名前かタグに入る文字・空ならどのゴッドとも） }
+const glOf = c => c && cardType(c) === "monster" && c.gl && (c.gl.l || c.gl.r) ? c.gl : null;
+const glKw = c => { const g = glOf(c); return g ? `《ゴッドリンク》（${[g.l ? "左G" : "", g.r ? "右G" : ""].filter(Boolean).join("・")}${g.w ? `・「${g.w}」` : ""}）` : ""; };
+const cascadeOn = c => !!(c && c.cascade && (cardType(c) === "monster" || cardType(c) === "magic"));
 // カードのコストは 0〜99 と ∞（costInf：ふつうには払えない。踏み倒しなら使える）
 const MAX_COST = 99, MANA_LIMIT = 99;
 function costOf(c){ return !hasCost(c) ? 0 : c.costInf ? Infinity : Math.max(0, Math.min(MAX_COST, +c.cost)); }
@@ -2440,7 +2450,7 @@ function whenText(c){ const w = whenOf(c); return w ? `【${WHEN_LABEL[w]}に発
 function fusionMatText(x){ return x.m === "any" ? "モンスター" : x.m === "tag" ? `タグ「${x.v || "？"}」のモンスター` : `「${x.v || "？"}」`; }
 function fusionText(c){ return c && cardType(c) === "monster" && Array.isArray(c.fusion) && c.fusion.length ? `【融合】${c.fusion.map(fusionMatText).join("＋")}` : ""; }
 const spOptText = c => !c || (cardType(c) !== "magic" && cardType(c) !== "trap") ? "" : [c.strig ? "《S・トリガー》" : "", c.flashback && cardType(c) === "magic" ? "《フラッシュバック》" : "", +c.kick > 0 ? `《キッカー》（${+c.kick}）` : ""].join("");
-function fxText(c, detail = false){ const t = fxTextB(c, detail), k = c ? (c.innate ? "《天賦》" : "") + (c.retain ? "《保留》" : "") + (c.ethereal ? "《エセリアル》" : "") + (c.sly ? "《スライ》" : "") : ""; return k ? k + (t ? (detail ? "。\n" : "。") + t : "") : t; }
+function fxText(c, detail = false){ const t = fxTextB(c, detail), k = c ? (cascadeOn(c) ? "《続唱》" : "") + glKw(c) + (c.innate ? "《天賦》" : "") + (c.retain ? "《保留》" : "") + (c.ethereal ? "《エセリアル》" : "") + (c.sly ? "《スライ》" : "") : ""; return k ? k + (t ? (detail ? "。\n" : "。") + t : "") : t; }
 function fxTextB(c, detail = false){ return (c && c.token && cardType(c) !== "monster" ? "【トークン】" : "") + (c && c.ex && cardType(c) !== "monster" ? "【EX】" : "") + (c && !c.noUse ? whenText(c) : "") + [fusionText(c) ? fusionText(c) + "（「融合召喚」の効果でだけ出せる）" : "", c && c.noUse && (cardType(c) === "magic" || cardType(c) === "trap") ? "このカードは発動できない" : "", isPersist(c) ? "【永続】使ったあとも場に残る" : "", spOptText(c), isField(c) ? `【フィールド】お互いに1枚だけ場に置ける（新しいフィールドが出ると、前のフィールドは墓地へ）。${fieldMine(c) ? "効果は出した人にだけ効く" : "効果はお互いに効く"}` : "", extraCostText(c), costMechText(c), dmEvoText(c), mugText(c), revoText(c), tribText(c), massText(c), anySumText(c), atkCondText(c), ssText(c), fxText0(c, detail)].filter(Boolean).join(detail ? "。\n" : "。"); }
 /* ================= effect blocks: いつ / もし / なにを / ちがったら =================
    c.blocks = [{ trig, conds: [{k, op, n | name, where, match | text}], join: "and"|"or", then: [{kind, n, to}], else: [...] }]
@@ -3998,6 +4008,7 @@ function absFilter(){
 $("#absQ").addEventListener("input", absFilter);
 $("#absCats").addEventListener("click", e => { const b = e.target.closest("[data-abscat]"); if (!b) return; MK.absCat = b.dataset.abscat; absFilter(); });
 ["#mkInnate", "#mkRetain", "#mkEthereal", "#mkSly"].forEach(q => $(q).addEventListener("change", () => { if (typeof updateSecs === "function") updateSecs(); }));
+["#mkCascade", "#mkGl", "#mkGlSide", "#mkGlW"].forEach(q => $(q).addEventListener("input", () => updateBkText()));
 function renderAbsForm(t){
   const cur = readAbs();
   $("#mkAbs").innerHTML = Object.entries(ABS).filter(([, v]) => !v.only || v.only === (t === "equip" ? "eq" : "mon")).map(([k, v]) =>
@@ -4450,7 +4461,7 @@ function syncProOn(){
   { const c = mkPreviewCard(), tx = extraCostText(c).replace(/^【コスト】/, ""), el = $("#sumCost"); if (el){ el.textContent = tx || "なし"; el.classList.toggle("on", !!tx); } }
   on("#payRow", (+$("#mkPayLp").value || 0) || (+$("#mkPayDisc").value || 0) || $("#mkPayDiscAll").checked || (+$("#mkPayMax").value || 0) || (+$("#mkPayCtrN").value || 0) || (+$("#mkSbCost").value || 0) || $("#mkGz").checked || $("#mkDelve").checked || ($("#mkRevG") && $("#mkRevG").checked) || $("#mkRevo").checked || ($("#mkDmEvo") && $("#mkDmEvo").checked) || ($("#mkMug") && $("#mkMug").checked));
   on("#secAtk", (MK.atkConds || []).length);
-  on("#secSs", (+$("#mkTrib").value || 0) || $("#ssOn").checked);
+  on("#secSs", (+$("#mkTrib").value || 0) || $("#ssOn").checked || $("#mkGl").checked);
   on("#tokenRow", $("#mkToken").checked);
   { const ec = $("#editCard"); if (ec) ec.classList.toggle("token", $("#mkToken").checked); }
 }
@@ -4484,7 +4495,9 @@ const defN = k => k === "pctDmg" ? 30 : k === "atkMul" ? 2 : smallN(k) ? 1 : 100
 function mkSpOpts(){ const sp = MK.type === "magic" || MK.type === "trap", k = Math.max(0, Math.min(99, Math.round(+$("#mkKick").value || 0))); return { ...(sp && MK.type === "magic" && $("#mkFlash").checked ? { flashback: true } : {}), ...(sp && $("#mkStrig").checked ? { strig: true } : {}), ...(sp && k ? { kick: k } : {}) }; }
 // 要求質量: モンスターは召喚のとき、フィールド魔法は発動のとき
 function mkMassVal(){ const v = id => Math.max(0, Math.min(40, Math.round(+$(id).value || 0))) || null; return MK.type === "monster" ? v("#mkMass") : MK.type === "magic" && $("#mkField").checked ? v("#mkFMass") : null; }
-function mkPreviewCard(){ return { fusion: mkFusionVal(), when: mkWhenVal(), field: MK.type === "magic" && $("#mkField").checked, ex: $("#mkEx").checked, noUse: (MK.type === "magic" || MK.type === "trap") && $("#mkNoUse").checked, fxRows: $("#mkFxRows").checked, ...mkSpOpts(), mass: mkMassVal(), fieldMine: MK.type === "magic" && $("#mkField").checked && $("#mkFieldMine").checked || null, anySum: MK.type === "monster" && $("#mkAnySum").checked || null, land: MK.type === "magic" && $("#mkField").checked && $("#mkLand").checked || null, tags: MK.kind === "card" || !MK.kind ? parseTags($("#mkTags").value) : [], showTags: (MK.kind === "card" || !MK.kind) && $("#mkShowTags").checked || null, tribTag: MK.type === "monster" ? $("#mkTribTag").value.trim() || null : null, ...(MK.type === "monster" ? mkVarFields() : {}), ...(MK.kind === "relic" ? { relicView: true } : {}), type: MK.type, frame: MK.kind === "potion" || MK.kind === "relic" ? "spire" : $("#mkFrame").value, persist: (MK.type === "magic" || MK.type === "trap") && $("#mkPersist").checked && !$("#mkField").checked, costX: $("#mkCost").value === "X", costInf: $("#mkCost").value === "∞", ...mkPays(), blocks: readBlocks(), ss: readSS(), eqN: Math.round(+$("#mkEq").value || 0), abs: readAbs() }; }
+function mkGlVal(){ if (MK.type !== "monster" || !$("#mkGl").checked) return null; const v = $("#mkGlSide").value; return { l: v !== "r", r: v !== "l", w: $("#mkGlW").value.trim().slice(0, 40) }; }
+const mkCascadeVal = () => (MK.type === "monster" || MK.type === "magic") && $("#mkCascade").checked || null;
+function mkPreviewCard(){ return { cascade: mkCascadeVal(), gl: mkGlVal(), fusion: mkFusionVal(), when: mkWhenVal(), field: MK.type === "magic" && $("#mkField").checked, ex: $("#mkEx").checked, noUse: (MK.type === "magic" || MK.type === "trap") && $("#mkNoUse").checked, fxRows: $("#mkFxRows").checked, ...mkSpOpts(), mass: mkMassVal(), fieldMine: MK.type === "magic" && $("#mkField").checked && $("#mkFieldMine").checked || null, anySum: MK.type === "monster" && $("#mkAnySum").checked || null, land: MK.type === "magic" && $("#mkField").checked && $("#mkLand").checked || null, tags: MK.kind === "card" || !MK.kind ? parseTags($("#mkTags").value) : [], showTags: (MK.kind === "card" || !MK.kind) && $("#mkShowTags").checked || null, tribTag: MK.type === "monster" ? $("#mkTribTag").value.trim() || null : null, ...(MK.type === "monster" ? mkVarFields() : {}), ...(MK.kind === "relic" ? { relicView: true } : {}), type: MK.type, frame: MK.kind === "potion" || MK.kind === "relic" ? "spire" : $("#mkFrame").value, persist: (MK.type === "magic" || MK.type === "trap") && $("#mkPersist").checked && !$("#mkField").checked, costX: $("#mkCost").value === "X", costInf: $("#mkCost").value === "∞", ...mkPays(), blocks: readBlocks(), ss: readSS(), eqN: Math.round(+$("#mkEq").value || 0), abs: readAbs() }; }
 function readBlocks(){
   const bs = (MK.blocks || []).map(b => ({ trig: b.trig, ...(b.cont ? { cont: true } : {}), ...(b.alt ? { alt: true } : {}), ...(b.bn ? { bn: b.bn } : {}), ...(b.necro > 0 ? { necro: b.necro } : {}), ...(b.trig === "act" && b.mcost > 0 ? { mcost: b.mcost } : {}), ...(b.trig === "ctrReach" ? { rc: b.rc || ctrDefault(), rn: b.rn || 1, rw: b.rw === "me" ? "me" : "self" } : {}), ...(b.trig === "act" && b.cost && b.cost.id && b.cost.n > 0 ? { cost: { id: b.cost.id, n: b.cost.n, w: b.cost.w } } : {}), ...(b.bic ? { bic: b.bic } : {}), ...(b.bd ? { bd: b.bd } : {}), ...(b.one ? { one: true } : {}), ...(b.lim > 0 && b.trig !== "act" && b.trig !== "while" ? { lim: b.lim } : {}), ...(b.trig === "act" ? { ap: b.ap === "game" || b.ap === "free" ? b.ap : "turn", an: Math.max(1, Math.min(9, Math.round(+b.an || 1))) } : {}), ...(b.delay > 0 ? { delay: b.delay } : {}), ...(b.grant && b.grant.to ? { grant: { to: b.grant.to, at: b.grant.at === "turnStart" ? "turnStart" : "turnEnd", dur: b.grant.dur || 0 } } : {}), ...(b.roll === "die" || b.roll === "coin" ? { roll: b.roll, ...(b.roll === "die" && b.faces && b.faces !== 6 ? { faces: b.faces } : {}), ...(b.roll === "coin" && b.coins > 1 ? { coins: b.coins } : {}) } : {}), join: b.join === "or" ? "or" : "and", conds: (b.conds || []).map(x => ({ ...x })), then: (b.then || []).map(cleanEff).filter(Boolean), else: (b.conds || []).length ? (b.else || []).map(cleanEff).filter(Boolean) : [], ...(b.roll === "die" && (b.dieBr || []).length ? { dieBr: b.dieBr.map(x => ({ lo: x.lo, hi: x.hi, then: (x.then || []).map(cleanEff).filter(Boolean) })).filter(x => x.then.length) } : {}) })).filter(b => b.then.length || (b.dieBr || []).length || b.else.length);
   return bs.length ? bs : null;
@@ -4734,7 +4747,7 @@ initBlocksUI();
 $("#mkFxMode").addEventListener("click", e => { const b = e.target.closest("button[data-m]"); if (b) setFxMode(b.dataset.m); });
 applyFxMode();
 function resetMaker(){
-  S.editId = null; mkSkinReset(null); $("#mkInnate").checked = false; $("#mkRetain").checked = false; $("#mkEthereal").checked = false; $("#mkSly").checked = false; setFrameless(false); setFlAlpha(FL_ALPHA_DEF); setTEdge(false); setShine("", ""); setColor(null, null); $("#mkFxRows").checked = MK.fxRows = false; $("#mkHideText").checked = false; $("#mkName").value = ""; $("#mkEff").value = ""; $("#mkFlv").value = ""; $("#mkNameSize").value = $("#mkTextSize").value = "m"; syncSizes(); $("#mkAtk").value = 300; $("#mkEq").value = 200; $("#mkEqAb").value = "none"; $("#mkEqCost").value = "0"; $("#mkEqCap").value = ""; $("#mkFrame").value = ""; syncFrame(); $("#mkFont").value = "klee"; syncFont(); $("#mkQuick").checked = false; $("#mkWhen").value = ""; $("#mkFusion").checked = false; MK.fusion = null; renderFusion(); $("#mkExhaust").checked = false; $("#mkNoUse").checked = false; $("#mkFlash").checked = $("#mkStrig").checked = false; $("#mkKick").value = 0; $("#mkMass").value = 0; $("#mkFMass").value = 0; $("#mkLand").checked = $("#mkAnySum").checked = $("#mkFieldMine").checked = false; $("#mkToken").checked = false; $("#mkEx").checked = false; $("#mkNeow").checked = false; $("#mkPayLp").value = "0"; $("#mkPayDisc").value = "0"; $("#mkPayDiscTag").value = ""; setPayCtr(null); setCostMech(null); $("#mkTags").value = ""; $("#mkShowTags").checked = false; syncTribe(); $("#mkTribTag").value = ""; $("#mkPayDiscAll").checked = false; $("#mkPayDisc").disabled = false; $("#mkPayMax").value = "0"; $("#mkPersist").checked = false; $("#mkField").checked = false; MK.sk = null; $("#mkRarity").value = "common"; $("#mkSpc").value = ""; $("#mkCost").value = "1"; setMkDeck("normal"); $("#mkLimit").value = "3"; clearCanvas(); undoStack = [];
+  S.editId = null; mkSkinReset(null); $("#mkInnate").checked = false; $("#mkRetain").checked = false; $("#mkEthereal").checked = false; $("#mkSly").checked = false; $("#mkCascade").checked = false; $("#mkGl").checked = false; $("#mkGlSide").value = "l"; $("#mkGlW").value = ""; setFrameless(false); setFlAlpha(FL_ALPHA_DEF); setTEdge(false); setShine("", ""); setColor(null, null); $("#mkFxRows").checked = MK.fxRows = false; $("#mkHideText").checked = false; $("#mkName").value = ""; $("#mkEff").value = ""; $("#mkFlv").value = ""; $("#mkNameSize").value = $("#mkTextSize").value = "m"; syncSizes(); $("#mkAtk").value = 300; $("#mkEq").value = 200; $("#mkEqAb").value = "none"; $("#mkEqCost").value = "0"; $("#mkEqCap").value = ""; $("#mkFrame").value = ""; syncFrame(); $("#mkFont").value = "klee"; syncFont(); $("#mkQuick").checked = false; $("#mkWhen").value = ""; $("#mkFusion").checked = false; MK.fusion = null; renderFusion(); $("#mkExhaust").checked = false; $("#mkNoUse").checked = false; $("#mkFlash").checked = $("#mkStrig").checked = false; $("#mkKick").value = 0; $("#mkMass").value = 0; $("#mkFMass").value = 0; $("#mkLand").checked = $("#mkAnySum").checked = $("#mkFieldMine").checked = false; $("#mkToken").checked = false; $("#mkEx").checked = false; $("#mkNeow").checked = false; $("#mkPayLp").value = "0"; $("#mkPayDisc").value = "0"; $("#mkPayDiscTag").value = ""; setPayCtr(null); setCostMech(null); $("#mkTags").value = ""; $("#mkShowTags").checked = false; syncTribe(); $("#mkTribTag").value = ""; $("#mkPayDiscAll").checked = false; $("#mkPayDisc").disabled = false; $("#mkPayMax").value = "0"; $("#mkPersist").checked = false; $("#mkField").checked = false; MK.sk = null; $("#mkRarity").value = "common"; $("#mkSpc").value = ""; $("#mkCost").value = "1"; setMkDeck("normal"); $("#mkLimit").value = "3"; clearCanvas(); undoStack = [];
   setMkType("monster"); loadFxForm(null); loadAbs([]); loadSS(null); mkLoadVars(null);
   $("#mkTitle").textContent = "カードを描く"; $("#btnNew").hidden = true; $("#btnSave").textContent = "カードを保存"; potionModeUI();
 }
@@ -4768,7 +4781,7 @@ function updateSecs(){
   const abs = readAbs();
   $("#secAbs").hidden = false; if (typeof syncCostUI === "function") syncCostUI();
   $("#secAbsTitle").textContent = "能力";
-  { const cn = [["#mkInnate", "天賦"], ["#mkRetain", "保留"], ["#mkEthereal", "エセリアル"], ["#mkSly", "スライ"]].filter(([q]) => $(q).checked).map(x => x[1]), al = [...cn, ...abs.map(a => ABS[a.k] ? (ABS[a.k].kw || ABS[a.k].label) : a.k)]; sum("#sumAbs", al.length ? al.join("・") : "なし", al.length); }
+  { const cn = [["#mkInnate", "天賦"], ["#mkRetain", "保留"], ["#mkEthereal", "エセリアル"], ["#mkSly", "スライ"], ["#mkCascade", "続唱"]].filter(([q]) => $(q).checked).map(x => x[1]), al = [...cn, ...abs.map(a => ABS[a.k] ? (ABS[a.k].kw || ABS[a.k].label) : a.k)]; sum("#sumAbs", al.length ? al.join("・") : "なし", al.length); }
   $("#secEq").hidden = $("#eqNote").hidden && $("#capRow").hidden;
   $("#secEqTitle").textContent = t === "equip" ? "装備コスト" : "装備キャパ";
   if (t === "equip") sum("#sumEq", `コスト ${Math.max(0, Math.round(+$("#mkEqCost").value || 0))}`, true);
@@ -4897,6 +4910,7 @@ function mkBuildDoc(){
     img: prev && prev.img && !MK.artDirty ? prev.img : encodeArt(out, MK.kind === "potion" || MK.kind === "relic"), frameless: MK.frameless, textEdge: MK.frameless && $("#mkTEdge").checked || null, holo: $("#mkHolo").value || null, fxRows: $("#mkFxRows").checked || null, hideText: $("#mkHideText").checked || null, ...mkColVals(), foil: $("#mkFoil").value || null, flAlpha: MK.frameless && MK.flAlpha != null && MK.flAlpha !== FL_ALPHA_DEF ? MK.flAlpha : null, author: S.name, ownerId: prev?.ownerId || S.uid || null, updatedAt: Date.now() };
   if (prev && prev.builtinPotion && !MK.artDirty && doc.img === potionArt(prev.potKey)) delete doc.img;
   if (prev && prev.builtinRelic){ if (!MK.artDirty && !prev.img) doc.img = ""; doc.neow = true; }
+  doc.cascade = mkCascadeVal(); doc.gl = mkGlVal();
   doc.innate = $("#mkInnate").checked || null; doc.retain = $("#mkRetain").checked || null; doc.ethereal = $("#mkEthereal").checked || null; doc.sly = (MK.type === "magic" || MK.type === "trap") && $("#mkSly").checked || null;
   if (MK.kind === "potion" || MK.kind === "relic") Object.assign(doc, { type: MK.kind, neow: MK.kind === "relic" && $("#mkNeow").checked || null, atk: 0, atkInf: false, eqN: 0, eqCost: null, eqCap: null, abs: [], frame: null, ss: null, quick: false, persist: false, sk: null, rarity: null, exhaust: false, payLp: null, payDisc: null, payMax: null, cost: null, costX: false, deckMode: "normal", limit: 0 });
   doc.ctrs = ctrSnap(doc);
@@ -5059,7 +5073,7 @@ $("#gallery").addEventListener("click", async e => {
   if (ed){
     const c = S.cards.get(ed.dataset.edit); if (!c || !(isMine(c) || (c.starter && isAdmin()))) return;
     setMkKind("card"); S.editId = c.id; mkSkinReset(c); setFrameless(!!c.frameless); setFlAlpha(c.flAlpha ?? FL_ALPHA_DEF); setTEdge(!!c.textEdge); setShine(c.holo, c.foil); setColor(c.colF, c.colB, c.colF2, c.colB2, c.colGd); $("#mkFxRows").checked = MK.fxRows = !!c.fxRows; $("#mkHideText").checked = !!c.hideText; MK.artDirty = false; $("#mkName").value = c.nameRuby || c.name; $("#mkEff").value = c.effect || ""; $("#mkFlv").value = c.flavor || ""; $("#mkNameSize").value = SIZES_T[c.nameSize] ? c.nameSize : "m"; $("#mkTextSize").value = SIZES_T[c.textSize] ? c.textSize : "m"; syncSizes(); $("#mkAtk").value = c.atkInf ? "∞" : (c.atk || 0); $("#mkLimit").value = String(cardLimit(c));
-    mkLoadVars(c); $("#mkFusion").checked = !!(Array.isArray(c.fusion) && c.fusion.length); MK.fusion = Array.isArray(c.fusion) && c.fusion.length ? JSON.parse(JSON.stringify(c.fusion)) : null; renderFusion(); $("#mkQuick").checked = !!c.quick; $("#mkInnate").checked = !!c.innate; $("#mkRetain").checked = !!c.retain; $("#mkEthereal").checked = !!c.ethereal; $("#mkSly").checked = !!c.sly; $("#mkWhen").value = WHEN_LABEL[c.when] ? c.when : ""; $("#mkExhaust").checked = !!c.exhaust; $("#mkNoUse").checked = !!c.noUse; $("#mkFlash").checked = !!c.flashback; $("#mkMass").value = Math.max(0, +c.mass || 0); $("#mkFMass").value = c.field ? Math.max(0, +c.mass || 0) : 0; $("#mkLand").checked = !!c.land; $("#mkFieldMine").checked = !!c.fieldMine; $("#mkAnySum").checked = !!c.anySum; $("#mkStrig").checked = !!c.strig; $("#mkKick").value = Math.max(0, +c.kick || 0); $("#mkToken").checked = !!c.token; $("#mkEx").checked = !!c.ex; $("#mkPayLp").value = String(payLpOf(c)); $("#mkPayDisc").value = String(payDiscOf(c)); $("#mkPayDiscTag").value = c.payDiscTag || ""; setPayCtr(c.payCtr); setCostMech(c); $("#mkTags").value = tagsOf(c).join(" "); $("#mkShowTags").checked = !!c.showTags; syncTribe(); $("#mkTribTag").value = c.tribTag || ""; $("#mkPayDiscAll").checked = payDiscAll(c); $("#mkPayDisc").disabled = payDiscAll(c); $("#mkPayMax").value = String(payMaxOf(c)); $("#mkPersist").checked = !!c.persist; $("#mkField").checked = !!c.field; MK.sk = c.sk || null; $("#mkRarity").value = rarityOf(c); $("#mkSpc").value = c.spc === "silent" ? "silent" : ""; setMkType(cardType(c)); loadFxForm(c); $("#mkFont").value = FONTS[c.font] ? c.font : "klee"; syncFont(); $("#mkCost").value = c.costX ? "X" : c.costInf && hasCost(c) ? "∞" : hasCost(c) ? String(costOf(c)) : "1"; if (!$("#mkCost").value && hasCost(c)) $("#mkCost").insertAdjacentHTML("beforeend", `<option value="${costOf(c)}">${costOf(c)}</option>`), $("#mkCost").value = String(costOf(c)); setMkDeck(deckModeOf(c)); $("#mkEq").value = c.eqN || 0; $("#mkEqAb").value = "none"; $("#mkEqCost").value = String(eqCostOf(c)); $("#mkEqCap").value = hasEqCap(c) ? String(+c.eqCap) : ""; loadAbs(absOf(c)); syncEqLine(); $("#mkFrame").value = [...$("#mkFrame").options].some(o => o.value && o.value === c.frame) ? c.frame : ""; syncFrame(); loadSS(c);
+    mkLoadVars(c); $("#mkFusion").checked = !!(Array.isArray(c.fusion) && c.fusion.length); MK.fusion = Array.isArray(c.fusion) && c.fusion.length ? JSON.parse(JSON.stringify(c.fusion)) : null; renderFusion(); $("#mkQuick").checked = !!c.quick; $("#mkInnate").checked = !!c.innate; $("#mkRetain").checked = !!c.retain; $("#mkEthereal").checked = !!c.ethereal; $("#mkSly").checked = !!c.sly; $("#mkCascade").checked = !!c.cascade; { const g = glOf(c); $("#mkGl").checked = !!g; $("#mkGlSide").value = g ? (g.l && g.r ? "lr" : g.r ? "r" : "l") : "l"; $("#mkGlW").value = g && g.w || ""; } $("#mkWhen").value = WHEN_LABEL[c.when] ? c.when : ""; $("#mkExhaust").checked = !!c.exhaust; $("#mkNoUse").checked = !!c.noUse; $("#mkFlash").checked = !!c.flashback; $("#mkMass").value = Math.max(0, +c.mass || 0); $("#mkFMass").value = c.field ? Math.max(0, +c.mass || 0) : 0; $("#mkLand").checked = !!c.land; $("#mkFieldMine").checked = !!c.fieldMine; $("#mkAnySum").checked = !!c.anySum; $("#mkStrig").checked = !!c.strig; $("#mkKick").value = Math.max(0, +c.kick || 0); $("#mkToken").checked = !!c.token; $("#mkEx").checked = !!c.ex; $("#mkPayLp").value = String(payLpOf(c)); $("#mkPayDisc").value = String(payDiscOf(c)); $("#mkPayDiscTag").value = c.payDiscTag || ""; setPayCtr(c.payCtr); setCostMech(c); $("#mkTags").value = tagsOf(c).join(" "); $("#mkShowTags").checked = !!c.showTags; syncTribe(); $("#mkTribTag").value = c.tribTag || ""; $("#mkPayDiscAll").checked = payDiscAll(c); $("#mkPayDisc").disabled = payDiscAll(c); $("#mkPayMax").value = String(payMaxOf(c)); $("#mkPersist").checked = !!c.persist; $("#mkField").checked = !!c.field; MK.sk = c.sk || null; $("#mkRarity").value = rarityOf(c); $("#mkSpc").value = c.spc === "silent" ? "silent" : ""; setMkType(cardType(c)); loadFxForm(c); $("#mkFont").value = FONTS[c.font] ? c.font : "klee"; syncFont(); $("#mkCost").value = c.costX ? "X" : c.costInf && hasCost(c) ? "∞" : hasCost(c) ? String(costOf(c)) : "1"; if (!$("#mkCost").value && hasCost(c)) $("#mkCost").insertAdjacentHTML("beforeend", `<option value="${costOf(c)}">${costOf(c)}</option>`), $("#mkCost").value = String(costOf(c)); setMkDeck(deckModeOf(c)); $("#mkEq").value = c.eqN || 0; $("#mkEqAb").value = "none"; $("#mkEqCost").value = String(eqCostOf(c)); $("#mkEqCap").value = hasEqCap(c) ? String(+c.eqCap) : ""; loadAbs(absOf(c)); syncEqLine(); $("#mkFrame").value = [...$("#mkFrame").options].some(o => o.value && o.value === c.frame) ? c.frame : ""; syncFrame(); loadSS(c);
     if (!c.img){ clearCanvas(); undoStack = []; MK.artDirty = false; }
     else { const im = new Image(); im.onload = () => { clearCanvas(); setPhoto(im); setMode("draw"); composite(); undoStack = []; MK.artDirty = false; }; im.src = c.img; }
     $("#mkTitle").textContent = "カードを編集中"; $("#btnNew").hidden = false; $("#btnSave").textContent = "変更を保存";
@@ -6172,6 +6186,7 @@ function staticAtk(m){
 }
 function atkOf(m){
   if (!m) return 0;
+  if (!atkOf.gl && typeof G !== "undefined" && G && G.st && G.st.players) for (const o of ["a", "b"]){ const i = P(G.st, o).mz.indexOf(m); if (i < 0) continue; const L = glGroup(G.st, o, i); if (L.length > 1){ atkOf.gl = true; try{ return L.reduce((t, j) => t + atkOf(P(G.st, o).mz[j]), 0); } finally{ atkOf.gl = false; } } break; }
   if (m.zero) return 0;
   const c = card(m.c), es = eqsOf(m), sa = staticAtk(m); let v = baseAtk(c) + (m.mod || 0) + (m.tmp || 0) + sa.add;
   es.forEach((e, k) => { v += (card(e.c).eqN || 0) * eqMult(es, k); });
@@ -6594,7 +6609,8 @@ function autoTarget(st, s, kind, opts, fx){
 /* ---- equips stick to a monster: m.eqs = [{ c, o (owner), u }] from left to right ---- */
 // born: the turn it came out — 召喚酔い: it can attack from its owner's next turn (unless it has 速攻)
 function mkMon(st, id){ st.un = (st.un || 0) + 1; const m = { c: id, mod: 0, attacked: false, eqs: [], u: st.un, born: st.turnNo }; if (st.sbAtkPend && st.sbAtkPend.id === id){ m.mod += st.sbAtkPend.add; st.sbAtkPend = null; } return m; }
-const sick = (st, s, i) => { const m = P(st, s).mz[i]; return !!m && m.born === st.turnNo && !m.evoDM && !hasAb(st, s, i, "haste"); };
+const sick = (st, s, i) => glGroup(st, s, i).every(j => sick1(st, s, j));
+const sick1 = (st, s, i) => { const m = P(st, s).mz[i]; return !!m && m.born === st.turnNo && !m.evoDM && !hasAb(st, s, i, "haste"); };
 const monAt = (st, ref) => { const m = ref && P(st, ref.s).mz[ref.i]; return m && m.u === ref.u ? m : null; };
 function findEq(st, u){ for (const s of ["a", "b"]){ const mz = P(st, s).mz; for (let i = 0; i < mz.length; i++){ const k = eqsOf(mz[i]).findIndex(e => e.u === u); if (k >= 0) return { s, i, k, e: mz[i].eqs[k] }; } } return null; }
 // all equips on monster (s,i) go to their owners' graveyards
@@ -6612,10 +6628,30 @@ function monAbs(st, s, i){
   es.forEach((e, k) => absOf(card(e.c)).forEach(a => { if (a.k !== "double") out.push({ ...a, mult: eqMult(es, k), eqU: e.u }); }));
   (m.gab || []).forEach(g => { if (ABS[g.k] && (!g.until || st.turnNo <= g.until)) out.push({ ...g, mult: 1, gab: true }); });
   out.push(...staticAbs(st, s, m));
+  if (!monAbs.gl){ const GL = glGroup(st, s, i); if (GL.length > 1){ monAbs.gl = true; try{ GL.forEach(j => { if (j !== i) out.push(...monAbs(st, s, j).map(a => ({ ...a, glFrom: j }))); }); } finally{ monAbs.gl = false; } } }
   const lab = (m.lab || []).filter(x => !x.until || st.turnNo <= x.until);
   return lab.length ? out.filter(a => !lab.some(x => x.k === "all" || x.k === a.k)) : out;
 }
 function hasAb(st, s, i, ab){ return monAbs(st, s, i).some(a => a.k === ab); }
+// ゴッドリンク: A（左）の右G と B（右）の左G がそろい、おたがいが相手をリンクできる相手と認めるとリンクする
+function glAccept(x, y){ const w = normQ(String((glOf(x) || {}).w || "")).trim(); return !w || normQ(String(y.name || "")).includes(w) || tagsOf(y).some(t => normQ(String(t)).includes(w)); }
+function glPair(x, y){ const gx = glOf(x), gy = glOf(y); return !!(gx && gy && gx.r && gy.l && glAccept(x, y) && glAccept(y, x)); }
+function glLinked(st, s, a){ const p = P(st, s), A = p.mz[a], B = p.mz[a + 1]; return !!(A && B && !sealedM(A) && !sealedM(B) && glPair(monCard(A), monCard(B))); }
+// リンクしているひとかたまり（ゾーン番号のならび）。リンクしていなければ [i]
+function glGroup(st, s, i){
+  const p = st && st.players && P(st, s); if (!p || !p.mz[i] || !glOf(monCard(p.mz[i]))) return [i];
+  let lo = i, hi = i; while (lo > 0 && glLinked(st, s, lo - 1)) lo--; while (hi < p.mz.length - 1 && glLinked(st, s, hi)) hi++;
+  const L = []; for (let j = lo; j <= hi; j++) L.push(j); return L;
+}
+// ゴッドを出すゾーン: リンクできるとなりがあればそこ、なければ左から空いているところ
+function glZone(st, s, id){
+  const p = P(st, s), c = card(id), free = p.mz.map((m, z) => m ? -1 : z).filter(z => z >= 0); if (!free.length) return -1;
+  if (!glOf(c)) return free[0];
+  const nb = z => (z > 0 && p.mz[z - 1] && !sealedM(p.mz[z - 1]) && glPair(monCard(p.mz[z - 1]), c)) || (z < p.mz.length - 1 && p.mz[z + 1] && !sealedM(p.mz[z + 1]) && glPair(c, monCard(p.mz[z + 1])));
+  const z = free.find(nb); return z == null ? free[0] : z;
+}
+// 盤面の「G・リンク」帯
+function glBadge(st, s, i, h){ const L = glGroup(st, s, i); if (L.length < 2) return h; return h.replace(/<\/div>$/, `<span class="glx${L[0] < i ? " gl-l" : ""}${L[L.length - 1] > i ? " gl-r" : ""}" title="ゴッドリンク中（${L.length}体で1体のモンスター）">G・リンク</span></div>`); }
 const abN = (st, s, i, ab) => monAbs(st, s, i).filter(a => a.k === ab).reduce((t, a) => t + (a.n || 0) * a.mult, 0);
 const maxAttacks = (st, s, i) => hasAb(st, s, i, "twice") ? 2 : 1;
 function equipsOn(st, s, i){ return eqsOf(P(st, s).mz[i]).map(e => e.c); }
@@ -6798,6 +6834,7 @@ function ev(st, e){ if (e.type === "summon" && e.s && e.z != null){ const m = P(
 // returns true if the monster actually left the field. opt.battle: destroyed by battle; opt.force: manual (no protection)
 function destroyMonster(st, s, i, why, opt = {}){
   const p = P(st, s), m = p.mz[i]; if (!m) return false;
+  if (!opt.glOne){ const L = glGroup(st, s, i); if (L.length > 1){ const solo = j => { atkOf.gl = true; try{ return atkOf(p.mz[j]); } finally{ atkOf.gl = false; } }; const v = L.slice().sort((a, b) => cmpNum(solo(a), solo(b)))[0]; log(st, s, `ゴッドリンク：${L.map(j => `「${card(p.mz[j].c).name}」`).join("")}のうち「${card(p.mz[v].c).name}」だけが場を離れる`); return destroyMonster(st, s, v, why, { ...opt, glOne: true }); } }
   const name = card(m.c).name;
   // opt.rule: ダメージカウンターがATKに届いた → ルールによる破壊 (効果での破壊ではないので、耐性も身代わりも効かない)
   if (!opt.force && !opt.rule){
@@ -7247,10 +7284,51 @@ function comboCount(st, s, cb, ctx = {}){
 }
 // run a card's main effect and (if its condition holds) its extra effect, in order
 function runCard(st, s, c, trig, ctx = {}, then){
+  if (cascadeOn(c) && !ctx.cascaded && ((trig === "summon" && ctx.cast) || (trig === "use" && (ctx.fromHand || ctx.cast)))){ ctx.cascaded = true; return doCascade(st, s, c, st2 => runCard(st2, s, c, trig, ctx, then)); }
   ctx = { ...ctx, hit: {} };
   const bs = blockGroups(blocksOf(c).map((b, i) => ({ ...b, _bi: i }))).map(g => g.filter(b => (b.trig === trig && (trig !== "ctrReach" || ctrReachHit(b, ctx))) || ((trig === "summon" || trig === "ssummon") && b.trig === "enter" && cardType(c) === "monster"))).filter(g => g.length);
   const step = (st2, k) => { if (k >= bs.length){ then && then(st2); return; } runBlockGroup(st2, s, c, bs[k], ctx, st3 => step(st3, k + 1)); };
   step(st, 0);
+}
+// 続唱（MTG）: 山札の上から、このカードよりコストが小さいモンスターか魔法が出るまでめくり、それをタダで使ってよい。めくった残りはランダムな順で山札の下へ
+function cascadeOk(st, s, x, lim){
+  const t = cardType(x); if (!x || (t !== "monster" && t !== "magic") || !hasCost(x) || !(costOf(x) < lim)) return false;
+  if (t === "monster") return !isFusion(x) && !isEx(x) && !isDmEvo(x) && !tribOf(x, st, s) && !massOf(x) && !(ssOf(x) || {}).only;
+  return !x.noUse && !useBlockedWhy(st, s, x);
+}
+function doCascade(st, s, c, then){
+  const p = P(st, s), src = `「${c.name}」の続唱`;
+  if (!p.mana){ log(st, s, `${src}：コストを使うデッキでだけ働く`); then && then(st); return; }
+  const lim = costOf(c), shown = []; let hit = null;
+  while (p.deck.length){ const id = p.deck.shift(); if (cascadeOk(st, s, card(id), lim)){ hit = id; break; } shown.push(id); }
+  log(st, s, `${src}：山札の上から${shown.length + (hit ? 1 : 0)}枚めくった${hit ? `→「${card(hit).name}」（コスト${costLabel(card(hit))}）` : "（コストが小さいカードは出なかった）"}`);
+  const bottom = st2 => P(st2, s).deck.push(...shuffle(shown));
+  if (!hit){ bottom(st); then && then(st); return; }
+  const go = (st2, k) => {
+    if (k){ shown.push(hit); bottom(st2); log(st2, s, `${src}：「${card(hit).name}」は使わずに山札の下へ`); then && then(st2); return; }
+    bottom(st2); castFree(st2, s, hit, src, then);
+  };
+  if (isHumanHere(s)){ G.chooseQ.push({ ask: true, s, c, ctx: {}, then, fx: { kind: "__block", ask: `続唱：「${card(hit).name}」をタダで使う？` }, pick1: [{ name: "タダで使う", text: fxText(card(hit)) || card(hit).name }, { name: "使わない", text: "めくったカードと一緒に山札の下へ" }], p1go: go }); return; }
+  go(st, 0);
+}
+// 続唱で出たカードを、コストを払わずに使う（モンスターは召喚・魔法は発動。どちらも「使った」扱いなので、続唱があればまた続唱する）
+function castFree(st, s, id, src, then){
+  const p = P(st, s), c = card(id);
+  if (cardType(c) === "monster"){
+    const z = glZone(st, s, id);
+    if (z < 0){ p.grave.push(id); log(st, s, `${src}：場がいっぱいなので「${c.name}」は墓地へ`); then && then(st); return; }
+    p.mz[z] = mkMon(st, id); ev(st, { type: "summon", s, z }); log(st, s, `${src}で「${c.name}」をタダで召喚！`);
+    runCard(st, s, c, "summon", { zone: z, mon: { s, i: z, u: p.mz[z].u }, cast: true }, st2 => persistFire(st2, s, "mySummon", {}, then));
+    return;
+  }
+  const pz = isPersist(c) ? freeZone(p.sz) : -1;
+  if (isPersist(c) && pz < 0){ p.deck.push(id); log(st, s, `${src}：魔法・罠ゾーンがいっぱいなので「${c.name}」は山札の下へ`); then && then(st); return; }
+  log(st, s, `${src}で「${c.name}」をタダで発動！`); ev(st, { type: "spell", s, c: id }); countPlay(st, s, c);
+  if (isField(c)) placeField(st, s, id);
+  else if (pz >= 0){ st.un = (st.un || 0) + 1; p.sz[pz] = { c: id, turn: st.turnNo, face: true, u: st.un }; }
+  else if (exhausts(c)) exileCard(st, s, id, src);
+  else p.grave.push(id);
+  runCard(st, s, c, "use", { x: 0, cast: true }, st2 => onCardUsed(st2, s, c, then));
 }
 // one block: check もし (a 質問 is asked last, only when it can still change the result), then なにを or ちがったら
 // サイコロ／コイン: 結果は ctx.roll に入り、その効果ブロックの条件・「出た目1につき」・「出た目の回数」で使える
@@ -7455,7 +7533,7 @@ function summon(st, s, hi, zi, disc, trib, mats){
   const p = P(st, s), id = p.hand[hi], evo = isDmEvo(card(id)), need = evo ? 0 : tribOf(card(id), st, s), ms = evo ? 0 : massOf(card(id));
   if (evo){ const B = evoBases(st, s, card(id)); if (!B.length) return false; if (zi == null || !B.includes(+zi)) zi = B.sort((a, b) => cmpNum(atkOf(p.mz[a]), atkOf(p.mz[b])))[0]; zi = +zi; }
   if (ms){ if (p.grave.length < ms) return false; let L = [...new Set((mats || []).map(Number))].filter(j => p.grave[j] != null); if (L.length !== ms) L = p.grave.map((_, j) => j).slice(0, ms); mats = L; }
-  let z = evo ? zi : (zi != null && !p.mz[zi]) ? zi : freeZone(p.mz);
+  let z = evo ? zi : (zi != null && !p.mz[zi]) ? zi : glZone(st, s, id);
   if (need){ const tt = card(id).tribTag; trib = [...new Set((trib || []).map(Number))].filter(i => p.mz[i] && (!tt || hasTag(p.mz[i].c, tt))); if (trib.length !== need) return false; }
   if (!canSummonNow(st, s) || (z < 0 && !need) || cardType(card(id)) !== "monster" || !canPay(st, s, card(id)) || (ssOf(card(id)) || {}).only || isFusion(card(id))) return false;
   if (!pay(st, s, card(id))) return false;
@@ -7467,14 +7545,14 @@ function summon(st, s, hi, zi, disc, trib, mats){
   const label = `「${card(id).name}」（ATK ${fmtN(baseAtk(card(id)))}）を${evo ? `「${card(p.mz[z].c).name}」から進化` : "召喚"}${p.mana ? `（コスト${costLabel(card(id))}）` : ""}`;
   // the opponent gets a window only if they hold something that can counter it
   if (responseOptions(st, O(s), "summon").length){
-    st.chain = [{ s, c: id, summon: true, z, ctx: { zone: z }, mats: matIds, ...(evo ? { evo: true, bu: p.mz[z].u } : {}) }];
+    st.chain = [{ s, c: id, summon: true, cast: true, z, ctx: { zone: z }, mats: matIds, ...(evo ? { evo: true, bu: p.mz[z].u } : {}) }];
     log(st, s, `${label}しようとしている…`);
     st.pending = { type: "chain", by: s, wait: true, resume: null };
     return true;
   }
   if (evo) evoPut(st, s, z, id); else { p.mz[z] = mkMon(st, id); if (matIds.length) p.mz[z].mats = matIds; }
   log(st, s, label); ev(st, { type: "summon", s, z });
-  trigger(st, s, card(id), "summon", { zone: z, mon: { s, i: z, u: p.mz[z].u } });
+  trigger(st, s, card(id), "summon", { zone: z, mon: { s, i: z, u: p.mz[z].u }, cast: true });
   persistFire(st, s, "mySummon", {});
   summonedWindow(st, s, z, false);
   return true;
@@ -7645,12 +7723,12 @@ function resolveChain(st, resume){
       if (link.evo){ const b = p.mz[link.z];
         if (!b || b.u !== link.bu){ p.grave.push(link.c); log(st2, link.s, `進化元がいなくなって、「${c.name}」は出られなかった`); step(st2); return; }
         evoPut(st2, link.s, link.z, link.c); log(st2, link.s, `「${c.name}」が「${card(b.c).name}」から進化した！`); ev(st2, { type: "summon", s: link.s, z: link.z });
-        runCard(st2, link.s, c, "summon", { zone: link.z, mon: { s: link.s, i: link.z, u: p.mz[link.z].u } }, st3 => persistFire(st3, link.s, "mySummon", {}, step)); return; }
-      let z = p.mz[link.z] ? freeZone(p.mz) : link.z;
+        runCard(st2, link.s, c, "summon", { zone: link.z, mon: { s: link.s, i: link.z, u: p.mz[link.z].u }, cast: !!link.cast }, st3 => persistFire(st3, link.s, "mySummon", {}, step)); return; }
+      let z = p.mz[link.z] ? glZone(st2, link.s, link.c) : link.z;
       if (z < 0){ p.grave.push(link.c); log(st2, link.s, `場がいっぱいで「${c.name}」は出られなかった`); step(st2); return; }
       p.mz[z] = mkMon(st2, link.c); if ((link.mats || []).length) p.mz[z].mats = link.mats.slice();
       log(st2, link.s, `「${c.name}」の${link.special ? "特殊召喚" : "召喚"}に成功！`); ev(st2, { type: "summon", s: link.s, z });
-      runCard(st2, link.s, c, link.special ? "ssummon" : "summon", { zone: z, mon: { s: link.s, i: z, u: p.mz[z].u } }, st3 => persistFire(st3, link.s, "mySummon", {}, step));
+      runCard(st2, link.s, c, link.special ? "ssummon" : "summon", { zone: z, mon: { s: link.s, i: z, u: p.mz[z].u }, cast: !!link.cast && !link.special }, st3 => persistFire(st3, link.s, "mySummon", {}, step));
       return;
     }
     if (link.negated){
@@ -7802,6 +7880,7 @@ function declareAttack(st, s, from, to, noRevo){
   if (to === "direct" ? !T.direct : !T.L.includes(to)) return false;
   m.atkCount = (m.atkCount || 0) + 1; m.atkTotal = (m.atkTotal || 0) + 1;
   m.attacked = m.atkCount >= maxAttacks(st, s, from);
+  glGroup(st, s, from).forEach(j => { const x = P(st, s).mz[j]; if (x && x !== m){ x.atkCount = m.atkCount; x.attacked = m.attacked; } });
   if (!m.revealed && hasAb(st, s, from, "stealth")){ m.revealed = true; log(st, s, `「${card(m.c).name}」の隠密がとけた`); }
   ev(st, { type: "attack", s, from, to, c: m.c });
   const target = to === "direct" ? "直接攻撃" : `「${card(P(st, O(s)).mz[to].c).name}」に攻撃`;
@@ -8231,7 +8310,7 @@ function renderBoard(){
     const evH = mine && !G.spectate && hasAb(st, s, i, "evolve") && !z.evolved, evNo = evH ? evoWhy(st, s, i) : "";
     const sealN = (z.seals || []).length;
     const rsx = !sealN && (hasAb(st, s, i, "noEffect") || hasAb(st, s, i, "ward") || hiddenMon(st, s, i)), rsxT = [hasAb(st, s, i, "noEffect") ? "効果では破壊されない" : "", hasAb(st, s, i, "ward") ? "護法" : "", jdOn(st, s, i) ? "ジャストダイバー中" : hiddenMon(st, s, i) ? "隠密中" : ""].filter(Boolean).join("・");
-    return (h => sealN ? h.replace(/<\/div>$/, `<span class="sealx" title="封印 ${sealN}（ないものとして扱う。持ち主が同じタグのモンスターを出すと1つはがれる）">封印${sealN > 1 ? " " + sealN : ""}</span></div>`) : h)((h => rsx ? h.replace(/<\/div>$/, `<span class="rsx" role="img" aria-label="除去耐性：${rsxT}" title="${rsxT}"></span></div>`) : h)((h => evH ? h.replace(/<\/div>$/, `<button type="button" class="evobtn" data-evomon="${i}" ${evNo ? "disabled" : ""} title="${esc(evNo || `エボルヴする（エボルヴポイント あと${EVO_MAX - (P(st, s).evoUsed || 0)}）`)}" aria-label="「${esc(card(z.c).name)}」をエボルヴさせる">エボルヴ</button></div>`) : h)((h => actH ? h.replace(/<\/div>$/, `<button type="button" class="actbtn" data-actmon="${i}" ${actNo ? "disabled" : ""} title="${actNo ? esc(actNo) : "能力を発動する"}" aria-label="「${esc(card(z.c).name)}」の能力を発動する">${ACT_ICON}</button></div>`) : h)(zcap(cardHTML(card(z.c), cls + zz + zx + (actH ? (actNo ? " actable actused" : " actable") : "") + (atkr ? " attacking" : "") + (atkd ? " atk-tgt" : ""), attrs + (zz ? ` title="召喚酔い：次の自分のターンから攻撃できる"` : ttl), { mod: modOf(z), done: stt, eq: eqB, dmg: z.dmg || 0, ctr: z.ctr, vuln: z.vuln || 0, weak: z.weak || 0, ...mOpt(s) }), card(z.c), z)))));
+    return glBadge(st, s, i, (h => sealN ? h.replace(/<\/div>$/, `<span class="sealx" title="封印 ${sealN}（ないものとして扱う。持ち主が同じタグのモンスターを出すと1つはがれる）">封印${sealN > 1 ? " " + sealN : ""}</span></div>`) : h)((h => rsx ? h.replace(/<\/div>$/, `<span class="rsx" role="img" aria-label="除去耐性：${rsxT}" title="${rsxT}"></span></div>`) : h)((h => evH ? h.replace(/<\/div>$/, `<button type="button" class="evobtn" data-evomon="${i}" ${evNo ? "disabled" : ""} title="${esc(evNo || `エボルヴする（エボルヴポイント あと${EVO_MAX - (P(st, s).evoUsed || 0)}）`)}" aria-label="「${esc(card(z.c).name)}」をエボルヴさせる">エボルヴ</button></div>`) : h)((h => actH ? h.replace(/<\/div>$/, `<button type="button" class="actbtn" data-actmon="${i}" ${actNo ? "disabled" : ""} title="${actNo ? esc(actNo) : "能力を発動する"}" aria-label="「${esc(card(z.c).name)}」の能力を発動する">${ACT_ICON}</button></div>`) : h)(zcap(cardHTML(card(z.c), cls + zz + zx + (actH ? (actNo ? " actable actused" : " actable") : "") + (atkr ? " attacking" : "") + (atkd ? " atk-tgt" : ""), attrs + (zz ? ` title="召喚酔い：次の自分のターンから攻撃できる"` : ttl), { mod: modOf(z), done: stt, eq: eqB, dmg: z.dmg || 0, ctr: z.ctr, vuln: z.vuln || 0, weak: z.weak || 0, ...mOpt(s) }), card(z.c), z))))));
   }).join("");
 
   // action bar
@@ -8491,6 +8570,7 @@ function detailInfo(z, s, i){
     info.gab = monAbs(G.st, owner, i).filter(a => a.gab).map(a => { const x = { ...a, n: a.n0 != null ? a.n0 : a.n }; return (ABS[a.k].kw ? kwStr(x) : abPhrase(x)) + (a.stat ? `（「${a.from}」が場にいる間）` : a.until ? `（${a.until >= G.st.turnNo + 1 ? "次の自分のターンの終わりまで" : "このターンだけ"}）` : ""); });
     info.abs = [...new Set(monAbs(G.st, owner, i).filter(a => a.eqU).map(a => ABS[a.k].text && ABS[a.k].n ? ABS[a.k].text((a.n || 0) * a.mult, a.name || "") : ABS[a.k].label))];
     info.eqList = es.map((e, k) => ({ c: e.c, mult: eqMult(es, k), used: !!e.used, opp: e.o !== owner, mana: !!P(G.st, e.o).mana }));
+    { const L = glGroup(G.st, owner, i); if (L.length > 1) info.gl = `${L.map(j => `「${card(P(G.st, owner).mz[j].c).name}」`).join("と")}がリンクして1体のモンスター（ATKは合計、能力は全員ぶん、攻撃は合わせて1回）`; }
     if ((slot.seals || []).length) info.seal = `封印 ${slot.seals.length}（ないものとして扱う。同じタグのモンスターを出すと1つはがれる）`;
     if (charmActive(G.st, slot)) info.charm = `魅了されている（「${card(slot.charm.c).name}」）`;
   }
@@ -8532,6 +8612,7 @@ function renderDetail(info, anim){
   if (info.cap) rows.push(["装備キャパ", info.cap]);
 
   if (info.seal) rows.push(["封印", info.seal]);
+  if (info.gl) rows.push(["ゴッドリンク", info.gl]);
   if (info.charm) rows.push(["状態", info.charm]);
   if (info.evoU && info.evoU.length) rows.push(["下のカード", `${info.evoU.length}枚：${info.evoU.map(n => `「${n}」`).join("")}`]);
   if (info.mats && info.mats.length) rows.push(["質量", `${info.mats.length}枚：${info.mats.map(n => `「${n}」`).join("")}`]);
