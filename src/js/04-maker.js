@@ -218,7 +218,7 @@ $("#absQ").addEventListener("input", absFilter);
 $("#absCats").addEventListener("click", e => { const b = e.target.closest("[data-abscat]"); if (!b) return; MK.absCat = b.dataset.abscat; absFilter(); });
 ["#mkInnate", "#mkRetain", "#mkEthereal", "#mkSly"].forEach(q => $(q).addEventListener("change", () => { if (typeof updateSecs === "function") updateSecs(); }));
 ["#mkCascade", "#mkGl", "#mkGlSide", "#mkGlW"].forEach(q => $(q).addEventListener("input", () => updateBkText()));
-// 融合: つけた・外したら、条件と「1枚につき」の一覧（「融合したカードの枚数」）を出しなおす
+// フュージョン: つけた・外したら、条件と「1枚につき」の一覧（「フュージョンしたカードの枚数」）を出しなおす
 ["#mkHf", "#mkHfM", "#mkHfW"].forEach(q => $(q).addEventListener("input", () => updateBkText()));
 ["#mkHf", "#mkHfM"].forEach(q => $(q).addEventListener("change", () => { syncHfUI(); renderBlocksUI(); if (typeof renderAtkConds === "function") renderAtkConds(); }));
 // ゴッドリンクをつけた・外した・絵柄を変えた: 条件の一覧（「Gリンクしている」）と、デュエマ枠の絵柄を出しなおす
@@ -997,7 +997,7 @@ function updateSecs(){
   const abs = readAbs();
   $("#secAbs").hidden = false; if (typeof syncCostUI === "function") syncCostUI();
   $("#secAbsTitle").textContent = "能力";
-  { const cn = [["#mkInnate", "天賦"], ["#mkRetain", "保留"], ["#mkEthereal", "エセリアル"], ["#mkSly", "スライ"], ["#mkCascade", "続唱"], ["#mkHf", "融合"]].filter(([q]) => $(q).checked).map(x => x[1]), al = [...cn, ...abs.map(a => ABS[a.k] ? (ABS[a.k].kw || ABS[a.k].label) : a.k)]; sum("#sumAbs", al.length ? al.join("・") : "なし", al.length); }
+  { const cn = [["#mkInnate", "天賦"], ["#mkRetain", "保留"], ["#mkEthereal", "エセリアル"], ["#mkSly", "スライ"], ["#mkCascade", "続唱"], ["#mkHf", "フュージョン"]].filter(([q]) => $(q).checked).map(x => x[1]), al = [...cn, ...abs.map(a => ABS[a.k] ? (ABS[a.k].kw || ABS[a.k].label) : a.k)]; sum("#sumAbs", al.length ? al.join("・") : "なし", al.length); }
   $("#secEq").hidden = $("#eqNote").hidden && $("#capRow").hidden;
   $("#secEqTitle").textContent = t === "equip" ? "装備コスト" : "装備キャパ";
   if (t === "equip") sum("#sumEq", `コスト ${Math.max(0, Math.round(+$("#mkEqCost").value || 0))}`, true);

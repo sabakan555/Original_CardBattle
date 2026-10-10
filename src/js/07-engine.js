@@ -1457,13 +1457,13 @@ function withDiscard(c, hi, go){
   if (!n || !G || G.mode === "spectate"){ go([]); return; }
   G.costPick = { name: c.name, hi, need: n, picked: [], go, tag: c.payDiscTag || "" }; renderAll();
 }
-// 融合（シャドバ）: なぜ今は融合できないか（"" ならできる）・融合できる手札・融合する
+// フュージョン（シャドバの融合）: なぜ今はフュージョンできないか（"" ならできる）・フュージョンできる手札・フュージョンする
 function hfOpts(st, s, hi){ const p = P(st, s), g = hfOf(card(p.hand[hi])); return g ? p.hand.map((id, j) => j).filter(j => j !== hi && hfMatch(g, card(p.hand[j]))) : []; }
 function hfWhy(st, s, hi){
-  const p = P(st, s), c = card(p.hand[hi]); if (!hfOf(c)) return "融合できないカード";
+  const p = P(st, s), c = card(p.hand[hi]); if (!hfOf(c)) return "フュージョンできないカード";
   if (st.turn !== s || st.pending || st.winner) return "自分のターンだけ";
-  if (p.hfT && p.hfT.no === st.turnNo && p.hfT.ids.includes(c.id)) return "このターンはもう融合した";
-  if (!hfOpts(st, s, hi).length) return "融合できる手札がない";
+  if (p.hfT && p.hfT.no === st.turnNo && p.hfT.ids.includes(c.id)) return "このターンはもうフュージョンした";
+  if (!hfOpts(st, s, hi).length) return "フュージョンできる手札がない";
   return "";
 }
 function fuseHand(st, s, hi, picks){
@@ -1474,11 +1474,11 @@ function fuseHand(st, s, hi, picks){
   (p.exile = p.exile || []).push(...gone);
   const n = ((p.hf || {})[id] || 0) + gone.length; p.hf = { ...(p.hf || {}), [id]: n };
   if (!p.hfT || p.hfT.no !== st.turnNo) p.hfT = { no: st.turnNo, ids: [] }; p.hfT.ids.push(id);
-  log(st, s, `「${card(id).name}」に${gone.map(x => `「${card(x).name}」`).join("")}を融合した（融合 ${n}枚）`);
+  log(st, s, `「${card(id).name}」に${gone.map(x => `「${card(x).name}」`).join("")}をフュージョンした（フュージョン ${n}枚）`);
   ev(st, { type: "spell", s, c: id });
   return true;
 }
-// 手札から出したとき: 融合した枚数を受けとる（手札の記録は消える）
+// 手札から出したとき: フュージョンした枚数を受けとる（手札の記録は消える）
 function hfTake(p, id){ const n = (p.hf || {})[id] || 0; if (p.hf && p.hf[id] != null){ const o = { ...p.hf }; delete o[id]; p.hf = o; } return n; }
 function canSummonNow(st, s){ return P(st, s).mana ? true : !st.summoned; }
 function canAct(st, s){ return !(G && G.spectate) && st.turn === s && !st.pending && !st.askQ && !st.winner && !(G && G.chooseQ.length); }

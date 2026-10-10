@@ -85,7 +85,7 @@ function cpuStep(st, s){
     if (ss.cost === "discard") picks = p.hand.map((id, j) => j).filter(j => j !== i).sort((a, b) => cmpNum(cardType(card(p.hand[a])) === "monster" ? baseAtk(card(p.hand[a])) : 0, cardType(card(p.hand[b])) === "monster" ? baseAtk(card(p.hand[b])) : 0)).slice(0, ss.cn);
     if (specialSummon(st, s, i, picks)) return;
   }
-  // 融合: 融合できるカードがあれば、条件に合う手札をぜんぶ融合する
+  // フュージョン: フュージョンできるカードがあれば、条件に合う手札をぜんぶフュージョンする
   for (let i = 0; i < p.hand.length; i++){ if (!hfOf(card(p.hand[i])) || hfWhy(st, s, i)) continue; const o = hfOpts(st, s, i); if (o.length && fuseHand(st, s, i, o)) return; }
   // 2. summon strongest
   if (canSummonNow(st, s)){
@@ -326,7 +326,7 @@ function renderBoard0(){
       if (t === "magic"){ const full = isPersist(c) && freeZone(pm.sz) < 0, why = useWhyShort(st, me, c); acts += `<button class="mg" data-act="activateHand" ${afford && !full && !why ? "" : "disabled"}>発動する${full ? "（魔法・罠ゾーンがいっぱい）" : why ? `（${why}）` : short}</button>`; if (+c.kick > 0 && pm.mana) acts += `<button class="mg" data-act="activateHandKick" ${afford && !full && !why && pm.mana.cur >= effCost(st, me, c) + +c.kick ? "" : "disabled"}>キッカー${+c.kick}も払って発動</button>`; }
       if (t === "equip" && afford){ const any = ["a", "b"].some(o => P(st, o).mz.some((m, j) => m && canEquipOn(st, pm.hand[sel.i], o, j))); hint = any ? `光っているモンスターをクリックして装備（相手のでもOK）。装備コスト ${eqCostOf(c)}` : "装備できるモンスターがいません（キャパが足りない）"; }
       if (t !== "monster" && t !== "equip" && c.frame !== "spire") acts += `<button class="${t === "trap" ? "tr" : ""}" data-act="set" ${freeZone(pm.sz) < 0 ? "disabled" : ""}>セットする</button>`;
-      if (hfOf(c)){ const why = hfWhy(st, me, sel.i), n = (pm.hf || {})[c.id] || 0; acts += `<button class="mg" data-act="hfuse" ${why ? "disabled" : ""}>融合する${why ? `（${why}）` : ""}${n ? `［いま${n}枚］` : ""}</button>`; }
+      if (hfOf(c)){ const why = hfWhy(st, me, sel.i), n = (pm.hf || {})[c.id] || 0; acts += `<button class="mg" data-act="hfuse" ${why ? "disabled" : ""}>フュージョンする${why ? `（${why}）` : ""}${n ? `［いま${n}枚］` : ""}</button>`; }
       // the same buttons right under the hand, so you don't have to look back up to the battle zone
       handActs = acts.slice(a0);
     }
@@ -585,7 +585,7 @@ function renderDetail(info, anim){
 
   if (info.seal) rows.push(["封印", info.seal]);
   if (info.gl) rows.push(["ゴッドリンク", info.gl]);
-  if (info.hfN) rows.push(["融合", `${info.hfN}枚融合している`]);
+  if (info.hfN) rows.push(["フュージョン", `${info.hfN}枚フュージョンしている`]);
   if (info.charm) rows.push(["状態", info.charm]);
   if (info.evoU && info.evoU.length) rows.push(["下のカード", `${info.evoU.length}枚：${info.evoU.map(n => `「${n}」`).join("")}`]);
   if (info.mats && info.mats.length) rows.push(["質量", `${info.mats.length}枚：${info.mats.map(n => `「${n}」`).join("")}`]);
@@ -758,7 +758,7 @@ function renderOverlay(){
   } else if (G.hfPick && canAct(st, me) && hfOf(card(P(st, me).hand[G.hfPick.hi]))){
     const hp = G.hfPick, pm = P(st, me), c = card(pm.hand[hp.hi]), opts = hfOpts(st, me, hp.hi);
     const list = opts.map(i => { const on = hp.picked.includes(i); return cardHTML(card(pm.hand[i]), `sm pick ${on ? "sel" : ""}`, `data-hfpick="${i}" tabindex="0" role="button" aria-pressed="${on}"`, mOpt(me)); }).join("");
-    html = `<div class="box"><h2 style="margin:0">「${esc(c.name)}」に融合する</h2><p class="muted" style="margin:0">融合する${esc(hfDesc(hfOf(c)))}を好きなだけえらんでね（${hp.picked.length}枚）。融合したカードは廃棄札になります</p><div class="gallery">${list}</div><div class="row"><button class="primary" data-hfgo ${hp.picked.length ? "" : "disabled"}>融合する</button><button class="ghost" data-close="hfpick">やめる</button></div></div>`;
+    html = `<div class="box"><h2 style="margin:0">「${esc(c.name)}」にフュージョンする</h2><p class="muted" style="margin:0">フュージョンする${esc(hfDesc(hfOf(c)))}を好きなだけえらんでね（${hp.picked.length}枚）。フュージョンしたカードは廃棄札になります</p><div class="gallery">${list}</div><div class="row"><button class="primary" data-hfgo ${hp.picked.length ? "" : "disabled"}>フュージョンする</button><button class="ghost" data-close="hfpick">やめる</button></div></div>`;
   } else if (G.ssPick && canAct(st, me)){
     const sp = G.ssPick, pm = P(st, me), c = card(pm.hand[sp.hi]);
     const opts = sp.kind === "evo" ? evoBases(st, me, c) : sp.kind === "tribute" ? pm.mz.map((m, i) => m && (!sp.tag || hasTag(m.c, sp.tag)) ? i : -1).filter(i => i >= 0) : sp.kind === "mass" ? pm.grave.map((id, i) => i) : pm.hand.map((id, i) => i).filter(i => i !== sp.hi);

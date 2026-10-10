@@ -1640,7 +1640,7 @@ div.f{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:13px}
                 <label data-cat="card"><input type="checkbox" id="mkRetain"> 保留（ターンの終わりに手札から捨てられない・スパイアデッキ）</label>
                 <label data-cat="card"><input type="checkbox" id="mkEthereal"> エセリアル（ターンの終わりに手札にあると廃棄される）</label>
                 <label data-cat="card"><input type="checkbox" id="mkCascade"> 続唱（コストを払って使ったとき、山札からコストが小さいカードを1枚タダで使える・モンスターと魔法・コストデッキ用）</label>
-                <label data-cat="card" data-q="ゆうごう シャドバ"><input type="checkbox" id="mkHf"> 融合（シャドバ風・手札のこのカードに、ほかの手札を融合できる・モンスターと魔法）<select id="mkHfM" aria-label="融合できるカード" hidden><option value="tag">タグ</option><option value="part">名前に入る文字</option><option value="name">名前がぴったり</option><option value="monster">モンスターなら何でも</option><option value="magic">魔法なら何でも</option><option value="any">どのカードでも</option></select><input type="text" id="mkHfW" list="tagNames" maxlength="40" placeholder="タグ・名前" aria-label="融合できるカードの名前・タグ" style="width:120px" hidden></label>
+                <label data-cat="card" data-q="ゆうごう 融合 ふゅーじょん シャドバ"><input type="checkbox" id="mkHf"> フュージョン（シャドバの融合風・手札のこのカードに、ほかの手札をフュージョンできる・モンスターと魔法）<select id="mkHfM" aria-label="フュージョンできるカード" hidden><option value="tag">タグ</option><option value="part">名前に入る文字</option><option value="name">名前がぴったり</option><option value="monster">モンスターなら何でも</option><option value="magic">魔法なら何でも</option><option value="any">どのカードでも</option></select><input type="text" id="mkHfW" list="tagNames" maxlength="40" placeholder="タグ・名前" aria-label="フュージョンできるカードの名前・タグ" style="width:120px" hidden></label>
                 <label data-cat="card"><input type="checkbox" id="mkSly"> スライ（手札から捨てられたら、タダで使う・魔法と罠）</label>
               </div>
               <h3 style="margin:0" id="absHead" hidden>能力</h3>
@@ -2194,7 +2194,7 @@ const KW_DESC = {
   "エボルヴ": "自分の3ターン目から、1ターンに1回・ゲーム中に2回まで、場のモンスターのボタンからエボルヴできる。エボルヴするとATKが（ ）上がり、そのターンは出たばかりでも相手のモンスターに攻撃できる。「エボルヴしたとき」の効果も出る",
   "スペルブースト": "このカードが手札にある間、自分が魔法を使うたびに強くなる（コストが下がる・ATKが上がる）。同じカードが手札に何枚あっても、全部いっしょに強くなる",
   "シンパシー": "（ ）に書いてある場所の、そのカード1枚（1体）につき、このモンスターを召喚するコストが1（数が書いてあればその数）少なくなる。コストは1より少なくはならない。「 」はタグか、名前に入る文字",
-  "融合": "自分のターンに1回、手札のこのカードに、（ ）のカードを手札から好きな枚数融合できる。融合したカードは廃棄札になる。融合した枚数で強くなるカードがある（使ったときの枚数が、そのカードにずっと残る）",
+  "フュージョン": "自分のターンに1回、手札のこのカードに、（ ）のカードを手札から好きな枚数フュージョンできる。フュージョンしたカードは廃棄札になる。フュージョンした枚数で強くなるカードがある（使ったときの枚数が、そのカードにずっと残る）",
   "続唱": "コストを払って手札から使ったとき（モンスターの召喚・魔法の発動）、山札の上から、このカードよりコストが小さいモンスターか魔法が出るまでめくる。それをタダで使ってもよい。めくった残りはランダムな順で山札の下に置く（コストを使うデッキでだけ働く）",
   "ゴッドリンク": "左Gは右どなり、右Gは左どなりのゾーンに、リンクできるゴッドがいると、リンクして1体のモンスターとして扱う。ATKは合計、能力は全員ぶん、攻撃は合わせて1回（1体でも召喚酔いでなければ攻撃できる）。破壊されるときは、ATKが一番低いゴッド1体だけが場を離れる",
   "2回攻撃": "1ターンに2回攻撃できる", "速攻": "出たターンから攻撃できる（召喚酔いしない）", "直接攻撃": "相手の場にモンスターがいても、相手に直接攻撃できる",
@@ -2297,14 +2297,14 @@ const glOf = c => c && cardType(c) === "monster" && c.gl && (c.gl.l || c.gl.r) ?
 const glKw = c => { const g = glOf(c); return g ? `《ゴッドリンク》（${[g.r ? "左G" : "", g.l ? "右G" : ""].filter(Boolean).join("・")}${g.w ? `・「${g.w}」` : ""}）` : ""; };
 // デュエマ枠の絵柄: 左G は絵が右はしまで、右G は左はしまで、左右G は両はしまで
 const glFrameCls = c => { const g = glOf(c); return !g ? "" : g.l && g.r ? "dmg-lr" : g.r ? "dmg-r" : "dmg-l"; };
-// 融合（シャドバ）: 手札のこのカードに、条件に合うほかの手札を融合する。{ m: any|tag|part|name|monster|magic, w: 文字 }
+// フュージョン（シャドバの融合）: 手札のこのカードに、条件に合うほかの手札をフュージョンする。{ m: any|tag|part|name|monster|magic, w: 文字 }
 const HF_M = { any: "カード", monster: "モンスター", magic: "魔法", tag: "タグ", part: "名前に入る文字", name: "名前がぴったり" };
 const hfOf = c => c && (cardType(c) === "monster" || cardType(c) === "magic") && c.hf && HF_M[c.hf.m] ? c.hf : null;
 const hfDesc = g => { const w = String(g.w || "").trim() || "？"; return g.m === "tag" ? `タグ「${w}」のカード` : g.m === "part" ? `名前に「${w}」が入ったカード` : g.m === "name" ? `「${w}」` : g.m === "monster" ? "モンスター" : g.m === "magic" ? "魔法" : "カード"; };
 function hfMatch(g, x){ if (!g || !x) return false; const w = String(g.w || "").trim(), t = cardType(x);
   if (g.m === "monster") return t === "monster"; if (g.m === "magic") return t === "magic"; if (g.m === "any") return true; if (!w) return false;
   if (g.m === "tag") return tagsOf(x).includes(w); if (g.m === "part") return normQ(String(x.name || "")).includes(normQ(w)); return x.name === w || plainRuby(x.nameRuby || "") === w; }
-const hfKw = c => { const g = hfOf(c); return g ? `《融合》（${hfDesc(g)}）` : ""; };
+const hfKw = c => { const g = hfOf(c); return g ? `《フュージョン》（${hfDesc(g)}）` : ""; };
 const cascadeOn = c => !!(c && c.cascade && (cardType(c) === "monster" || cardType(c) === "magic"));
 // カードのコストは 0〜99 と ∞（costInf：ふつうには払えない。踏み倒しなら使える）
 const MAX_COST = 99, MANA_LIMIT = 99;
@@ -2498,7 +2498,7 @@ const COND_DEFS = {
   card:     { label: "特定のカードがある" },
   costDeck: { label: "自分がコストデッキを使っている" },
   glOn:     { label: "このモンスターがGリンクしている（ゴッドリンク用）", gl: true },
-  hfN:      { label: "このカードに融合したカードの枚数（融合用）", who: "このカードに融合したカードが", unit: "枚", hf: true, val: (st, s, c, ctx) => hfCount(st, ctx) },
+  hfN:      { label: "このカードにフュージョンしたカードの枚数（フュージョン用）", who: "このカードにフュージョンしたカードが", unit: "枚", hf: true, val: (st, s, c, ctx) => hfCount(st, ctx) },
   ask:      { label: "質問して「はい」と答えた" },
   used:     { label: "発動したカード（「魔法・罠が発動したとき」用）" },
   die:      { label: "サイコロの目（「まず」でサイコロを振ったとき）", who: "サイコロの目が", unit: "", roll: true, val: (st, s, c, ctx) => ctx && ctx.roll && ctx.roll.kind === "die" ? ctx.roll.v : 0 },
@@ -2518,10 +2518,10 @@ const COND_DEFS = {
 };
 const OPS = { ge: "以上", le: "以下", eq: "" };
 // 「○1つにつき」: what a number can grow with (ダメージ / ブロック / マナ / 回復, or the number of hits)
-// このカードに融合したカードの枚数: 使ったとき（ctx.hfN）か、場のモンスター（m.hfN）
+// このカードにフュージョンしたカードの枚数: 使ったとき（ctx.hfN）か、場のモンスター（m.hfN）
 function hfCount(st, ctx){ if (ctx && ctx.hfN != null) return +ctx.hfN || 0; const m = ctx && ctx.mon ? monAt(st, ctx.mon) : null; return m && m.hfN || 0; }
 const PER_DEFS = {
-  hfN:      { label: "このカードに融合したカード", u: "1枚", hf: true, val: (st, s, c, t, ctx) => hfCount(st, ctx) },
+  hfN:      { label: "このカードにフュージョンしたカード", u: "1枚", hf: true, val: (st, s, c, t, ctx) => hfCount(st, ctx) },
   myBlock:  { label: "自分のブロック", u: "1", val: (st, s) => P(st, s).block || 0 },
   mass5:    { label: "このモンスターの質量5枚", u: "", val: (st, s, c, t, ctx) => { const m = ctx && ctx.mon && monAt(st, ctx.mon); return m ? Math.floor((m.mats || []).length / 5) : 0; } },
   mass:     { label: "このモンスターの質量", u: "1枚", val: (st, s, c, t, ctx) => { const m = ctx && ctx.mon && monAt(st, ctx.mon); return m ? (m.mats || []).length : 0; } },
@@ -4039,7 +4039,7 @@ $("#absQ").addEventListener("input", absFilter);
 $("#absCats").addEventListener("click", e => { const b = e.target.closest("[data-abscat]"); if (!b) return; MK.absCat = b.dataset.abscat; absFilter(); });
 ["#mkInnate", "#mkRetain", "#mkEthereal", "#mkSly"].forEach(q => $(q).addEventListener("change", () => { if (typeof updateSecs === "function") updateSecs(); }));
 ["#mkCascade", "#mkGl", "#mkGlSide", "#mkGlW"].forEach(q => $(q).addEventListener("input", () => updateBkText()));
-// 融合: つけた・外したら、条件と「1枚につき」の一覧（「融合したカードの枚数」）を出しなおす
+// フュージョン: つけた・外したら、条件と「1枚につき」の一覧（「フュージョンしたカードの枚数」）を出しなおす
 ["#mkHf", "#mkHfM", "#mkHfW"].forEach(q => $(q).addEventListener("input", () => updateBkText()));
 ["#mkHf", "#mkHfM"].forEach(q => $(q).addEventListener("change", () => { syncHfUI(); renderBlocksUI(); if (typeof renderAtkConds === "function") renderAtkConds(); }));
 // ゴッドリンクをつけた・外した・絵柄を変えた: 条件の一覧（「Gリンクしている」）と、デュエマ枠の絵柄を出しなおす
@@ -4818,7 +4818,7 @@ function updateSecs(){
   const abs = readAbs();
   $("#secAbs").hidden = false; if (typeof syncCostUI === "function") syncCostUI();
   $("#secAbsTitle").textContent = "能力";
-  { const cn = [["#mkInnate", "天賦"], ["#mkRetain", "保留"], ["#mkEthereal", "エセリアル"], ["#mkSly", "スライ"], ["#mkCascade", "続唱"], ["#mkHf", "融合"]].filter(([q]) => $(q).checked).map(x => x[1]), al = [...cn, ...abs.map(a => ABS[a.k] ? (ABS[a.k].kw || ABS[a.k].label) : a.k)]; sum("#sumAbs", al.length ? al.join("・") : "なし", al.length); }
+  { const cn = [["#mkInnate", "天賦"], ["#mkRetain", "保留"], ["#mkEthereal", "エセリアル"], ["#mkSly", "スライ"], ["#mkCascade", "続唱"], ["#mkHf", "フュージョン"]].filter(([q]) => $(q).checked).map(x => x[1]), al = [...cn, ...abs.map(a => ABS[a.k] ? (ABS[a.k].kw || ABS[a.k].label) : a.k)]; sum("#sumAbs", al.length ? al.join("・") : "なし", al.length); }
   $("#secEq").hidden = $("#eqNote").hidden && $("#capRow").hidden;
   $("#secEqTitle").textContent = t === "equip" ? "装備コスト" : "装備キャパ";
   if (t === "equip") sum("#sumEq", `コスト ${Math.max(0, Math.round(+$("#mkEqCost").value || 0))}`, true);
@@ -7563,13 +7563,13 @@ function withDiscard(c, hi, go){
   if (!n || !G || G.mode === "spectate"){ go([]); return; }
   G.costPick = { name: c.name, hi, need: n, picked: [], go, tag: c.payDiscTag || "" }; renderAll();
 }
-// 融合（シャドバ）: なぜ今は融合できないか（"" ならできる）・融合できる手札・融合する
+// フュージョン（シャドバの融合）: なぜ今はフュージョンできないか（"" ならできる）・フュージョンできる手札・フュージョンする
 function hfOpts(st, s, hi){ const p = P(st, s), g = hfOf(card(p.hand[hi])); return g ? p.hand.map((id, j) => j).filter(j => j !== hi && hfMatch(g, card(p.hand[j]))) : []; }
 function hfWhy(st, s, hi){
-  const p = P(st, s), c = card(p.hand[hi]); if (!hfOf(c)) return "融合できないカード";
+  const p = P(st, s), c = card(p.hand[hi]); if (!hfOf(c)) return "フュージョンできないカード";
   if (st.turn !== s || st.pending || st.winner) return "自分のターンだけ";
-  if (p.hfT && p.hfT.no === st.turnNo && p.hfT.ids.includes(c.id)) return "このターンはもう融合した";
-  if (!hfOpts(st, s, hi).length) return "融合できる手札がない";
+  if (p.hfT && p.hfT.no === st.turnNo && p.hfT.ids.includes(c.id)) return "このターンはもうフュージョンした";
+  if (!hfOpts(st, s, hi).length) return "フュージョンできる手札がない";
   return "";
 }
 function fuseHand(st, s, hi, picks){
@@ -7580,11 +7580,11 @@ function fuseHand(st, s, hi, picks){
   (p.exile = p.exile || []).push(...gone);
   const n = ((p.hf || {})[id] || 0) + gone.length; p.hf = { ...(p.hf || {}), [id]: n };
   if (!p.hfT || p.hfT.no !== st.turnNo) p.hfT = { no: st.turnNo, ids: [] }; p.hfT.ids.push(id);
-  log(st, s, `「${card(id).name}」に${gone.map(x => `「${card(x).name}」`).join("")}を融合した（融合 ${n}枚）`);
+  log(st, s, `「${card(id).name}」に${gone.map(x => `「${card(x).name}」`).join("")}をフュージョンした（フュージョン ${n}枚）`);
   ev(st, { type: "spell", s, c: id });
   return true;
 }
-// 手札から出したとき: 融合した枚数を受けとる（手札の記録は消える）
+// 手札から出したとき: フュージョンした枚数を受けとる（手札の記録は消える）
 function hfTake(p, id){ const n = (p.hf || {})[id] || 0; if (p.hf && p.hf[id] != null){ const o = { ...p.hf }; delete o[id]; p.hf = o; } return n; }
 function canSummonNow(st, s){ return P(st, s).mana ? true : !st.summoned; }
 function canAct(st, s){ return !(G && G.spectate) && st.turn === s && !st.pending && !st.askQ && !st.winner && !(G && G.chooseQ.length); }
@@ -8194,7 +8194,7 @@ function cpuStep(st, s){
     if (ss.cost === "discard") picks = p.hand.map((id, j) => j).filter(j => j !== i).sort((a, b) => cmpNum(cardType(card(p.hand[a])) === "monster" ? baseAtk(card(p.hand[a])) : 0, cardType(card(p.hand[b])) === "monster" ? baseAtk(card(p.hand[b])) : 0)).slice(0, ss.cn);
     if (specialSummon(st, s, i, picks)) return;
   }
-  // 融合: 融合できるカードがあれば、条件に合う手札をぜんぶ融合する
+  // フュージョン: フュージョンできるカードがあれば、条件に合う手札をぜんぶフュージョンする
   for (let i = 0; i < p.hand.length; i++){ if (!hfOf(card(p.hand[i])) || hfWhy(st, s, i)) continue; const o = hfOpts(st, s, i); if (o.length && fuseHand(st, s, i, o)) return; }
   // 2. summon strongest
   if (canSummonNow(st, s)){
@@ -8435,7 +8435,7 @@ function renderBoard0(){
       if (t === "magic"){ const full = isPersist(c) && freeZone(pm.sz) < 0, why = useWhyShort(st, me, c); acts += `<button class="mg" data-act="activateHand" ${afford && !full && !why ? "" : "disabled"}>発動する${full ? "（魔法・罠ゾーンがいっぱい）" : why ? `（${why}）` : short}</button>`; if (+c.kick > 0 && pm.mana) acts += `<button class="mg" data-act="activateHandKick" ${afford && !full && !why && pm.mana.cur >= effCost(st, me, c) + +c.kick ? "" : "disabled"}>キッカー${+c.kick}も払って発動</button>`; }
       if (t === "equip" && afford){ const any = ["a", "b"].some(o => P(st, o).mz.some((m, j) => m && canEquipOn(st, pm.hand[sel.i], o, j))); hint = any ? `光っているモンスターをクリックして装備（相手のでもOK）。装備コスト ${eqCostOf(c)}` : "装備できるモンスターがいません（キャパが足りない）"; }
       if (t !== "monster" && t !== "equip" && c.frame !== "spire") acts += `<button class="${t === "trap" ? "tr" : ""}" data-act="set" ${freeZone(pm.sz) < 0 ? "disabled" : ""}>セットする</button>`;
-      if (hfOf(c)){ const why = hfWhy(st, me, sel.i), n = (pm.hf || {})[c.id] || 0; acts += `<button class="mg" data-act="hfuse" ${why ? "disabled" : ""}>融合する${why ? `（${why}）` : ""}${n ? `［いま${n}枚］` : ""}</button>`; }
+      if (hfOf(c)){ const why = hfWhy(st, me, sel.i), n = (pm.hf || {})[c.id] || 0; acts += `<button class="mg" data-act="hfuse" ${why ? "disabled" : ""}>フュージョンする${why ? `（${why}）` : ""}${n ? `［いま${n}枚］` : ""}</button>`; }
       // the same buttons right under the hand, so you don't have to look back up to the battle zone
       handActs = acts.slice(a0);
     }
@@ -8694,7 +8694,7 @@ function renderDetail(info, anim){
 
   if (info.seal) rows.push(["封印", info.seal]);
   if (info.gl) rows.push(["ゴッドリンク", info.gl]);
-  if (info.hfN) rows.push(["融合", `${info.hfN}枚融合している`]);
+  if (info.hfN) rows.push(["フュージョン", `${info.hfN}枚フュージョンしている`]);
   if (info.charm) rows.push(["状態", info.charm]);
   if (info.evoU && info.evoU.length) rows.push(["下のカード", `${info.evoU.length}枚：${info.evoU.map(n => `「${n}」`).join("")}`]);
   if (info.mats && info.mats.length) rows.push(["質量", `${info.mats.length}枚：${info.mats.map(n => `「${n}」`).join("")}`]);
@@ -8867,7 +8867,7 @@ function renderOverlay(){
   } else if (G.hfPick && canAct(st, me) && hfOf(card(P(st, me).hand[G.hfPick.hi]))){
     const hp = G.hfPick, pm = P(st, me), c = card(pm.hand[hp.hi]), opts = hfOpts(st, me, hp.hi);
     const list = opts.map(i => { const on = hp.picked.includes(i); return cardHTML(card(pm.hand[i]), `sm pick ${on ? "sel" : ""}`, `data-hfpick="${i}" tabindex="0" role="button" aria-pressed="${on}"`, mOpt(me)); }).join("");
-    html = `<div class="box"><h2 style="margin:0">「${esc(c.name)}」に融合する</h2><p class="muted" style="margin:0">融合する${esc(hfDesc(hfOf(c)))}を好きなだけえらんでね（${hp.picked.length}枚）。融合したカードは廃棄札になります</p><div class="gallery">${list}</div><div class="row"><button class="primary" data-hfgo ${hp.picked.length ? "" : "disabled"}>融合する</button><button class="ghost" data-close="hfpick">やめる</button></div></div>`;
+    html = `<div class="box"><h2 style="margin:0">「${esc(c.name)}」にフュージョンする</h2><p class="muted" style="margin:0">フュージョンする${esc(hfDesc(hfOf(c)))}を好きなだけえらんでね（${hp.picked.length}枚）。フュージョンしたカードは廃棄札になります</p><div class="gallery">${list}</div><div class="row"><button class="primary" data-hfgo ${hp.picked.length ? "" : "disabled"}>フュージョンする</button><button class="ghost" data-close="hfpick">やめる</button></div></div>`;
   } else if (G.ssPick && canAct(st, me)){
     const sp = G.ssPick, pm = P(st, me), c = card(pm.hand[sp.hi]);
     const opts = sp.kind === "evo" ? evoBases(st, me, c) : sp.kind === "tribute" ? pm.mz.map((m, i) => m && (!sp.tag || hasTag(m.c, sp.tag)) ? i : -1).filter(i => i >= 0) : sp.kind === "mass" ? pm.grave.map((id, i) => i) : pm.hand.map((id, i) => i).filter(i => i !== sp.hi);
