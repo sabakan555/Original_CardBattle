@@ -1536,12 +1536,12 @@ div.f{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:13px}
     <div class="seg mk-view" id="makeView" role="tablist" aria-label="カード工房とカード図鑑"><button type="button" role="tab" data-mv="draw" aria-pressed="true">カードを描く</button><button type="button" role="tab" data-mv="gal" aria-pressed="false">カード図鑑</button></div>
     <div class="maker">
       <div class="mk-left"><div class="card editor" id="editCard"><span class="holo-fx" aria-hidden="true"></span><span class="m-gem" aria-hidden="true"></span><div class="c-in">
-        <span class="c-cost" id="mkCostBadge" hidden></span><div class="c-name"><input type="text" id="mkName" maxlength="40" placeholder="カード名"><span class="c-tribe-n" id="mkTribeN" hidden></span></div>
+        <span class="c-cost" id="mkCostBadge" hidden></span><div class="c-name"><input type="text" id="mkName" maxlength="1000" placeholder="カード名"><span class="c-tribe-n" id="mkTribeN" hidden></span></div>
         <div class="c-art"><span class="c-tribe" id="mkTribe" hidden></span><canvas id="cv" width="560" height="400" aria-label="イラストを描くところ"></canvas><div class="fl-guide" id="flGuide" hidden>ここから下は半透明の文字の欄</div><div class="c-tab" id="mkTab">モンスター</div></div>
         <div class="c-text">
           <div class="fxline" id="mkFxLine"></div>
-          <textarea id="mkEff" maxlength="120" placeholder="カードに書く文（なくてもOK）" title="書くと、自動の効果の文の代わりにカードに出る。本来の効果はカードを開くと見られる"></textarea>
-          <textarea id="mkFlv" maxlength="80" placeholder="フレーバーテキスト（なくてもOK）"></textarea>
+          <textarea id="mkEff" maxlength="1000" placeholder="カードに書く文（なくてもOK）" title="書くと、自動の効果の文の代わりにカードに出る。本来の効果はカードを開くと見られる"></textarea>
+          <textarea id="mkFlv" maxlength="1000" placeholder="フレーバーテキスト（なくてもOK）"></textarea>
           <div class="c-atk" id="atkRow">ATK <input type="text" inputmode="numeric" id="mkAtk" value="300" aria-label="ATK（∞も入力できます）"></div>
           <div class="c-atk" id="eqRow" hidden>ATK ± <input type="number" id="mkEq" step="1" value="200"></div>
         </div>
