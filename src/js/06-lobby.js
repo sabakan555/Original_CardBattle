@@ -176,7 +176,7 @@ function potionHTML(c, cls = "", attrs = ""){
 function potionLike(k){
   if (POTIONS[k] && !potionEdit(k)) return k;
   const e = blocksOf(potionCard(k)).flatMap(b => b.then)[0]; if (!e) return "speed";
-  if (e.kind === "dmgAll" || (e.kind === "dmg" && e.to === "all")) return "blast";
+  if (e.kind === "dmgAll" || (e.kind === "dmg" && (e.to === "all" || e.to === "mons"))) return "blast";
   return { dmg: "fire", bash: "fire", dmgRand: "fire", block: "block", heal: "heal", manaNow: "energy", manaMax: "energy", draw: "speed", vuln: "fear", vulnAll: "fear", weak: "fear", weakAll: "fear" }[e.kind] || "speed";
 }
 // is player s played by the computer here? (CPU match, or the simulator)

@@ -2436,6 +2436,7 @@ function toPhrase0(kind, to, spire, tn){
   if (to === "n" && tn > 1) return pl ? `相手のモンスターちがう${tn}体（足りなければ相手も）` : `相手のモンスター${tn}体`;
   if (to === "others") return "このカード以外の、お互いの場のカードすべて";
   if (to === "all") return pl ? "相手と相手のモンスターすべて" : "相手のモンスターすべて";
+  if (to === "mons") return "相手のモンスターすべて";
   if (to === "random") return pl ? "ランダムな敵（相手か相手のモンスター）" : "ランダムな相手のモンスター1体";
   if (to === "two") return pl ? "相手のモンスターちがう2体（足りなければ相手も）" : "相手のモンスター2体";
   return pl ? (spire ? "相手のモンスター1体（いなければ相手）" : "相手") : "相手のモンスター1体";
@@ -2463,6 +2464,8 @@ function expandFx(f){
   const to = f.to, k = f.kind;
   if (!to || to === "one" || !TARGETABLE[k]) return [f];
   if (to === "all") return [{ ...f, kind: TO_ALL[k], to: null }];
+  // 相手のモンスター全員だけ（プレイヤーには当たらない）: ダメージ・弱体・脱力
+  if (to === "mons") return [{ ...f, kind: TO_ALL[k], to: null, monOnly: true }];
   if (to === "others") return [{ ...f, kind: "destroyOthers", to: null }];
   const tn = Math.max(1, Math.min(10, Math.round(+f.tn || 1)));
   if (to === "random") return Array.from({ length: tn }, () => ({ ...f, rand: true }));
@@ -2671,7 +2674,7 @@ const MF_BY = {
   oppGrave: { label: "相手の墓地の枚数", val: (st, s) => P(st, O(s)).grave.length },
   oppMon:   { label: "相手のモンスターの数", val: (st, s) => P(st, O(s)).mz.filter(Boolean).length }
 };
-const mfAble = m => !!(m && (MF_KINDS.includes(m.kind) || (TO_ALL[m.kind] && m.to === "all")));
+const mfAble = m => !!(m && (MF_KINDS.includes(m.kind) || (TO_ALL[m.kind] && (m.to === "all" || m.to === "mons"))));
 const pctWord = n => { n = Math.max(1, Math.min(100, Math.round(+n || 0))); return n % 10 ? `${n}%` : n === 100 ? "すべて" : `${n / 10}割`; };
 const labList = () => ["all", ...Object.keys(ABS).filter(k => ABS[k].only !== "eq")];
 const labKey = e => e && (e.ab === "all" || (ABS[e.ab] && ABS[e.ab].only !== "eq")) ? e.ab : "all";
@@ -4779,18 +4782,18 @@ function gabUI(e, opt, wh){
 }
 function usedPfUI(e, opt){ const pf = USED_PF[e.pf] ? e.pf : "any"; return `<select data-f="pf" aria-label="どんなカード">${Object.entries(USED_PF).map(([k, l]) => opt(k, l, pf)).join("")}</select>` + (["name", "part", "tag"].includes(pf) ? `<input type="text" data-f="pfn" list="${pf === "tag" ? "tagNames" : "cardNames"}" maxlength="40" value="${esc(e.pfn || "")}" placeholder="${pf === "tag" ? "タグ" : pf === "part" ? "名前に入る文字" : "カード名"}" aria-label="名前" style="width:120px">` : ""); }
 function toUI(e, opt){
-  const scope = e.to === "all" ? "all" : e.to === "random" ? "random" : "n", tn = e.tn || (e.to === "two" ? 2 : 1);
+  const scope = e.to === "all" ? "all" : e.to === "mons" ? "mons" : e.to === "random" ? "random" : "n", tn = e.tn || (e.to === "two" ? 2 : 1);
   const pl = hitsPlayer(e.kind), sp = $("#mkFrame").value === "spire";
   const me = e.side === "me", who = me ? "自分" : "相手";
   if (pl && !sp){
     const sc = scope === "n" && tn < 2 ? "p" : scope;
     return `<select data-f="side" aria-label="自分か相手か">${opt("op", "相手", me ? "me" : "op")}${opt("me", "自分", me ? "me" : "op")}</select>`
-      + `<select data-f="scope" aria-label="どこに">${opt("p", `${who}（プレイヤー）に`, sc)}${opt("n", `${who}のモンスターを○体えらんで`, sc)}${opt("all", `${who}と${who}のモンスター全員に`, sc)}${opt("random", `ランダム（${who}かモンスター）に`, sc)}</select>`
+      + `<select data-f="scope" aria-label="どこに">${opt("p", `${who}（プレイヤー）に`, sc)}${opt("n", `${who}のモンスターを○体えらんで`, sc)}${opt("all", `${who}と${who}のモンスター全員に`, sc)}${opt("mons", `${who}のモンスター全員に（${who}には当たらない）`, sc)}${opt("random", `ランダム（${who}かモンスター）に`, sc)}</select>`
       + (sc === "n" ? `<input type="number" data-f="tn" min="2" max="10" value="${esc(Math.max(2, tn))}" aria-label="何体" style="width:60px"><span class="note">体</span>` : sc === "random" ? `<input type="number" data-f="tn" min="1" max="10" value="${esc(tn)}" aria-label="何回" style="width:60px"><span class="note">回</span>` : "");
   }
   return (SELF_ONLY.has(e.kind) ? `<span class="note">自分のモンスター</span>` : `<select data-f="side" aria-label="自分か相手か">${opt("op", "相手", me ? "me" : "op")}${opt("me", "自分", me ? "me" : "op")}</select>`)
-    + `<select data-f="scope" aria-label="どのくらい">${opt("n", "えらぶ", scope)}${opt("all", "全体", scope)}${opt("random", "ランダムに", scope)}</select>`
-    + (scope === "all" ? "" : `<input type="number" data-f="tn" min="1" max="10" value="${esc(tn)}" aria-label="数" style="width:60px"><span class="note">${scope === "random" ? "回" : "体"}</span>`);
+    + `<select data-f="scope" aria-label="どのくらい">${opt("n", "えらぶ", scope)}${opt("all", "全体", scope)}${pl ? opt("mons", "モンスター全員だけ", scope) : ""}${opt("random", "ランダムに", scope)}</select>`
+    + (scope === "all" || scope === "mons" ? "" : `<input type="number" data-f="tn" min="1" max="10" value="${esc(tn)}" aria-label="数" style="width:60px"><span class="note">${scope === "random" ? "回" : "体"}</span>`);
 }
 function modRowHTML(e){
   if (!KINDS[e.kind] || !KINDS[e.kind].mod) return "";
@@ -4886,7 +4889,7 @@ function bkEvent(e, rerenderOnInput){
   if (f === "pm"){ x.pm = Math.max(1, Math.round(+v || 1)); return updateBkText(); }
   if (f === "to"){ x.to = v; return updateBkText(); }
   if (f === "side"){ x.side = v === "me" ? "me" : undefined; return updateBkText(); }
-  if (f === "scope"){ let tn = x.tn || (x.to === "two" ? 2 : 1); if (v === "p") tn = 1; else if (v === "n" && hitsPlayer(x.kind) && $("#mkFrame").value !== "spire") tn = Math.max(2, tn); x.to = v === "all" ? "all" : v === "random" ? "random" : (tn > 1 ? "n" : "one"); x.tn = v === "all" ? undefined : tn; return renderBlocksUI(); }
+  if (f === "scope"){ let tn = x.tn || (x.to === "two" ? 2 : 1); if (v === "p") tn = 1; else if (v === "n" && hitsPlayer(x.kind) && $("#mkFrame").value !== "spire") tn = Math.max(2, tn); x.to = v === "all" || v === "mons" ? v : v === "random" ? "random" : (tn > 1 ? "n" : "one"); x.tn = v === "all" || v === "mons" ? undefined : tn; return renderBlocksUI(); }
   if (f === "tn"){ const tn = Math.max(1, Math.min(10, Math.round(+v || 1))); x.tn = tn; if (x.to !== "random" && x.to !== "all") x.to = tn > 1 ? "n" : "one"; return updateBkText(); }
   if (f === "n"){ x.n = Math.max(x.per || ZERO_N(x.kind) ? 0 : 1, Math.round(+v || 0)); return updateBkText(); }
 }
@@ -6079,7 +6082,7 @@ function potionHTML(c, cls = "", attrs = ""){
 function potionLike(k){
   if (POTIONS[k] && !potionEdit(k)) return k;
   const e = blocksOf(potionCard(k)).flatMap(b => b.then)[0]; if (!e) return "speed";
-  if (e.kind === "dmgAll" || (e.kind === "dmg" && e.to === "all")) return "blast";
+  if (e.kind === "dmgAll" || (e.kind === "dmg" && (e.to === "all" || e.to === "mons"))) return "blast";
   return { dmg: "fire", bash: "fire", dmgRand: "fire", block: "block", heal: "heal", manaNow: "energy", manaMax: "energy", draw: "speed", vuln: "fear", vulnAll: "fear", weak: "fear", weakAll: "fear" }[e.kind] || "speed";
 }
 // is player s played by the computer here? (CPU match, or the simulator)
@@ -7101,7 +7104,7 @@ function applyEffect(st, s, c, target, ctx = {}, fx = normFx(c)){
     case "lpSwap": { const a = me.lp, b = op.lp; me.lp = b; op.lp = a; log(st, s, `${src}で${me.name}と${op.name}のLPを入れかえた（${me.name} ${fmtN(a)}→${fmtN(b)}・${op.name} ${fmtN(b)}→${fmtN(a)}）`); break; }
     case "oppHeal": if (n > 0 && isFinite(n)){ op.lp += n; log(st, s, `${src}で${op.name}のLPが${n}回復した`); } break;
     case "dmgRand": { const L = ["p", ...opT.mz.map((m, i) => m ? "m:" + i : null).filter(Boolean)], t = L[Math.floor(Math.random() * L.length)]; if (t === "p"){ log(st, s, `${src}で${opT.name}に${n}ダメージ（ランダム）`); dealDmg(st, OS, n); } else monDmg(st, OS, +t.slice(2), n, src + "（ランダム）"); break; }
-    case "dmgAll": { opT.mz.map((m, i) => mfOk(st, s, fx, m) ? i : -1).filter(i => i >= 0).forEach(i => monDmg(st, OS, i, n, src)); log(st, s, `${src}で${opT.name}に${n}ダメージ`); dealDmg(st, OS, n); break; }
+    case "dmgAll": { opT.mz.map((m, i) => mfOk(st, s, fx, m) ? i : -1).filter(i => i >= 0).forEach(i => monDmg(st, OS, i, n, src)); if (!fx.monOnly){ log(st, s, `${src}で${opT.name}に${n}ダメージ`); dealDmg(st, OS, n); } break; }
     case "copyGrave": if (c && hasCard(c.id)){ me.grave.push(c.id); log(st, s, `${src}のコピーを墓地に加えた`); } break;
     case "freeAttack": case "freeSkill": case "freePower": { const k = fx.kind.slice(4).toLowerCase(); me.free = { ...(me.free || {}), [k]: ((me.free || {})[k] || 0) + 1 }; log(st, s, `${src}：次に使う${SPIRE_LABEL[k]}のコストが0になる`); break; }
     case "draft": if (target && hasCard(target)){ me.grave.push(target); log(st, s, `${src}で「${card(target).name}」を墓地に加えた`); } break;
@@ -7259,9 +7262,9 @@ function applyEffect(st, s, c, target, ctx = {}, fx = normFx(c)){
     }
     case "atkUp": if (me.mz[target]){ me.mz[target].mod = (me.mz[target].mod || 0) + n; log(st, s, `${src}で「${card(me.mz[target].c).name}」のATK+${n}`); } break;
     case "charmAll": opT.mz.forEach(m => { if (mfOk(st, s, fx, m)) m.charm = { eu: ctx.eqU || null, mu: ctx.mon ? ctx.mon.u : null, c: c.id }; }); log(st, s, `${src}で${OS === s ? "自分" : "相手"}のモンスターをすべて魅了した（攻撃できない）`); break;
-    case "vulnAll": addVuln(st, s, "p", n, src, OS); opT.mz.forEach((m, i) => { if (mfOk(st, s, fx, m)) addVuln(st, s, "m:" + i, n, src, OS); }); break;
+    case "vulnAll": if (!fx.monOnly) addVuln(st, s, "p", n, src, OS); opT.mz.forEach((m, i) => { if (mfOk(st, s, fx, m)) addVuln(st, s, "m:" + i, n, src, OS); }); break;
     case "weak": addWeak(st, s, target, n, src, OS); break;
-    case "weakAll": addWeak(st, s, "p", n, src, OS); opT.mz.forEach((m, i) => { if (mfOk(st, s, fx, m)) addWeak(st, s, "m:" + i, n, src, OS); }); break;
+    case "weakAll": if (!fx.monOnly) addWeak(st, s, "p", n, src, OS); opT.mz.forEach((m, i) => { if (mfOk(st, s, fx, m)) addWeak(st, s, "m:" + i, n, src, OS); }); break;
     case "dex": me.dex = (me.dex || 0) + n; log(st, s, `${src}で敏捷${n}を得た（敏捷 ${me.dex}）`); break;
     case "dexTemp": me.dex = (me.dex || 0) + n; me.dexTemp = (me.dexTemp || 0) + n; log(st, s, `${src}でこのターン敏捷${n}を得た（敏捷 ${me.dex}）`); break;
     case "intang": me.intang = (me.intang || 0) + n; log(st, s, `${src}で霊体${n}を得た（霊体 ${me.intang}：受けるダメージが1になる）`); break;

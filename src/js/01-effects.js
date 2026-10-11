@@ -471,6 +471,7 @@ function toPhrase0(kind, to, spire, tn){
   if (to === "n" && tn > 1) return pl ? `相手のモンスターちがう${tn}体（足りなければ相手も）` : `相手のモンスター${tn}体`;
   if (to === "others") return "このカード以外の、お互いの場のカードすべて";
   if (to === "all") return pl ? "相手と相手のモンスターすべて" : "相手のモンスターすべて";
+  if (to === "mons") return "相手のモンスターすべて";
   if (to === "random") return pl ? "ランダムな敵（相手か相手のモンスター）" : "ランダムな相手のモンスター1体";
   if (to === "two") return pl ? "相手のモンスターちがう2体（足りなければ相手も）" : "相手のモンスター2体";
   return pl ? (spire ? "相手のモンスター1体（いなければ相手）" : "相手") : "相手のモンスター1体";
@@ -498,6 +499,8 @@ function expandFx(f){
   const to = f.to, k = f.kind;
   if (!to || to === "one" || !TARGETABLE[k]) return [f];
   if (to === "all") return [{ ...f, kind: TO_ALL[k], to: null }];
+  // 相手のモンスター全員だけ（プレイヤーには当たらない）: ダメージ・弱体・脱力
+  if (to === "mons") return [{ ...f, kind: TO_ALL[k], to: null, monOnly: true }];
   if (to === "others") return [{ ...f, kind: "destroyOthers", to: null }];
   const tn = Math.max(1, Math.min(10, Math.round(+f.tn || 1)));
   if (to === "random") return Array.from({ length: tn }, () => ({ ...f, rand: true }));
@@ -706,7 +709,7 @@ const MF_BY = {
   oppGrave: { label: "相手の墓地の枚数", val: (st, s) => P(st, O(s)).grave.length },
   oppMon:   { label: "相手のモンスターの数", val: (st, s) => P(st, O(s)).mz.filter(Boolean).length }
 };
-const mfAble = m => !!(m && (MF_KINDS.includes(m.kind) || (TO_ALL[m.kind] && m.to === "all")));
+const mfAble = m => !!(m && (MF_KINDS.includes(m.kind) || (TO_ALL[m.kind] && (m.to === "all" || m.to === "mons"))));
 const pctWord = n => { n = Math.max(1, Math.min(100, Math.round(+n || 0))); return n % 10 ? `${n}%` : n === 100 ? "すべて" : `${n / 10}割`; };
 const labList = () => ["all", ...Object.keys(ABS).filter(k => ABS[k].only !== "eq")];
 const labKey = e => e && (e.ab === "all" || (ABS[e.ab] && ABS[e.ab].only !== "eq")) ? e.ab : "all";

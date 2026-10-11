@@ -899,18 +899,18 @@ function gabUI(e, opt, wh){
 }
 function usedPfUI(e, opt){ const pf = USED_PF[e.pf] ? e.pf : "any"; return `<select data-f="pf" aria-label="どんなカード">${Object.entries(USED_PF).map(([k, l]) => opt(k, l, pf)).join("")}</select>` + (["name", "part", "tag"].includes(pf) ? `<input type="text" data-f="pfn" list="${pf === "tag" ? "tagNames" : "cardNames"}" maxlength="40" value="${esc(e.pfn || "")}" placeholder="${pf === "tag" ? "タグ" : pf === "part" ? "名前に入る文字" : "カード名"}" aria-label="名前" style="width:120px">` : ""); }
 function toUI(e, opt){
-  const scope = e.to === "all" ? "all" : e.to === "random" ? "random" : "n", tn = e.tn || (e.to === "two" ? 2 : 1);
+  const scope = e.to === "all" ? "all" : e.to === "mons" ? "mons" : e.to === "random" ? "random" : "n", tn = e.tn || (e.to === "two" ? 2 : 1);
   const pl = hitsPlayer(e.kind), sp = $("#mkFrame").value === "spire";
   const me = e.side === "me", who = me ? "自分" : "相手";
   if (pl && !sp){
     const sc = scope === "n" && tn < 2 ? "p" : scope;
     return `<select data-f="side" aria-label="自分か相手か">${opt("op", "相手", me ? "me" : "op")}${opt("me", "自分", me ? "me" : "op")}</select>`
-      + `<select data-f="scope" aria-label="どこに">${opt("p", `${who}（プレイヤー）に`, sc)}${opt("n", `${who}のモンスターを○体えらんで`, sc)}${opt("all", `${who}と${who}のモンスター全員に`, sc)}${opt("random", `ランダム（${who}かモンスター）に`, sc)}</select>`
+      + `<select data-f="scope" aria-label="どこに">${opt("p", `${who}（プレイヤー）に`, sc)}${opt("n", `${who}のモンスターを○体えらんで`, sc)}${opt("all", `${who}と${who}のモンスター全員に`, sc)}${opt("mons", `${who}のモンスター全員に（${who}には当たらない）`, sc)}${opt("random", `ランダム（${who}かモンスター）に`, sc)}</select>`
       + (sc === "n" ? `<input type="number" data-f="tn" min="2" max="10" value="${esc(Math.max(2, tn))}" aria-label="何体" style="width:60px"><span class="note">体</span>` : sc === "random" ? `<input type="number" data-f="tn" min="1" max="10" value="${esc(tn)}" aria-label="何回" style="width:60px"><span class="note">回</span>` : "");
   }
   return (SELF_ONLY.has(e.kind) ? `<span class="note">自分のモンスター</span>` : `<select data-f="side" aria-label="自分か相手か">${opt("op", "相手", me ? "me" : "op")}${opt("me", "自分", me ? "me" : "op")}</select>`)
-    + `<select data-f="scope" aria-label="どのくらい">${opt("n", "えらぶ", scope)}${opt("all", "全体", scope)}${opt("random", "ランダムに", scope)}</select>`
-    + (scope === "all" ? "" : `<input type="number" data-f="tn" min="1" max="10" value="${esc(tn)}" aria-label="数" style="width:60px"><span class="note">${scope === "random" ? "回" : "体"}</span>`);
+    + `<select data-f="scope" aria-label="どのくらい">${opt("n", "えらぶ", scope)}${opt("all", "全体", scope)}${pl ? opt("mons", "モンスター全員だけ", scope) : ""}${opt("random", "ランダムに", scope)}</select>`
+    + (scope === "all" || scope === "mons" ? "" : `<input type="number" data-f="tn" min="1" max="10" value="${esc(tn)}" aria-label="数" style="width:60px"><span class="note">${scope === "random" ? "回" : "体"}</span>`);
 }
 function modRowHTML(e){
   if (!KINDS[e.kind] || !KINDS[e.kind].mod) return "";
@@ -1006,7 +1006,7 @@ function bkEvent(e, rerenderOnInput){
   if (f === "pm"){ x.pm = Math.max(1, Math.round(+v || 1)); return updateBkText(); }
   if (f === "to"){ x.to = v; return updateBkText(); }
   if (f === "side"){ x.side = v === "me" ? "me" : undefined; return updateBkText(); }
-  if (f === "scope"){ let tn = x.tn || (x.to === "two" ? 2 : 1); if (v === "p") tn = 1; else if (v === "n" && hitsPlayer(x.kind) && $("#mkFrame").value !== "spire") tn = Math.max(2, tn); x.to = v === "all" ? "all" : v === "random" ? "random" : (tn > 1 ? "n" : "one"); x.tn = v === "all" ? undefined : tn; return renderBlocksUI(); }
+  if (f === "scope"){ let tn = x.tn || (x.to === "two" ? 2 : 1); if (v === "p") tn = 1; else if (v === "n" && hitsPlayer(x.kind) && $("#mkFrame").value !== "spire") tn = Math.max(2, tn); x.to = v === "all" || v === "mons" ? v : v === "random" ? "random" : (tn > 1 ? "n" : "one"); x.tn = v === "all" || v === "mons" ? undefined : tn; return renderBlocksUI(); }
   if (f === "tn"){ const tn = Math.max(1, Math.min(10, Math.round(+v || 1))); x.tn = tn; if (x.to !== "random" && x.to !== "all") x.to = tn > 1 ? "n" : "one"; return updateBkText(); }
   if (f === "n"){ x.n = Math.max(x.per || ZERO_N(x.kind) ? 0 : 1, Math.round(+v || 0)); return updateBkText(); }
 }
