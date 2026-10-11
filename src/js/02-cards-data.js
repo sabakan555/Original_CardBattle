@@ -271,7 +271,7 @@ function fxRowsHTML(c, noMeta, noIc){
   return `${meta && !noMeta ? `<div class="fxr-meta">${kwLink(esc(meta))}</div>` : ""}<div class="fxrs">${rows.join("")}</div>`;
 }
 // 画像の枠: カードの frame → クラス名
-const FR_CLS = { mtg: "mtg", future: "fut", ygo: "ygo", dm: "dm" };
+const FR_CLS = { mtg: "mtg", future: "fut", ygo: "ygo", dm: "dm", dot: "dot" };
 // 遊戯王風: コストを星で。枠に入る数（モンスター13・罠10・魔法9）をこえたら「★×14」
 const YGO_STAR_MAX = { monster: 13, trap: 10 };
 function ygoStars(v, t){
@@ -292,8 +292,10 @@ function cardHTML(c, cls = "", attrs = "", opts = {}){
   if (fr === "future" && !/<span class="c-cost"/.test(h)) h = h.replace('<div class="c-in">', '<div class="c-in"><span class="c-cost nocost" title="コストなし">‐</span>');
   if (fr === "ygo") h = h.replace(/<span class="c-cost"([^>]*)>([^<]*)<\/span>/, (m, a, v) => `<span class="c-cost"${a}>${ygoStars(v, cardType(c))}</span>`);
   // 遊戯王風: 装備・速攻・フィールド・永続は、それぞれのアイコン付きの枠にする
+  // ドット風: フィールド魔法は枠の色がちがう
+  if (fr === "dot" && isField(c)) h = h.replace(/^<div class="card /, '<div class="card dfld ');
   if (fr === "ygo"){ const yt = cardType(c) === "equip" ? "yeq" : isQuick(c) ? "yqp" : isField(c) ? "yfld" : isPersist(c) ? (cardType(c) === "trap" ? "yct" : "ycm") : ""; if (yt) h = h.replace(/^<div class="card /, `<div class="card ${yt} `); }
-  if (mt) h = h.replace(/^<div class="card /, `<div class="card ${FR_CLS[fr]}${(fr === "mtg" || fr === "dm") && HEX6.test(c.colF || "") ? " mcol" : ""}${fr === "dm" && glOf(c) ? " " + glFrameCls(c) : ""} `).replace(/<\/div>$/, `<span class="m-gem" aria-hidden="true"></span></div>`).replace(/<div class="c-atk">ATK /, `<div class="c-atk">`).replace(/<div class="c-name">([\s\S]*?)<\/div><div class="c-art">/, `<div class="c-name"><span class="m-nm">$1</span></div><div class="c-art">`);
+  if (mt) h = h.replace(/^<div class="card /, `<div class="card ${FR_CLS[fr]}${(fr === "mtg" || fr === "dm" || fr === "dot") && HEX6.test(c.colF || "") ? " mcol" : ""}${fr === "dm" && glOf(c) ? " " + glFrameCls(c) : ""} `).replace(/<\/div>$/, `<span class="m-gem" aria-hidden="true"></span></div>`).replace(/<div class="c-atk">ATK /, `<div class="c-atk">`).replace(/<div class="c-name">([\s\S]*?)<\/div><div class="c-art">/, `<div class="c-name"><span class="m-nm">$1</span></div><div class="c-art">`);
   if (c && c.fxRows && !freeText(c) && !c.potionView && !c.relicView && c.frame !== "spire" && c.frame !== "socra") h = h.replace(/^<div class="card /, '<div class="card fxrows ').replace(/<div class="body">[\s\S]*?<\/div>(?=<div class="flv">|<span class="c-lim">|<div class="c-atk">|<\/div><\/div>)/, () => `<div class="body">${fxRowsHTML(c)}</div>`);
   if (c && c.land && isField(c) && !c.potionView && !c.relicView && !FR_CLS[c.frame] && c.frame !== "spire") h = h.replace(/^<div class="card /, '<div class="card land ');
   // タグを名前の下に（デュエマの種族みたいに）。カードごとに出す・出さないを決められる

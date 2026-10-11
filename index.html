@@ -318,10 +318,10 @@ ruby rt{font-size:.5em;line-height:1;font-style:normal}
 .card.editor .fxline{flex:none;max-height:calc(1.4em*4.5);overflow-y:auto;overscroll-behavior:contain;line-height:1.4;font-size:13px;scrollbar-width:thin}
 .card.editor .c-text textarea{position:relative;z-index:2}
 /* 枠つき（デュエマ・MTG・遊戯王・近未来）の工房: 文の欄が小さいので、自動の効果の文は2行半まで（中でスクロール）、書く文とフレーバーの欄はいつも2行ぶん残す */
-.card.editor:is(.dm,.mtg,.ygo,.fut) .c-text{display:flex!important;flex-direction:column;overflow:hidden!important;gap:2px}
-.card.editor:is(.dm,.mtg,.ygo,.fut) .fxline{flex:1 1 0!important;min-height:1.4em!important;max-height:none!important;font-size:12px!important;overflow-y:auto!important;overflow-x:hidden!important}
+.card.editor:is(.dm,.mtg,.ygo,.fut,.dot) .c-text{display:flex!important;flex-direction:column;overflow:hidden!important;gap:2px}
+.card.editor:is(.dm,.mtg,.ygo,.fut,.dot) .fxline{flex:1 1 0!important;min-height:1.4em!important;max-height:none!important;font-size:12px!important;overflow-y:auto!important;overflow-x:hidden!important}
 .card.editor.fut .c-text{box-sizing:border-box!important;padding-bottom:calc(var(--w)*.11)!important}
-.card.editor:is(.dm,.mtg,.ygo,.fut) #mkEff,.card.editor:is(.dm,.mtg,.ygo,.fut) #mkFlv{flex:0 0 auto!important;height:2.7em!important;min-height:2.7em!important;margin-top:0!important;position:relative!important;inset:auto!important}
+.card.editor:is(.dm,.mtg,.ygo,.fut,.dot) #mkEff,.card.editor:is(.dm,.mtg,.ygo,.fut,.dot) #mkFlv{flex:0 0 auto!important;height:2.7em!important;min-height:2.7em!important;margin-top:0!important;position:relative!important;inset:auto!important}
 .editor textarea{font-size:calc(14px*var(--tk,1));resize:none;height:56px;line-height:1.4;flex:none}
 .editor #mkFlv{font-style:italic;font-size:calc(12.5px*var(--tk,1));height:40px;margin-top:6px}
 .editor .c-atk input{width:5em;text-align:right;font-size:inherit;border:none;padding:0}
@@ -1035,6 +1035,7 @@ nav.tabs button{position:relative}
   input,select,textarea{font-size:16px!important}
   /* デュエマ旧枠のATKは本物と同じ大きさのまま（16px以上なのでズームはしない） */
   .card.editor.dm .c-atk input{font-size:max(16px,calc(var(--du)*50))!important}
+  .card.editor.dot .c-atk input{font-size:max(16px,calc(var(--pu)*56))!important}
   /* app-style tab bar at the bottom */
   body{padding-bottom:calc(84px + env(safe-area-inset-bottom,0px))}
   header.top{margin-bottom:10px}
@@ -1414,6 +1415,44 @@ div.f{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:13px}
 .card.dm.foil-silver .m-nm{background-image:linear-gradient(100deg,#5d6670 0%,#cfd6dd 22%,#ffffff 34%,#9aa4ae 48%,#e4e9ee 62%,#636c76 80%,#cfd6dd 100%)}
 .card.dm.foil-bronze .m-nm{background-image:linear-gradient(100deg,#5a2e12 0%,#c27a45 22%,#f2c39a 34%,#9a5528 48%,#d99a66 62%,#5f3416 80%,#c27a45 100%)}
 .card.dm.foil-rainbow .m-nm{background-image:linear-gradient(100deg,#e5367a,#f0a020,#3cc78a,#2f8de4,#9b4de0,#e5367a);background-size:200% 100%;animation:foilRun 5s linear infinite}
+/* ---- ドット風の枠（Figma「ドット風」630×880）: 外は濃い紫10＋種類の色18、中はクリーム。名前・タグ・絵の窓・ATKはドット絵の部品を重ねる ---- */
+.card.dot{--pu:calc(var(--w)/630);--dotc:#b9a5ff;aspect-ratio:630/880;padding:0;border:none;border-radius:0;background:#fff5c3;box-shadow:inset 0 0 0 calc(var(--pu)*10) #2e005a,inset 0 0 0 calc(var(--pu)*28) var(--dotc),0 calc(var(--pu)*4) calc(var(--pu)*12) rgba(0,0,0,.35);color:#000;isolation:isolate;font-family:var(--cf,"DotGothic16",var(--ui));font-weight:400}
+.card.dot.magic{--dotc:#419df3}.card.dot.dfld{--dotc:#64ffac}.card.dot.equip{--dotc:#ff0500}.card.dot.trap{--dotc:#ff84d4}.card.dot.mcol{--dotc:var(--cframe)}
+.card.dot::before{content:"";position:absolute;left:calc(var(--pu)*28);top:calc(var(--pu)*28);width:calc(var(--pu)*574);height:calc(var(--pu)*442);background:url("data:image/png;base64,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") 0 0/100% 100% no-repeat;image-rendering:pixelated;z-index:2;pointer-events:none}
+.card.dot .c-in{position:static;display:block;height:auto;background:none;border-radius:0;overflow:visible}
+.card.dot .c-art{position:absolute;left:calc(var(--pu)*55);top:calc(var(--pu)*150);width:calc(var(--pu)*520);height:calc(var(--pu)*306);aspect-ratio:auto;border:none;border-radius:0;background:#fff;overflow:visible;z-index:auto;margin:0}
+.card.dot .c-art>img,.card.dot .c-art>canvas{position:relative;z-index:1;width:100%;height:100%;object-fit:cover;display:block}
+.card.dot .c-art .noart{position:relative;z-index:1;display:grid;place-items:center;width:100%;height:100%;font-size:calc(var(--pu)*28);color:#9a9a9a}
+.card.dot .m-gem,.card.dot .fl-guide,.card.dot .c-bgart{display:none!important}
+.card.dot .c-art>.c-tab,.card.dot .c-art>.c-tribe{position:absolute!important;left:calc(var(--pu)*361);top:calc(var(--pu)*-86);right:auto;bottom:auto;width:calc(var(--pu)*163);height:calc(var(--pu)*71);padding:0 calc(var(--pu)*6);margin:0;border:none!important;border-radius:0;background:none!important;box-shadow:none;display:flex!important;align-items:center;justify-content:center;font-family:inherit;font-size:calc(var(--pu)*30);font-weight:400;line-height:1;color:#000!important;text-shadow:none!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;z-index:3!important}
+.card.dot .c-art>.c-tribe{display:block!important;line-height:calc(var(--pu)*71);text-align:center;font-size:calc(var(--pu)*26)}
+.card.dot .c-art:has(>.c-tribe:not([hidden])) .c-tab{display:none!important}
+.card.dot .c-name{position:absolute;left:calc(var(--pu)*58);top:calc(var(--pu)*64);width:calc(var(--pu)*337);height:calc(var(--pu)*71);padding:0 calc(var(--pu)*14)!important;border:none!important;border-radius:0;background:none;box-shadow:none;display:flex;align-items:center;justify-content:flex-start;font-family:inherit;font-size:calc(var(--pu)*38*var(--nk,1));font-weight:400;line-height:1!important;color:#000;z-index:3;min-height:0}
+.card.dot .m-nm{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.card.dot .c-cost{position:absolute;left:calc(var(--pu)*14);top:calc(var(--pu)*14);right:auto;width:calc(var(--pu)*62);height:calc(var(--pu)*62);padding:0;border:none;border-radius:0;background:#fff;box-shadow:0 0 0 calc(var(--pu)*6) #000;display:grid;place-items:center;font-family:inherit;font-size:calc(var(--pu)*40);font-weight:400;line-height:1;color:#000;z-index:4}
+.card.dot .c-text{position:absolute;left:calc(var(--pu)*48);top:calc(var(--pu)*484);width:calc(var(--pu)*534);height:calc(var(--pu)*258);border:none;border-radius:0;background:none;box-shadow:none;padding:0;font-family:inherit;font-weight:400;font-size:calc(var(--pu)*24*var(--tk,1));line-height:1.42;color:#000;overflow:visible;z-index:3}
+.card.dot:not(.monster) .c-text{height:calc(var(--pu)*340)}
+.card.dot .c-text .body{max-height:calc(var(--pu)*24*1.42*7*var(--tk,1));overflow:hidden}
+.card.dot .c-text:has(.flv) .body{max-height:calc(var(--pu)*24*1.42*6*var(--tk,1))}
+.card.dot:not(.monster) .c-text .body{max-height:calc(var(--pu)*24*1.42*9*var(--tk,1))}
+.card.dot:not(.monster) .c-text:has(.flv) .body{max-height:calc(var(--pu)*24*1.42*8*var(--tk,1))}
+.card.dot .c-text .fx{color:#000}
+.card.dot .c-text .flv{margin:calc(var(--pu)*8) 0 0;padding:0;border:none;font-style:normal;font-size:calc(var(--pu)*19*var(--tk,1));line-height:1.35;color:#6a5a30;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
+.card.dot .c-atk{position:absolute;left:calc(var(--pu)*-38);top:calc(var(--pu)*271);right:auto;bottom:auto;width:calc(var(--pu)*231);height:calc(var(--pu)*115);padding:0;border:none;border-radius:0;background:url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAc4AAADmBAMAAACuQHhsAAAAGFBMVEX///8AAAAAAAAAAAAAAAAAAAAAAAAAAABcYkG9AAAACHRSTlP//wAAAAAAAAOaHncAAAGlSURBVHja7d3BjYMwEAVQs6IBt0D/NbmFaWEvkZxVWAKHRIz9/jG58DS2kUeAl638nyiJUg///SlzhJOTk5OTk5OTk5OTk5OTk/Nq1tefIqekX3Y1bjnHnZ+7qXeflOp5qZ6l3fHqN/OTk5OTk5OTk5OTc979Slze6H017fQ2ebp6xjimvc6fdehwuFtvOTk5OTk5OTk5OTk5OTkndq4xsi6MW87UWXZaerVlFm1h3HJycnJycnJycnJycnJycnKeT+8P9UZRy03qL53FfPV8ev62DUJqr4W1DnFycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnLmydP7n/11ydzfe1PPUsq784oTxff7ODk5OTk5OTk5OTk5OTk/nOWweZDuZIBq3HKOlPUxosc8Vmfe85ar+cnJycnJycnJycnJebf95yCOLdTzfT2jn/7Q7l3FMD//1rM3FNK3iqr7CicnJycnJycnJycnJyfnR3O23xe3fIAh1JNztvmZtPNX1ZOTk5OTk5OTk7P8AvdhIfgz+R10AAAAAElFTkSuQmCC") 0 0/100% 100% no-repeat;image-rendering:pixelated;box-shadow:none;display:grid;place-items:center;font-family:inherit;font-size:calc(var(--pu)*58);font-weight:400;line-height:1;color:#000;z-index:3}
+.card.dot.equip .c-atk{left:auto;right:0;top:auto;bottom:0;width:auto;height:auto;background:none;font-size:calc(var(--pu)*30);image-rendering:auto}
+.card.dot .c-lim{position:absolute;left:auto;right:0;top:auto;bottom:calc(var(--pu)*-50);color:#8a7a40;font-size:calc(var(--pu)*18);z-index:3}
+.card.dot.equip .c-lim{right:auto;left:0}.card.dot:not(.monster) .c-lim{bottom:0}
+.card.dot.dfld .c-art>.c-tab{font-size:calc(var(--pu)*21)}
+.card.dot .c-eqc{z-index:3}
+.card.dot .holo-fx{z-index:4}
+.card.dot[class*="foil-"] .c-name{background:none!important;color:#000!important;-webkit-text-fill-color:currentColor;filter:none}
+.card.editor.dot{--w:min(330px,86vw)}
+.card.editor.dot .c-in{height:auto}
+.card.editor.dot .c-name input{text-align:left;font-weight:400;font-size:calc(var(--pu)*36*var(--nk,1));background:transparent;border:none;box-shadow:none;outline:none;width:100%;font-family:inherit;color:#000;padding:0}
+.card.editor.dot textarea{border:none!important;box-shadow:none;resize:none;background:transparent;font-size:calc(var(--pu)*22);font-family:inherit;color:#000}
+.card.editor.dot .c-atk{font-size:0}.card.editor.dot .c-atk input{font-size:calc(var(--pu)*56);width:calc(var(--pu)*190);text-align:center;background:transparent;font-family:inherit;color:#000;border:none;padding:0;outline:none}
+.card.editor.dot .c-tab{z-index:3}
+.card.editor.dot .c-text{height:calc(var(--pu)*258)!important;min-height:0!important;max-height:none!important;bottom:auto!important;padding-bottom:0!important;overflow:visible!important}.card.editor.dot:not(.monster) .c-text{height:calc(var(--pu)*340)!important}
 .card.editor.dm{--w:min(330px,86vw)}
 .card.editor.dm .c-in{height:auto}
 .card.editor.dm .c-name input{text-align:center;font-size:calc(var(--du)*42*var(--nk,1));background:transparent;border:none;box-shadow:none;outline:none;width:100%;font-family:inherit;font-weight:700;color:#000;padding:0}
@@ -1595,7 +1634,7 @@ div.f{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:13px}
 
         <div class="mk-pane" data-pane="look" hidden>
           <div class="row" id="skinRow" style="gap:6px;align-items:center;flex-wrap:wrap"><b style="font-size:13px">スキン</b><select id="mkSkin" aria-label="スキン"></select><input type="text" id="mkSkinName" maxlength="20" placeholder="スキンの名前" style="width:130px" hidden><button type="button" class="small ghost danger" id="mkSkinDel" hidden>このスキンを消す</button><span class="note">同じカードの別の見た目（絵・枠・キャラ・色）。デッキ編集でえらべます</span></div>
-          <label class="f">カードの枠<select id="mkFrame"><option value="">ふつう</option><option value="socra">ソクラテスラ（紙っぽい・矢印の名前）</option><option value="spire">スパイア風（宝石のコスト・リボンの名前）</option><option value="mtg">MTG風（石の枠・名前とタイプの帯）</option><option value="future">近未来（白黒のメカっぽい枠）</option><option value="ygo">遊戯王風（モンスター・魔法・罠で色が変わる・コストは星）</option><option value="dm">デュエマ旧枠風（石の枠・魔法と罠はアーチの絵）</option></select></label>
+          <label class="f">カードの枠<select id="mkFrame"><option value="">ふつう</option><option value="socra">ソクラテスラ（紙っぽい・矢印の名前）</option><option value="spire">スパイア風（宝石のコスト・リボンの名前）</option><option value="mtg">MTG風（石の枠・名前とタイプの帯）</option><option value="future">近未来（白黒のメカっぽい枠）</option><option value="ygo">遊戯王風（モンスター・魔法・罠で色が変わる・コストは星）</option><option value="dm">デュエマ旧枠風（石の枠・魔法と罠はアーチの絵）</option><option value="dot">ドット風（ピクセルの枠・種類ごとに色がかわる）</option></select></label>
           <label class="f" id="spcRow" hidden>キャラ（枠の色）<select id="mkSpc"><option value="">アイアンクラッド（赤）</option><option value="silent">サイレント（緑）</option></select></label>
           <label class="f" id="rarityRow" hidden>レアリティ（リボンの色）<select id="mkRarity"><option value="common">コモン（鉄色）</option><option value="uncommon">アンコモン（青緑）</option><option value="rare">レア（金）</option></select></label>
           <label class="row" style="gap:6px;font-weight:700;cursor:pointer"><input type="checkbox" id="mkFrameless"> 半フレームレス（絵を下の文字の欄まで広げる）</label>
@@ -3046,7 +3085,7 @@ function fxRowsHTML(c, noMeta, noIc){
   return `${meta && !noMeta ? `<div class="fxr-meta">${kwLink(esc(meta))}</div>` : ""}<div class="fxrs">${rows.join("")}</div>`;
 }
 // 画像の枠: カードの frame → クラス名
-const FR_CLS = { mtg: "mtg", future: "fut", ygo: "ygo", dm: "dm" };
+const FR_CLS = { mtg: "mtg", future: "fut", ygo: "ygo", dm: "dm", dot: "dot" };
 // 遊戯王風: コストを星で。枠に入る数（モンスター13・罠10・魔法9）をこえたら「★×14」
 const YGO_STAR_MAX = { monster: 13, trap: 10 };
 function ygoStars(v, t){
@@ -3067,8 +3106,10 @@ function cardHTML(c, cls = "", attrs = "", opts = {}){
   if (fr === "future" && !/<span class="c-cost"/.test(h)) h = h.replace('<div class="c-in">', '<div class="c-in"><span class="c-cost nocost" title="コストなし">‐</span>');
   if (fr === "ygo") h = h.replace(/<span class="c-cost"([^>]*)>([^<]*)<\/span>/, (m, a, v) => `<span class="c-cost"${a}>${ygoStars(v, cardType(c))}</span>`);
   // 遊戯王風: 装備・速攻・フィールド・永続は、それぞれのアイコン付きの枠にする
+  // ドット風: フィールド魔法は枠の色がちがう
+  if (fr === "dot" && isField(c)) h = h.replace(/^<div class="card /, '<div class="card dfld ');
   if (fr === "ygo"){ const yt = cardType(c) === "equip" ? "yeq" : isQuick(c) ? "yqp" : isField(c) ? "yfld" : isPersist(c) ? (cardType(c) === "trap" ? "yct" : "ycm") : ""; if (yt) h = h.replace(/^<div class="card /, `<div class="card ${yt} `); }
-  if (mt) h = h.replace(/^<div class="card /, `<div class="card ${FR_CLS[fr]}${(fr === "mtg" || fr === "dm") && HEX6.test(c.colF || "") ? " mcol" : ""}${fr === "dm" && glOf(c) ? " " + glFrameCls(c) : ""} `).replace(/<\/div>$/, `<span class="m-gem" aria-hidden="true"></span></div>`).replace(/<div class="c-atk">ATK /, `<div class="c-atk">`).replace(/<div class="c-name">([\s\S]*?)<\/div><div class="c-art">/, `<div class="c-name"><span class="m-nm">$1</span></div><div class="c-art">`);
+  if (mt) h = h.replace(/^<div class="card /, `<div class="card ${FR_CLS[fr]}${(fr === "mtg" || fr === "dm" || fr === "dot") && HEX6.test(c.colF || "") ? " mcol" : ""}${fr === "dm" && glOf(c) ? " " + glFrameCls(c) : ""} `).replace(/<\/div>$/, `<span class="m-gem" aria-hidden="true"></span></div>`).replace(/<div class="c-atk">ATK /, `<div class="c-atk">`).replace(/<div class="c-name">([\s\S]*?)<\/div><div class="c-art">/, `<div class="c-name"><span class="m-nm">$1</span></div><div class="c-art">`);
   if (c && c.fxRows && !freeText(c) && !c.potionView && !c.relicView && c.frame !== "spire" && c.frame !== "socra") h = h.replace(/^<div class="card /, '<div class="card fxrows ').replace(/<div class="body">[\s\S]*?<\/div>(?=<div class="flv">|<span class="c-lim">|<div class="c-atk">|<\/div><\/div>)/, () => `<div class="body">${fxRowsHTML(c)}</div>`);
   if (c && c.land && isField(c) && !c.potionView && !c.relicView && !FR_CLS[c.frame] && c.frame !== "spire") h = h.replace(/^<div class="card /, '<div class="card land ');
   // タグを名前の下に（デュエマの種族みたいに）。カードごとに出す・出さないを決められる
@@ -3967,7 +4008,7 @@ $("#mkTEdge").addEventListener("change", e => setTEdge(e.target.checked));
 $("#mkFrameless").addEventListener("change", e => setFrameless(e.target.checked));
 function syncRarity(){ const sp = $("#mkFrame").value === "spire", r = $("#mkRarity").value; $("#rarityRow").hidden = !sp; $("#spcRow").hidden = !sp; $("#editCard").classList.toggle("spc-silent", sp && $("#mkSpc").value === "silent"); ["common", "uncommon", "rare"].forEach(k => $("#editCard").classList.toggle("rar-" + k, sp && r === k)); }
 $("#mkRarity").addEventListener("change", syncRarity); $("#mkSpc").addEventListener("change", syncRarity);
-function syncFrame(){ { const ec = $("#editCard"); ec.classList.remove("dmg-l", "dmg-r", "dmg-lr"); const g = $("#mkFrame").value === "dm" && typeof mkGlVal === "function" ? mkGlVal() : null; if (g) ec.classList.add(glFrameCls({ type: "monster", gl: g })); } if (typeof updateSecs === "function") setTimeout(updateSecs); setTimeout(fitCanvas); $("#editCard").classList.toggle("mtg", $("#mkFrame").value === "mtg"); $("#editCard").classList.toggle("fut", $("#mkFrame").value === "future"); $("#editCard").classList.toggle("ygo", $("#mkFrame").value === "ygo"); $("#editCard").classList.toggle("dm", $("#mkFrame").value === "dm"); $("#editCard").classList.toggle("socra", $("#mkFrame").value === "socra"); $("#editCard").classList.toggle("spire", $("#mkFrame").value === "spire"); syncRarity(); $("#flAlphaRow").hidden = !MK.frameless || $("#mkFrame").value === "future"; if ($("#mkFrame").value === "spire" && MK.frameless) setFrameless(false); $("#mkFrameless").closest("label").hidden = $("#mkFrame").value === "spire"; if (typeof syncTypeNames === "function") syncTypeNames(); if (MK.deck) syncCost(); $("#capRow").hidden = MK.type !== "monster" || $("#mkFrame").value !== "socra"; }
+function syncFrame(){ { const ec = $("#editCard"); ec.classList.remove("dmg-l", "dmg-r", "dmg-lr"); const g = $("#mkFrame").value === "dm" && typeof mkGlVal === "function" ? mkGlVal() : null; if (g) ec.classList.add(glFrameCls({ type: "monster", gl: g })); } if (typeof updateSecs === "function") setTimeout(updateSecs); setTimeout(fitCanvas); $("#editCard").classList.toggle("mtg", $("#mkFrame").value === "mtg"); $("#editCard").classList.toggle("fut", $("#mkFrame").value === "future"); $("#editCard").classList.toggle("ygo", $("#mkFrame").value === "ygo"); $("#editCard").classList.toggle("dm", $("#mkFrame").value === "dm"); $("#editCard").classList.toggle("dot", $("#mkFrame").value === "dot"); $("#editCard").classList.toggle("dfld", MK.type === "magic" && $("#mkField").checked); $("#editCard").classList.toggle("socra", $("#mkFrame").value === "socra"); $("#editCard").classList.toggle("spire", $("#mkFrame").value === "spire"); syncRarity(); $("#flAlphaRow").hidden = !MK.frameless || $("#mkFrame").value === "future"; if ($("#mkFrame").value === "spire" && MK.frameless) setFrameless(false); $("#mkFrameless").closest("label").hidden = $("#mkFrame").value === "spire"; if (typeof syncTypeNames === "function") syncTypeNames(); if (MK.deck) syncCost(); $("#capRow").hidden = MK.type !== "monster" || $("#mkFrame").value !== "socra"; }
 $("#mkFrame").addEventListener("change", () => { if ($("#mkFrame").value === "future" && !MK.frameless) setFrameless(true); syncFrame(); syncFont(); });
 function clearCanvas(){ ik.clearRect(0, 0, ink.width, ink.height); photo = null; setMode("draw"); composite(); }
 $("#swatches").innerHTML = COLORS.map(c => `<button class="sw" style="background:${c}" data-c="${c}" aria-label="色 ${c}" aria-pressed="${c === pen.color}"></button>`).join("");
@@ -4190,7 +4231,7 @@ $("#mkColGr").addEventListener("change", () => { if ($("#mkColGr").checked) $("#
 MK.fxRows = false;
 $("#mkFxRows").addEventListener("change", e => { MK.fxRows = e.target.checked; if (typeof renderBlocksUI === "function" && $("#bkUI")) renderBlocksUI(); });
 $("#colPresets").addEventListener("click", e => { const b = e.target.closest("[data-cf]"); if (!b) return; $("#mkColOn").checked = true; $("#mkColF").value = b.dataset.cf; $("#mkColB").value = b.dataset.cb; syncColor(); });
-function syncFont(){ const k = $("#mkFont").value; if (["mtg", "future", "ygo", "dm"].includes($("#mkFrame").value) && k === "klee") $("#editCard").style.removeProperty("--cf"); else $("#editCard").style.setProperty("--cf", FONTS[k] ? FONTS[k].css : ""); $("#mkFont").style.fontFamily = FONTS[k] ? FONTS[k].css : ""; renderFontGrid(); }
+function syncFont(){ const k = $("#mkFont").value; if (["mtg", "future", "ygo", "dm", "dot"].includes($("#mkFrame").value) && k === "klee") $("#editCard").style.removeProperty("--cf"); else $("#editCard").style.setProperty("--cf", FONTS[k] ? FONTS[k].css : ""); $("#mkFont").style.fontFamily = FONTS[k] ? FONTS[k].css : ""; renderFontGrid(); }
 // フォント選び: 見本の文字（カード名）をそれぞれのフォントで並べる
 function renderFontGrid(){
   const box = $("#fontGrid"); if (!box) return;
@@ -4234,6 +4275,7 @@ function setMkType(t){
   const pers = (t === "magic" || t === "trap") && $("#mkPersist").checked;
   $("#persistRow").hidden = (t !== "magic" && t !== "trap") || $("#mkFrame").value === "spire" || $("#mkField").checked;
   $("#fieldRow").hidden = t !== "magic" || $("#mkFrame").value === "spire"; $("#fieldOpts").hidden = $("#fieldRow").hidden || !$("#mkField").checked;
+  { const ec = $("#editCard"); if (ec) ec.classList.toggle("dfld", t === "magic" && $("#mkField").checked); }
   { const ec = $("#editCard"); if (ec) ec.classList.toggle("land", t === "magic" && $("#mkField").checked && $("#mkLand").checked && !FR_CLS[$("#mkFrame").value] && $("#mkFrame").value !== "spire"); }
   $("#exhaustRow").hidden = (t !== "magic" && t !== "trap") || pers;
   $("#noUseRow").hidden = t !== "magic" && t !== "trap";
