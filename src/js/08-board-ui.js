@@ -448,7 +448,7 @@ function playEvents(prevLp, nowLp){
   }
   if (reduceMotion) return;
   // one after another: a spell banner gets time to show before its hits, each hit gets its own beat (ツインストライク → 2 hits)
-  const GAP = { spell: 900, summon: 900, attack: 560, hit: 420, fusion: 2800 };
+  const GAP = { spell: 900, summon: 900, attack: 560, hit: 420, fusion: 2800, turn: 1250 };
   let t = 0;
   list.forEach(e => { setTimeout(() => { try{ animateEvent(e); }catch(err){} }, t); t += GAP[e.type] || 320; });
 }
@@ -478,8 +478,20 @@ function fusionFx(e){
   res.animate([{ opacity: 0, transform: "translate(-50%,-50%) scale(.3)" }, { opacity: 0, offset: .46 }, { opacity: 1, transform: "translate(-50%,-50%) scale(1.12)", offset: .56 }, { opacity: 1, transform: "translate(-50%,-50%) scale(1)", offset: .64 }, { opacity: 1, transform: "translate(-50%,-50%) scale(1)", offset: .88 }, { opacity: 0, transform: "translate(-50%,-50%) scale(1.05)" }], { duration: T, easing: "ease-out", fill: "forwards" });
   setTimeout(() => box.remove(), T + 80);
 }
+// ターンが変わったときのカットイン: 画面を横切る帯に「あなたのターン／相手のターン」
+function turnCut(e){
+  document.querySelectorAll(".fxcut").forEach(x => x.remove());
+  const me = !G.spectate && sideOf(e.s) === "me", nm = G.st && G.st.players[e.s] ? G.st.players[e.s].name : "";
+  const t = e.xt ? (me ? "あなたの追加ターン！" : `${nm}の追加ターン！`) : me ? "あなたのターン" : G.spectate ? `${nm}のターン` : G.mode === "cpu" ? `${nm || "CPU"}のターン` : "相手のターン";
+  const en = e.xt ? "EXTRA TURN" : me ? "YOUR TURN" : "ENEMY TURN", sub = e.first ? (me ? "あなたの先攻" : "相手の先攻") : `ターン ${e.no || ""}`;
+  const d = document.createElement("div"); d.className = "fxcut " + (me ? "mine" : "theirs"); d.setAttribute("aria-hidden", "true");
+  d.innerHTML = `<div class="cut-band"><div class="cut-lines"></div><div class="cut-in"><span class="cut-en">${esc(en)}</span><b class="cut-t">${esc(t)}</b><span class="cut-no">${esc(sub)}</span></div></div>`;
+  document.body.appendChild(d);
+  setTimeout(() => d.remove(), 1500);
+}
 function animateEvent(e){
   if (!G) return;
+  if (e.type === "turn"){ turnCut(e); return; }
   if (e.type === "summon" && e.c){
     fxEl("fxspell " + (sideOf(e.s) === "me" ? "mine" : "theirs"), `<div class="lbl">モンスター登場！</div>${cardHTML(card(e.c), "lg", "", mOpt(e.s))}`);
   }

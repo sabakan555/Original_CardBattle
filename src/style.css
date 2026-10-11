@@ -705,6 +705,18 @@ button.chip{font-size:12px;border:1.5px solid var(--ink);border-radius:99px;padd
 .fxfloat.neg{color:var(--hit)}.fxfloat.pos{color:#3fbf7f}
 @keyframes fxfloat{0%{transform:translate(-50%,10px) scale(.6);opacity:0}20%{transform:translate(-50%,-10px) scale(1.2);opacity:1}100%{transform:translate(-50%,-60px) scale(1);opacity:0}}
 .fxspell{left:50%;top:45%;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;gap:8px;animation:fxspell 1.25s ease-in-out forwards;filter:drop-shadow(0 10px 30px rgba(30,35,40,.45))}
+.fxcut{position:fixed;left:0;right:0;top:50%;height:0;z-index:8500;pointer-events:none}
+.fxcut .cut-band{position:absolute;left:-10vw;right:-10vw;top:0;height:clamp(96px,17vh,150px);transform:translateY(-50%) skewY(-5deg);background:linear-gradient(90deg,transparent,var(--cut1) 14%,var(--cut2) 50%,var(--cut1) 86%,transparent);border-top:4px solid var(--cut3);border-bottom:4px solid var(--cut3);box-shadow:0 0 40px var(--cut1);overflow:hidden;animation:cutband 1.45s cubic-bezier(.2,.8,.2,1) forwards}
+.fxcut.mine{--cut1:rgba(54,190,170,.92);--cut2:rgba(40,120,170,.96);--cut3:#9ff3e6}
+.fxcut.theirs{--cut1:rgba(214,70,90,.92);--cut2:rgba(130,40,90,.96);--cut3:#ffb2bf}
+.fxcut .cut-lines{position:absolute;inset:0;background:repeating-linear-gradient(90deg,rgba(255,255,255,.14) 0 2px,transparent 2px 28px);animation:cutlines 1.45s linear forwards}
+.fxcut .cut-in{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;transform:skewY(5deg);color:#fff;text-shadow:0 3px 0 rgba(0,0,0,.35),0 0 18px rgba(0,0,0,.35);animation:cuttext 1.45s cubic-bezier(.2,.8,.2,1) forwards}
+.fxcut .cut-en{font-family:var(--display);font-size:clamp(13px,2vw,18px);letter-spacing:.5em;opacity:.85}
+.fxcut .cut-t{font-family:var(--display);font-size:clamp(30px,6vw,60px);line-height:1.1;letter-spacing:.06em}
+.fxcut .cut-no{font-size:clamp(12px,1.6vw,15px);font-weight:700;opacity:.9}
+@keyframes cutband{0%{transform:translateY(-50%) skewY(-5deg) scaleY(0);opacity:0}12%{transform:translateY(-50%) skewY(-5deg) scaleY(1);opacity:1}82%{transform:translateY(-50%) skewY(-5deg) scaleY(1);opacity:1}100%{transform:translateY(-50%) skewY(-5deg) scaleY(0);opacity:0}}
+@keyframes cuttext{0%{transform:skewY(5deg) translateX(60vw);opacity:0}18%{transform:skewY(5deg) translateX(-1vw);opacity:1}26%{transform:skewY(5deg) translateX(0)}78%{transform:skewY(5deg) translateX(-3vw);opacity:1}100%{transform:skewY(5deg) translateX(-60vw);opacity:0}}
+@keyframes cutlines{0%{transform:translateX(0)}100%{transform:translateX(-140px)}}
 .fxspell .lbl{font-family:var(--display);font-size:28px;color:#fff;background:var(--magic);padding:0 18px;border-radius:999px;border:2px solid var(--ink)}
 .fxspell.theirs .lbl{background:var(--trap)}
 @keyframes fxspell{0%{transform:translate(-50%,-40%) scale(.5) rotate(-8deg);opacity:0}18%{transform:translate(-50%,-50%) scale(1.05) rotate(2deg);opacity:1}75%{transform:translate(-50%,-50%) scale(1);opacity:1}100%{transform:translate(-50%,-60%) scale(.9);opacity:0}}

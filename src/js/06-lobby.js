@@ -248,7 +248,7 @@ function startState(pa, pb){
   const first = Math.random() < .5 ? "a" : "b";
   const fp = first === "a" ? pa : pb; if (fp.mana){ fp.mana.max = 1; fp.mana.cur = 1; }
   [pa, pb].forEach(p => { if (p.mana && p.sz.some(z => z && z.face && isAltar(z.c))){ p.mana.max = 3; p.mana.cur = p === fp ? 3 : 0; } });
-  return { v: 3, started: true, players: { a: pa, b: pb }, first, turn: first, turnNo: 1, summoned: false, pending: null, winner: null, why: "", log: [{ t: Date.now(), m: `${(first === "a" ? pa : pb).name} の先攻でスタート！` }] };
+  return { v: 3, started: true, players: { a: pa, b: pb }, first, turn: first, turnNo: 1, summoned: false, pending: null, winner: null, why: "", log: [{ t: Date.now(), m: `${(first === "a" ? pa : pb).name} の先攻でスタート！` }], ev: [{ type: "turn", s: first, no: 1, first: true, n: 1 }], evn: 1 };
 }
 
 $("#btnCreate").addEventListener("click", async () => {
