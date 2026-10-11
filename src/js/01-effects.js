@@ -83,6 +83,7 @@ const KINDS = {
   oppStrDown: { label: "相手の筋力を下げる（相手の次のターンの終わりまで）", n: true, text: n => `相手の次のターンの終わりまで、相手は筋力${n}を失う` },
   loseLp:     { label: "自分のLPを失う", n: true, text: n => `自分のLPを${n}失う` },
   oppHeal:    { label: "相手のLPを回復（デメリット）", n: true, text: n => `相手のLPを${n}回復する` },
+  lpSwap:     { label: "自分と相手のLPを入れかえる", text: () => `自分と相手のLPを入れかえる` },
   selfDisc:      { label: "自分の手札をえらんで捨てる（デメリット）", n: true, target: "hand", each: true, text: n => `自分の手札を${n}枚えらんで捨てる` },
   selfDiscRand:  { label: "自分の手札をランダムに捨てる（デメリット）", n: true, text: n => `自分の手札をランダムに${n}枚捨てる` },
   selfDiscAll:   { label: "自分の手札をすべて捨てる（デメリット）", text: () => `自分の手札をすべて捨てる` },
@@ -614,7 +615,7 @@ const PER_DEFS = {
 };
 const PER_OK = { dmg: true, block: true, manaNow: true, heal: true, draw: true, mill: true, discard: true, vuln: true, weak: true, loseLp: true, oppHeal: true, atkUp: true, selfAtk: true, atkAll: true, atkDown: true, str: true, oppDraw: true, exhaustRand: true, manaMax: true, plate: true };
 // 「ふえる」はほぼすべての効果で使える（数のない効果は「○1つにつき、もう1回」）
-const PER_NO = ["none", "win", "modAdd", "modRep", "modClear", "modName", "synthHand", "synthTo", "extraTurn"];
+const PER_NO = ["none", "win", "modAdd", "modRep", "modClear", "modName", "synthHand", "synthTo", "extraTurn", "lpSwap"];
 const perOk = k => !!KINDS[k] && !PER_NO.includes(k);
 const perVal = (st, s, c, fx, t, ctx) => PER_DEFS[fx.per] ? PER_DEFS[fx.per].val(st, s, c, t, ctx, fx) : 0;
 const perText = m => !m.per || !PER_DEFS[m.per] ? "" : m.hits ? `（${perLab(m)}につき、もう1回）` : `（${perLab(m)}につき+${m.pm ?? 1}）`;

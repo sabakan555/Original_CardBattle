@@ -856,6 +856,7 @@ function applyEffect(st, s, c, target, ctx = {}, fx = normFx(c)){
       break;
     }
     case "heal": me.lp += n; log(st, s, `${src}でLPを${n}回復`); break;
+    case "lpSwap": { const a = me.lp, b = op.lp; me.lp = b; op.lp = a; log(st, s, `${src}で${me.name}と${op.name}のLPを入れかえた（${me.name} ${fmtN(a)}→${fmtN(b)}・${op.name} ${fmtN(b)}→${fmtN(a)}）`); break; }
     case "oppHeal": if (n > 0 && isFinite(n)){ op.lp += n; log(st, s, `${src}で${op.name}のLPが${n}回復した`); } break;
     case "dmgRand": { const L = ["p", ...opT.mz.map((m, i) => m ? "m:" + i : null).filter(Boolean)], t = L[Math.floor(Math.random() * L.length)]; if (t === "p"){ log(st, s, `${src}で${opT.name}に${n}ダメージ（ランダム）`); dealDmg(st, OS, n); } else monDmg(st, OS, +t.slice(2), n, src + "（ランダム）"); break; }
     case "dmgAll": { opT.mz.map((m, i) => mfOk(st, s, fx, m) ? i : -1).filter(i => i >= 0).forEach(i => monDmg(st, OS, i, n, src)); log(st, s, `${src}で${opT.name}に${n}ダメージ`); dealDmg(st, OS, n); break; }

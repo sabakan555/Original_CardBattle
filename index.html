@@ -2048,6 +2048,7 @@ const KINDS = {
   oppStrDown: { label: "相手の筋力を下げる（相手の次のターンの終わりまで）", n: true, text: n => `相手の次のターンの終わりまで、相手は筋力${n}を失う` },
   loseLp:     { label: "自分のLPを失う", n: true, text: n => `自分のLPを${n}失う` },
   oppHeal:    { label: "相手のLPを回復（デメリット）", n: true, text: n => `相手のLPを${n}回復する` },
+  lpSwap:     { label: "自分と相手のLPを入れかえる", text: () => `自分と相手のLPを入れかえる` },
   selfDisc:      { label: "自分の手札をえらんで捨てる（デメリット）", n: true, target: "hand", each: true, text: n => `自分の手札を${n}枚えらんで捨てる` },
   selfDiscRand:  { label: "自分の手札をランダムに捨てる（デメリット）", n: true, text: n => `自分の手札をランダムに${n}枚捨てる` },
   selfDiscAll:   { label: "自分の手札をすべて捨てる（デメリット）", text: () => `自分の手札をすべて捨てる` },
@@ -2579,7 +2580,7 @@ const PER_DEFS = {
 };
 const PER_OK = { dmg: true, block: true, manaNow: true, heal: true, draw: true, mill: true, discard: true, vuln: true, weak: true, loseLp: true, oppHeal: true, atkUp: true, selfAtk: true, atkAll: true, atkDown: true, str: true, oppDraw: true, exhaustRand: true, manaMax: true, plate: true };
 // 「ふえる」はほぼすべての効果で使える（数のない効果は「○1つにつき、もう1回」）
-const PER_NO = ["none", "win", "modAdd", "modRep", "modClear", "modName", "synthHand", "synthTo", "extraTurn"];
+const PER_NO = ["none", "win", "modAdd", "modRep", "modClear", "modName", "synthHand", "synthTo", "extraTurn", "lpSwap"];
 const perOk = k => !!KINDS[k] && !PER_NO.includes(k);
 const perVal = (st, s, c, fx, t, ctx) => PER_DEFS[fx.per] ? PER_DEFS[fx.per].val(st, s, c, t, ctx, fx) : 0;
 const perText = m => !m.per || !PER_DEFS[m.per] ? "" : m.hits ? `（${perLab(m)}につき、もう1回）` : `（${perLab(m)}につき+${m.pm ?? 1}）`;
@@ -4343,7 +4344,7 @@ const KIND_GROUPS = [
   { g: "debuff",  label: "相手を弱らせる（デバフ）", v: [["vuln", "弱体（受けるダメージ1.5倍）"], ["weak", "脱力（与えるダメージが減る）"], ["atkDown", "ATKを下げる"], ["atkDownTmp", "ATKを下げる（このターンだけ）"], ["atkDownAtk", "攻撃してきたモンスターのATKを下げる（罠・速攻魔法）"], ["charm", "魅了（攻撃できなくする）"], ["oppStrDown", "筋力を失わせる（相手の次のターンの終わりまで）"], ["oppNoAtk", "攻撃できなくする（相手の次のターンまで）"], ["oppNoUse", "魔法・罠を発動できなくする（相手の次のターンまで）"]] },
   { g: "hand",    label: "相手の手札を捨てさせる（ハンデス）", v: [["discard", "ランダムに捨てさせる"], ["discardPeek", "手札を見て、えらんで捨てさせる（ピーピングハンデス）"]] },
   { g: "buff",    label: "自分を強くする（バフ）", v: [["str", "筋力を得る（与えるダメージ+○）"], ["strTemp", "筋力を得る（このターンだけ）"], ["dex", "敏捷を得る（得るブロック+○）"], ["dexTemp", "敏捷を得る（このターンだけ）"], ["intang", "霊体（受けるダメージが1・○ターン）"], ["selfAtk", "このモンスターのATKを上げる"], ["atkMul", "このモンスターのATKを○倍"], ["atkUp", "自分のモンスターのATKを上げる（えらぶ・全体・ランダム）"], ["vulnBonus", "弱体の相手へのダメージ+○%（ずっと）"]] },
-  { g: "guard",   label: "守る・回復する", v: [["block", "ブロックを得る"], ["heal", "LPを回復する"], ["plate", "プレート（ターンのおわりにブロック）"], ["barricade", "ブロックが消えなくなる（ずっと）"], ["firstBlock2", "毎ターン最初のブロックが2倍（ずっと）"], ["rageNow", "このターン、アタックを使うたびブロック"], ["thornsNow", "攻撃されたら反撃（次の自分のターンまで）"]] },
+  { g: "guard",   label: "守る・回復する", v: [["block", "ブロックを得る"], ["heal", "LPを回復する"], ["lpSwap", "自分と相手のLPを入れかえる"], ["plate", "プレート（ターンのおわりにブロック）"], ["barricade", "ブロックが消えなくなる（ずっと）"], ["firstBlock2", "毎ターン最初のブロックが2倍（ずっと）"], ["rageNow", "このターン、アタックを使うたびブロック"], ["thornsNow", "攻撃されたら反撃（次の自分のターンまで）"]] },
   { g: "draw",    label: "カードを引く", v: [["draw", "○枚引く"], ["drawTo", "手札が○枚になるまで引く"], ["drawUntil", "アタック以外を引くまで引く"]] },
   { g: "fetch",   label: "カードを手札に持ってくる", v: [["searchMon", "山札からモンスターを（えらぶ）"], ["searchMagic", "山札から魔法を（えらぶ）"], ["searchTrap", "山札から罠を（えらぶ）"], ["tagSearch", "タグのカードを山札から（えらぶ）"], ["tagGraveHand", "タグのカードを墓地から（えらぶ）"], ["revive", "墓地のモンスターを手札に"], ["graveHand", "墓地のカードを手札に（どのカードでも・えらぶ）"], ["graveAtkToHand", "墓地のランダムなアタックを手札に"]] },
   { g: "make",    label: "カードを生み出す・コピーする", v: [["copyHand", "このカードのコピーを手札に"], ["copyDeck", "このカードのコピーを山札に"], ["copyGrave", "このカードのコピーを墓地に"], ["copyLastAtk", "直前に使ったアタックのコピーを手札に"], ["genAttack", "ランダムなアタックを手札に"], ["genAttack0", "ランダムなアタックを手札に（このターンコスト0）"], ["genSkill", "ランダムなスキルを手札に"], ["genPower", "ランダムなパワーを手札に"], ["genNamed", "名前を指定したカード（トークンなど）を手札に"], ["tagGen", "タグのカードをランダムに生み出して手札に"], ["draft", "スパイア風カードを○枚から1枚えらんで墓地に"]] },
@@ -7097,6 +7098,7 @@ function applyEffect(st, s, c, target, ctx = {}, fx = normFx(c)){
       break;
     }
     case "heal": me.lp += n; log(st, s, `${src}でLPを${n}回復`); break;
+    case "lpSwap": { const a = me.lp, b = op.lp; me.lp = b; op.lp = a; log(st, s, `${src}で${me.name}と${op.name}のLPを入れかえた（${me.name} ${fmtN(a)}→${fmtN(b)}・${op.name} ${fmtN(b)}→${fmtN(a)}）`); break; }
     case "oppHeal": if (n > 0 && isFinite(n)){ op.lp += n; log(st, s, `${src}で${op.name}のLPが${n}回復した`); } break;
     case "dmgRand": { const L = ["p", ...opT.mz.map((m, i) => m ? "m:" + i : null).filter(Boolean)], t = L[Math.floor(Math.random() * L.length)]; if (t === "p"){ log(st, s, `${src}で${opT.name}に${n}ダメージ（ランダム）`); dealDmg(st, OS, n); } else monDmg(st, OS, +t.slice(2), n, src + "（ランダム）"); break; }
     case "dmgAll": { opT.mz.map((m, i) => mfOk(st, s, fx, m) ? i : -1).filter(i => i >= 0).forEach(i => monDmg(st, OS, i, n, src)); log(st, s, `${src}で${opT.name}に${n}ダメージ`); dealDmg(st, OS, n); break; }
