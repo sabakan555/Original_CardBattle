@@ -198,7 +198,7 @@ function playTopCard(st, s, src, ex, then, extra){
     const z = freeZone(p.mz);
     if (z < 0){ p.grave.push(id); log(st, s, `${src}で山札の一番上の「${c.name}」をめくった（場がいっぱいなので墓地へ）`); then && then(st); return; }
     p.mz[z] = mkMon(st, id); ev(st, { type: "summon", s, z }); log(st, s, `${src}で山札の一番上の「${c.name}」をプレイ！（召喚扱いで場に出た）`);
-    runCard(st, s, c, "summon", { zone: z, mon: { s, i: z, u: p.mz[z].u } }, st2 => persistFire(st2, s, "mySummon", {}, then));
+    runCard(st, s, c, "summon", { zone: z, mon: { s, i: z, u: p.mz[z].u } }, st2 => persistFire(st2, s, "mySummon", {}, st3 => onCardUsed(st3, s, c, then, (P(st3, s).mz[z] || {}).u)));
     return;
   }
   if (t !== "magic" && t !== "trap"){ p.grave.push(id); log(st, s, `${src}で山札の一番上の「${c.name}」をめくった（プレイできないので墓地へ）`); then && then(st); return; }
@@ -766,7 +766,7 @@ function equip(st, s, hi, ts, ti, pos, disc){
   log(st, s, `「${c.name}」を${ts === s ? "" : "相手の"}「${card(m.c).name}」に装備${n ? `（ATK${n > 0 ? "+" : "−"}${Math.abs(n)}）` : ""}${ab ? `：${ab}` : ""}（キャパ ${eqUsed(m)}/${eqCapOf(card(m.c))}）`);
   const mult = eqMult(m.eqs, k), L = [];
   for (let r = 0; r < mult; r++) L.push({ s, c, trig: "attach", ctx: { zone: ts === s ? ti : null, mon: { s: ts, i: ti, u: m.u }, eqU: e.u } });
-  runList(st, L, null);
+  runList(st, L, st2 => onCardUsed(st2, s, c, null));
   return true;
 }
 // visual events, stored in the game state so both players see the same animations
@@ -1264,7 +1264,7 @@ function castFree(st, s, id, src, then){
     const z = glZone(st, s, id);
     if (z < 0){ p.grave.push(id); log(st, s, `${src}：場がいっぱいなので「${c.name}」は墓地へ`); then && then(st); return; }
     p.mz[z] = mkMon(st, id); ev(st, { type: "summon", s, z }); log(st, s, `${src}で「${c.name}」をタダで召喚！`);
-    runCard(st, s, c, "summon", { zone: z, mon: { s, i: z, u: p.mz[z].u }, cast: true }, st2 => persistFire(st2, s, "mySummon", {}, then));
+    runCard(st, s, c, "summon", { zone: z, mon: { s, i: z, u: p.mz[z].u }, cast: true }, st2 => persistFire(st2, s, "mySummon", {}, st3 => onCardUsed(st3, s, c, then, (P(st3, s).mz[z] || {}).u)));
     return;
   }
   const pz = isPersist(c) ? freeZone(p.sz) : -1;
@@ -1526,6 +1526,7 @@ function summon(st, s, hi, zi, disc, trib, mats){
   log(st, s, label); ev(st, { type: "summon", s, z });
   trigger(st, s, card(id), "summon", { zone: z, mon: { s, i: z, u: p.mz[z].u }, cast: true });
   persistFire(st, s, "mySummon", {});
+  onCardUsed(st, s, card(id), null, p.mz[z] && p.mz[z].u);
   summonedWindow(st, s, z, false);
   return true;
 }
@@ -1587,6 +1588,7 @@ function specialSummon(st, s, hi, picks = []){
   log(st, s, `${paid ? paid + "、" : ""}「${c.name}」（ATK ${fmtN(baseAtk(c))}）を特殊召喚！`);
   trigger(st, s, c, "ssummon", { zone: z, mon: { s, i: z, u: p.mz[z].u } });
   persistFire(st, s, "mySummon", {});
+  onCardUsed(st, s, c, null, p.mz[z] && p.mz[z].u);
   summonedWindow(st, s, z, true);
   return true;
 }
@@ -1669,12 +1671,13 @@ function placeField(st, s, id){
   log(st, s, `フィールド「${card(id).name}」が出た`);
 }
 const fieldCard = st => st && st.field ? card(st.field.c) : null;
-function onCardUsed(st, user, c, then){
-  const t = cardType(c); if ((t !== "magic" && t !== "trap") || (st._usedDepth || 0) > 2 || st.winner){ then && then(st); return; }
+function onCardUsed(st, user, c, then, exU){
+  const t = cardType(c), sp = t === "magic" || t === "trap"; if (!c || (st._usedDepth || 0) > 2 || st.winner){ then && then(st); return; }
   const used = { c: c.id, s: user }, L = [];
   for (const o of ["a", "b"]){
     const p = P(st, o);
-    p.mz.forEach((m, i) => { if (m && hasTrig(card(m.c), "anyUse")) L.push({ s: o, c: card(m.c), trig: "anyUse", ctx: { used, zone: i, mon: { s: o, i, u: m.u } } }); });
+    p.mz.forEach((m, i) => { if (!m) return; const mc = card(m.c), ctx = { used, zone: i, mon: { s: o, i, u: m.u } }; if (sp && hasTrig(mc, "anyUse")) L.push({ s: o, c: mc, trig: "anyUse", ctx }); if (m.u !== exU && hasTrig(mc, "cardUse")) L.push({ s: o, c: mc, trig: "cardUse", ctx }); });
+    if (!sp) continue;
     persistList(st, o, "anyUse", { used }).forEach(x => L.push(x));
     if (o === user && fieldCard(st) && hasTrig(fieldCard(st), "anyUse") && (!fieldCard(st).fieldMine || st.field.o === user)) L.push({ s: user, c: fieldCard(st), trig: "anyUse", ctx: { used, field: true } });
     [...new Set(p.hand)].forEach(id => { const hc = card(id); if (cardType(hc) === "monster" && hasTrig(hc, "anyUse")) L.push({ s: o, c: hc, trig: "anyUse", ctx: { used, inHand: id } }); });
@@ -1695,12 +1698,12 @@ function resolveChain(st, resume){
       if (link.evo){ const b = p.mz[link.z];
         if (!b || b.u !== link.bu){ p.grave.push(link.c); log(st2, link.s, `進化元がいなくなって、「${c.name}」は出られなかった`); step(st2); return; }
         evoPut(st2, link.s, link.z, link.c); log(st2, link.s, `「${c.name}」が「${card(b.c).name}」から進化した！`); ev(st2, { type: "summon", s: link.s, z: link.z });
-        runCard(st2, link.s, c, "summon", { zone: link.z, mon: { s: link.s, i: link.z, u: p.mz[link.z].u }, cast: !!link.cast }, st3 => persistFire(st3, link.s, "mySummon", {}, step)); return; }
+        runCard(st2, link.s, c, "summon", { zone: link.z, mon: { s: link.s, i: link.z, u: p.mz[link.z].u }, cast: !!link.cast }, st3 => persistFire(st3, link.s, "mySummon", {}, st4 => onCardUsed(st4, link.s, c, step, (P(st4, link.s).mz[link.z] || {}).u))); return; }
       let z = p.mz[link.z] ? glZone(st2, link.s, link.c) : link.z;
       if (z < 0){ p.grave.push(link.c); log(st2, link.s, `場がいっぱいで「${c.name}」は出られなかった`); step(st2); return; }
       p.mz[z] = mkMon(st2, link.c); if ((link.mats || []).length) p.mz[z].mats = link.mats.slice(); if (link.hfN) p.mz[z].hfN = link.hfN;
       log(st2, link.s, `「${c.name}」の${link.special ? "特殊召喚" : "召喚"}に成功！`); ev(st2, { type: "summon", s: link.s, z });
-      runCard(st2, link.s, c, link.special ? "ssummon" : "summon", { zone: z, mon: { s: link.s, i: z, u: p.mz[z].u }, cast: !!link.cast && !link.special }, st3 => persistFire(st3, link.s, "mySummon", {}, step));
+      runCard(st2, link.s, c, link.special ? "ssummon" : "summon", { zone: z, mon: { s: link.s, i: z, u: p.mz[z].u }, cast: !!link.cast && !link.special }, st3 => persistFire(st3, link.s, "mySummon", {}, st4 => onCardUsed(st4, link.s, c, step, (P(st4, link.s).mz[z] || {}).u)));
       return;
     }
     if (link.negated){

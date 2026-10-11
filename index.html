@@ -2023,8 +2023,8 @@ const RARITY = { common: "コモン", uncommon: "アンコモン", rare: "レア
 const rarityOf = c => c && RARITY[c.rarity] ? c.rarity : "common";
 const spireKind = c => { const t = cardType(c); if (c && c.sk && t === "magic") return c.persist ? "power" : c.sk === "attack" ? "attack" : "skill"; return t === "monster" ? "attack" : t === "trap" || (t === "magic" && c.persist) ? "power" : "skill"; };
 const typeLabel = c => { if (c && c.potionView) return "ポーション"; const t = cardType(c); if (t === "monster" && c && c.token) return "トークン"; if (t === "monster" && c && c.ex) return "EXモンスター"; return isQuick(c) ? "速攻魔法" : isField(c) ? "フィールド魔法" : isPersist(c) ? "永続" + TYPE_LABEL[t] : TYPE_LABEL[t]; };
-const TRIGS = { evolve: "エボルヴしたとき", ctrReach: "カウンターが○個以上になったとき", summon: "召喚したとき", ssummon: "特殊召喚したとき", attack: "攻撃するとき", kill: "戦闘で相手を破壊したとき", destroyed: "破壊されたとき", battleLose: "バトルに負けたとき", turnStart: "自分のターンのはじめ", turnEnd: "自分のターンの終わり", enter: "場に出たとき", while: "場にいる間", anyUse: "魔法・罠が発動したとき", attach: "装備したとき", use: "発動したとき", act: "起動（ボタンで使う）", oppAttack: "相手が攻撃してきたとき" };
-const MON_TRIGS = ["summon", "ssummon", "enter", "while", "act", "evolve", "ctrReach", "anyUse", "attack", "oppAttack", "kill", "destroyed", "battleLose", "turnStart", "turnEnd"];
+const TRIGS = { evolve: "エボルヴしたとき", ctrReach: "カウンターが○個以上になったとき", summon: "召喚したとき", ssummon: "特殊召喚したとき", attack: "攻撃するとき", kill: "戦闘で相手を破壊したとき", destroyed: "破壊されたとき", battleLose: "バトルに負けたとき", turnStart: "自分のターンのはじめ", turnEnd: "自分のターンの終わり", enter: "場に出たとき", while: "場にいる間", anyUse: "魔法・罠が発動したとき", cardUse: "カードが使われたとき", attach: "装備したとき", use: "発動したとき", act: "起動（ボタンで使う）", oppAttack: "相手が攻撃してきたとき" };
+const MON_TRIGS = ["summon", "ssummon", "enter", "while", "act", "evolve", "ctrReach", "anyUse", "cardUse", "attack", "oppAttack", "kill", "destroyed", "battleLose", "turnStart", "turnEnd"];
 // 攻撃に答える効果（攻撃を無効・攻撃モンスターを破壊など）: 罠のほか、「相手が攻撃してきたとき」の効果でも使える
 const ATK_REPLY = ["negate", "atkDownAtk", "dmgAtkAtk", "killAtk"];
 const EQ_TRIGS = ["attach", "attack", "turnStart", "turnEnd", "destroyed", "battleLose"];
@@ -2589,7 +2589,7 @@ const COND_DEFS = {
   glOn:     { label: "このモンスターがGリンクしている（ゴッドリンク用）", gl: true },
   hfN:      { label: "このカードにフュージョンしたカードの枚数（フュージョン用）", who: "このカードにフュージョンしたカードが", unit: "枚", hf: true, val: (st, s, c, ctx) => hfCount(st, ctx) },
   ask:      { label: "質問して「はい」と答えた" },
-  used:     { label: "発動したカード（「魔法・罠が発動したとき」用）" },
+  used:     { label: "使ったカード（「魔法・罠が発動したとき」「カードが使われたとき」用）" },
   die:      { label: "サイコロの目（「まず」でサイコロを振ったとき）", who: "サイコロの目が", unit: "", roll: true, val: (st, s, c, ctx) => ctx && ctx.roll && ctx.roll.kind === "die" ? ctx.roll.v : 0 },
   stronger: { label: "このモンスターよりATKが高いモンスターがいる・いない" },
   coinH:    { label: "コインが表（「まず」でコインを投げたとき）", roll: true },
@@ -2639,7 +2639,7 @@ const perOk = k => !!KINDS[k] && !PER_NO.includes(k);
 const perVal = (st, s, c, fx, t, ctx) => PER_DEFS[fx.per] ? PER_DEFS[fx.per].val(st, s, c, t, ctx, fx) : 0;
 const perText = m => !m.per || !PER_DEFS[m.per] ? "" : m.hits ? `（${perLab(m)}につき、もう1回）` : `（${perLab(m)}につき+${m.pm ?? 1}）`;
 const isNumCond = k => !!(COND_DEFS[k] && COND_DEFS[k].val);
-const usedWhat = x => x.match === "magic" ? "魔法" : x.match === "trap" ? "罠" : x.match === "tag" ? `タグ「${x.name || "？"}」のカード` : x.match === "part" ? `名前に「${x.name || "？"}」が入ったカード` : x.match === "name" ? `「${x.name || "？"}」` : "なんでも";
+const usedWhat = x => x.match === "magic" ? "魔法" : x.match === "trap" ? "罠" : x.match === "monster" ? "モンスター" : x.match === "equip" ? "装備" : x.match === "tag" ? `タグ「${x.name || "？"}」のカード` : x.match === "part" ? `名前に「${x.name || "？"}」が入ったカード` : x.match === "name" ? `「${x.name || "？"}」` : "なんでも";
 function condPhrase(x){
   if (x.k === "card"){ const cnt = +(x.cnt ?? 1), op = x.op === "le" ? "le" : "ge"; return `${x.match === "tag" ? `タグ「${x.name || "？"}」のカード` : x.match === "part" ? `名前に「${x.name || "？"}」が入ったカード` : `「${x.name || "？"}」`}が自分の${WHERE[x.where] || WHERE.field}に${cnt === 1 && op === "ge" ? "ある" : `${cnt}枚${OPS[op]}ある`}`; }
   if (x.k === "ask") return `${x.who === "op" ? "相手が" : ""}「${x.text || "？"}」に「はい」`;
@@ -2647,7 +2647,7 @@ function condPhrase(x){
   if (x.k === "glOn") return "このモンスターがGリンクしている";
   if (x.k === "stronger") return `${{ me: "自分の場に", any: "場に" }[x.side] || "相手の場に"}このモンスターよりATKが高いモンスターが${x.has === "no" ? "いない" : "いる"}`;
   if (x.k === "coinH") return "コインが表";
-  if (x.k === "used") return `${{ me: "自分が", op: "相手が" }[x.who] || ""}発動したカードが${usedWhat(x)}`;
+  if (x.k === "used"){ const w = { me: "自分が", op: "相手が" }[x.who] || ""; return x.match === "any" || !x.match ? (w ? `${w}使ったカード` : "どのカードでも") : `${w}使ったカードが${usedWhat(x)}`; }
   if (x.k === "coinT") return "コインが裏";
   if (x.k === "kicked") return "キッカーを払っていた";
   if (x.k === "ctr") return `${ctrAtText(x.cw)}の${ctrName(x.ctr)}が${x.n ?? 0}個${x.op in OPS ? OPS[x.op] : OPS.ge}`;
@@ -2672,7 +2672,7 @@ function condMet(st, s, c, x, ctx){
     const u = ctx && ctx.used; if (!u) return false;
     if (x.who === "me" && u.s !== s) return false; if (x.who === "op" && u.s === s) return false;
     const uc = card(u.c), t = cardType(uc), w = String(x.name || "").trim();
-    if (x.match === "magic") return t === "magic"; if (x.match === "trap") return t === "trap"; if (x.match === "any" || !x.match) return true;
+    if (x.match === "magic") return t === "magic"; if (x.match === "trap") return t === "trap"; if (x.match === "monster") return t === "monster"; if (x.match === "equip") return t === "equip"; if (x.match === "any" || !x.match) return true;
     if (!w) return false;
     if (x.match === "tag") return tagsOf(uc).includes(w); if (x.match === "part") return normQ(uc.name).includes(normQ(w));
     return normQ(uc.name).trim() === normQ(w).trim() || plainRuby(uc.nameRuby || "") === w;
@@ -4698,7 +4698,7 @@ function bkMoreOpen(b, bi){
   return `<details class="bk-more" data-bmore="${bi}"${on.length || BK_MORE.has(b) ? " open" : ""}><summary>くわしい設定（回数・サイコロ・時間差など）${on.length ? `<span class="bk-more-on">：${esc(on.join("・"))}</span>` : ""}</summary><div class="bk-grid">`;
 }
 // いつ: まぎらわしいタイミングの説明
-const TRIG_HELP = { summon: "手札から召喚したとき（効果で出したときは出ない）", ssummon: "効果などで特殊召喚したとき", enter: "召喚でも特殊召喚でも、場に出たとき", destroyed: "効果でもバトルでも、破壊されたとき", battleLose: "バトルで負けたとき（相打ちもふくむ・破壊される前に出る）", kill: "このモンスターがバトルで相手のモンスターを破壊したとき", oppAttack: "相手のモンスターが攻撃してきたとき（どのモンスターへの攻撃でも）" };
+const TRIG_HELP = { summon: "手札から召喚したとき（効果で出したときは出ない）", ssummon: "効果などで特殊召喚したとき", enter: "召喚でも特殊召喚でも、場に出たとき", destroyed: "効果でもバトルでも、破壊されたとき", battleLose: "バトルで負けたとき（相打ちもふくむ・破壊される前に出る）", kill: "このモンスターがバトルで相手のモンスターを破壊したとき", cardUse: "このモンスターが場にいる間、カードが使われるたび（モンスターの召喚・魔法・罠・装備）。「もし」で自分が使ったときだけ、などにしぼれる", anyUse: "魔法か罠が発動するたび（モンスターの召喚では出ない）", oppAttack: "相手のモンスターが攻撃してきたとき（どのモンスターへの攻撃でも）" };
 // 「1ターンに○度だけ」がいらないタイミング（もともと1回しか出ない）
 const NO_LIM = ["summon", "ssummon", "enter", "destroyed", "evolve", "turnStart", "turnEnd", "use", "attach"];
 // フラッシュバック（魔法だけ）・S・トリガー・キッカー
@@ -4775,7 +4775,7 @@ function renderBlocksUI(){
     if (x.k === "handF" || x.k === "drawn") h += usedPfUI(x, opt);
     if (isNumCond(x.k)) h += `<select data-f="op" aria-label="くらべかた">${opt("ge", "以上", x.op)}${opt("le", "以下", x.op)}${opt("eq", "ちょうど", x.op)}</select><input type="number" data-f="n" min="0" max="99999" value="${esc(x.n ?? 1)}" aria-label="数">`;
     if (x.k === "card") h += `<input type="text" data-f="name" maxlength="40" placeholder="カード名" value="${esc(x.name || "")}" aria-label="カード名"><select data-f="where" aria-label="どこに">${Object.entries(WHERE).map(([k, v]) => opt(k, "自分の" + v, x.where || "field")).join("")}</select><select data-f="match" aria-label="名前の合わせ方">${opt("exact", "名前がぴったり", x.match)}${opt("part", "名前に含む", x.match)}${opt("tag", "タグ", x.match)}</select><input type="number" data-f="cnt" min="0" max="99" value="${esc(x.cnt ?? 1)}" aria-label="枚数" style="width:64px">枚<select data-f="op" aria-label="くらべかた">${opt("ge", "以上", x.op || "ge")}${opt("le", "以下", x.op)}</select>`;
-    if (x.k === "used") h += `<select data-f="who" aria-label="だれが">${opt("any", "だれでも", x.who || "any")}${opt("me", "自分が", x.who || "any")}${opt("op", "相手が", x.who || "any")}</select><select data-f="match" aria-label="どのカード">${opt("trap", "罠", x.match)}${opt("magic", "魔法", x.match)}${opt("name", "名前がぴったり", x.match)}${opt("part", "名前に含む", x.match)}${opt("tag", "タグ", x.match)}${opt("any", "なんでも", x.match)}</select>${["name", "part", "tag"].includes(x.match) ? `<input type="text" data-f="name" maxlength="40" list="${x.match === "tag" ? "tagNames" : "cardNames"}" placeholder="${x.match === "tag" ? "タグ" : "カード名"}" value="${esc(x.name || "")}" aria-label="カード名">` : ""}`;
+    if (x.k === "used") h += `<select data-f="who" aria-label="だれが">${opt("any", "だれでも", x.who || "any")}${opt("me", "自分が", x.who || "any")}${opt("op", "相手が", x.who || "any")}</select><select data-f="match" aria-label="どのカード">${opt("any", "なんでも", x.match)}${opt("monster", "モンスター", x.match)}${opt("trap", "罠", x.match)}${opt("magic", "魔法", x.match)}${opt("equip", "装備", x.match)}${opt("name", "名前がぴったり", x.match)}${opt("part", "名前に含む", x.match)}${opt("tag", "タグ", x.match)}</select>${["name", "part", "tag"].includes(x.match) ? `<input type="text" data-f="name" maxlength="40" list="${x.match === "tag" ? "tagNames" : "cardNames"}" placeholder="${x.match === "tag" ? "タグ" : "カード名"}" value="${esc(x.name || "")}" aria-label="カード名">` : ""}`;
     if (x.k === "stronger") h += `<select data-f="side" aria-label="どこに">${opt("op", "相手の場に", x.side || "op")}${opt("me", "自分の場に", x.side || "op")}${opt("any", "どちらかの場に", x.side || "op")}</select><span class="note">このモンスターよりATKが高いモンスターが</span><select data-f="has" aria-label="いる・いない">${opt("yes", "いる", x.has || "yes")}${opt("no", "いない", x.has || "yes")}</select>`;
     if (x.k === "ask") h += `<select data-f="who" aria-label="だれに聞く">${opt("me", "自分に聞く", x.who === "op" ? "op" : "me")}${opt("op", "相手に聞く", x.who === "op" ? "op" : "me")}</select>`;
     if (x.k === "ask") h += `<input type="text" data-f="text" maxlength="40" placeholder="例: 物理学実験を履修していますか？" value="${esc(x.text || "")}" aria-label="質問">`;
@@ -4802,7 +4802,7 @@ function renderBlocksUI(){
       + (!easy || b.delay > 0 ? `<span class="bk-tag t-when">時間差</span><div class="row" style="gap:6px;align-items:center;flex-wrap:wrap"><select data-f="delay" aria-label="効果が出るまで">${[0, 1, 2, 3, 4, 5].map(d => opt(d, d === 0 ? "すぐ出る" : d === 1 ? "次の自分のターンのはじめに出る" : `${d}ターン後の自分のターンのはじめに出る`, b.delay || 0)).join("")}</select>${b.delay > 0 ? `<span class="note">カードには「時計${b.delay}」と書かれる</span>` : ""}</div>` : "")
       + `<span class="bk-tag t-when">つける</span><div class="row" style="gap:6px;flex-wrap:wrap;align-items:center"><select data-f="gto" aria-label="プレイヤーにつける">${opt("", "つけない（いますぐ1回出る）", b.grant ? b.grant.to : "")}${opt("me", "自分につけて、毎ターン出す", b.grant ? b.grant.to : "")}${opt("op", "相手につけて、毎ターン出す（呪い）", b.grant ? b.grant.to : "")}${opt("pick", "自分か相手につける（使うときにえらぶ）", b.grant ? b.grant.to : "")}</select>${b.grant ? `<select data-f="gat" aria-label="いつ出るか">${opt("turnStart", "そのプレイヤーのターンのはじめに", b.grant.at)}${opt("turnEnd", "そのプレイヤーのターンのおわりに", b.grant.at)}</select><select data-f="gdur" aria-label="何回">${[0, 1, 2, 3, 4, 5].map(d => opt(d, d ? `${d}回だけ` : "ずっと", b.grant.dur || 0)).join("")}</select><span class="note">「もし」「なにを」は、付与されたプレイヤーが自分のこととしておこなう（例：相手に付与＋LPを失う → 相手がLPを失う）</span>` : ""}</div>`
       + `</div></details>`
-      + (easy && !b.conds.length && b.trig !== "anyUse" ? "" : `<span class="bk-tag t-if">もし</span><div class="bk-col">${b.conds.map((x, j) => condRow(b, x, j)).join("")}<button type="button" class="small bk-add" data-bk="addCond">＋ 条件を足す</button>${b.conds.length ? "" : `<span class="note">なし（いつも出る）</span>`}</div>`)
+      + (easy && !b.conds.length && b.trig !== "anyUse" && b.trig !== "cardUse" ? "" : `<span class="bk-tag t-if">もし</span><div class="bk-col">${b.conds.map((x, j) => condRow(b, x, j)).join("")}<button type="button" class="small bk-add" data-bk="addCond">＋ 条件を足す</button>${b.conds.length ? "" : `<span class="note">なし（いつも出る）</span>`}</div>`)
       + `<span class="bk-tag t-do">なにを</span><div class="bk-col">${b.then.map((e, j) => (j > 0 ? `<div class="row bk-connect" style="gap:8px;margin:4px 0 8px 24px"><select data-f="one" aria-label="効果のつなぎ（この一覧すべてに適用）" title="そして：すべて順に発動／または：一覧から1つ選んで発動">${opt("", "そして", b.one ? "1" : "")}${opt("1", "または", b.one ? "1" : "")}</select><span class="note">効果のつなぎ</span></div>` : "") + effRow(bi, "then", e, j)).join("")}<button type="button" class="small bk-add" data-bk="addEff" data-part="then">＋ ${b.then.length ? "つづけて効果を足す（同じタイミング）" : "効果を選ぶ"}</button></div>`
       + (b.conds.length ? `<span class="bk-tag t-else">ちがったら</span><div class="bk-col">${b.else.map((e, j) => effRow(bi, "else", e, j)).join("")}<button type="button" class="small bk-add" data-bk="addEff" data-part="else">＋ ${b.else.length ? "つづけて効果を足す" : "効果を選ぶ（なくてもいい）"}</button></div>` : "")
       + `</div></div>`).join("")
@@ -4892,7 +4892,7 @@ function bkEvent(e, rerenderOnInput){
   if (f === "lim"){ const n = Math.max(0, Math.min(9, Math.round(+v || 0))); if (n) b.lim = n; else delete b.lim; return updateBkText(); }
   if (f === "bn" || f === "bic" || f === "bd"){ if (v) b[f] = v.slice(0, f === "bd" ? 40 : 20); else delete b[f]; return updateBkText(); }
   if (f === "one"){ if (v === "1") b.one = true; else delete b.one; el.closest(".bk").querySelectorAll('[data-f="one"]').forEach(x => { x.value = b.one ? "1" : ""; }); return updateBkText(); }
-  if (f === "trig"){ b.trig = v; if (v === "while"){ const fix = L => L.map(x => STATIC_KINDS.includes(x.kind) ? x : { kind: "selfAtk", n: 100 }); b.then = fix(b.then); b.else = fix(b.else); } if (v === "anyUse" && !b.conds.some(x => x.k === "used")) b.conds.push({ k: "used", who: "any", match: "trap", name: "" }); return renderBlocksUI(); }
+  if (f === "trig"){ b.trig = v; if (v === "while"){ const fix = L => L.map(x => STATIC_KINDS.includes(x.kind) ? x : { kind: "selfAtk", n: 100 }); b.then = fix(b.then); b.else = fix(b.else); } if (v === "anyUse" && !b.conds.some(x => x.k === "used")) b.conds.push({ k: "used", who: "any", match: "trap", name: "" }); if (v === "cardUse" && !b.conds.some(x => x.k === "used")) b.conds.push({ k: "used", who: "me", match: "any", name: "" }); return renderBlocksUI(); }
   if (f === "delay"){ b.delay = Math.max(0, Math.min(9, +v || 0)); return updateBkText(); }
   if (f === "gto"){ b.grant = ["me", "op", "pick"].includes(v) ? { to: v, at: b.grant ? b.grant.at : "turnEnd", dur: b.grant ? b.grant.dur || 0 : 0 } : null; return renderBlocksUI(); }
   if (f === "gat" || f === "gdur"){ if (!b.grant) return; if (f === "gat") b.grant.at = v === "turnStart" ? "turnStart" : "turnEnd"; else b.grant.dur = Math.max(0, Math.min(9, +v || 0)); return updateBkText(); }
@@ -6497,7 +6497,7 @@ function playTopCard(st, s, src, ex, then, extra){
     const z = freeZone(p.mz);
     if (z < 0){ p.grave.push(id); log(st, s, `${src}で山札の一番上の「${c.name}」をめくった（場がいっぱいなので墓地へ）`); then && then(st); return; }
     p.mz[z] = mkMon(st, id); ev(st, { type: "summon", s, z }); log(st, s, `${src}で山札の一番上の「${c.name}」をプレイ！（召喚扱いで場に出た）`);
-    runCard(st, s, c, "summon", { zone: z, mon: { s, i: z, u: p.mz[z].u } }, st2 => persistFire(st2, s, "mySummon", {}, then));
+    runCard(st, s, c, "summon", { zone: z, mon: { s, i: z, u: p.mz[z].u } }, st2 => persistFire(st2, s, "mySummon", {}, st3 => onCardUsed(st3, s, c, then, (P(st3, s).mz[z] || {}).u)));
     return;
   }
   if (t !== "magic" && t !== "trap"){ p.grave.push(id); log(st, s, `${src}で山札の一番上の「${c.name}」をめくった（プレイできないので墓地へ）`); then && then(st); return; }
@@ -7065,7 +7065,7 @@ function equip(st, s, hi, ts, ti, pos, disc){
   log(st, s, `「${c.name}」を${ts === s ? "" : "相手の"}「${card(m.c).name}」に装備${n ? `（ATK${n > 0 ? "+" : "−"}${Math.abs(n)}）` : ""}${ab ? `：${ab}` : ""}（キャパ ${eqUsed(m)}/${eqCapOf(card(m.c))}）`);
   const mult = eqMult(m.eqs, k), L = [];
   for (let r = 0; r < mult; r++) L.push({ s, c, trig: "attach", ctx: { zone: ts === s ? ti : null, mon: { s: ts, i: ti, u: m.u }, eqU: e.u } });
-  runList(st, L, null);
+  runList(st, L, st2 => onCardUsed(st2, s, c, null));
   return true;
 }
 // visual events, stored in the game state so both players see the same animations
@@ -7563,7 +7563,7 @@ function castFree(st, s, id, src, then){
     const z = glZone(st, s, id);
     if (z < 0){ p.grave.push(id); log(st, s, `${src}：場がいっぱいなので「${c.name}」は墓地へ`); then && then(st); return; }
     p.mz[z] = mkMon(st, id); ev(st, { type: "summon", s, z }); log(st, s, `${src}で「${c.name}」をタダで召喚！`);
-    runCard(st, s, c, "summon", { zone: z, mon: { s, i: z, u: p.mz[z].u }, cast: true }, st2 => persistFire(st2, s, "mySummon", {}, then));
+    runCard(st, s, c, "summon", { zone: z, mon: { s, i: z, u: p.mz[z].u }, cast: true }, st2 => persistFire(st2, s, "mySummon", {}, st3 => onCardUsed(st3, s, c, then, (P(st3, s).mz[z] || {}).u)));
     return;
   }
   const pz = isPersist(c) ? freeZone(p.sz) : -1;
@@ -7825,6 +7825,7 @@ function summon(st, s, hi, zi, disc, trib, mats){
   log(st, s, label); ev(st, { type: "summon", s, z });
   trigger(st, s, card(id), "summon", { zone: z, mon: { s, i: z, u: p.mz[z].u }, cast: true });
   persistFire(st, s, "mySummon", {});
+  onCardUsed(st, s, card(id), null, p.mz[z] && p.mz[z].u);
   summonedWindow(st, s, z, false);
   return true;
 }
@@ -7886,6 +7887,7 @@ function specialSummon(st, s, hi, picks = []){
   log(st, s, `${paid ? paid + "、" : ""}「${c.name}」（ATK ${fmtN(baseAtk(c))}）を特殊召喚！`);
   trigger(st, s, c, "ssummon", { zone: z, mon: { s, i: z, u: p.mz[z].u } });
   persistFire(st, s, "mySummon", {});
+  onCardUsed(st, s, c, null, p.mz[z] && p.mz[z].u);
   summonedWindow(st, s, z, true);
   return true;
 }
@@ -7968,12 +7970,13 @@ function placeField(st, s, id){
   log(st, s, `フィールド「${card(id).name}」が出た`);
 }
 const fieldCard = st => st && st.field ? card(st.field.c) : null;
-function onCardUsed(st, user, c, then){
-  const t = cardType(c); if ((t !== "magic" && t !== "trap") || (st._usedDepth || 0) > 2 || st.winner){ then && then(st); return; }
+function onCardUsed(st, user, c, then, exU){
+  const t = cardType(c), sp = t === "magic" || t === "trap"; if (!c || (st._usedDepth || 0) > 2 || st.winner){ then && then(st); return; }
   const used = { c: c.id, s: user }, L = [];
   for (const o of ["a", "b"]){
     const p = P(st, o);
-    p.mz.forEach((m, i) => { if (m && hasTrig(card(m.c), "anyUse")) L.push({ s: o, c: card(m.c), trig: "anyUse", ctx: { used, zone: i, mon: { s: o, i, u: m.u } } }); });
+    p.mz.forEach((m, i) => { if (!m) return; const mc = card(m.c), ctx = { used, zone: i, mon: { s: o, i, u: m.u } }; if (sp && hasTrig(mc, "anyUse")) L.push({ s: o, c: mc, trig: "anyUse", ctx }); if (m.u !== exU && hasTrig(mc, "cardUse")) L.push({ s: o, c: mc, trig: "cardUse", ctx }); });
+    if (!sp) continue;
     persistList(st, o, "anyUse", { used }).forEach(x => L.push(x));
     if (o === user && fieldCard(st) && hasTrig(fieldCard(st), "anyUse") && (!fieldCard(st).fieldMine || st.field.o === user)) L.push({ s: user, c: fieldCard(st), trig: "anyUse", ctx: { used, field: true } });
     [...new Set(p.hand)].forEach(id => { const hc = card(id); if (cardType(hc) === "monster" && hasTrig(hc, "anyUse")) L.push({ s: o, c: hc, trig: "anyUse", ctx: { used, inHand: id } }); });
@@ -7994,12 +7997,12 @@ function resolveChain(st, resume){
       if (link.evo){ const b = p.mz[link.z];
         if (!b || b.u !== link.bu){ p.grave.push(link.c); log(st2, link.s, `進化元がいなくなって、「${c.name}」は出られなかった`); step(st2); return; }
         evoPut(st2, link.s, link.z, link.c); log(st2, link.s, `「${c.name}」が「${card(b.c).name}」から進化した！`); ev(st2, { type: "summon", s: link.s, z: link.z });
-        runCard(st2, link.s, c, "summon", { zone: link.z, mon: { s: link.s, i: link.z, u: p.mz[link.z].u }, cast: !!link.cast }, st3 => persistFire(st3, link.s, "mySummon", {}, step)); return; }
+        runCard(st2, link.s, c, "summon", { zone: link.z, mon: { s: link.s, i: link.z, u: p.mz[link.z].u }, cast: !!link.cast }, st3 => persistFire(st3, link.s, "mySummon", {}, st4 => onCardUsed(st4, link.s, c, step, (P(st4, link.s).mz[link.z] || {}).u))); return; }
       let z = p.mz[link.z] ? glZone(st2, link.s, link.c) : link.z;
       if (z < 0){ p.grave.push(link.c); log(st2, link.s, `場がいっぱいで「${c.name}」は出られなかった`); step(st2); return; }
       p.mz[z] = mkMon(st2, link.c); if ((link.mats || []).length) p.mz[z].mats = link.mats.slice(); if (link.hfN) p.mz[z].hfN = link.hfN;
       log(st2, link.s, `「${c.name}」の${link.special ? "特殊召喚" : "召喚"}に成功！`); ev(st2, { type: "summon", s: link.s, z });
-      runCard(st2, link.s, c, link.special ? "ssummon" : "summon", { zone: z, mon: { s: link.s, i: z, u: p.mz[z].u }, cast: !!link.cast && !link.special }, st3 => persistFire(st3, link.s, "mySummon", {}, step));
+      runCard(st2, link.s, c, link.special ? "ssummon" : "summon", { zone: z, mon: { s: link.s, i: z, u: p.mz[z].u }, cast: !!link.cast && !link.special }, st3 => persistFire(st3, link.s, "mySummon", {}, st4 => onCardUsed(st4, link.s, c, step, (P(st4, link.s).mz[z] || {}).u)));
       return;
     }
     if (link.negated){

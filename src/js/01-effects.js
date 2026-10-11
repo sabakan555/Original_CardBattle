@@ -7,8 +7,8 @@ const RARITY = { common: "コモン", uncommon: "アンコモン", rare: "レア
 const rarityOf = c => c && RARITY[c.rarity] ? c.rarity : "common";
 const spireKind = c => { const t = cardType(c); if (c && c.sk && t === "magic") return c.persist ? "power" : c.sk === "attack" ? "attack" : "skill"; return t === "monster" ? "attack" : t === "trap" || (t === "magic" && c.persist) ? "power" : "skill"; };
 const typeLabel = c => { if (c && c.potionView) return "ポーション"; const t = cardType(c); if (t === "monster" && c && c.token) return "トークン"; if (t === "monster" && c && c.ex) return "EXモンスター"; return isQuick(c) ? "速攻魔法" : isField(c) ? "フィールド魔法" : isPersist(c) ? "永続" + TYPE_LABEL[t] : TYPE_LABEL[t]; };
-const TRIGS = { evolve: "エボルヴしたとき", ctrReach: "カウンターが○個以上になったとき", summon: "召喚したとき", ssummon: "特殊召喚したとき", attack: "攻撃するとき", kill: "戦闘で相手を破壊したとき", destroyed: "破壊されたとき", battleLose: "バトルに負けたとき", turnStart: "自分のターンのはじめ", turnEnd: "自分のターンの終わり", enter: "場に出たとき", while: "場にいる間", anyUse: "魔法・罠が発動したとき", attach: "装備したとき", use: "発動したとき", act: "起動（ボタンで使う）", oppAttack: "相手が攻撃してきたとき" };
-const MON_TRIGS = ["summon", "ssummon", "enter", "while", "act", "evolve", "ctrReach", "anyUse", "attack", "oppAttack", "kill", "destroyed", "battleLose", "turnStart", "turnEnd"];
+const TRIGS = { evolve: "エボルヴしたとき", ctrReach: "カウンターが○個以上になったとき", summon: "召喚したとき", ssummon: "特殊召喚したとき", attack: "攻撃するとき", kill: "戦闘で相手を破壊したとき", destroyed: "破壊されたとき", battleLose: "バトルに負けたとき", turnStart: "自分のターンのはじめ", turnEnd: "自分のターンの終わり", enter: "場に出たとき", while: "場にいる間", anyUse: "魔法・罠が発動したとき", cardUse: "カードが使われたとき", attach: "装備したとき", use: "発動したとき", act: "起動（ボタンで使う）", oppAttack: "相手が攻撃してきたとき" };
+const MON_TRIGS = ["summon", "ssummon", "enter", "while", "act", "evolve", "ctrReach", "anyUse", "cardUse", "attack", "oppAttack", "kill", "destroyed", "battleLose", "turnStart", "turnEnd"];
 // 攻撃に答える効果（攻撃を無効・攻撃モンスターを破壊など）: 罠のほか、「相手が攻撃してきたとき」の効果でも使える
 const ATK_REPLY = ["negate", "atkDownAtk", "dmgAtkAtk", "killAtk"];
 const EQ_TRIGS = ["attach", "attack", "turnStart", "turnEnd", "destroyed", "battleLose"];
@@ -573,7 +573,7 @@ const COND_DEFS = {
   glOn:     { label: "このモンスターがGリンクしている（ゴッドリンク用）", gl: true },
   hfN:      { label: "このカードにフュージョンしたカードの枚数（フュージョン用）", who: "このカードにフュージョンしたカードが", unit: "枚", hf: true, val: (st, s, c, ctx) => hfCount(st, ctx) },
   ask:      { label: "質問して「はい」と答えた" },
-  used:     { label: "発動したカード（「魔法・罠が発動したとき」用）" },
+  used:     { label: "使ったカード（「魔法・罠が発動したとき」「カードが使われたとき」用）" },
   die:      { label: "サイコロの目（「まず」でサイコロを振ったとき）", who: "サイコロの目が", unit: "", roll: true, val: (st, s, c, ctx) => ctx && ctx.roll && ctx.roll.kind === "die" ? ctx.roll.v : 0 },
   stronger: { label: "このモンスターよりATKが高いモンスターがいる・いない" },
   coinH:    { label: "コインが表（「まず」でコインを投げたとき）", roll: true },
@@ -623,7 +623,7 @@ const perOk = k => !!KINDS[k] && !PER_NO.includes(k);
 const perVal = (st, s, c, fx, t, ctx) => PER_DEFS[fx.per] ? PER_DEFS[fx.per].val(st, s, c, t, ctx, fx) : 0;
 const perText = m => !m.per || !PER_DEFS[m.per] ? "" : m.hits ? `（${perLab(m)}につき、もう1回）` : `（${perLab(m)}につき+${m.pm ?? 1}）`;
 const isNumCond = k => !!(COND_DEFS[k] && COND_DEFS[k].val);
-const usedWhat = x => x.match === "magic" ? "魔法" : x.match === "trap" ? "罠" : x.match === "tag" ? `タグ「${x.name || "？"}」のカード` : x.match === "part" ? `名前に「${x.name || "？"}」が入ったカード` : x.match === "name" ? `「${x.name || "？"}」` : "なんでも";
+const usedWhat = x => x.match === "magic" ? "魔法" : x.match === "trap" ? "罠" : x.match === "monster" ? "モンスター" : x.match === "equip" ? "装備" : x.match === "tag" ? `タグ「${x.name || "？"}」のカード` : x.match === "part" ? `名前に「${x.name || "？"}」が入ったカード` : x.match === "name" ? `「${x.name || "？"}」` : "なんでも";
 function condPhrase(x){
   if (x.k === "card"){ const cnt = +(x.cnt ?? 1), op = x.op === "le" ? "le" : "ge"; return `${x.match === "tag" ? `タグ「${x.name || "？"}」のカード` : x.match === "part" ? `名前に「${x.name || "？"}」が入ったカード` : `「${x.name || "？"}」`}が自分の${WHERE[x.where] || WHERE.field}に${cnt === 1 && op === "ge" ? "ある" : `${cnt}枚${OPS[op]}ある`}`; }
   if (x.k === "ask") return `${x.who === "op" ? "相手が" : ""}「${x.text || "？"}」に「はい」`;
@@ -631,7 +631,7 @@ function condPhrase(x){
   if (x.k === "glOn") return "このモンスターがGリンクしている";
   if (x.k === "stronger") return `${{ me: "自分の場に", any: "場に" }[x.side] || "相手の場に"}このモンスターよりATKが高いモンスターが${x.has === "no" ? "いない" : "いる"}`;
   if (x.k === "coinH") return "コインが表";
-  if (x.k === "used") return `${{ me: "自分が", op: "相手が" }[x.who] || ""}発動したカードが${usedWhat(x)}`;
+  if (x.k === "used"){ const w = { me: "自分が", op: "相手が" }[x.who] || ""; return x.match === "any" || !x.match ? (w ? `${w}使ったカード` : "どのカードでも") : `${w}使ったカードが${usedWhat(x)}`; }
   if (x.k === "coinT") return "コインが裏";
   if (x.k === "kicked") return "キッカーを払っていた";
   if (x.k === "ctr") return `${ctrAtText(x.cw)}の${ctrName(x.ctr)}が${x.n ?? 0}個${x.op in OPS ? OPS[x.op] : OPS.ge}`;
@@ -656,7 +656,7 @@ function condMet(st, s, c, x, ctx){
     const u = ctx && ctx.used; if (!u) return false;
     if (x.who === "me" && u.s !== s) return false; if (x.who === "op" && u.s === s) return false;
     const uc = card(u.c), t = cardType(uc), w = String(x.name || "").trim();
-    if (x.match === "magic") return t === "magic"; if (x.match === "trap") return t === "trap"; if (x.match === "any" || !x.match) return true;
+    if (x.match === "magic") return t === "magic"; if (x.match === "trap") return t === "trap"; if (x.match === "monster") return t === "monster"; if (x.match === "equip") return t === "equip"; if (x.match === "any" || !x.match) return true;
     if (!w) return false;
     if (x.match === "tag") return tagsOf(uc).includes(w); if (x.match === "part") return normQ(uc.name).includes(normQ(w));
     return normQ(uc.name).trim() === normQ(w).trim() || plainRuby(uc.nameRuby || "") === w;
