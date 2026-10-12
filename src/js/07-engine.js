@@ -802,7 +802,7 @@ function destroyMonster(st, s, i, why, opt = {}){
   // スパイアデッキ: beating an opponent's monster → カード報酬 + maybe a ポーション
   // 選択の祭壇: beating an opponent's monster → カード報酬, 40% ポーション, 10% レリック
   if (!opt.force && hasAltar(P(st, O(s)))) offerReward(st, O(s), { pot: Math.random() < POTION_DROP ? randPotionKey() : null, rel: Math.random() < RELIC_DROP ? dropRelicId(st, O(s)) : null });
-  runList(st, monTrigList(st, s, i, "destroyed", m, { eqs: es.map(e => ({ c: e.c, o: e.o, u: e.u })), eqCount: es.length, mats: (m.mats || []).slice() }), st2 => persistFire(st2, s, "monDestroyed", {}, st3 => persistFire(st3, O(s), "monDestroyed", {}, opt.then)));
+  runList(st, [...monTrigList(st, s, i, "destroyed", m, { eqs: es.map(e => ({ c: e.c, o: e.o, u: e.u })), eqCount: es.length, mats: (m.mats || []).slice() }), ...ctrTrigs(st, s, i, m, "destroyed")], st2 => persistFire(st2, s, "monDestroyed", {}, st3 => persistFire(st3, O(s), "monDestroyed", {}, opt.then)));
   return true;
 }
 // apply effect of card c for player s. target resolved already (or undefined for untargeted)
@@ -1298,10 +1298,12 @@ function limAdd(st, s, k){ const p = P(st, s); if (!p.limT || p.limT.no !== st.t
 function runBlock(st, s, c, b, ctx, then){
   const lk = b.lim > 0 && b._bi != null && !ctx.delayed && !ctx.granted ? limKey(st, s, c, b, ctx) : null;
   if (lk && limUsed(st, s, lk) >= b.lim){ log(st, s, `「${c ? c.name : "？"}」：この効果は1ターンに${b.lim}度だけ（このターンはもう出ない）`); then && then(st); return; }
+  // サイコロの出た目のターン後: いまサイコロを振って、出た目の数だけ時計を進める
+  if (b.delayDie && !ctx.delayed){ const r = doRoll(st, s, c, { ...b, roll: "die" }); return runBlock(st, s, c, { ...b, delayDie: false, roll: "", delay: Math.max(1, r.v) }, ctx, then); }
   if (b.delay > 0 && !ctx.delayed){
     if (lk) limAdd(st, s, lk);
     st.un = (st.un || 0) + 1; const p = P(st, s);
-    (p.timers = p.timers || []).push({ u: st.un, c: c && c.id || null, name: c && c.name || "？", b: { trig: b.trig, join: b.join, ...(b.one ? { one: true } : {}), conds: b.conds, then: b.then, else: b.else, roll: b.roll || "", faces: b.faces, coins: b.coins, dieBr: b.dieBr || [], grant: b.grant || null }, left: b.delay, ctx: { zone: ctx.zone ?? null, mon: ctx.mon || null } });
+    (p.timers = p.timers || []).push({ u: st.un, c: c && !c.ctrCard && c.id || null, name: c && c.name || "？", b: { trig: b.trig, join: b.join, ...(b.one ? { one: true } : {}), conds: b.conds, then: b.then, else: b.else, roll: b.roll || "", faces: b.faces, coins: b.coins, dieBr: b.dieBr || [], grant: b.grant || null }, left: b.delay, ctx: { zone: ctx.zone ?? null, mon: ctx.mon || null } });
     log(st, s, `「${c ? c.name : "？"}」：${b.delay === 1 ? "次の自分のターンのはじめ" : b.delay + "ターン後の自分のターンのはじめ"}に効果が出る（時計 ${b.delay}）`);
     then && then(st); return;
   }
@@ -1316,7 +1318,7 @@ function runBlock(st, s, c, b, ctx, then){
   if (b.grant && !ctx.granted){
     if (lk) limAdd(st, s, lk);
     st.un = (st.un || 0) + 1; const to = b.grant.to === "op" ? O(s) : s, p = P(st, to);
-    (p.boons = p.boons || []).push({ u: st.un, c: c && c.id || null, name: c && c.name || "？", at: b.grant.at, dur: b.grant.dur || 0, left: b.grant.dur || 0, b: { trig: b.grant.at, join: b.join, ...(b.one ? { one: true } : {}), conds: b.conds, then: b.then, else: b.else, roll: b.roll || "", faces: b.faces, coins: b.coins, dieBr: b.dieBr || [] } });
+    (p.boons = p.boons || []).push({ u: st.un, c: c && !c.ctrCard && c.id || null, name: c && c.name || "？", at: b.grant.at, dur: b.grant.dur || 0, left: b.grant.dur || 0, b: { trig: b.grant.at, join: b.join, ...(b.one ? { one: true } : {}), conds: b.conds, then: b.then, else: b.else, roll: b.roll || "", faces: b.faces, coins: b.coins, dieBr: b.dieBr || [] } });
     log(st, s, `「${c ? c.name : "？"}」：${P(st, to).name}に効果を付与した（${P(st, to).name}のターンの${b.grant.at === "turnStart" ? "はじめ" : "おわり"}に出る${b.grant.dur ? `・${b.grant.dur}回` : "・ずっと"}）`);
     then && then(st); return;
   }
