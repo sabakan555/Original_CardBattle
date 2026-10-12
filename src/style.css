@@ -717,6 +717,11 @@ button.chip{font-size:12px;border:1.5px solid var(--ink);border-radius:99px;padd
 @keyframes cutband{0%{transform:translateY(-50%) skewY(-5deg) scaleY(0);opacity:0}12%{transform:translateY(-50%) skewY(-5deg) scaleY(1);opacity:1}82%{transform:translateY(-50%) skewY(-5deg) scaleY(1);opacity:1}100%{transform:translateY(-50%) skewY(-5deg) scaleY(0);opacity:0}}
 @keyframes cuttext{0%{transform:skewY(5deg) translateX(60vw);opacity:0}18%{transform:skewY(5deg) translateX(-1vw);opacity:1}26%{transform:skewY(5deg) translateX(0)}78%{transform:skewY(5deg) translateX(-3vw);opacity:1}100%{transform:skewY(5deg) translateX(-60vw);opacity:0}}
 @keyframes cutlines{0%{transform:translateX(0)}100%{transform:translateX(-140px)}}
+.fxgj .gj-row{display:flex;align-items:center;gap:14px}.fxgj .gj-side{display:flex;flex-direction:column;align-items:center;gap:6px}.fxgj .gj-side .card{--w:min(150px,30vw)}.fxgj .gj-side b{font-family:var(--display);font-size:20px;color:#fff;text-shadow:0 2px 0 #000}
+.fxgj .gj-none{width:min(150px,30vw);aspect-ratio:5/7;display:grid;place-items:center;border:2px dashed #fff;border-radius:10px;color:#fff;font-weight:700}
+.fxgj .gj-vs{font-family:var(--display);font-size:34px;color:#ffd84a;text-shadow:0 3px 0 #000}
+.fxgj .gj-res{font-family:var(--display);font-size:28px;padding:2px 18px;border-radius:999px;border:2px solid var(--ink);background:#57d1b6;color:#062}.fxgj .gj-res.lose{background:#e86a7a;color:#300}
+.fxspell.fxgj{animation-duration:1.8s}
 .fxspell .lbl{font-family:var(--display);font-size:28px;color:#fff;background:var(--magic);padding:0 18px;border-radius:999px;border:2px solid var(--ink)}
 .fxspell.theirs .lbl{background:var(--trap)}
 @keyframes fxspell{0%{transform:translate(-50%,-40%) scale(.5) rotate(-8deg);opacity:0}18%{transform:translate(-50%,-50%) scale(1.05) rotate(2deg);opacity:1}75%{transform:translate(-50%,-50%) scale(1);opacity:1}100%{transform:translate(-50%,-60%) scale(.9);opacity:0}}

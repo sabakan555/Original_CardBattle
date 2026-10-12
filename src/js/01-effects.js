@@ -247,6 +247,8 @@ const ABS = {
   eqBonus:    { label: "特定の名前の装備を付けているとATKアップ", only: "mon", self: true, n: 300, name: true, text: (n, nm) => `名前に「${nm || "？"}」が入った装備を付けているとき、ATK+${n}` }
 };
 const KW_DESC = {
+  "ガチンコ・ジャッジ": "自分と相手は、山札の一番上のカードを1枚ずつ見せ合い、コストをくらべる。自分のほうがコストが同じか大きければ勝ち。見せたカードはそれぞれ山札の一番下へ。山札がない人は負け",
+  "パワーガチンコ・ジャッジ": "自分と相手は、山札の一番上のカードを1枚ずつ見せ合い、ATKをくらべる（モンスター以外はATK0）。自分のほうがATKが同じか大きければ勝ち。見せたカードはそれぞれ山札の一番下へ。山札がない人は負け",
   "封印": "山札の上のカードを裏向きで重ねたもの。封印があるモンスターは、ないものとして扱う（攻撃も、能力も、効果も出ない。攻撃や効果の対象にもならない）。持ち主がそのモンスターと同じタグのモンスターを出すと、封印が1つはがれる（タグがないもの同士でもOK）",
   "エセリアル": "ターンの終わりにこのカードが手札にあると、廃棄される",
   "敏捷": "カードで得るブロックがこの数だけ増える",
@@ -577,6 +579,8 @@ const COND_DEFS = {
   die:      { label: "サイコロの目（「まず」でサイコロを振ったとき）", who: "サイコロの目が", unit: "", roll: true, val: (st, s, c, ctx) => ctx && ctx.roll && ctx.roll.kind === "die" ? ctx.roll.v : 0 },
   stronger: { label: "このモンスターよりATKが高いモンスターがいる・いない" },
   coinH:    { label: "コインが表（「まず」でコインを投げたとき）", roll: true },
+  gjWin:    { label: "ガチンコ・ジャッジに勝った（「まず」でガチンコ・ジャッジしたとき）", gj: true },
+  gjLose:   { label: "ガチンコ・ジャッジに負けた（「まず」でガチンコ・ジャッジしたとき）", gj: true },
   coinT:    { label: "コインが裏（「まず」でコインを投げたとき）", roll: true },
   heads:    { label: "コインの表の枚数（「まず」でコインを何回か投げたとき）", who: "コインの表が", unit: "枚", roll: true, val: (st, s, c, ctx) => ctx && ctx.roll && ctx.roll.kind === "coin" ? ctx.roll.v : 0 },
   tails:    { label: "コインの裏の枚数（「まず」でコインを何回か投げたとき）", who: "コインの裏が", unit: "枚", roll: true, val: (st, s, c, ctx) => ctx && ctx.roll && ctx.roll.kind === "coin" ? (ctx.roll.n || 1) - ctx.roll.v : 0 },
@@ -631,6 +635,8 @@ function condPhrase(x){
   if (x.k === "glOn") return "このモンスターがGリンクしている";
   if (x.k === "stronger") return `${{ me: "自分の場に", any: "場に" }[x.side] || "相手の場に"}このモンスターよりATKが高いモンスターが${x.has === "no" ? "いない" : "いる"}`;
   if (x.k === "coinH") return "コインが表";
+  if (x.k === "gjWin") return "ガチンコ・ジャッジに勝った";
+  if (x.k === "gjLose") return "ガチンコ・ジャッジに負けた";
   if (x.k === "used"){ const w = { me: "自分が", op: "相手が" }[x.who] || ""; return x.match === "any" || !x.match ? (w ? `${w}使ったカード` : "どのカードでも") : `${w}使ったカードが${usedWhat(x)}`; }
   if (x.k === "coinT") return "コインが裏";
   if (x.k === "kicked") return "キッカーを払っていた";
@@ -661,6 +667,7 @@ function condMet(st, s, c, x, ctx){
     if (x.match === "tag") return tagsOf(uc).includes(w); if (x.match === "part") return normQ(uc.name).includes(normQ(w));
     return normQ(uc.name).trim() === normQ(w).trim() || plainRuby(uc.nameRuby || "") === w;
   }
+  if (x.k === "gjWin" || x.k === "gjLose") return !!(ctx && ctx.roll && ctx.roll.kind === "gj" && ctx.roll.v === (x.k === "gjWin" ? 1 : 0));
   if (x.k === "coinH" || x.k === "coinT") return !!(ctx && ctx.roll && ctx.roll.kind === "coin" && ctx.roll.v === (x.k === "coinH" ? ctx.roll.n || 1 : 0));
   if (x.k === "card"){ if (!x.name) return false; const v = comboCount(st, s, { name: x.name, where: WHERE[x.where] ? x.where : "field", match: x.match === "part" || x.match === "tag" ? x.match : "exact" }, ctx || {}), n = Math.max(0, +(x.cnt ?? 1)); return x.op === "le" ? v <= n : v >= n; }
   if (x.k === "ctr"){ const v = ctrCount(st, s, ctx, x.ctr, x.cw), n = +x.n || 0; return x.op === "le" ? v <= n : x.op === "eq" ? v === n : v >= n; }
@@ -724,7 +731,7 @@ const LEGACY_COND = { lp: { k: "lp", op: "le" }, grave: { k: "grave", op: "ge" }
 function blocksOf(c){
   if (!c) return [];
   if (Array.isArray(c.blocks)) return c.blocks.filter(b => b && typeof b === "object").map(b => ({
-    trig: normTrig(c, b.trig), join: b.join === "or" ? "or" : "and", roll: b.roll === "die" || b.roll === "coin" ? b.roll : "", faces: Math.max(2, Math.min(100, Math.round(+b.faces || 6))), ...(b.roll === "coin" && +b.coins > 1 ? { coins: Math.min(10, Math.round(+b.coins)) } : {}), delay: Math.max(0, Math.min(9, Math.round(+b.delay || 0))), ...(b.delayDie ? { delayDie: true } : {}),
+    trig: normTrig(c, b.trig), join: b.join === "or" ? "or" : "and", roll: b.roll === "die" || b.roll === "coin" || b.roll === "gj" || b.roll === "pgj" ? b.roll : "", faces: Math.max(2, Math.min(100, Math.round(+b.faces || 6))), ...(b.roll === "coin" && +b.coins > 1 ? { coins: Math.min(10, Math.round(+b.coins)) } : {}), delay: Math.max(0, Math.min(9, Math.round(+b.delay || 0))), ...(b.delayDie ? { delayDie: true } : {}),
     ...(b.trig === "act" ? { ap: b.ap === "game" || b.ap === "free" ? b.ap : "turn", an: Math.max(1, Math.min(9, Math.round(+b.an || 1))) } : {}),
     ...(+b.lim > 0 && b.trig !== "act" && b.trig !== "while" ? { lim: Math.min(9, Math.round(+b.lim)) } : {}),
     ...(b.trig === "ctrReach" ? { rc: String(b.rc || ctrDefault()), rn: Math.max(1, Math.min(99, Math.round(+b.rn || 1))), rw: b.rw === "me" ? "me" : "self" } : {}),
@@ -787,7 +794,7 @@ function blockText(c, b, detail = false){
   const head = c && c.ctrCard ? `【${CTR_TRIG_LABEL[b.trig] || ""}】` : c && c.relicView ? `【${RELIC_TRIG_LABEL[b.trig] || ""}】` : isMon ? (b.trig === "act" ? `【起動${actLimText(b)}】` + ((L => L.length ? L.join("、") + "：" : "")([b.mcost > 0 ? `マナを${b.mcost}払う` : "", b.cost ? ctrCostText(b.cost) : ""].filter(Boolean))) : b.trig === "ctrReach" ? `【${ctrReachHead(b)}】` : `【${trigLabel(t, b.trig)}】`) : isField(c) && b.trig !== "use" ? `【${fieldTrigLabel(c, b.trig)}】` : isPersist(c) && b.trig !== "use" ? `【${PERSIST_TRIG_LABEL[b.trig]}】` : "";
   const br = b.roll === "die" && b.dieBr && b.dieBr.length ? b.dieBr : null;
   const brText = br ? br.map(x => `${x.lo === x.hi ? x.lo : `${x.lo}〜${x.hi}`}が出たら、${effsText(c, x.then, detail)}`).join(detail ? "。\n" : "。") : "";
-  let s = (b.cont ? "さらに、" : limHead(head, b)) + (b.necro > 0 ? `【ネクロマンス${b.necro}】` : "") + (b.delayDie ? "" : delayText(b.delay)) + (b.roll === "die" ? `サイコロ${b.faces && b.faces !== 6 ? `（${b.faces}面）` : ""}を振る。` : b.roll === "coin" ? (b.coins > 1 ? `コインを${b.coins}回投げる。` : "コインを投げる。") : "") + (b.delayDie ? `出た目の数のターン後の、${c && c.ctrCard ? "乗っている側" : "自分"}のターンのはじめに：` : "") + condsText(b) + (b.then.length ? (b.one && b.then.length > 1 ? "次の効果から1つえらんで発動する：" + (detail ? "\n" : "") + b.then.map(e => effsText(c, [e])).join(detail ? "\nまたは、" : "、または、") : effsText(c, b.then, detail)) + (br ? (detail ? "。\n" : "。") : "") : br ? "" : "なにもしない") + brText;
+  let s = (b.cont ? "さらに、" : limHead(head, b)) + (b.necro > 0 ? `【ネクロマンス${b.necro}】` : "") + (b.delayDie ? "" : delayText(b.delay)) + (b.roll === "die" ? `サイコロ${b.faces && b.faces !== 6 ? `（${b.faces}面）` : ""}を振る。` : b.roll === "coin" ? (b.coins > 1 ? `コインを${b.coins}回投げる。` : "コインを投げる。") : b.roll === "gj" ? "ガチンコ・ジャッジする。" : b.roll === "pgj" ? "パワーガチンコ・ジャッジする。" : "") + (b.delayDie ? `出た目の数のターン後の、${c && c.ctrCard ? "乗っている側" : "自分"}のターンのはじめに：` : "") + condsText(b) + (b.then.length ? (b.one && b.then.length > 1 ? "次の効果から1つえらんで発動する：" + (detail ? "\n" : "") + b.then.map(e => effsText(c, [e])).join(detail ? "\nまたは、" : "、または、") : effsText(c, b.then, detail)) + (br ? (detail ? "。\n" : "。") : "") : br ? "" : "なにもしない") + brText;
   if (b.conds.length && b.else.length) s += `。${detail ? "\n" : ""}そうでなければ、${effsText(c, b.else, detail)}`;
   if (b.grant){ const pre = head + delayText(b.delay), g = b.grant; s = pre + boonText(g) + `「自分のターンの${g.at === "turnStart" ? "はじめ" : "おわり"}に、${s.slice(pre.length)}」`; }
   if (isField(c) && !fieldMine(c)) s = s.replace(/(自分|相手)のモンスターすべて/g, "お互いのモンスターすべて");

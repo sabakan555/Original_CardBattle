@@ -1278,6 +1278,18 @@ function castFree(st, s, id, src, then){
 }
 // one block: check もし (a 質問 is asked last, only when it can still change the result), then なにを or ちがったら
 // サイコロ／コイン: 結果は ctx.roll に入り、その効果ブロックの条件・「出た目1につき」・「出た目の回数」で使える
+// ガチンコ・ジャッジ（デュエマ）: お互い山札の上を1枚見せて、コスト（パワー版はATK、モンスター以外は0）が相手以上なら勝ち。見せたカードは山札の一番下へ
+function gachinko(st, s, c, power){
+  const me = P(st, s), op = P(st, O(s)), a = me.deck[0], b = op.deck[0];
+  const val = id => { const x = card(id); return power ? (cardType(x) === "monster" ? baseAtk(x) : 0) : costOf(x); };
+  const va = a != null ? val(a) : null, vb = b != null ? val(b) : null;
+  const win = a != null && (b == null || va >= vb) ? 1 : 0;
+  if (a != null) me.deck.push(me.deck.shift()); if (b != null) op.deck.push(op.deck.shift());
+  const nm = power ? "パワーガチンコ・ジャッジ" : "ガチンコ・ジャッジ", u = power ? "ATK" : "コスト", sh = (id, v) => id == null ? "山札なし" : `「${card(id).name}」（${u}${fmtN(v)}）`;
+  log(st, s, `「${c ? c.name : "？"}」：${nm}！ ${me.name} ${sh(a, va)} vs ${op.name} ${sh(b, vb)} → ${win ? `${me.name}の勝ち` : `${me.name}の負け`}（見せたカードは山札の一番下へ）`);
+  ev(st, { type: "gj", s, a, b, va, vb, win, power: !!power });
+  return { kind: "gj", v: win, a: va, b: vb };
+}
 function doRoll(st, s, c, b){
   const die = b.roll === "die", faces = Math.max(2, Math.min(100, Math.round(+b.faces || 6))), cn = die ? 1 : Math.max(1, Math.min(10, Math.round(+b.coins || 1)));
   const flips = die ? [] : Array.from({ length: cn }, () => Math.random() < .5 ? 1 : 0), v = die ? 1 + Math.floor(Math.random() * faces) : flips.reduce((t, x) => t + x, 0);
@@ -1324,7 +1336,7 @@ function runBlock(st, s, c, b, ctx, then){
   }
   // ネクロマンス: 墓地のカードを消費して発動（足りなければこの効果ブロックは出ない）
   if (b.necro > 0 && !ctx.necroDone){ const p = P(st, s), selfK = c && (cardType(c) === "magic" || cardType(c) === "trap") ? p.grave.lastIndexOf(c.id) : -1, pool = p.grave.length - (selfK >= 0 ? 1 : 0); if (pool < b.necro){ log(st, s, `「${c ? c.name : "？"}」：ネクロマンス${b.necro}（墓地が${pool}枚で足りない）`); then && then(st); return; } const self = selfK >= 0 ? p.grave.splice(selfK, 1) : [], used = p.grave.splice(0, b.necro); p.grave.push(...self); (p.exile = p.exile || []).push(...used); log(st, s, `「${c ? c.name : "？"}」：ネクロマンス${b.necro}！ 墓地のカードを${b.necro}枚消費した`); ctx = { ...ctx, necroDone: true }; }
-  if (b.roll === "die" || b.roll === "coin") ctx = { ...ctx, roll: doRoll(st, s, c, b) };
+  if (b.roll === "die" || b.roll === "coin" || b.roll === "gj" || b.roll === "pgj") ctx = { ...ctx, roll: b.roll === "gj" || b.roll === "pgj" ? gachinko(st, s, c, b.roll === "pgj") : doRoll(st, s, c, b) };
   const plain = b.conds.filter(x => x.k !== "ask"), ask = b.conds.find(x => x.k === "ask"), or = b.join === "or";
   const base = plain.length ? (or ? plain.some(x => condMet(st, s, c, x, ctx)) : plain.every(x => condMet(st, s, c, x, ctx))) : !or;
   const go = (st2, ok) => {

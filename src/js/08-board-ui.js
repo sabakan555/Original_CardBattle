@@ -448,7 +448,7 @@ function playEvents(prevLp, nowLp){
   }
   if (reduceMotion) return;
   // one after another: a spell banner gets time to show before its hits, each hit gets its own beat (ツインストライク → 2 hits)
-  const GAP = { spell: 900, summon: 900, attack: 560, hit: 420, fusion: 2800, turn: 1250 };
+  const GAP = { spell: 900, summon: 900, attack: 560, hit: 420, fusion: 2800, turn: 1250, gj: 1500 };
   let t = 0;
   list.forEach(e => { setTimeout(() => { try{ animateEvent(e); }catch(err){} }, t); t += GAP[e.type] || 320; });
 }
@@ -527,6 +527,8 @@ function animateEvent(e){
   }
   if (e.type === "fusion") fusionFx(e);
   if (e.type === "counter") fxEl("fxstamp", "打ち消し！");
+  if (e.type === "gj"){ const mine = sideOf(e.s) === "me", one = (id, v) => `<div class="gj-side">${id != null ? cardHTML(card(id), "", "", mOpt(e.s)) : `<div class="gj-none">山札なし</div>`}<b>${e.power ? "ATK" : "コスト"} ${id != null ? esc(fmtN(v)) : "−"}</b></div>`;
+    fxEl("fxspell fxgj " + (mine ? "mine" : "theirs"), `<div class="lbl">${e.power ? "パワーガチンコ・ジャッジ" : "ガチンコ・ジャッジ"}</div><div class="gj-row">${one(e.a, e.va)}<span class="gj-vs">VS</span>${one(e.b, e.vb)}</div><div class="gj-res ${e.win ? "win" : "lose"}">${(mine ? e.win : !e.win) ? "あなたの勝ち！" : "あなたの負け…"}</div>`); return; }
   if (e.type === "roll") fxEl("fxstamp roll", e.kind === "die" ? `<span class="die-face">${e.v}</span><small>サイコロ${e.faces && e.faces !== 6 ? `（${e.faces}面）` : ""}</small>` : e.cn > 1 && Array.isArray(e.fl) ? `<span class="coin-row">${e.fl.map(x => `<span class="coin-face ${x ? "h" : "t"}">${x ? "表" : "裏"}</span>`).join("")}</span><small>表${e.v}枚・裏${e.cn - e.v}枚</small>` : `<span class="coin-face ${e.v ? "h" : "t"}">${e.v ? "表" : "裏"}</span><small>コイントス</small>`);
   if (e.type === "gain"){
     const mine = sideOf(e.s) === "me", who = mine ? "" : "相手が";
