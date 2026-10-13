@@ -1322,22 +1322,31 @@ async function potGalClick(e){
 }
 $("#potGallery").addEventListener("click", potGalClick);
 $("#relGallery").addEventListener("click", potGalClick);
-// 管理者: add a tag to every card shown in the gallery (own cards + built-in ones; others' cards are skipped)
-async function bulkTag(){
-  const tag = parseTags($("#bulkTag").value)[0]; if (!tag || !isAdmin()) return;
+// 管理者: 図鑑に表示しているカード（自分のカード＋はじめからのカード。ほかの人のカードはそのまま）にタグをつける／外す。1回目は枚数を出すだけ、もう一度押すと実行
+function bulkTagTargets(tag, add){ const L = (S.galIds || []).map(id => S.cards.get(id)).filter(c => c && (add ? !tagsOf(c).includes(tag) : tagsOf(c).includes(tag))); return { mine: L.filter(c => c.starter || isMine(c)), skip: L.filter(c => !c.starter && !isMine(c)).length }; }
+let BULK_ARM = null;
+async function bulkTag(add = true){
+  const tag = parseTags($("#bulkTag").value)[0], msg = $("#bulkTagMsg"); if (!tag || !isAdmin()) { if (msg) msg.textContent = "タグを書いてね"; return; }
+  const T = bulkTagTargets(tag, add), key = (add ? "+" : "-") + tag + ":" + T.mine.length;
+  if (!T.mine.length){ BULK_ARM = null; msg.textContent = add ? `表示中のカードは、もうぜんぶ「${tag}」がついています` : `表示中のカードに「${tag}」がついたものはありません`; return; }
+  if (BULK_ARM !== key){ BULK_ARM = key; msg.textContent = `${T.mine.length}枚${add ? "に" : "から"}「${tag}」を${add ? "つけ" : "外し"}ます。よければもう一度「${add ? "つける" : "外す"}」を押してね${T.skip ? `（ほかの人のカード${T.skip}枚はそのまま）` : ""}`; return; }
+  BULK_ARM = null;
   let ok = 0, skip = 0;
-  for (const id of S.galIds || []){
-    const c = S.cards.get(id); if (!c || tagsOf(c).includes(tag)) continue;
-    const tags = [...tagsOf(c), tag].slice(0, 8);
+  for (const c of T.mine){
+    const id = c.id;
+    const tags = add ? [...tagsOf(c), tag].slice(0, 8) : tagsOf(c).filter(t => t !== tag);
     try{
       if (c.starter){ await saveBuiltinDoc(id, { ...(S.builtinEdits[id] || {}), tags }); ok++; }
       else if (isMine(c)){ const { id: _, ...doc } = c; await saveCardDoc(id, JSON.parse(JSON.stringify({ ...doc, tags }))); ok++; }
       else skip++;
     }catch(e){ writeErr(e); return; }
   }
-  toast(`${ok}枚にタグ「${tag}」をつけました${skip ? `（ほかの人のカード${skip}枚はつけられませんでした）` : ""}`);
+  toast(`${ok}枚${add ? "に" : "から"}タグ「${tag}」を${add ? "つけ" : "外し"}ました`); msg.textContent = `${ok}枚${add ? "に" : "から"}「${tag}」を${add ? "つけ" : "外し"}ました`;
+  if (typeof renderGallery === "function") renderGallery();
 }
-$("#btnBulkTag").addEventListener("click", bulkTag);
+$("#btnBulkTag").addEventListener("click", () => bulkTag(true));
+$("#btnBulkUntag").addEventListener("click", () => bulkTag(false));
+$("#bulkTag").addEventListener("input", () => { BULK_ARM = null; });
 function renderGallery(){
   $("#adminTagRow").hidden = !isAdmin();
   let list = [...S.userCards].sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));

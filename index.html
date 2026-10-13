@@ -1142,6 +1142,7 @@ nav.tabs button{position:relative}
 @media (max-width:860px){.pop .eqlbl,.pop .note{font-size:12px}}
 .guide-btn:has(.jp){padding-left:clamp(36px,calc(var(--hu)*7),110px)}.guide-btn .jp{font-size:clamp(13px,calc(var(--hu)*1.4),20px)!important}
 .hbtn .jp,.guide-btn .jp{font-family:var(--ui);font-weight:700;font-size:clamp(14px,calc(var(--hu)*1.7),24px);margin-left:.7em;opacity:.9;align-self:center;text-shadow:2px 1px 0 rgba(70,80,110,.7)}
+.admin-tag{margin:-4px 0 12px;font-size:13px}.admin-tag>summary{cursor:pointer;color:var(--muted);font-weight:700}
 .kw-box>summary{cursor:pointer;list-style:none}.kw-box>summary::-webkit-details-marker{display:none}.kw-box>summary h2::before{content:"▸ ";color:var(--muted)}.kw-box[open]>summary h2::before{content:"▾ "}
 .kw-box input[type=search]{margin:10px 0;width:min(360px,100%)}
 .kw-list{display:grid;grid-template-columns:max-content minmax(0,1fr);gap:6px 14px;margin:0;font-size:14px;line-height:1.6}
@@ -1806,7 +1807,7 @@ div.f{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:13px}
         <div class="seg" id="galFilter"><button aria-pressed="true" data-f="all">みんなのカード</button><button aria-pressed="false" data-f="mine">自分のカード</button></div>
       </div>
       <div class="filters" id="galFilters"></div>
-      <div class="row" id="adminTagRow" hidden style="gap:8px;margin:-4px 0 12px;align-items:center"><span class="note">管理者：いま表示中のカードに</span><input type="text" id="bulkTag" list="tagNames" maxlength="40" placeholder="タグ" style="width:160px"><button class="small" id="btnBulkTag" type="button">タグを一括でつける</button><span class="note">（ヒント：検索に「スパイア」と入れるとスパイア風のカードだけになる）</span></div>
+      <details class="admin-tag" id="adminTagRow" hidden><summary>管理者：表示中のカードのタグを一括で変える</summary><div class="row" style="gap:8px;margin:8px 0 4px;align-items:center;flex-wrap:wrap"><input type="text" id="bulkTag" list="tagNames" maxlength="40" placeholder="タグ" style="width:160px"><button class="small" id="btnBulkTag" type="button">つける</button><button class="small danger" id="btnBulkUntag" type="button">外す</button><span class="note" id="bulkTagMsg">いま表示しているカード（自分のカードとはじめからのカード）だけが対象。押すと枚数を出すので、もう一度押すと実行します。絞り込みで「タグ」をえらんでおくと、そのタグのカードだけにできる</span></div></details>
       <div class="gallery" id="gallery"></div>
       <div id="potWrap" hidden style="margin-top:22px"><h3 style="margin:0 0 10px">ポーション（カード以外）</h3><div class="gallery" id="potGallery"></div></div>
       <div id="relWrap" hidden style="margin-top:22px"><h3 style="margin:0 0 10px">レリック（カード以外）</h3><div class="gallery" id="relGallery"></div></div>
@@ -5377,22 +5378,31 @@ async function potGalClick(e){
 }
 $("#potGallery").addEventListener("click", potGalClick);
 $("#relGallery").addEventListener("click", potGalClick);
-// 管理者: add a tag to every card shown in the gallery (own cards + built-in ones; others' cards are skipped)
-async function bulkTag(){
-  const tag = parseTags($("#bulkTag").value)[0]; if (!tag || !isAdmin()) return;
+// 管理者: 図鑑に表示しているカード（自分のカード＋はじめからのカード。ほかの人のカードはそのまま）にタグをつける／外す。1回目は枚数を出すだけ、もう一度押すと実行
+function bulkTagTargets(tag, add){ const L = (S.galIds || []).map(id => S.cards.get(id)).filter(c => c && (add ? !tagsOf(c).includes(tag) : tagsOf(c).includes(tag))); return { mine: L.filter(c => c.starter || isMine(c)), skip: L.filter(c => !c.starter && !isMine(c)).length }; }
+let BULK_ARM = null;
+async function bulkTag(add = true){
+  const tag = parseTags($("#bulkTag").value)[0], msg = $("#bulkTagMsg"); if (!tag || !isAdmin()) { if (msg) msg.textContent = "タグを書いてね"; return; }
+  const T = bulkTagTargets(tag, add), key = (add ? "+" : "-") + tag + ":" + T.mine.length;
+  if (!T.mine.length){ BULK_ARM = null; msg.textContent = add ? `表示中のカードは、もうぜんぶ「${tag}」がついています` : `表示中のカードに「${tag}」がついたものはありません`; return; }
+  if (BULK_ARM !== key){ BULK_ARM = key; msg.textContent = `${T.mine.length}枚${add ? "に" : "から"}「${tag}」を${add ? "つけ" : "外し"}ます。よければもう一度「${add ? "つける" : "外す"}」を押してね${T.skip ? `（ほかの人のカード${T.skip}枚はそのまま）` : ""}`; return; }
+  BULK_ARM = null;
   let ok = 0, skip = 0;
-  for (const id of S.galIds || []){
-    const c = S.cards.get(id); if (!c || tagsOf(c).includes(tag)) continue;
-    const tags = [...tagsOf(c), tag].slice(0, 8);
+  for (const c of T.mine){
+    const id = c.id;
+    const tags = add ? [...tagsOf(c), tag].slice(0, 8) : tagsOf(c).filter(t => t !== tag);
     try{
       if (c.starter){ await saveBuiltinDoc(id, { ...(S.builtinEdits[id] || {}), tags }); ok++; }
       else if (isMine(c)){ const { id: _, ...doc } = c; await saveCardDoc(id, JSON.parse(JSON.stringify({ ...doc, tags }))); ok++; }
       else skip++;
     }catch(e){ writeErr(e); return; }
   }
-  toast(`${ok}枚にタグ「${tag}」をつけました${skip ? `（ほかの人のカード${skip}枚はつけられませんでした）` : ""}`);
+  toast(`${ok}枚${add ? "に" : "から"}タグ「${tag}」を${add ? "つけ" : "外し"}ました`); msg.textContent = `${ok}枚${add ? "に" : "から"}「${tag}」を${add ? "つけ" : "外し"}ました`;
+  if (typeof renderGallery === "function") renderGallery();
 }
-$("#btnBulkTag").addEventListener("click", bulkTag);
+$("#btnBulkTag").addEventListener("click", () => bulkTag(true));
+$("#btnBulkUntag").addEventListener("click", () => bulkTag(false));
+$("#bulkTag").addEventListener("input", () => { BULK_ARM = null; });
 function renderGallery(){
   $("#adminTagRow").hidden = !isAdmin();
   let list = [...S.userCards].sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
