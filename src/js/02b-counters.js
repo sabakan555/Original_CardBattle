@@ -216,6 +216,7 @@ function ctrRefresh(){ renderCtrBox(); if (typeof bkSync === "function") bkSync(
 /* ---- カード工房の「カウンター」 ---- */
 function renderCtrBox(){
   if (S.ctrBkOn && typeof ctrBkPark === "function") ctrBkPark();
+  ctrArtPark();
   const ps = document.getElementById("mkPayCtr"); if (ps){ const cur = ps.dataset.want || ""; ps.innerHTML = ctrOptsHTML(cur || ctrDefault()); }
   const box = document.getElementById("ctrList"); if (!box) return;
   const ed = S.ctrEdit;
@@ -225,11 +226,85 @@ function renderCtrBox(){
     + (ed ? `<div class="ctr-form">
         <label class="row" style="gap:4px">名前<input type="text" id="ctrName" maxlength="12" value="${esc(ed.name)}" placeholder="例: 毒" style="width:120px">カウンター</label>
         <label class="row" style="gap:4px">色<input type="color" id="ctrColor" value="${esc(HEX6.test(ed.color || "") ? ed.color : "#7a4fd0")}"></label>
-        <span class="row" style="gap:6px;align-items:center">アイコン${ed.icon ? `<img class="ctr-ico" alt="" src="${esc(ed.icon)}">` : `<span class="ctr-ico ctr-ico0">${esc([...(ed.name || "？")][0])}</span>`}<label class="small btnlike"><input type="file" id="ctrIcon" accept="image/*" hidden>画像をえらぶ</label>${ed.icon ? `<button type="button" class="small ghost" data-ctrnoicon>アイコンを消す</button>` : ""}</span>
+        <div class="ctr-art-wrap" style="width:100%"><b style="font-size:13px">アイコン（描く・写真を読みこむ）</b><div id="ctrArtHost"></div></div>
         ${ctrFxForm(ed)}<div class="ctr-bk" style="width:100%"><b style="font-size:13px">効果ブロック（モンスターの効果と同じ作り・なくてもOK）</b><p class="note" style="margin:2px 0 6px">「このモンスター」は、このカウンターが乗っているモンスター。効果は乗っている側のプレイヤーのものとして出る（例：乗ったとき サイコロ3面 → 出た目のターン後に このモンスターを破壊）</p><div id="ctrBkHost"></div></div><div class="row" style="gap:6px;width:100%"><button type="button" class="small primary" data-ctrsave>${ed.id ? "保存する" : "作る"}</button><button type="button" class="small ghost" data-ctrcancel>やめる</button>${ed.id ? `<span style="flex:1"></span><button type="button" class="small ghost danger" data-ctrdel>${ed.delAsk ? "本当に消す（もう一度押す）" : "このカウンターを消す"}</button>` : ""}</div>
         ${ed.id ? `<p class="note" style="margin:0;width:100%">消しても、このカウンターを使っているカードはそのまま動きます（カードの中に名前とアイコンが入っているため）</p>` : ""}
       </div>` : `<button type="button" class="small" data-ctrnew>＋ 新しいカウンターを作る</button>`);
   if ((S.ctrEdit || S.ctrBkOn) && typeof ctrBkSync === "function") ctrBkSync();
+  ctrArtSync();
+}
+/* ---- カウンターのアイコンを描く: 正方形のキャンバス（写真をドラッグで動かす・大きさを変える＋ペンで描く）。
+   カードのイラストと同じように使える。絵はカウンターの欄を描きなおしても消えないように、1つの部品を使いまわす ---- */
+const CTR_ART_N = 256, CTR_ICON_OUT = 128;
+const CTR_PENS = ["#1e2328", "#e0533a", "#f29b38", "#f2c94c", "#4caf6e", "#3d8bd9", "#8e5bc9", "#f28fb5", "#8b5a3c", "#ffffff"];
+let CTR_ART = null;
+function ctrArtEl(){
+  if (CTR_ART) return CTR_ART;
+  const el = document.createElement("div"); el.className = "ctr-art";
+  el.innerHTML = `<div class="ca-stage"><canvas class="ca-cv" width="${CTR_ART_N}" height="${CTR_ART_N}" aria-label="カウンターのアイコンを描くところ"></canvas><span class="ca-ring" aria-hidden="true"></span></div>
+    <div class="ca-tools">
+      <div class="ca-pens">${CTR_PENS.map(c => `<button type="button" class="sw" style="background:${c}" data-cap="${c}" aria-label="色 ${c}"></button>`).join("")}</div>
+      <div class="row" style="gap:6px;flex-wrap:wrap;align-items:center"><span class="note">太さ</span>${[["細", 4], ["中", 9], ["太", 18], ["特太", 34]].map(([l, w]) => `<button type="button" class="small" data-caw="${w}">${l}</button>`).join("")}</div>
+      <div class="row" style="gap:6px;flex-wrap:wrap"><button type="button" class="small" data-caa="erase">消しゴム</button><button type="button" class="small" data-caa="undo">1つ戻す</button><button type="button" class="small danger" data-caa="clear">ぜんぶ消す</button></div>
+      <div class="row" style="gap:6px;flex-wrap:wrap;align-items:center"><label class="small btnlike">写真を読みこむ<input type="file" accept="image/*" hidden data-cafile></label><button type="button" class="small" data-caa="move">写真を動かす</button><button type="button" class="small ghost" data-caa="nophoto">写真を消す</button></div>
+      <label class="row ca-zoom" style="gap:6px;align-items:center"><span class="note">写真の大きさ</span><input type="range" min="20" max="400" value="100" data-cazoom></label>
+      <p class="note" style="margin:0">丸く切りぬいて表示されます。写真は「写真を動かす」でドラッグ（PCはホイールで大きさ）</p>
+    </div>`;
+  const cv = el.querySelector(".ca-cv"), x = cv.getContext("2d"), ink = document.createElement("canvas"); ink.width = ink.height = CTR_ART_N;
+  const A = { el, cv, x, ink, ix: ink.getContext("2d"), photo: null, px: 0, py: 0, ps: 1, color: CTR_PENS[0], w: 9, mode: "draw", undo: [], ed: null };
+  CTR_ART = A;
+  const sync = () => { el.querySelectorAll("[data-cap]").forEach(b => b.setAttribute("aria-pressed", A.mode === "draw" && b.dataset.cap === A.color)); el.querySelectorAll("[data-caw]").forEach(b => b.setAttribute("aria-pressed", +b.dataset.caw === A.w)); el.querySelector('[data-caa="erase"]').setAttribute("aria-pressed", A.mode === "erase"); el.querySelector('[data-caa="move"]').setAttribute("aria-pressed", A.mode === "move"); el.querySelector('[data-caa="move"]').disabled = !A.photo; el.querySelector('[data-caa="nophoto"]').hidden = !A.photo; el.querySelector(".ca-zoom").hidden = !A.photo; el.querySelector("[data-cazoom]").value = Math.round(A.ps * 100 / ctrArtFit(A)); cv.classList.toggle("moving", A.mode === "move"); };
+  A.sync = sync;
+  const snap = () => { A.undo.push({ ink: A.ix.getImageData(0, 0, CTR_ART_N, CTR_ART_N), photo: A.photo, px: A.px, py: A.py, ps: A.ps }); if (A.undo.length > 25) A.undo.shift(); };
+  const pt = e => { const r = cv.getBoundingClientRect(); return [(e.clientX - r.left) * CTR_ART_N / r.width, (e.clientY - r.top) * CTR_ART_N / r.height]; };
+  let drag = null;
+  cv.addEventListener("pointerdown", e => { e.preventDefault(); cv.setPointerCapture(e.pointerId); const [px, py] = pt(e); snap();
+    if (A.mode === "move" && A.photo){ drag = { k: "move", sx: px, sy: py, ox: A.px, oy: A.py }; return; }
+    drag = { k: "ink", lx: px, ly: py }; ctrArtLine(A, px, py, px + .01, py); ctrArtDraw(A); });
+  cv.addEventListener("pointermove", e => { if (!drag) return; const [px, py] = pt(e);
+    if (drag.k === "move"){ A.px = drag.ox + px - drag.sx; A.py = drag.oy + py - drag.sy; } else { ctrArtLine(A, drag.lx, drag.ly, px, py); drag.lx = px; drag.ly = py; }
+    ctrArtDraw(A); });
+  const end = () => { if (!drag) return; drag = null; ctrArtSave(A); };
+  cv.addEventListener("pointerup", end); cv.addEventListener("pointercancel", end);
+  cv.addEventListener("wheel", e => { if (!A.photo || A.mode !== "move") return; e.preventDefault(); ctrArtZoom(A, A.ps * (e.deltaY < 0 ? 1.08 : 1 / 1.08)); }, { passive: false });
+  el.addEventListener("click", e => {
+    const b = e.target.closest("button"); if (!b) return;
+    if (b.dataset.cap){ A.color = b.dataset.cap; A.mode = "draw"; }
+    else if (b.dataset.caw){ A.w = +b.dataset.caw; if (A.mode === "move") A.mode = "draw"; }
+    else if (b.dataset.caa === "erase") A.mode = A.mode === "erase" ? "draw" : "erase";
+    else if (b.dataset.caa === "move") A.mode = A.mode === "move" ? "draw" : "move";
+    else if (b.dataset.caa === "undo"){ const u = A.undo.pop(); if (u){ A.ix.putImageData(u.ink, 0, 0); A.photo = u.photo; A.px = u.px; A.py = u.py; A.ps = u.ps; ctrArtDraw(A); ctrArtSave(A); } }
+    else if (b.dataset.caa === "clear"){ snap(); A.ix.clearRect(0, 0, CTR_ART_N, CTR_ART_N); A.photo = null; if (A.mode === "move") A.mode = "draw"; ctrArtDraw(A); ctrArtSave(A, true); }
+    else if (b.dataset.caa === "nophoto"){ snap(); A.photo = null; if (A.mode === "move") A.mode = "draw"; ctrArtDraw(A); ctrArtSave(A); }
+    sync();
+  });
+  el.addEventListener("input", e => { if (e.target.dataset.cazoom == null || !A.photo) return; ctrArtZoom(A, ctrArtFit(A) * (+e.target.value || 100) / 100, true); });
+  el.addEventListener("change", e => { if (e.target.dataset.cazoom != null){ ctrArtSave(A); return; }
+    const f = e.target.dataset.cafile != null && e.target.files && e.target.files[0]; if (!f) return; e.target.value = "";
+    const r = new FileReader(); r.onload = () => { const im = new Image(); im.onload = () => { snap(); ctrArtSetPhoto(A, im); A.mode = "move"; ctrArtDraw(A); ctrArtSave(A); sync(); }; im.onerror = () => toast("画像を読みこめませんでした"); im.src = r.result; }; r.readAsDataURL(f); });
+  return A;
+}
+const ctrArtFit = A => A.photo ? Math.max(CTR_ART_N / A.photo.width, CTR_ART_N / A.photo.height) : 1;
+function ctrArtSetPhoto(A, im){ A.photo = im; A.ps = ctrArtFit(A); A.px = (CTR_ART_N - im.width * A.ps) / 2; A.py = (CTR_ART_N - im.height * A.ps) / 2; }
+// 大きさを変えるときは、まん中を中心にする
+function ctrArtZoom(A, ns, live){ ns = Math.max(ctrArtFit(A) * .2, Math.min(ctrArtFit(A) * 4, ns)); const c = CTR_ART_N / 2; A.px = c - (c - A.px) * ns / A.ps; A.py = c - (c - A.py) * ns / A.ps; A.ps = ns; ctrArtDraw(A); if (!live) ctrArtSave(A); A.sync(); }
+function ctrArtLine(A, x0, y0, x1, y1){ const g = A.ix; g.save(); g.globalCompositeOperation = A.mode === "erase" ? "destination-out" : "source-over"; g.strokeStyle = A.color; g.lineWidth = A.mode === "erase" ? A.w * 1.6 : A.w; g.lineCap = g.lineJoin = "round"; g.beginPath(); g.moveTo(x0, y0); g.lineTo(x1, y1); g.stroke(); g.restore(); }
+function ctrArtDraw(A){ const x = A.x; x.clearRect(0, 0, CTR_ART_N, CTR_ART_N); x.fillStyle = "#fff"; x.fillRect(0, 0, CTR_ART_N, CTR_ART_N); if (A.photo) x.drawImage(A.photo, A.px, A.py, A.photo.width * A.ps, A.photo.height * A.ps); x.drawImage(A.ink, 0, 0); }
+const ctrArtEmpty = A => { if (A.photo) return false; const d = A.ix.getImageData(0, 0, CTR_ART_N, CTR_ART_N).data; for (let i = 3; i < d.length; i += 16) if (d[i]) return false; return true; };
+// アイコンにする（128×128・まわりは丸く切りぬいて表示）
+function ctrArtSave(A, clear){
+  const ed = S.ctrEdit; if (!ed || A.ed !== ed) return;
+  if (clear || ctrArtEmpty(A)){ ed.icon = ""; return; }
+  const o = document.createElement("canvas"); o.width = o.height = CTR_ICON_OUT; const g = o.getContext("2d"); g.imageSmoothingQuality = "high"; g.drawImage(A.cv, 0, 0, CTR_ICON_OUT, CTR_ICON_OUT);
+  let u = o.toDataURL("image/webp", .86); if (!/^data:image\/webp/.test(u)) u = o.toDataURL("image/png"); ed.icon = u;
+}
+function ctrArtPark(){ if (CTR_ART && CTR_ART.el.parentElement) CTR_ART.el.remove(); }
+function ctrArtSync(){
+  const ed = S.ctrEdit, host = document.getElementById("ctrArtHost"); if (!ed || !host) return;
+  const A = ctrArtEl(); host.appendChild(A.el);
+  if (A.ed !== ed){ A.ed = ed; A.undo = []; A.mode = "draw"; A.ix.clearRect(0, 0, CTR_ART_N, CTR_ART_N); A.photo = null; ctrArtDraw(A); A.sync();
+    // いまのアイコンを読みこんで、その上から描けるようにする
+    if (ed.icon){ const im = new Image(); im.onload = () => { if (A.ed !== ed) return; ctrArtSetPhoto(A, im); ctrArtDraw(A); A.sync(); }; im.src = ed.icon; } }
 }
 // カウンターの効果の入力（毒なら「乗っている側のターンの終わり：1個につき20ダメージ、1個取り除く」など）
 function ctrFxForm(ed){

@@ -205,9 +205,9 @@ label.f{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:13p
 
 .card .ctrs{position:absolute;top:-8px;left:50%;transform:translateX(-50%);z-index:5;display:flex;gap:3px;white-space:nowrap}
 .card .ctrs .dmgc{position:static;transform:none}
-.ctrc{display:inline-flex;align-items:center;gap:2px;background:var(--cc,#666);color:#fff;font:700 11px/1.5 var(--ui);padding:0 7px 0 2px;border-radius:99px;box-shadow:0 1px 3px rgba(0,0,0,.4);white-space:nowrap;vertical-align:middle}
-.ctrc img,.ctrc i{width:15px;height:15px;border-radius:50%;object-fit:cover;background:#fff;flex:none}
-.ctrc i{display:grid;place-items:center;font-style:normal;font-size:10px;line-height:1;color:var(--cc,#666)}
+.ctrc{display:inline-flex;align-items:center;gap:3px;background:var(--cc,#666);color:#fff;font:700 12px/1.5 var(--ui);padding:1px 8px 1px 2px;border-radius:99px;box-shadow:0 1px 3px rgba(0,0,0,.4);white-space:nowrap;vertical-align:middle}
+.ctrc img,.ctrc i{width:22px;height:22px;border-radius:50%;object-fit:cover;background:#fff;flex:none}
+.ctrc i{display:grid;place-items:center;font-style:normal;font-size:12px;line-height:1;color:var(--cc,#666)}
 .maker.ctr-mode .mk-left,.maker.ctr-mode .tools-col>:not(#mkTitle):not(.mk-kindbox){display:none!important}.maker:not(.ctr-mode) #ctrPanel,.maker.ctr-mode #neowRow,.maker.ctr-mode #mkKindNote{display:none!important}.maker.ctr-mode{grid-template-columns:1fr!important}
 .ctr-tile{display:flex;flex-direction:column;align-items:center;gap:6px;padding:14px 12px;border-radius:14px;background:rgba(255,255,255,.06);border:1px solid rgba(127,127,127,.35);text-align:center}.ctr-new{justify-content:center}
 .ctr-big{width:72px;height:72px;border-radius:50%;object-fit:cover;background:#fff;box-shadow:0 0 0 4px var(--cc,#666)}.ctr-big0{display:grid;place-items:center;font-size:34px;font-weight:700;color:var(--cc,#666)}
@@ -219,6 +219,14 @@ label.f{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:13p
 .sealx{position:absolute;inset:0;z-index:6;display:grid;place-items:center;background:repeating-linear-gradient(135deg,rgba(20,20,30,.72) 0 10px,rgba(40,40,60,.72) 10px 20px);border-radius:inherit;color:#ffe9a8;font-weight:900;font-size:clamp(12px,calc(var(--w,150px)*.13),28px);letter-spacing:.1em;text-shadow:0 2px 4px #000;pointer-events:none}
 .card-shot{position:fixed;left:-10000px;top:0;display:inline-block;padding:30px;pointer-events:none;background:transparent}.card-shot>.card{--w:480px!important;margin:0}
 .cost-box{display:flex;flex-direction:column;gap:12px}.cost-grp{display:flex;flex-direction:column;gap:6px}.cost-gh{font-weight:700;font-size:13px;opacity:.85;border-bottom:1px solid var(--line);padding-bottom:3px}.cost-line{display:grid;grid-template-columns:7.2em minmax(0,1fr);gap:8px;align-items:start}.cost-line>.cost-k{margin-top:7px}.cost-in{display:flex;gap:6px;flex-wrap:wrap;align-items:center;min-width:0}.cost-in select{width:auto;max-width:12em}.cost-in .note{font-size:11px}.cost-sub{display:flex;gap:6px;flex-wrap:wrap;align-items:center;flex-basis:100%;padding-left:22px}.cost-sub[hidden]{display:none}.cost-on{gap:4px;cursor:pointer}.cost-k{font-weight:700;font-size:12px;padding:2px 6px;border-radius:99px;background:rgba(127,127,127,.18);text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}@media (max-width:520px){.cost-line{grid-template-columns:1fr}.cost-k{justify-self:start}}.ctr-grid{display:flex;flex-wrap:wrap;gap:6px 14px;margin:6px 0}.ctr-item{display:flex;align-items:center;gap:6px}
+.ctr-item .ctrc img,.ctr-item .ctrc i{width:40px;height:40px;font-size:20px}
+.ctr-art{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-start;margin-top:6px}
+.ctr-art .ca-stage{position:relative;width:min(220px,60vw);aspect-ratio:1;flex:none;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.35);background:#fff}
+.ctr-art .ca-cv{display:block;width:100%;height:100%;touch-action:none;cursor:crosshair}.ctr-art .ca-cv.moving{cursor:grab}
+.ctr-art .ca-ring{position:absolute;inset:0;border-radius:50%;box-shadow:0 0 0 999px rgba(20,24,40,.45);pointer-events:none;outline:2px dashed rgba(255,255,255,.9);outline-offset:-2px}
+.ctr-art .ca-tools{display:flex;flex-direction:column;gap:8px;flex:1;min-width:200px}
+.ctr-art .ca-pens{display:flex;flex-wrap:wrap;gap:4px}.ctr-art .ca-pens .sw{width:26px;height:26px}
+.ctr-art [aria-pressed="true"]{outline:2px solid var(--accent,#66e5e0);outline-offset:1px}
 .ctr-form{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;padding:8px;border:1px dashed rgba(127,127,127,.6);border-radius:8px}
 .ctr-ico{width:40px;height:40px;border-radius:50%;object-fit:cover;background:#fff;border:1px solid #ccc}.ctr-ico0{display:inline-grid;place-items:center;color:#555;font-weight:700}
 .btnlike{display:inline-block;padding:2px 10px;border:1px solid rgba(127,127,127,.6);border-radius:6px;cursor:pointer}
@@ -3523,6 +3531,7 @@ function ctrRefresh(){ renderCtrBox(); if (typeof bkSync === "function") bkSync(
 /* ---- カード工房の「カウンター」 ---- */
 function renderCtrBox(){
   if (S.ctrBkOn && typeof ctrBkPark === "function") ctrBkPark();
+  ctrArtPark();
   const ps = document.getElementById("mkPayCtr"); if (ps){ const cur = ps.dataset.want || ""; ps.innerHTML = ctrOptsHTML(cur || ctrDefault()); }
   const box = document.getElementById("ctrList"); if (!box) return;
   const ed = S.ctrEdit;
@@ -3532,11 +3541,85 @@ function renderCtrBox(){
     + (ed ? `<div class="ctr-form">
         <label class="row" style="gap:4px">名前<input type="text" id="ctrName" maxlength="12" value="${esc(ed.name)}" placeholder="例: 毒" style="width:120px">カウンター</label>
         <label class="row" style="gap:4px">色<input type="color" id="ctrColor" value="${esc(HEX6.test(ed.color || "") ? ed.color : "#7a4fd0")}"></label>
-        <span class="row" style="gap:6px;align-items:center">アイコン${ed.icon ? `<img class="ctr-ico" alt="" src="${esc(ed.icon)}">` : `<span class="ctr-ico ctr-ico0">${esc([...(ed.name || "？")][0])}</span>`}<label class="small btnlike"><input type="file" id="ctrIcon" accept="image/*" hidden>画像をえらぶ</label>${ed.icon ? `<button type="button" class="small ghost" data-ctrnoicon>アイコンを消す</button>` : ""}</span>
+        <div class="ctr-art-wrap" style="width:100%"><b style="font-size:13px">アイコン（描く・写真を読みこむ）</b><div id="ctrArtHost"></div></div>
         ${ctrFxForm(ed)}<div class="ctr-bk" style="width:100%"><b style="font-size:13px">効果ブロック（モンスターの効果と同じ作り・なくてもOK）</b><p class="note" style="margin:2px 0 6px">「このモンスター」は、このカウンターが乗っているモンスター。効果は乗っている側のプレイヤーのものとして出る（例：乗ったとき サイコロ3面 → 出た目のターン後に このモンスターを破壊）</p><div id="ctrBkHost"></div></div><div class="row" style="gap:6px;width:100%"><button type="button" class="small primary" data-ctrsave>${ed.id ? "保存する" : "作る"}</button><button type="button" class="small ghost" data-ctrcancel>やめる</button>${ed.id ? `<span style="flex:1"></span><button type="button" class="small ghost danger" data-ctrdel>${ed.delAsk ? "本当に消す（もう一度押す）" : "このカウンターを消す"}</button>` : ""}</div>
         ${ed.id ? `<p class="note" style="margin:0;width:100%">消しても、このカウンターを使っているカードはそのまま動きます（カードの中に名前とアイコンが入っているため）</p>` : ""}
       </div>` : `<button type="button" class="small" data-ctrnew>＋ 新しいカウンターを作る</button>`);
   if ((S.ctrEdit || S.ctrBkOn) && typeof ctrBkSync === "function") ctrBkSync();
+  ctrArtSync();
+}
+/* ---- カウンターのアイコンを描く: 正方形のキャンバス（写真をドラッグで動かす・大きさを変える＋ペンで描く）。
+   カードのイラストと同じように使える。絵はカウンターの欄を描きなおしても消えないように、1つの部品を使いまわす ---- */
+const CTR_ART_N = 256, CTR_ICON_OUT = 128;
+const CTR_PENS = ["#1e2328", "#e0533a", "#f29b38", "#f2c94c", "#4caf6e", "#3d8bd9", "#8e5bc9", "#f28fb5", "#8b5a3c", "#ffffff"];
+let CTR_ART = null;
+function ctrArtEl(){
+  if (CTR_ART) return CTR_ART;
+  const el = document.createElement("div"); el.className = "ctr-art";
+  el.innerHTML = `<div class="ca-stage"><canvas class="ca-cv" width="${CTR_ART_N}" height="${CTR_ART_N}" aria-label="カウンターのアイコンを描くところ"></canvas><span class="ca-ring" aria-hidden="true"></span></div>
+    <div class="ca-tools">
+      <div class="ca-pens">${CTR_PENS.map(c => `<button type="button" class="sw" style="background:${c}" data-cap="${c}" aria-label="色 ${c}"></button>`).join("")}</div>
+      <div class="row" style="gap:6px;flex-wrap:wrap;align-items:center"><span class="note">太さ</span>${[["細", 4], ["中", 9], ["太", 18], ["特太", 34]].map(([l, w]) => `<button type="button" class="small" data-caw="${w}">${l}</button>`).join("")}</div>
+      <div class="row" style="gap:6px;flex-wrap:wrap"><button type="button" class="small" data-caa="erase">消しゴム</button><button type="button" class="small" data-caa="undo">1つ戻す</button><button type="button" class="small danger" data-caa="clear">ぜんぶ消す</button></div>
+      <div class="row" style="gap:6px;flex-wrap:wrap;align-items:center"><label class="small btnlike">写真を読みこむ<input type="file" accept="image/*" hidden data-cafile></label><button type="button" class="small" data-caa="move">写真を動かす</button><button type="button" class="small ghost" data-caa="nophoto">写真を消す</button></div>
+      <label class="row ca-zoom" style="gap:6px;align-items:center"><span class="note">写真の大きさ</span><input type="range" min="20" max="400" value="100" data-cazoom></label>
+      <p class="note" style="margin:0">丸く切りぬいて表示されます。写真は「写真を動かす」でドラッグ（PCはホイールで大きさ）</p>
+    </div>`;
+  const cv = el.querySelector(".ca-cv"), x = cv.getContext("2d"), ink = document.createElement("canvas"); ink.width = ink.height = CTR_ART_N;
+  const A = { el, cv, x, ink, ix: ink.getContext("2d"), photo: null, px: 0, py: 0, ps: 1, color: CTR_PENS[0], w: 9, mode: "draw", undo: [], ed: null };
+  CTR_ART = A;
+  const sync = () => { el.querySelectorAll("[data-cap]").forEach(b => b.setAttribute("aria-pressed", A.mode === "draw" && b.dataset.cap === A.color)); el.querySelectorAll("[data-caw]").forEach(b => b.setAttribute("aria-pressed", +b.dataset.caw === A.w)); el.querySelector('[data-caa="erase"]').setAttribute("aria-pressed", A.mode === "erase"); el.querySelector('[data-caa="move"]').setAttribute("aria-pressed", A.mode === "move"); el.querySelector('[data-caa="move"]').disabled = !A.photo; el.querySelector('[data-caa="nophoto"]').hidden = !A.photo; el.querySelector(".ca-zoom").hidden = !A.photo; el.querySelector("[data-cazoom]").value = Math.round(A.ps * 100 / ctrArtFit(A)); cv.classList.toggle("moving", A.mode === "move"); };
+  A.sync = sync;
+  const snap = () => { A.undo.push({ ink: A.ix.getImageData(0, 0, CTR_ART_N, CTR_ART_N), photo: A.photo, px: A.px, py: A.py, ps: A.ps }); if (A.undo.length > 25) A.undo.shift(); };
+  const pt = e => { const r = cv.getBoundingClientRect(); return [(e.clientX - r.left) * CTR_ART_N / r.width, (e.clientY - r.top) * CTR_ART_N / r.height]; };
+  let drag = null;
+  cv.addEventListener("pointerdown", e => { e.preventDefault(); cv.setPointerCapture(e.pointerId); const [px, py] = pt(e); snap();
+    if (A.mode === "move" && A.photo){ drag = { k: "move", sx: px, sy: py, ox: A.px, oy: A.py }; return; }
+    drag = { k: "ink", lx: px, ly: py }; ctrArtLine(A, px, py, px + .01, py); ctrArtDraw(A); });
+  cv.addEventListener("pointermove", e => { if (!drag) return; const [px, py] = pt(e);
+    if (drag.k === "move"){ A.px = drag.ox + px - drag.sx; A.py = drag.oy + py - drag.sy; } else { ctrArtLine(A, drag.lx, drag.ly, px, py); drag.lx = px; drag.ly = py; }
+    ctrArtDraw(A); });
+  const end = () => { if (!drag) return; drag = null; ctrArtSave(A); };
+  cv.addEventListener("pointerup", end); cv.addEventListener("pointercancel", end);
+  cv.addEventListener("wheel", e => { if (!A.photo || A.mode !== "move") return; e.preventDefault(); ctrArtZoom(A, A.ps * (e.deltaY < 0 ? 1.08 : 1 / 1.08)); }, { passive: false });
+  el.addEventListener("click", e => {
+    const b = e.target.closest("button"); if (!b) return;
+    if (b.dataset.cap){ A.color = b.dataset.cap; A.mode = "draw"; }
+    else if (b.dataset.caw){ A.w = +b.dataset.caw; if (A.mode === "move") A.mode = "draw"; }
+    else if (b.dataset.caa === "erase") A.mode = A.mode === "erase" ? "draw" : "erase";
+    else if (b.dataset.caa === "move") A.mode = A.mode === "move" ? "draw" : "move";
+    else if (b.dataset.caa === "undo"){ const u = A.undo.pop(); if (u){ A.ix.putImageData(u.ink, 0, 0); A.photo = u.photo; A.px = u.px; A.py = u.py; A.ps = u.ps; ctrArtDraw(A); ctrArtSave(A); } }
+    else if (b.dataset.caa === "clear"){ snap(); A.ix.clearRect(0, 0, CTR_ART_N, CTR_ART_N); A.photo = null; if (A.mode === "move") A.mode = "draw"; ctrArtDraw(A); ctrArtSave(A, true); }
+    else if (b.dataset.caa === "nophoto"){ snap(); A.photo = null; if (A.mode === "move") A.mode = "draw"; ctrArtDraw(A); ctrArtSave(A); }
+    sync();
+  });
+  el.addEventListener("input", e => { if (e.target.dataset.cazoom == null || !A.photo) return; ctrArtZoom(A, ctrArtFit(A) * (+e.target.value || 100) / 100, true); });
+  el.addEventListener("change", e => { if (e.target.dataset.cazoom != null){ ctrArtSave(A); return; }
+    const f = e.target.dataset.cafile != null && e.target.files && e.target.files[0]; if (!f) return; e.target.value = "";
+    const r = new FileReader(); r.onload = () => { const im = new Image(); im.onload = () => { snap(); ctrArtSetPhoto(A, im); A.mode = "move"; ctrArtDraw(A); ctrArtSave(A); sync(); }; im.onerror = () => toast("画像を読みこめませんでした"); im.src = r.result; }; r.readAsDataURL(f); });
+  return A;
+}
+const ctrArtFit = A => A.photo ? Math.max(CTR_ART_N / A.photo.width, CTR_ART_N / A.photo.height) : 1;
+function ctrArtSetPhoto(A, im){ A.photo = im; A.ps = ctrArtFit(A); A.px = (CTR_ART_N - im.width * A.ps) / 2; A.py = (CTR_ART_N - im.height * A.ps) / 2; }
+// 大きさを変えるときは、まん中を中心にする
+function ctrArtZoom(A, ns, live){ ns = Math.max(ctrArtFit(A) * .2, Math.min(ctrArtFit(A) * 4, ns)); const c = CTR_ART_N / 2; A.px = c - (c - A.px) * ns / A.ps; A.py = c - (c - A.py) * ns / A.ps; A.ps = ns; ctrArtDraw(A); if (!live) ctrArtSave(A); A.sync(); }
+function ctrArtLine(A, x0, y0, x1, y1){ const g = A.ix; g.save(); g.globalCompositeOperation = A.mode === "erase" ? "destination-out" : "source-over"; g.strokeStyle = A.color; g.lineWidth = A.mode === "erase" ? A.w * 1.6 : A.w; g.lineCap = g.lineJoin = "round"; g.beginPath(); g.moveTo(x0, y0); g.lineTo(x1, y1); g.stroke(); g.restore(); }
+function ctrArtDraw(A){ const x = A.x; x.clearRect(0, 0, CTR_ART_N, CTR_ART_N); x.fillStyle = "#fff"; x.fillRect(0, 0, CTR_ART_N, CTR_ART_N); if (A.photo) x.drawImage(A.photo, A.px, A.py, A.photo.width * A.ps, A.photo.height * A.ps); x.drawImage(A.ink, 0, 0); }
+const ctrArtEmpty = A => { if (A.photo) return false; const d = A.ix.getImageData(0, 0, CTR_ART_N, CTR_ART_N).data; for (let i = 3; i < d.length; i += 16) if (d[i]) return false; return true; };
+// アイコンにする（128×128・まわりは丸く切りぬいて表示）
+function ctrArtSave(A, clear){
+  const ed = S.ctrEdit; if (!ed || A.ed !== ed) return;
+  if (clear || ctrArtEmpty(A)){ ed.icon = ""; return; }
+  const o = document.createElement("canvas"); o.width = o.height = CTR_ICON_OUT; const g = o.getContext("2d"); g.imageSmoothingQuality = "high"; g.drawImage(A.cv, 0, 0, CTR_ICON_OUT, CTR_ICON_OUT);
+  let u = o.toDataURL("image/webp", .86); if (!/^data:image\/webp/.test(u)) u = o.toDataURL("image/png"); ed.icon = u;
+}
+function ctrArtPark(){ if (CTR_ART && CTR_ART.el.parentElement) CTR_ART.el.remove(); }
+function ctrArtSync(){
+  const ed = S.ctrEdit, host = document.getElementById("ctrArtHost"); if (!ed || !host) return;
+  const A = ctrArtEl(); host.appendChild(A.el);
+  if (A.ed !== ed){ A.ed = ed; A.undo = []; A.mode = "draw"; A.ix.clearRect(0, 0, CTR_ART_N, CTR_ART_N); A.photo = null; ctrArtDraw(A); A.sync();
+    // いまのアイコンを読みこんで、その上から描けるようにする
+    if (ed.icon){ const im = new Image(); im.onload = () => { if (A.ed !== ed) return; ctrArtSetPhoto(A, im); ctrArtDraw(A); A.sync(); }; im.src = ed.icon; } }
 }
 // カウンターの効果の入力（毒なら「乗っている側のターンの終わり：1個につき20ダメージ、1個取り除く」など）
 function ctrFxForm(ed){
