@@ -765,6 +765,8 @@ function bkMoreOpen(b, bi){
 // いつ: まぎらわしいタイミングの説明
 const TRIG_HELP = { summon: "手札から召喚したとき（効果で出したときは出ない）", ssummon: "効果などで特殊召喚したとき", enter: "召喚でも特殊召喚でも、場に出たとき", destroyed: "効果でもバトルでも、破壊されたとき", battleLose: "バトルで負けたとき（相打ちもふくむ・破壊される前に出る）", kill: "このモンスターがバトルで相手のモンスターを破壊したとき", cardUse: "このモンスターが場にいる間、カードが使われるたび（モンスターの召喚・魔法・罠・装備）。「もし」で自分が使ったときだけ、などにしぼれる", anyUse: "魔法か罠が発動するたび（モンスターの召喚では出ない）", oppAttack: "相手のモンスターが攻撃してきたとき（どのモンスターへの攻撃でも）" };
 // 「1ターンに○度だけ」がいらないタイミング（もともと1回しか出ない）
+// 「場にいる間」では見られない条件（カードを使ったその瞬間・キッカー）
+const WHILE_NG_CONDS = ["used", "kicked"];
 const NO_LIM = ["summon", "ssummon", "enter", "destroyed", "evolve", "turnStart", "turnEnd", "use", "attach"];
 // フラッシュバック（魔法だけ）・S・トリガー・キッカー
 function mkSpOpts(){ const sp = MK.type === "magic" || MK.type === "trap", k = Math.max(0, Math.min(99, Math.round(+$("#mkKick").value || 0))); return { ...(sp && MK.type === "magic" && $("#mkFlash").checked ? { flashback: true } : {}), ...(sp && $("#mkStrig").checked ? { strig: true } : {}), ...(sp && k ? { kick: k } : {}) }; }
@@ -835,7 +837,7 @@ function renderBlocksUI(){
   const condRow = (b, x, j) => {
     let h = `<div class="bk-row" data-part="cond" data-i="${j}">`;
     if (j > 0) h += `<select data-f="join" aria-label="つなぎ" class="bk-join">${opt("and", "かつ", b.join)}${opt("or", "または", b.join)}</select>`;
-    h += `<select data-f="k" aria-label="なにが">${Object.entries(COND_DEFS).filter(([k, d]) => (!d.gl || k === x.k || mkGlVal()) && (!d.hf || k === x.k || mkHfVal()) && (!d.gj || k === x.k || b.roll === "gj" || b.roll === "pgj")).map(([k, d]) => opt(k, d.label, x.k)).join("")}</select>`;
+    h += `<select data-f="k" aria-label="なにが">${Object.entries(COND_DEFS).filter(([k, d]) => (!d.gl || k === x.k || mkGlVal()) && (!d.hf || k === x.k || mkHfVal()) && (!d.gj || k === x.k || b.roll === "gj" || b.roll === "pgj") && (b.trig !== "while" || !WHILE_NG_CONDS.includes(k) || k === x.k)).map(([k, d]) => opt(k, d.label, x.k)).join("")}</select>`;
     if (x.k === "ctr") h += ctrCondUI(x, opt);
     if (x.k === "handF" || x.k === "drawn") h += usedPfUI(x, opt);
     if (isNumCond(x.k)) h += `<select data-f="op" aria-label="くらべかた">${opt("ge", "以上", x.op)}${opt("le", "以下", x.op)}${opt("eq", "ちょうど", x.op)}</select><input type="number" data-f="n" min="0" max="99999" value="${esc(x.n ?? 1)}" aria-label="数">`;
@@ -867,7 +869,7 @@ function renderBlocksUI(){
       + (!easy || b.delay > 0 || b.delayDie ? `<span class="bk-tag t-when">時間差</span><div class="row" style="gap:6px;align-items:center;flex-wrap:wrap"><select data-f="delay" aria-label="効果が出るまで">${[0, 1, 2, 3, 4, 5].map(d => opt(d, d === 0 ? "すぐ出る" : d === 1 ? "次の自分のターンのはじめに出る" : `${d}ターン後の自分のターンのはじめに出る`, b.delayDie ? "die" : b.delay || 0)).join("")}${opt("die", "サイコロの出た目のターン後に出る", b.delayDie ? "die" : b.delay || 0)}</select>${b.delayDie ? `<span class="note">「まず」のサイコロ（面の数）を振って、出た目の数だけ時計が進む</span>` : b.delay > 0 ? `<span class="note">カードには「時計${b.delay}」と書かれる</span>` : ""}</div>` : "")
       + `<span class="bk-tag t-when">つける</span><div class="row" style="gap:6px;flex-wrap:wrap;align-items:center"><select data-f="gto" aria-label="プレイヤーにつける">${opt("", "つけない（いますぐ1回出る）", b.grant ? b.grant.to : "")}${opt("me", "自分につけて、毎ターン出す", b.grant ? b.grant.to : "")}${opt("op", "相手につけて、毎ターン出す（呪い）", b.grant ? b.grant.to : "")}${opt("pick", "自分か相手につける（使うときにえらぶ）", b.grant ? b.grant.to : "")}</select>${b.grant ? `<select data-f="gat" aria-label="いつ出るか">${opt("turnStart", "そのプレイヤーのターンのはじめに", b.grant.at)}${opt("turnEnd", "そのプレイヤーのターンのおわりに", b.grant.at)}</select><select data-f="gdur" aria-label="何回">${[0, 1, 2, 3, 4, 5].map(d => opt(d, d ? `${d}回だけ` : "ずっと", b.grant.dur || 0)).join("")}</select><span class="note">「もし」「なにを」は、付与されたプレイヤーが自分のこととしておこなう（例：相手に付与＋LPを失う → 相手がLPを失う）</span>` : ""}</div>`
       + `</div></details>`
-      + (easy && !b.conds.length && b.trig !== "anyUse" && b.trig !== "cardUse" ? "" : `<span class="bk-tag t-if">もし</span><div class="bk-col">${b.conds.map((x, j) => condRow(b, x, j)).join("")}<button type="button" class="small bk-add" data-bk="addCond">＋ 条件を足す</button>${b.conds.length ? "" : `<span class="note">なし（いつも出る）</span>`}</div>`)
+      + (easy && !b.conds.length && b.trig !== "anyUse" && b.trig !== "cardUse" ? "" : `<span class="bk-tag t-if">もし</span><div class="bk-col">${b.trig === "while" && b.conds.some(x => WHILE_NG_CONDS.includes(x.k)) ? `<div class="bk-warn">「場にいる間」は、カードが使われた“その瞬間”を見られないので、「${b.conds.filter(x => WHILE_NG_CONDS.includes(x.k)).map(x => COND_DEFS[x.k].label.replace(/（.*$/, "")).join("」「")}」の条件はいつも「ちがう」になります。カードが使われるたびに効果を出すなら、いつを「カードが使われたとき」にしてね <button type="button" class="small primary" data-bk="toCardUse">「カードが使われたとき」に変える</button></div>` : ""}${b.conds.map((x, j) => condRow(b, x, j)).join("")}<button type="button" class="small bk-add" data-bk="addCond">＋ 条件を足す</button>${b.conds.length ? "" : `<span class="note">なし（いつも出る）</span>`}</div>`)
       + `<span class="bk-tag t-do">なにを</span><div class="bk-col">${b.then.map((e, j) => (j > 0 ? `<div class="row bk-connect" style="gap:8px;margin:4px 0 8px 24px"><select data-f="one" aria-label="効果のつなぎ（この一覧すべてに適用）" title="そして：すべて順に発動／または：一覧から1つ選んで発動">${opt("", "そして", b.one ? "1" : "")}${opt("1", "または", b.one ? "1" : "")}</select><span class="note">効果のつなぎ</span></div>` : "") + effRow(bi, "then", e, j)).join("")}<button type="button" class="small bk-add" data-bk="addEff" data-part="then">＋ ${b.then.length ? "つづけて効果を足す（同じタイミング）" : "効果を選ぶ"}</button></div>`
       + (b.conds.length ? `<span class="bk-tag t-else">ちがったら</span><div class="bk-col">${b.else.map((e, j) => effRow(bi, "else", e, j)).join("")}<button type="button" class="small bk-add" data-bk="addEff" data-part="else">＋ ${b.else.length ? "つづけて効果を足す" : "効果を選ぶ（なくてもいい）"}</button></div>` : "")
       + `</div></div>`).join("")
@@ -1033,6 +1035,7 @@ function initBlocksUI(){
     if (tp){ const t = BK_TEMPLATES[+tp.dataset.tpl], trigs = mkTrigs(); MK.blocks.push({ trig: t.trig && trigs.includes(t.trig) ? t.trig : trigs[0], join: "and", conds: JSON.parse(JSON.stringify(t.conds || [])), then: JSON.parse(JSON.stringify(t.then || [])), else: JSON.parse(JSON.stringify(t.else || [])) }); return renderBlocksUI(); }
     const btn = e.target.closest("[data-bk]"); if (!btn) return;
     const a = btn.dataset.bk, bkEl = btn.closest(".bk"), bi = bkEl ? +bkEl.dataset.b : -1, b = MK.blocks[bi];
+    if (a === "toCardUse" && b){ b.trig = MK.type === "monster" ? "cardUse" : "anyUse"; return renderBlocksUI(); }
     if (a === "addBlock"){ MK.blocks.push({ trig: mkTrigs()[0], join: "and", conds: [], then: [{ kind: mkKinds().includes("dmg") ? "dmg" : mkKinds()[0], n: 100 }], else: [] }); return renderBlocksUI(); }
     if (!b) return;
     if (a === "del"){ MK.blocks.splice(bi, 1); return renderBlocksUI(); }
