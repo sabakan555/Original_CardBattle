@@ -3672,9 +3672,10 @@ function ctrIconFrom(file){
   });
 })();
 /* ---- カード工房の効果ブロック用の入力 ---- */
-function ctrEffUI(e, opt){
-  const mon = typeof MK !== "undefined" && (MK.type === "monster" || MK.type === "equip"), cw = CTR_CW[e.cw] ? e.cw : "pick";
-  return ctrSel("ctr", e.ctr) + `<select data-f="cw" aria-label="どこに">${Object.entries(CTR_CW).filter(([k]) => k !== "self" || mon || cw === "self").map(([k, l]) => opt(k, l, cw)).join("")}</select>`
+function ctrEffUI(e, opt, wh){
+  const mon = typeof MK !== "undefined" && (MK.type === "monster" || MK.type === "equip"); let cw = CTR_CW[e.cw] ? e.cw : wh ? "all" : "pick";
+  if (wh && cw === "pick") cw = "all"; if (wh) e.cw = cw;
+  return ctrSel("ctr", e.ctr) + `<select data-f="cw" aria-label="どこに">${Object.entries(CTR_CW).filter(([k]) => (k !== "self" || mon || cw === "self") && (!wh || k !== "pick")).map(([k, l]) => opt(k, l, cw)).join("")}</select>`
     + (cw === "self" ? "" : `<select data-f="side" aria-label="自分か相手か">${opt("op", "相手", e.side === "me" ? "me" : "op")}${opt("me", "自分", e.side === "me" ? "me" : "op")}</select>`);
 }
 const ctrAtSel = (f, cur, opt) => `<select data-f="${f}" aria-label="どこの">${Object.entries(CTR_AT).map(([k, l]) => opt(k, l + "の", cur || "self")).join("")}</select>`;
@@ -4868,7 +4869,7 @@ function renderBlocksUI(){
       + (g && famCollapse(g.v, e.kind).length > 1 ? `<select data-f="kind" aria-label="どれ">${famCollapse(g.v, e.kind).map(([k, l]) => opt(k, l || KINDS[k].label, e.kind)).join("")}</select>` : "")
       + famSel(e, g ? g.v.map(x => x[0]) : [], opt)
       + (tg ? toUI(e, opt) : "")
-      + (KINDS[e.kind] && KINDS[e.kind].ctr ? ctrEffUI(e, opt) : "")
+      + (KINDS[e.kind] && KINDS[e.kind].ctr ? ctrEffUI(e, opt, (MK.blocks[bi] || {}).trig === "while") : "")
       + (e.kind === "dblNext" || e.kind === "freeNext" || (e.kind === "setCost" && e.sp !== "pick") ? usedPfUI(e, opt) : "")
       + (e.kind === "setCost" ? `<select data-f="sp" aria-label="どのカード">${opt("filter", "手札の（しぼる）", e.sp === "pick" ? "pick" : "filter")}${opt("pick", "1枚えらぶ", e.sp === "pick" ? "pick" : "filter")}</select><select data-f="sd" aria-label="いつまで">${opt("turn", "このターン", e.sd === "used" ? "used" : "turn")}${opt("used", "使うまで", e.sd === "used" ? "used" : "turn")}</select>` : "")
       + (e.kind === "copyPick" ? `<select data-f="cpw" aria-label="いつ加える">${opt("", "いま", e.cpw || "")}${opt("next", "次の自分のターンのはじめ", e.cpw || "")}</select>` : "")
@@ -6498,7 +6499,44 @@ function modApply(st, s, c, fx, target, src){
   log(st, s, `${src}で${modTargetText(fx)}を書きかえた（${out.length}枚）`);
 }
 // 場にいる間: 場のモンスターと表の永続カードの「場にいる間」の効果（ATKの増減・○倍）を、そのつど計算する
-const STATIC_KINDS = ["selfAtk", "atkUp", "atkAll", "atkDown", "atkDownAll", "atkMul", "giveAb"];
+const STATIC_KINDS = ["selfAtk", "atkUp", "atkAll", "atkDown", "atkDownAll", "atkMul", "giveAb", "ctrAdd"];
+/* 「場にいる間、カウンターを乗せる」: 出ている間は乗せておいて、いなくなったり条件に合わなくなったら、その分を取り除く。
+   乗せた数は乗っている側に m.ctrA / p.ctrA = { "出し手のu|カウンターid": 個数 } で覚えておく（ほかの効果で取り除かれた分は、もう一度は乗せない） */
+function ctrAuraSync(st){
+  if (!st || !st.players || st.winner || ctrAuraSync.busy) return;
+  ctrAuraSync.busy = true;
+  try{
+    const want = new Map(), add = (tk, sk, id, n, nm) => { const k = tk + "#" + sk + "|" + id, v = want.get(k); want.set(k, { n: (v ? v.n : 0) + n, nm }); };
+    for (const o of ["a", "b"]){
+      const p = P(st, o), srcs = [];
+      p.mz.forEach((x, i) => { if (x) srcs.push({ c: monCard(x), u: x.u, mon: x, ctx: { zone: i, mon: { s: o, i, u: x.u } } }); });
+      p.sz.forEach((z, i) => { if (z && z.face && (isPersist(card(z.c)) || z.fcp)) srcs.push({ c: card(z.c), u: z.u, mon: null, ctx: { pz: i } }); });
+      if (st.field && st.field.o === o) srcs.push({ c: card(st.field.c), u: "f" + st.field.u, mon: null, ctx: { field: true } });
+      srcs.forEach(src => { if (src.mon && sealedM(src.mon)) return; blocksOf(src.c).forEach((b, bi) => {
+        if (b.trig !== "while") return;
+        const plain = b.conds.filter(x => x.k !== "ask"), ok = !plain.length || (b.join === "or" ? plain.some(x => condMet(st, o, src.c, x, src.ctx)) : plain.every(x => condMet(st, o, src.c, x, src.ctx)));
+        (ok ? b.then : b.else).forEach((e, ei) => {
+          if (e.kind !== "ctrAdd" || !e.ctr) return;
+          const n = Math.max(0, Math.round(+e.n || 0)); if (!n) return;
+          const cw = CTR_CW[e.cw] ? e.cw : "all", side = e.side === "me" ? o : O(o), sk = src.u + ":" + bi + ":" + ei, nm = `「${src.c.name}」`;
+          if (cw === "self"){ if (src.mon) add("m" + src.mon.u, sk, e.ctr, n, nm); }
+          else if (cw === "player") add("p" + side, sk, e.ctr, n, nm);
+          else P(st, side).mz.forEach(m => { if (m) add("m" + m.u, sk, e.ctr, n, nm); });
+        });
+      }); });
+    }
+    const fix = (tk, rec, apply) => {
+      const cur = rec() || {}, keys = new Set([...Object.keys(cur), ...[...want.keys()].filter(k => k.startsWith(tk + "#")).map(k => k.slice(tk.length + 1))]);
+      keys.forEach(k => { const w = want.get(tk + "#" + k), have = cur[k] || 0, n = w ? w.n : 0; if (n === have) return; const id = k.slice(k.lastIndexOf("|") + 1);
+        const r = rec(true); if (n) r[k] = n; else delete r[k]; apply(id, n - have, w ? w.nm : "場にいる間の効果が切れたこと"); });
+    };
+    for (const o of ["a", "b"]){
+      const p = P(st, o);
+      fix("p" + o, mk => mk ? (p.ctrA = p.ctrA || {}) : p.ctrA, (id, d, nm) => { if (d < 0 && !ctrOfP(p, id)) return; ctrPl(st, o, id, d, nm, o); });
+      p.mz.forEach(m => { if (!m) return; fix("m" + m.u, mk => mk ? (m.ctrA = m.ctrA || {}) : m.ctrA, (id, d, nm) => { const i = p.mz.indexOf(m); if (i >= 0 && !(d < 0 && !ctrOfM(m, id))) ctrMon(st, o, i, id, d, nm, o); }); });
+    }
+  } finally { ctrAuraSync.busy = false; }
+}
 // 場にいる間の「能力を付与する」: 出しているカードがある間だけ、モンスター m（s 側）がその能力を持つ
 function staticAbs(st, s, m){
   const out = []; if (!st || !st.players || staticAbs.busy) return out;
@@ -6762,6 +6800,7 @@ const isHumanHere = s => G && s === G.slot;
 
 function checkEnd(st){
   if (st.winner) return;
+  ctrAuraSync(st);
   const la = st.players.a.lp, lb = st.players.b.lp;
   if (la <= 0 && lb <= 0){ st.winner = "draw"; st.why = "両者LP0"; }
   else if (la <= 0){ st.winner = "b"; st.why = `${nm(st, "a")} のLPが0になった`; }
@@ -7199,7 +7238,7 @@ function equip(st, s, hi, ts, ti, pos, disc){
   return true;
 }
 // visual events, stored in the game state so both players see the same animations
-function ev(st, e){ if (e.type === "summon" && e.s && e.z != null){ const m = P(st, e.s).mz[e.z]; if (m) e = { ...e, c: e.c || m.c }; sealRelease(st, e.s, e.z); mugNote(st, e.s, e.z); } if (e.type === "spell" && e.c) st.recent = [...(st.recent || []), { c: e.c, s: e.s }].slice(-5); st.evn = (st.evn || 0) + 1; (st.ev || (st.ev = [])).push({ ...e, n: st.evn }); if (st.ev.length > 30) st.ev.splice(0, st.ev.length - 30); }
+function ev(st, e){ if (e.type === "summon" && e.s && e.z != null){ const m = P(st, e.s).mz[e.z]; if (m) e = { ...e, c: e.c || m.c }; sealRelease(st, e.s, e.z); mugNote(st, e.s, e.z); } if (e.type === "spell" && e.c) st.recent = [...(st.recent || []), { c: e.c, s: e.s }].slice(-5); st.evn = (st.evn || 0) + 1; (st.ev || (st.ev = [])).push({ ...e, n: st.evn }); if (st.ev.length > 30) st.ev.splice(0, st.ev.length - 30); if (["summon", "destroy", "equip", "spell", "bounce", "banish"].includes(e.type)) ctrAuraSync(st); }
 // returns true if the monster actually left the field. opt.battle: destroyed by battle; opt.force: manual (no protection)
 function destroyMonster(st, s, i, why, opt = {}){
   const p = P(st, s), m = p.mz[i]; if (!m) return false;

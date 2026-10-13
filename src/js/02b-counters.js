@@ -357,9 +357,10 @@ function ctrIconFrom(file){
   });
 })();
 /* ---- カード工房の効果ブロック用の入力 ---- */
-function ctrEffUI(e, opt){
-  const mon = typeof MK !== "undefined" && (MK.type === "monster" || MK.type === "equip"), cw = CTR_CW[e.cw] ? e.cw : "pick";
-  return ctrSel("ctr", e.ctr) + `<select data-f="cw" aria-label="どこに">${Object.entries(CTR_CW).filter(([k]) => k !== "self" || mon || cw === "self").map(([k, l]) => opt(k, l, cw)).join("")}</select>`
+function ctrEffUI(e, opt, wh){
+  const mon = typeof MK !== "undefined" && (MK.type === "monster" || MK.type === "equip"); let cw = CTR_CW[e.cw] ? e.cw : wh ? "all" : "pick";
+  if (wh && cw === "pick") cw = "all"; if (wh) e.cw = cw;
+  return ctrSel("ctr", e.ctr) + `<select data-f="cw" aria-label="どこに">${Object.entries(CTR_CW).filter(([k]) => (k !== "self" || mon || cw === "self") && (!wh || k !== "pick")).map(([k, l]) => opt(k, l, cw)).join("")}</select>`
     + (cw === "self" ? "" : `<select data-f="side" aria-label="自分か相手か">${opt("op", "相手", e.side === "me" ? "me" : "op")}${opt("me", "自分", e.side === "me" ? "me" : "op")}</select>`);
 }
 const ctrAtSel = (f, cur, opt) => `<select data-f="${f}" aria-label="どこの">${Object.entries(CTR_AT).map(([k, l]) => opt(k, l + "の", cur || "self")).join("")}</select>`;
