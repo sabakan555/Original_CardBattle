@@ -490,7 +490,7 @@ function moveMonOut(st, o, i, to){
   const p = P(st, o), m = p.mz[i]; if (!m) return null;
   eqsOf(m).forEach(e => P(st, e.o).grave.push(e.c)); p.grave.push(...(m.mats || [])); sealsOut(st, m);
   p.mz[i] = null; ev(st, { type: "destroy", s: o, z: i });
-  if (!m.cp){ const w = P(st, m.owner || o); if (to === "exile") (w.exile = w.exile || []).push(m.c); else w.hand.push(m.c); }
+  if (!m.cp){ const w = P(st, m.owner || o); if (to === "exile") (w.exile = w.exile || []).push(m.c); else if (to === "mana"){ if (w.manaZ){ manaSync(w); manaPut(st, m.owner || o, m.c); } else w.grave.push(m.c); } else w.hand.push(m.c); }
   return m;
 }
 // 質量を場に出す: モンスターはモンスターゾーンへ、魔法・罠は魔法・罠ゾーンに伏せて。copy = コピー（やられても本体は墓地に行かない）
@@ -630,6 +630,7 @@ function targetOptions(st, s, kind, ctx = {}){
   if (KINDS[kind] && KINDS[kind].mod && !ctx.modPick) return null;
   if (t === "hand") return P(st, s).hand.map((_, i) => i);
   if (t === "oppHand") return P(st, O(s)).hand.map((_, i) => i);
+  if (t === "tagPick" && kind === "manaSummon"){ const p = P(st, s); if (!p.manaZ || freeZone(p.mz) < 0) return []; const tag = ctx.tagName || ""; return [...new Set(p.manaZ.map(x => x.c))].filter(id => cardType(card(id)) === "monster" && !isEx(card(id)) && (!tag || hasTag(id, tag))); }
   if (t === "tagPick" && kind === "fusion"){ const p = P(st, s); return [...new Set(p.ex || [])].filter(id => isFusion(card(id)) && fusionPlan(st, s, card(id))); }
   if (t === "tagPick"){
     const p = P(st, s), tag = ctx.tagName || "", fromEx = kind === "exSummon" || kind === "tagSummonEx", src = fromEx ? (p.ex || []) : /Hand$/.test(kind) && kind !== "tagGraveHand" ? p.hand : /Deck$|tagSearch/.test(kind) ? p.deck : p.grave;
@@ -1306,6 +1307,16 @@ function applyEffect(st, s, c, target, ctx = {}, fx = normFx(c)){
     case "revive": { const gi = me.grave.indexOf(target); if (gi >= 0){ me.grave.splice(gi, 1); me.hand.push(target); log(st, s, `${src}で墓地の「${card(target).name}」を手札に戻した`); } break; }
     case "reborn": { const gi = me.grave.indexOf(target), z = freeZone(me.mz); if (gi >= 0 && z >= 0){ me.grave.splice(gi, 1); me.mz[z] = mkMon(st, target); ev(st, { type: "summon", s, z }); log(st, s, `${src}で墓地の「${card(target).name}」を場に出した（特殊召喚）`); trigger(st, s, card(target), "ssummon", { zone: z, mon: { s, i: z, u: me.mz[z].u } }); } break; }
     case "manaNow": if (me.mana){ me.mana.cur += n; log(st, s, `${src}でマナを${n}回復（${me.mana.cur}/${me.mana.max}）`); } else log(st, s, `${src}：マナを使わないデッキなので効果なし`); break;
+    case "selfMana": { if (!me.manaZ){ log(st, s, `${src}：マナゾーンのないデッキ`); break; }
+      const m = ctx.mon && monAt(st, ctx.mon); if (m){ const i = P(st, ctx.mon.s).mz.indexOf(m); moveMonOut(st, ctx.mon.s, i, "mana"); log(st, s, `${src}：場の「${card(m.c).name}」をマナゾーンに置いた`); break; }
+      let k = me.grave.lastIndexOf(c.id); if (k >= 0){ me.grave.splice(k, 1); manaSync(me); manaPut(st, s, c.id); log(st, s, `${src}：墓地の「${c.name}」をマナゾーンに置いた`); break; }
+      k = ctx.inHand ? me.hand.indexOf(ctx.inHand) : -1; if (k >= 0){ const id = me.hand.splice(k, 1)[0]; manaSync(me); manaPut(st, s, id); log(st, s, `${src}：手札の「${card(id).name}」をマナゾーンに置いた`); break; }
+      log(st, s, `${src}：このカードが見つからない`); break; }
+    case "manaSummon": { if (!me.manaZ){ log(st, s, `${src}：マナゾーンのないデッキ`); break; } const z = freeZone(me.mz); let j = me.manaZ.findIndex(x => x.c === target && x.tap); if (j < 0) j = me.manaZ.findIndex(x => x.c === target);
+      if (j < 0 || z < 0){ log(st, s, `${src}：マナゾーンから出せるモンスターがいない`); break; }
+      const x = me.manaZ.splice(j, 1)[0]; if (!x.tap) me.mana.cur = Math.max(0, me.mana.cur - 1); manaSync(me);
+      me.mz[z] = mkMon(st, target); ev(st, { type: "summon", s, z }); log(st, s, `${src}：マナゾーンから「${card(target).name}」を場に出した`);
+      trigger(st, s, card(target), "ssummon", { zone: z, mon: { s, i: z, u: me.mz[z].u } }); persistFire(st, s, "mySummon", {}); break; }
     case "manaBoost": if (me.manaZ) manaFromDeck(st, s, n, src); else if (me.mana){ const add = Math.max(0, Math.min(n, MANA_LIMIT - me.mana.max)); me.mana.max += add; me.mana.cur += add; log(st, s, `${src}で最大マナを${add}増やした（${me.mana.cur}/${me.mana.max}）`); } else log(st, s, `${src}：マナを使わないデッキ`); break;
     case "manaHand": { if (!me.manaZ){ log(st, s, `${src}：マナゾーンのないルール`); break; } const id = me.hand[target]; if (id == null){ log(st, s, `${src}：手札がない`); break; } me.hand.splice(target, 1); manaSync(me); const tp = manaPut(st, s, id); log(st, s, `${src}：手札の「${card(id).name}」をマナゾーンに置いた${tp ? "（タップ）" : ""}`); break; }
     case "manaGrave": { if (!me.manaZ){ log(st, s, `${src}：マナゾーンのないルール`); break; } const L = me.grave.splice(Math.max(0, me.grave.length - Math.max(1, n || 1))); manaSync(me); L.forEach(id => manaPut(st, s, id)); log(st, s, L.length ? `${src}：墓地の${L.map(id => `「${card(id).name}」`).join("")}をマナゾーンに置いた` : `${src}：墓地にカードがない`); break; }
