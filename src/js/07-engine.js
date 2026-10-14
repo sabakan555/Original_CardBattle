@@ -103,7 +103,25 @@ function staticAttrs(m){
   } finally { staticAttrs.busy = false; }
   return out.add.length || out.set ? out : null;
 }
-const STATIC_KINDS = ["giveAttr", "selfAtkDown", "myAtkDownAll", "selfAtk", "atkUp", "atkAll", "atkDown", "atkDownAll", "atkMul", "giveAb", "ctrAdd"];
+// サイコロの当たりの目を増やす（自分の場のカードの「場にいる間」）: 当たりになったら、その効果を出したカードの名前
+function dieWinBy(st, s, c, v){
+  const p = P(st, s), srcs = [];
+  p.mz.forEach((x, i) => { if (x) srcs.push({ c: monCard(x), ctx: { zone: i, mon: { s, i, u: x.u } } }); });
+  p.sz.forEach((z, i) => { if (z && z.face && (isPersist(card(z.c)) || z.fcp)) srcs.push({ c: card(z.c), ctx: { pz: i } }); });
+  if (st.field && (st.field.o === s || !card(st.field.c).fieldMine)) srcs.push({ c: card(st.field.c), ctx: { field: true } });
+  const nm = normQ(c && c.name || "").trim();
+  for (const x of srcs) for (const b of blocksOf(x.c)){
+    if (b.trig !== "while") continue;
+    const plain = (b.conds || []).filter(y => y.k !== "ask"), ok = !plain.length || (b.join === "or" ? plain.some(y => condMet(st, s, x.c, y, x.ctx)) : plain.every(y => condMet(st, s, x.c, y, x.ctx)));
+    for (const e of (ok ? b.then : b.else) || []){
+      if (!e || e.kind !== "dieWin") continue; const w = normQ(e.into || "").trim();
+      if (w && !(nm === w || nm.includes(w))) continue;
+      if (v >= (e.wl || 1) && v <= (e.wh || e.wl || 1)) return x.c.name;
+    }
+  }
+  return "";
+}
+const STATIC_KINDS = ["dieWin", "giveAttr", "selfAtkDown", "myAtkDownAll", "selfAtk", "atkUp", "atkAll", "atkDown", "atkDownAll", "atkMul", "giveAb", "ctrAdd"];
 /* 「場にいる間、カウンターを乗せる」: 出ている間は乗せておいて、いなくなったり条件に合わなくなったら、その分を取り除く。
    乗せた数は乗っている側に m.ctrA / p.ctrA = { "出し手のu|カウンターid": 個数 } で覚えておく（ほかの効果で取り除かれた分は、もう一度は乗せない） */
 function ctrAuraSync(st){
@@ -1551,7 +1569,9 @@ function runBlock(st, s, c, b, ctx, then){
   const go = (st2, ok) => {
     if (lk && ok) limAdd(st2, s, lk);
     if (b.conds.length && !ok) log(st2, s, `「${c.name}」：条件に合わなかった${b.else.length ? "" : "（効果なし）"}`);
-    const br = ok && ctx.roll && ctx.roll.kind === "die" && b.dieBr && b.dieBr.length ? b.dieBr.find(x => ctx.roll.v >= x.lo && ctx.roll.v <= x.hi) : null;
+    let br = ok && ctx.roll && ctx.roll.kind === "die" && b.dieBr && b.dieBr.length ? b.dieBr.find(x => ctx.roll.v >= x.lo && ctx.roll.v <= x.hi) : null;
+    // 当たりの目を増やす: 場のカードの「○〜○も当たり」に入っていたら、当たりの行の効果
+    if (ok && !br && ctx.roll && ctx.roll.kind === "die" && b.dieBr && b.dieBr.some(x => x.win)){ const w = dieWinBy(st2, s, c, ctx.roll.v); if (w){ br = b.dieBr.find(x => x.win); log(st2, s, `「${w}」の効果で、出た目${ctx.roll.v}も当たり！`); } }
     if (ok && b.one && b.then.length > 1 && !br) return pickOne(st2, s, c, b.then, ctx, then);
     runEffects(st2, s, c, ok ? b.then.concat(br ? br.then : []) : b.else, ctx, then);
   };
