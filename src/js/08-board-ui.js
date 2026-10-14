@@ -324,8 +324,8 @@ function renderBoard0(){
   } else {
     hint = st.turnNo === 1 ? "先攻の1ターン目は攻撃できません" : "カードをえらんで行動しよう";
     if (sel && sel.z === "hand"){
-      if (pm.manaZ){ const cw = chargeWhy(st, me, sel.i); acts += `<button class="ghost" data-act="charge" ${cw ? "disabled" : ""}>マナに置く${cw ? `（${cw}）` : ""}</button>`; }
       const a0 = acts.length;
+      if (pm.manaZ){ const cw = chargeWhy(st, me, sel.i); acts += `<button class="ghost" data-act="charge" ${cw ? "disabled" : ""}>マナに置く${cw ? `（${cw}）` : ""}</button>`; }
       const c = card(pm.hand[sel.i]), t = cardType(c);
       const afford = canPay(st, me, c), short = afford ? "" : costWhy(st, me, c) ? `（${costWhy(st, me, c)}）` : (effCost(st, me, c) === Infinity ? "（コスト∞：ふつうには使えない）" : `（マナが${effCost(st, me, c) - pm.mana.cur}足りない）`);
       if (t === "monster"){
