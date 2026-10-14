@@ -599,12 +599,19 @@ function evoPut(st, s, z, id){
 }
 // ジャストダイバー: 出たターンと、そのあとの相手のターンのあいだ
 const jdOn = (st, s, i) => { const m = P(st, s).mz[i]; return !!m && hasAb(st, s, i, "justDiver") && (st.turnNo === m.born || (st.turnNo === m.born + 1 && st.turn !== s)); };
+// えらべる対象（「しぼる」で属性・ATKなどに合うモンスターだけ）
+function fxTargets(st, s, fx, ctx = {}){
+  const opts = targetOptions(st, s, fx.kind, ctx); if (!opts || !opts.length || !mfOn(fx)) return opts;
+  const TS = ctx.side === "me" ? s : O(s), t = (KINDS[fx.kind] || {}).target;
+  return opts.filter(o => { const k = String(o); if (k === "p") return true; let side, i; const mm = k.match(/^(?:(a|b):)?(?:m:)?(\d+)$/); if (!mm) return true; side = mm[1] || (t === "mine" ? s : TS); i = +mm[2]; return mfOk(st, s, fx, P(st, side).mz[i]); });
+}
 function targetOptions(st, s, kind, ctx = {}){
   // スパイア attack: the opponent ("p") or one of their monsters ("m:i"); only asks when there is a monster to hit
   // 1体/2体 aim at the opponent's monsters first; the player only when there is none (ランダム can hit either)
   const TS = ctx.side === "me" ? s : O(s);
   if (kind === "removeBoard"){ const sides = ctx.rside === "me" ? [s] : ctx.rside === "both" ? [s, O(s)] : [O(s)], out = []; sides.forEach(o => { const X = P(st, o); X.mz.forEach((m, i) => { if (m && (o === s || !hiddenMon(st, o, i))) out.push(`${o}:mz:${i}`); }); X.sz.forEach((z, i) => { if (z) out.push(`${o}:sz:${i}`); }); }); if (st.field && sides.includes(st.field.o)) out.push("field"); return out; }
   if (kind === "setCost" && ctx.sp !== "pick") return null;
+  if (kind === "giveAttr"){ const w = ctx.aw; if (w !== "opp1" && w !== "mine1") return null; const o = w === "mine1" ? s : O(s), out = []; P(st, o).mz.forEach((m, i) => { if (m && (o === s || !hiddenMon(st, o, i))) out.push(`${o}:${i}`); }); return out; }
   if (kind === "giveAb" || kind === "loseAb"){ const w = ctx.gw; if (w !== "mine" && w !== "opp") return null; const o = w === "mine" ? s : O(s), out = []; P(st, o).mz.forEach((m, i) => { if (m && (o === s || !hiddenMon(st, o, i))) out.push(`${o}:${i}`); }); return out; }
   if (kind === "ctrAdd" || kind === "ctrDel") return ctx.ctrPick ? P(st, TS).mz.map((m, i) => m && (TS === s || !hiddenMon(st, TS, i)) ? "m:" + i : null).filter(Boolean) : null;
   if (ctx.spireAtk && (kind === "dmg" || kind === "bash" || kind === "vuln" || kind === "weak")){ const tt = TS === s ? [] : tauntIdx(st, TS), ms = (tt.length ? tt : P(st, TS).mz.map((m, i) => m ? i : -1).filter(i => i >= 0)).map(i => "m:" + i); if (ctx.anyEnemy) return ms.length ? ["p", ...ms] : null; const left = ms.filter(o => !(ctx.hit && (ctx.hit.picked || []).includes(o))); return left.length ? ms : ["p"]; }
@@ -1134,6 +1141,12 @@ function applyEffect(st, s, c, target, ctx = {}, fx = normFx(c)){
       else if (typeof target === "string"){ const [o, i] = target.split(":"); lose(P(st, o).mz[+i]); }
       break;
     }
+    case "giveAttr": { const a = String(fx.ga || "火"), w = GAT_W[fx.aw] ? fx.aw : "opp1"; let L = [];
+      if (target != null && /^[ab]:\d+$/.test(String(target))){ const [ts, ti] = String(target).split(":"); L = [P(st, ts).mz[+ti]]; }
+      else if (w === "self") L = [ctx.mon ? monAt(st, ctx.mon) : null];
+      else if (w === "mineAll" || w === "oppAll") L = P(st, w === "mineAll" ? s : O(s)).mz.filter(m => m && mfOk(st, s, fx, m));
+      L = L.filter(Boolean); L.forEach(m => { if (fx.gm === "set"){ m.atSet = true; m.xat = [a]; } else m.xat = [...new Set([...(m.xat || []), a])]; });
+      log(st, s, L.length ? `${src}：${L.map(m => `「${card(m.c).name}」`).join("")}${fx.gm === "set" ? `の属性を${a}にした` : `に${a}属性を加えた`}` : `${src}：属性を付与するモンスターがいない`); break; }
     case "giveAb": {
       const a = gabAbility(fx), w = GAB_W[fx.gw] ? fx.gw : "self", until = fx.gd === "turn" ? st.turnNo : fx.gd === "next" ? st.turnNo + 2 : 0;
       const give = m => { if (!m) return; const g = { ...a, until };
@@ -1331,6 +1344,7 @@ function runEffect(st, s, c, ctx = {}, then, fx = normFx(c)){
   if (KINDS[fx.kind] && KINDS[fx.kind].tag) ctx = { ...ctx, tagName: fx.into || "" };
   if (SIDED_KINDS.has(fx.kind)) ctx = { ...ctx, side: fx.side === "me" ? "me" : null };
   if (fx.kind === "giveAb" || fx.kind === "loseAb") ctx = { ...ctx, gw: GAB_W[fx.gw] ? fx.gw : "self" };
+  if (fx.kind === "giveAttr") ctx = { ...ctx, aw: GAT_W[fx.aw] ? fx.aw : "opp1" };
   if (fx.kind === "setCost") ctx = { ...ctx, sp: fx.sp === "pick" ? "pick" : "filter" };
   if (fx.kind === "removeBoard") ctx = { ...ctx, rside: RB_SIDE[fx.rside] ? fx.rside : "op" };
   if (KINDS[fx.kind] && KINDS[fx.kind].ctr) ctx = { ...ctx, ctrPick: (CTR_CW[fx.cw] ? fx.cw : "pick") === "pick" };
@@ -1340,9 +1354,9 @@ function runEffect(st, s, c, ctx = {}, then, fx = normFx(c)){
   if (fx.kind === "playHandAtk"){ const go = (st2, r) => { if (r <= 0 || st2.winner){ then && then(st2); return; } const p = P(st2, s), L = p.hand.map((id, j) => j).filter(j => isAttackCard(card(p.hand[j])) && cardType(card(p.hand[j])) === "magic"); if (!L.length){ log(st2, s, `「${c.name}」：手札にアタックがない`); then && then(st2); return; } const id = p.hand.splice(L[Math.floor(Math.random() * L.length)], 1)[0]; p.deck.unshift(id); playTopCard(st2, s, `「${c.name}」`, false, st3 => go(st3, r - 1)); }; go(st, Math.max(1, fx.n || 1)); return; }
   if (fx.kind === "playTop" || fx.kind === "playTopEx"){ const ex = fx.kind === "playTopEx", go = (st2, r) => { if (r <= 0 || st2.winner){ then && then(st2); return; } playTopCard(st2, s, `「${c.name}」`, ex, st3 => go(st3, r - 1)); }; go(st, Math.max(1, fx.n || 1)); return; }
   if ((c && c.frame === "spire" || fx.rand || fx.distinct) && (fx.kind === "dmg" || fx.kind === "bash" || fx.kind === "vuln" || fx.kind === "weak")) ctx = { ...ctx, spireAtk: true };
-  let opts = targetOptions(st, s, fx.kind, ctx);
+  let opts = fxTargets(st, s, fx, ctx);
   if (opts && fx.distinct && ctx.hit && ctx.hit.picked) opts = opts.filter(o => !ctx.hit.picked.includes(String(o)));
-  if (fx.rand && ctx.spireAtk) ctx = { ...ctx, anyEnemy: true }, opts = targetOptions(st, s, fx.kind, ctx);
+  if (fx.rand && ctx.spireAtk) ctx = { ...ctx, anyEnemy: true }, opts = fxTargets(st, s, fx, ctx);
   if (opts && opts.length === 1 && opts[0] === "p" && ctx.spireAtk){ applyEffect(st, s, c, "p", ctx, fx); then && then(st); return; }
   if (opts && opts.length && (fx.rand || ctx.autoRand)){ applyEffect(st, s, c, opts[Math.floor(Math.random() * opts.length)], ctx, fx); then && then(st); return; }
   if (opts && !fx.distinct && ctx.spireAtk && ctx.hit && ctx.hit.t && opts.includes(ctx.hit.t)){ applyEffect(st, s, c, ctx.hit.t, ctx, fx); then && then(st); return; }
@@ -1513,7 +1527,7 @@ function runEffects(st, s, c, effs, ctx, then){
     // 1枚ずつの効果に「ふえる」: 枚数は使うときに決めてから1枚ずつおこなう（runEffect の eachN）
     if (KINDS[e.kind] && KINDS[e.kind].each && e.per && PER_DEFS[e.per]) one.push({ kind: e.kind, n: e.n, ...(e.into ? { into: e.into } : {}), per: e.per, pm: e.pm, hits: e.hits, pf: e.pf, pfn: e.pfn, pctr: e.pctr, pcw: e.pcw, pattr: e.pattr, eachN: true });
     else if (KINDS[e.kind] && KINDS[e.kind].each && e.n > 1){ for (let r = 0; r < e.n; r++) one.push({ kind: e.kind, n: 1, ...(e.into ? { into: e.into } : {}) }); }
-    else one.push(...expandFx({ kind: e.kind, n: e.n, to: e.to, ...(e.into ? { into: e.into } : {}), ...(e.intoId ? { intoId: e.intoId } : {}), ...(e.per ? { per: e.per, pm: e.pm, hits: e.hits } : {}), ...(KINDS[e.kind] && KINDS[e.kind].mod ? { mt: e.mt, ms: e.ms, mpl: e.mpl, mc: e.mc, mn: e.mn, gk: e.gk, gn: e.gn, nm: e.nm, ge: e.ge } : {}), ...(e.side ? { side: e.side } : {}), ...(e.tn ? { tn: e.tn } : {}), ...(e.kind === "removeBoard" ? { rside: e.rside, rm: e.rm } : {}), ...(mfOn(e) ? { mfK: e.mfK, mfOp: e.mfOp, mfBy: e.mfBy, mfN: e.mfN, mfA: e.mfA } : {}), ...(KINDS[e.kind] && KINDS[e.kind].ctr ? { ctr: e.ctr, cw: e.cw } : {}), ...(e.per === "ctr" ? { pctr: e.pctr, pcw: e.pcw } : {}), ...(e.per === "attrMon" ? { pattr: e.pattr } : {}), ...(e.per === "usedNow" || e.per === "handF" ? { pf: e.pf, pfn: e.pfn } : {}), ...(e.kind === "giveAb" || e.kind === "loseAb" ? { ab: e.ab, gw: e.gw, gd: e.gd } : {}), ...(["dblNext", "freeNext", "setCost", "copyPick"].includes(e.kind) ? { pf: e.pf, pfn: e.pfn, cpw: e.cpw, sp: e.sp, sd: e.sd } : {}) }));
+    else one.push(...expandFx({ kind: e.kind, n: e.n, to: e.to, ...(e.into ? { into: e.into } : {}), ...(e.intoId ? { intoId: e.intoId } : {}), ...(e.per ? { per: e.per, pm: e.pm, hits: e.hits } : {}), ...(KINDS[e.kind] && KINDS[e.kind].mod ? { mt: e.mt, ms: e.ms, mpl: e.mpl, mc: e.mc, mn: e.mn, gk: e.gk, gn: e.gn, nm: e.nm, ge: e.ge } : {}), ...(e.side ? { side: e.side } : {}), ...(e.tn ? { tn: e.tn } : {}), ...(e.kind === "removeBoard" ? { rside: e.rside, rm: e.rm } : {}), ...(mfOn(e) ? { mfK: e.mfK, mfOp: e.mfOp, mfBy: e.mfBy, mfN: e.mfN, mfA: e.mfA } : {}), ...(KINDS[e.kind] && KINDS[e.kind].ctr ? { ctr: e.ctr, cw: e.cw } : {}), ...(e.per === "ctr" ? { pctr: e.pctr, pcw: e.pcw } : {}), ...(e.per === "attrMon" ? { pattr: e.pattr } : {}), ...(e.per === "usedNow" || e.per === "handF" ? { pf: e.pf, pfn: e.pfn } : {}), ...(e.kind === "giveAb" || e.kind === "loseAb" ? { ab: e.ab, gw: e.gw, gd: e.gd } : {}), ...(e.kind === "giveAttr" ? { aw: e.aw, ga: e.ga, gm: e.gm } : {}), ...(["dblNext", "freeNext", "setCost", "copyPick"].includes(e.kind) ? { pf: e.pf, pfn: e.pfn, cpw: e.cpw, sp: e.sp, sd: e.sd } : {}) }));
     // 「×○回」: the same effect again and again
     const cr = ctx && ctx.roll && ctx.roll.kind === "coin" ? ctx.roll : null;
     const reps = e.timesDie ? (ctx && ctx.roll && ctx.roll.kind === "die" ? ctx.roll.v : 0) : e.timesCoin ? (cr ? (e.timesCoin === "t" ? (cr.n || 1) - cr.v : cr.v) : 0) : Math.max(1, Math.min(20, e.times || 1));
@@ -1934,6 +1948,7 @@ function atkTargets(st, s, from){
   const air = hasAb(st, s, from, "flying") || hasAb(st, s, from, "reach"), fly = j => hasAb(st, o, j, "flying");
   let L = (tt.length ? tt : all).filter(j => air || !fly(j));
   if (top && L.length){ const mx = Math.max(...L.map(j => atkOf(op.mz[j]))); L = L.filter(j => atkOf(op.mz[j]) === mx); }
+  { const aa = monAbs(st, s, from).filter(a => a.k === "atkAttr").map(a => String(a.name || "").replace(/属性$/, "").trim()).filter(Boolean); if (aa.length) L = L.filter(j => aa.every(x => monAttrs(op.mz[j]).includes(x))); }
   const flyDirect = hasAb(st, s, from, "flying") && !all.some(j => fly(j) || hasAb(st, o, j, "reach"));
   return { L, direct: !rushOnly(st, s, from) && !tt.length && (!all.length || (!top && (hasAb(st, s, from, "direct") || flyDirect))), top, taunt: tt.length > 0 };
 }
