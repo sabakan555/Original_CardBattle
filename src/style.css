@@ -1452,6 +1452,11 @@ div.f{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:13px}
 .card.dm .c-name{position:absolute;left:calc(var(--du)*128);top:calc(var(--du)*38);width:calc(var(--du)*472);height:calc(var(--du)*72);padding:0!important;border:none!important;background:none;display:flex;align-items:center;justify-content:center;line-height:1!important;font-weight:700;letter-spacing:-.02em;color:#000;z-index:3;white-space:nowrap;overflow:hidden}
 .card.dm .c-name{font-size:calc(var(--du)*44*var(--nk,1))}
 .card.dm .m-nm{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+/* ルビの上側も名前欄の内側に確保する。タグ併用時は3段が72単位に収まる大きさにする。 */
+.card.dm .m-nm:has(ruby){padding-top:.8em;flex:none;font-size:min(calc(var(--du)*34*var(--nk,1)),calc(var(--du)*34));line-height:1.2}
+.card.dm .c-name.has-tr:has(ruby){padding-top:0!important}
+.card.dm .c-name.has-tr>.m-nm:has(ruby){font-size:min(calc(var(--du)*24*var(--nk,1)),calc(var(--du)*24));line-height:1.1}
+.card.dm .c-name.has-tr:has(ruby)>.c-tribe-n{flex:none;margin-top:0;font-size:min(calc(var(--du)*19),calc(var(--du)*455/var(--trn,1)));line-height:1.15}
 .card.dm .c-cost,.card.dm .c-atk{font-family:"DMNum",var(--en,var(--ui));font-weight:400;color:#fff;text-shadow:calc(var(--du)*2) calc(var(--du)*2) 0 #000;letter-spacing:calc(var(--du)*4);font-variant-numeric:normal}
 .card.dm .c-cost{position:absolute;left:calc(var(--du)*22);top:calc(var(--du)*30);right:auto;width:calc(var(--du)*78);height:calc(var(--du)*62);padding:0;border:none;border-radius:0;background:none;box-shadow:none;display:grid;place-items:center;font-size:calc(var(--du)*50);line-height:1;z-index:3}
 .card.dm .c-text{position:absolute;left:calc(var(--du)*70);top:calc(var(--du)*603);width:calc(var(--du)*490);height:calc(var(--du)*192);border:none;background:none;box-shadow:none;padding:0;font-family:var(--cf,"GenJyuuGothic","Zen Maru Gothic",var(--ui));font-weight:400;font-size:calc(var(--du)*21*var(--tk,1));line-height:1.38;color:#000;overflow:visible;min-height:0;z-index:3;display:block}
@@ -1467,6 +1472,22 @@ div.f{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:13px}
 .card.dm.equip .c-atk{left:calc(var(--du)*-38);top:calc(var(--du)*206)}.card.dm.equip .c-atk .up,.card.dm.equip .c-atk .dn{color:#fff}
 .card.dm .c-lim{position:absolute;left:auto;right:calc(var(--du)*-10);top:auto;bottom:calc(var(--du)*-80);color:#bbb;font-size:calc(var(--du)*16);font-weight:700;z-index:3}
 .card.dm .c-eqc{z-index:3}
+/* 半フレームレス: 560×680の画像を工房と保存後で同じ位置・比率に置く。 */
+.card.dm.frameless{--dm-fade:linear-gradient(to right,#000 0 4%,transparent 4% 96%,#000 96%),linear-gradient(#000 0 62.95%,color-mix(in srgb,#000 var(--fla,68%),transparent) 62.95% 92.84%,#000 92.84%)}
+.card.dm.frameless::before{-webkit-mask:var(--dm-fade);mask:var(--dm-fade)}
+.card.dm.frameless.mcol::before{-webkit-mask:var(--dmf) 0 0/100% 100% no-repeat,var(--dm-fade);mask:var(--dmf) 0 0/100% 100% no-repeat,var(--dm-fade);-webkit-mask-composite:source-in,source-over;mask-composite:intersect,add}
+.card.dm.frameless .c-art,.card.dm.frameless .c-bgart{height:calc(var(--du)*433*680/400);background:transparent}
+.card.dm.frameless .c-bgart{display:block!important;left:calc(var(--du)*93);top:calc(var(--du)*120);right:auto;bottom:auto;width:calc(var(--du)*512);z-index:0}
+.card.dm.frameless.magic .c-art,.card.dm.frameless.equip .c-art,.card.dm.frameless.trap .c-art{height:calc(var(--du)*445*680/400)}
+.card.dm.frameless.magic .c-bgart,.card.dm.frameless.equip .c-bgart,.card.dm.frameless.trap .c-bgart{left:calc(var(--du)*57);top:calc(var(--du)*109);width:calc(var(--du)*513);height:calc(var(--du)*445*680/400)}
+.card.dm.frameless.dmg-r .c-bgart{width:calc(var(--du)*537.44)}
+.card.dm.frameless.dmg-l .c-bgart{left:0;width:calc(var(--du)*537.44)}
+.card.dm.frameless.dmg-lr .c-bgart{left:calc(var(--du)*-.28);top:calc(var(--du)*118.91);width:calc(var(--du)*630.73);height:calc(var(--du)*434.09*680/400)}
+.card.dm.frameless.dmg-lr .c-art{height:calc(var(--du)*434.09*680/400)}
+.card.dm.frameless .c-bgart img{object-fit:fill}
+.card.dm.frameless .c-text{background:none}
+.card.dm.frameless:not(.editor) .c-tab{box-shadow:none;z-index:4}
+.card.editor.dm.frameless .fl-guide{display:flex!important}
 .card.dm .holo-fx{z-index:4;border-radius:calc(var(--du)*26)}
 .card.dm[class*="foil-"] .c-name{background:none!important;color:#000!important;-webkit-text-fill-color:currentColor;filter:none}
 .card.dm[class*="foil-"] .m-nm{-webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent;filter:drop-shadow(0 0 .6px rgba(0,0,0,.9))}

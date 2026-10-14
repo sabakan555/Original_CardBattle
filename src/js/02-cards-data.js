@@ -297,7 +297,7 @@ function cardHTML(c, cls = "", attrs = "", opts = {}){
   if (c && c.hideText && !c.potionView && !c.relicView) c = { ...c, effect: "\u200b", fxRows: false };
   // デュエマ風: 属性（文明）の色で枠の色が変わる（自分で枠の色を決めていないとき。多色は最初と最後の色のグラデーション）
   if (fr === "dm" && attrsOf(c).length && !HEX6.test(c.colF || "")){ const A = attrsOf(c); c = { ...c, colF: attrColor(A[0], c), ...(A.length > 1 ? { colF2: attrColor(A[A.length - 1], c), colGd: c.colGd || "h" } : {}) }; }
-  let h = cardHTML0(mt ? { ...c, frameless: fr === "future" ? c.frameless : false } : c, cls, attrs, opts);
+  let h = cardHTML0(mt ? { ...c, frameless: ["future", "dm"].includes(fr) ? c.frameless : false } : c, cls, attrs, opts);
   // レベル・属性のしるし（絵の右上）。デュエマ風は枠の色で属性がわかるのでレベルだけ、遊戯王風はレベルを星で出す
   if (c && !c.potionView && !c.relicView && c.frame !== "spire" && c.frame !== "socra"){
     const A = fr === "dm" || fr === "ygo" || c.attrHide ? [] : attrsOf(c), lv = fr === "ygo" ? 0 : lvOf(c);
