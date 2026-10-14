@@ -61,6 +61,7 @@
           <h2>対戦のじゅんび</h2>
           <label class="f">プレイヤー名<input type="text" id="pname" maxlength="16"></label>
           <label class="f">使うデッキ<select id="deckSel"></select></label>
+          <label class="f">コストデッキのマナ<select id="manaRule"><option value="grow">毎ターン1つずつ増える（ふつう）</option><option value="zone">マナチャージ（デュエマ式：手札を1ターンに1枚マナゾーンに置く）</option><option value="land">土地（MTG式：土地のカードだけマナゾーンに置ける）</option></select><span class="note">部屋を作った人のルールで遊びます。CPU戦は自分とCPUの両方に</span></label>
           <label class="row" style="gap:6px;font-size:13px;cursor:pointer;flex-wrap:nowrap;align-items:flex-start"><input type="checkbox" id="optManual" style="flex:none;margin-top:3px"> 対戦中に「手動で効果を処理」のボタンを出す（LP±・1枚引く・墓地から手札へなど。自由に書いた効果を手で処理するとき用）</label>
           <div id="offlineNote" class="offline" hidden>サーバーにつながっていないので、オンライン対戦とカードの共有は使えません（config.js の設定を確認してね）。いまはこのブラウザだけに保存され、CPU練習ができます。</div>
         </div>
@@ -123,6 +124,7 @@
         <div class="row" id="fieldOpts" hidden style="gap:6px 14px;flex-wrap:wrap;padding-left:24px"><label class="row" style="gap:6px">要求質量：発動するとき墓地のカードを<input type="number" id="mkFMass" min="0" max="40" step="1" value="0" style="width:64px">枚 このカードの下に重ねる</label><label class="row" style="gap:6px;cursor:pointer"><input type="checkbox" id="mkFieldMine"> 効果は出した人にだけ効く</label><label class="row" style="gap:6px;cursor:pointer"><input type="checkbox" id="mkLand"> 横向きのカードにする<span class="note">（MTG風・近未来・遊戯王風の枠ではたて向き）</span></label></div>
         <label class="row" id="persistRow" hidden style="gap:6px;font-weight:700;cursor:pointer"><input type="checkbox" id="mkPersist"> 永続（使ったあとも魔法・罠ゾーンに残って、効果が続く・最大5枚）</label>
         <label class="row" id="exhaustRow" hidden style="gap:6px;font-weight:700;cursor:pointer"><input type="checkbox" id="mkExhaust"> 廃棄（使ったら墓地に行かず、そのゲームから消える）</label>
+        <label class="row" id="landRow" hidden style="gap:6px;font-weight:700;cursor:pointer"><input type="checkbox" id="mkIsLand"> 土地（MTG風：発動できない。マナゾーンに置くと、置いたターンからマナとして使える・多色でもタップしない）</label>
         <label class="row" id="noUseRow" hidden style="gap:6px;font-weight:700;cursor:pointer"><input type="checkbox" id="mkNoUse"> 発動できない（手札からもセットしても使えない。相手の場にセットして場所をふさぐ用）</label>
         <div class="row" id="spOptRow" hidden style="gap:6px 16px;flex-wrap:wrap;align-items:center;font-weight:700"><label class="row" id="flashLbl" style="gap:6px;cursor:pointer"><input type="checkbox" id="mkFlash"> フラッシュバック（墓地からもう1回使える。使ったら廃棄）</label><label class="row" style="gap:6px;cursor:pointer"><input type="checkbox" id="mkStrig"> S・トリガー（相手の攻撃でダメージを受けたとき、山札の一番上にあればタダで発動）</label><label class="row" style="gap:6px">キッカー<input type="number" id="mkKick" min="0" max="99" step="1" value="0" style="width:64px">マナ<span class="muted" style="font-size:13px;font-weight:400">0ならなし。コストデッキで多く払うと「もし：キッカーを払った」が成立</span></label></div>
         </div></details>

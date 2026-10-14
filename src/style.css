@@ -228,6 +228,13 @@ label.f{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:13p
 .card.dim{filter:grayscale(.6) brightness(.92)}
 .manabar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:center;background:#e8f0fb;border:2px solid var(--ink);border-radius:999px;padding:4px 16px;align-self:center;font-weight:700;color:#2f6fd0}
 .manabar .lbl{font-size:13px;color:var(--ink)}
+.manazone{display:flex;flex-direction:column;gap:5px;background:#e8f0fb;border:2px solid var(--ink);border-radius:14px;padding:6px 12px;align-self:stretch;color:#1f3a66;max-width:100%}
+.mz-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-weight:700}.mz-head .lbl{font-size:13px}.mz-head b{font-size:20px;line-height:1;font-variant-numeric:tabular-nums;color:#2f6fd0}.mz-head b small{font-size:13px;color:#5a6b85}
+.mz-civ{display:inline-flex;align-items:center;gap:2px;font-size:12px}.mz-civ .c-attr{--d:18px}.mz-done{font-size:11px;padding:1px 8px;border-radius:999px;background:#2f6fd0;color:#fff}
+.mz-cards{display:flex;flex-wrap:wrap;gap:4px}.mz-empty{font-size:12px;color:#5a6b85}
+.mzc{display:inline-flex;align-items:center;gap:3px;padding:2px 8px 2px 4px;border-radius:8px;border:1.5px solid #2f4a75;background:#fff;color:#1f2a3d;font-size:11px;font-weight:700;max-width:130px;transition:transform .2s,opacity .2s;cursor:pointer}
+.mzc span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.mzc .c-attr{--d:16px}.mzc-none{width:14px;height:14px;border-radius:50%;background:#bbb;display:inline-block;flex:none}
+.mzc.tap{opacity:.55;transform:rotate(-8deg);background:#d6dae6}
 .manabar b{font-size:20px;font-variant-numeric:tabular-nums;line-height:1}
 .manabar b small{font-size:13px;color:var(--muted)}
 .manabar .gems{display:flex;gap:4px}

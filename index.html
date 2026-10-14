@@ -240,6 +240,13 @@ label.f{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:13p
 .card.dim{filter:grayscale(.6) brightness(.92)}
 .manabar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:center;background:#e8f0fb;border:2px solid var(--ink);border-radius:999px;padding:4px 16px;align-self:center;font-weight:700;color:#2f6fd0}
 .manabar .lbl{font-size:13px;color:var(--ink)}
+.manazone{display:flex;flex-direction:column;gap:5px;background:#e8f0fb;border:2px solid var(--ink);border-radius:14px;padding:6px 12px;align-self:stretch;color:#1f3a66;max-width:100%}
+.mz-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-weight:700}.mz-head .lbl{font-size:13px}.mz-head b{font-size:20px;line-height:1;font-variant-numeric:tabular-nums;color:#2f6fd0}.mz-head b small{font-size:13px;color:#5a6b85}
+.mz-civ{display:inline-flex;align-items:center;gap:2px;font-size:12px}.mz-civ .c-attr{--d:18px}.mz-done{font-size:11px;padding:1px 8px;border-radius:999px;background:#2f6fd0;color:#fff}
+.mz-cards{display:flex;flex-wrap:wrap;gap:4px}.mz-empty{font-size:12px;color:#5a6b85}
+.mzc{display:inline-flex;align-items:center;gap:3px;padding:2px 8px 2px 4px;border-radius:8px;border:1.5px solid #2f4a75;background:#fff;color:#1f2a3d;font-size:11px;font-weight:700;max-width:130px;transition:transform .2s,opacity .2s;cursor:pointer}
+.mzc span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.mzc .c-attr{--d:16px}.mzc-none{width:14px;height:14px;border-radius:50%;background:#bbb;display:inline-block;flex:none}
+.mzc.tap{opacity:.55;transform:rotate(-8deg);background:#d6dae6}
 .manabar b{font-size:20px;font-variant-numeric:tabular-nums;line-height:1}
 .manabar b small{font-size:13px;color:var(--muted)}
 .manabar .gems{display:flex;gap:4px}
@@ -1610,6 +1617,7 @@ div.f{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:13px}
           <h2>対戦のじゅんび</h2>
           <label class="f">プレイヤー名<input type="text" id="pname" maxlength="16"></label>
           <label class="f">使うデッキ<select id="deckSel"></select></label>
+          <label class="f">コストデッキのマナ<select id="manaRule"><option value="grow">毎ターン1つずつ増える（ふつう）</option><option value="zone">マナチャージ（デュエマ式：手札を1ターンに1枚マナゾーンに置く）</option><option value="land">土地（MTG式：土地のカードだけマナゾーンに置ける）</option></select><span class="note">部屋を作った人のルールで遊びます。CPU戦は自分とCPUの両方に</span></label>
           <label class="row" style="gap:6px;font-size:13px;cursor:pointer;flex-wrap:nowrap;align-items:flex-start"><input type="checkbox" id="optManual" style="flex:none;margin-top:3px"> 対戦中に「手動で効果を処理」のボタンを出す（LP±・1枚引く・墓地から手札へなど。自由に書いた効果を手で処理するとき用）</label>
           <div id="offlineNote" class="offline" hidden>サーバーにつながっていないので、オンライン対戦とカードの共有は使えません（config.js の設定を確認してね）。いまはこのブラウザだけに保存され、CPU練習ができます。</div>
         </div>
@@ -1672,6 +1680,7 @@ div.f{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:13px}
         <div class="row" id="fieldOpts" hidden style="gap:6px 14px;flex-wrap:wrap;padding-left:24px"><label class="row" style="gap:6px">要求質量：発動するとき墓地のカードを<input type="number" id="mkFMass" min="0" max="40" step="1" value="0" style="width:64px">枚 このカードの下に重ねる</label><label class="row" style="gap:6px;cursor:pointer"><input type="checkbox" id="mkFieldMine"> 効果は出した人にだけ効く</label><label class="row" style="gap:6px;cursor:pointer"><input type="checkbox" id="mkLand"> 横向きのカードにする<span class="note">（MTG風・近未来・遊戯王風の枠ではたて向き）</span></label></div>
         <label class="row" id="persistRow" hidden style="gap:6px;font-weight:700;cursor:pointer"><input type="checkbox" id="mkPersist"> 永続（使ったあとも魔法・罠ゾーンに残って、効果が続く・最大5枚）</label>
         <label class="row" id="exhaustRow" hidden style="gap:6px;font-weight:700;cursor:pointer"><input type="checkbox" id="mkExhaust"> 廃棄（使ったら墓地に行かず、そのゲームから消える）</label>
+        <label class="row" id="landRow" hidden style="gap:6px;font-weight:700;cursor:pointer"><input type="checkbox" id="mkIsLand"> 土地（MTG風：発動できない。マナゾーンに置くと、置いたターンからマナとして使える・多色でもタップしない）</label>
         <label class="row" id="noUseRow" hidden style="gap:6px;font-weight:700;cursor:pointer"><input type="checkbox" id="mkNoUse"> 発動できない（手札からもセットしても使えない。相手の場にセットして場所をふさぐ用）</label>
         <div class="row" id="spOptRow" hidden style="gap:6px 16px;flex-wrap:wrap;align-items:center;font-weight:700"><label class="row" id="flashLbl" style="gap:6px;cursor:pointer"><input type="checkbox" id="mkFlash"> フラッシュバック（墓地からもう1回使える。使ったら廃棄）</label><label class="row" style="gap:6px;cursor:pointer"><input type="checkbox" id="mkStrig"> S・トリガー（相手の攻撃でダメージを受けたとき、山札の一番上にあればタダで発動）</label><label class="row" style="gap:6px">キッカー<input type="number" id="mkKick" min="0" max="99" step="1" value="0" style="width:64px">マナ<span class="muted" style="font-size:13px;font-weight:400">0ならなし。コストデッキで多く払うと「もし：キッカーを払った」が成立</span></label></div>
         </div></details>
@@ -2300,6 +2309,11 @@ const KINDS = {
   manaNow:    { label: "マナを回復（このターン）", n: true, text: n => `マナを${n}回復する` },
   manaMax:    { label: "最大マナを増やす", n: true, text: n => `最大マナを${n}増やす` },
   manaDrain:  { label: "相手のマナを減らす", n: true, text: n => `相手のマナを${n}減らす` },
+  manaBoost:  { label: "山札の上から○枚をマナゾーンに置く（マナ加速）", n: true, text: n => `山札の上から${n}枚をマナゾーンに置く` },
+  manaHand:   { label: "手札を1枚マナゾーンに置く", target: "hand", text: () => `手札を1枚えらんでマナゾーンに置く` },
+  manaGrave:  { label: "墓地のカードを○枚マナゾーンに置く", n: true, text: n => `自分の墓地のカードを${n}枚マナゾーンに置く（新しいものから）` },
+  manaBreak:  { label: "相手のマナゾーンのカードを○枚墓地へ（マナ破壊）", n: true, text: n => `相手のマナゾーンのカードをランダムに${n}枚墓地へ置く` },
+  manaBack:   { label: "自分のマナゾーンのカードを○枚手札に戻す（マナ回収）", n: true, text: n => `自分のマナゾーンのカードを${n}枚手札に戻す（コストが大きいものから）` },
   removeBoard:{ label: "場のカードを1枚えらんで除去（モンスター・魔法・罠・フィールド）", target: "board", text: (n, _, m) => `${RB_SIDE[m && m.rside] || RB_SIDE.op}の場のカード1枚をえらんで${RB_MODE[m && m.rm] || RB_MODE.destroy}` },
   ctrAdd:     { label: "カウンターを乗せる", n: true, ctr: true, text: (n, _, m) => `${ctrWhereText(m)}に${ctrName(m && m.ctr)}を${n}個乗せる` },
   ctrDel:     { label: "カウンターを取り除く", n: true, ctr: true, text: (n, _, m) => `${ctrWhereText(m)}の${ctrName(m && m.ctr)}を${n}個取り除く` },
@@ -2362,6 +2376,8 @@ const ABS = {
   eqBonus:    { label: "特定の名前の装備を付けているとATKアップ", only: "mon", self: true, n: 300, name: true, text: (n, nm) => `名前に「${nm || "？"}」が入った装備を付けているとき、ATK+${n}` }
 };
 const KW_DESC = {
+  "土地": "MTG風のマナのカード。発動はできない。マナゾーンに置くと、置いたターンからマナとして使える（多色でもタップしない）。「土地（MTG式）」のルールでは、土地しかマナゾーンに置けない",
+  "マナゾーン": "「マナチャージ」「土地」のルールで使う場所。1ターンに1枚、手札のカードを置ける。置いてあるカードの枚数がマナになり、使うときにタップする。カードを使うには、その属性のカードがタップしていないマナに要る。多色のカードはタップして置く",
   "シンクロ": "EXデッキから出すモンスター。自分の場のチューナー1体と、それ以外のモンスター1体以上を墓地へ送り、そのレベルの合計がこのカードのレベルと同じなら、EXデッキから出せる（特殊召喚）",
   "チューナー": "タグ「チューナー」がついたモンスター。シンクロ召喚の素材になる",
   "エクシーズ": "EXデッキから出すモンスター。このカードのランクと同じレベルのモンスターを、自分の場から決まった数だけ重ねて出す（特殊召喚）。重ねたカードは「エクシーズ素材」になり、起動効果のコストで取り除ける。エクシーズモンスターにはレベルがない",
@@ -2725,7 +2741,7 @@ function fusionMatText(x){ return x.m === "any" ? "モンスター" : x.m === "t
 function fusionText(c){ return c && cardType(c) === "monster" && Array.isArray(c.fusion) && c.fusion.length ? `【融合】${c.fusion.map(fusionMatText).join("＋")}` : ""; }
 const spOptText = c => !c || (cardType(c) !== "magic" && cardType(c) !== "trap") ? "" : [c.strig ? "《S・トリガー》" : "", c.flashback && cardType(c) === "magic" ? "《フラッシュバック》" : "", +c.kick > 0 ? `《キッカー》（${+c.kick}）` : ""].join("");
 function fxText(c, detail = false){ const t = fxTextB(c, detail), k = c ? (cascadeOn(c) ? "《続唱》" : "") + glKw(c) + hfKw(c) + (c.innate ? "《天賦》" : "") + (c.retain ? "《保留》" : "") + (c.ethereal ? "《エセリアル》" : "") + (c.sly ? "《スライ》" : "") : ""; return k ? k + (t ? (detail ? "。\n" : "。") + t : "") : t; }
-function fxTextB(c, detail = false){ return (c && c.token && cardType(c) !== "monster" ? "【トークン】" : "") + (c && c.ex && cardType(c) !== "monster" ? "【EX】" : "") + (c && !c.noUse ? whenText(c) : "") + [fusionText(c) ? fusionText(c) + (isCf(c) ? "（自分の場の素材を墓地へ送れば、「融合」なしでEXデッキから出せる）" : "（「融合召喚」の効果でだけ出せる）") : "", sxText(c), c && c.noUse && (cardType(c) === "magic" || cardType(c) === "trap") ? "このカードは発動できない" : "", isPersist(c) ? "【永続】使ったあとも場に残る" : "", spOptText(c), isField(c) ? `【フィールド】お互いに1枚だけ場に置ける（新しいフィールドが出ると、前のフィールドは墓地へ）。${fieldMine(c) ? "効果は出した人にだけ効く" : "効果はお互いに効く"}` : "", extraCostText(c), costMechText(c), dmEvoText(c), mugText(c), revoText(c), tribText(c), massText(c), anySumText(c), atkCondText(c), ssText(c), fxText0(c, detail)].filter(Boolean).join(detail ? "。\n" : "。"); }
+function fxTextB(c, detail = false){ return (c && c.token && cardType(c) !== "monster" ? "【トークン】" : "") + (c && c.ex && cardType(c) !== "monster" ? "【EX】" : "") + (c && !c.noUse ? whenText(c) : "") + [fusionText(c) ? fusionText(c) + (isCf(c) ? "（自分の場の素材を墓地へ送れば、「融合」なしでEXデッキから出せる）" : "（「融合召喚」の効果でだけ出せる）") : "", sxText(c), c && c.mland ? "【《土地》】発動できない。マナゾーンに置くと、置いたターンからマナとして使える（多色でもタップしない）" : c && c.noUse && (cardType(c) === "magic" || cardType(c) === "trap") ? "このカードは発動できない" : "", isPersist(c) ? "【永続】使ったあとも場に残る" : "", spOptText(c), isField(c) ? `【フィールド】お互いに1枚だけ場に置ける（新しいフィールドが出ると、前のフィールドは墓地へ）。${fieldMine(c) ? "効果は出した人にだけ効く" : "効果はお互いに効く"}` : "", extraCostText(c), costMechText(c), dmEvoText(c), mugText(c), revoText(c), tribText(c), massText(c), anySumText(c), atkCondText(c), ssText(c), fxText0(c, detail)].filter(Boolean).join(detail ? "。\n" : "。"); }
 /* ================= effect blocks: いつ / もし / なにを / ちがったら =================
    c.blocks = [{ trig, conds: [{k, op, n | name, where, match | text}], join: "and"|"or", then: [{kind, n, to}], else: [...] }]
    Older cards (c.fx + c.combo) are read as blocks too, so everything below runs on blocks. */
@@ -2736,6 +2752,8 @@ const COND_DEFS = {
   grave:    { label: "自分の墓地の枚数", who: "自分の墓地が", unit: "枚", val: (st, s) => P(st, s).grave.length },
   otherMon: { label: "自分のほかのモンスターの数（このカード以外）", who: "自分のほかのモンスターが", unit: "体", val: (st, s, c, ctx) => P(st, s).mz.filter((m, i) => m && !(ctx && ctx.zone != null && i === ctx.zone)).length },
   myMon:    { label: "自分のモンスターの数", who: "自分のモンスターが", unit: "体", val: (st, s) => P(st, s).mz.filter(Boolean).length },
+  manaZ:    { label: "自分のマナゾーンのカードの数（マナの最大）", who: "自分のマナゾーンのカードが", unit: "枚", val: (st, s) => manaCount(P(st, s)) },
+  oppManaZ: { label: "相手のマナゾーンのカードの数（マナの最大）", who: "相手のマナゾーンのカードが", unit: "枚", val: (st, s) => manaCount(P(st, O(s))) },
   oppMon:   { label: "相手のモンスターの数", who: "相手のモンスターが", unit: "体", val: (st, s) => P(st, O(s)).mz.filter(Boolean).length },
   mana:     { label: "自分のマナ", who: "自分のマナが", unit: "", val: (st, s) => { const m = P(st, s).mana; return m ? m.cur : 0; } },
   block:    { label: "自分のブロック", who: "自分のブロックが", unit: "", val: (st, s) => P(st, s).block || 0 },
@@ -2780,6 +2798,7 @@ function attrMonN(st, s, side, attr){ const a = attr || "火"; let n = 0; for (c
 const PER_DEFS = {
   hfN:      { label: "このカードにフュージョンしたカード", u: "1枚", hf: true, val: (st, s, c, t, ctx) => hfCount(st, ctx) },
   myBlock:  { label: "自分のブロック", u: "1", val: (st, s) => P(st, s).block || 0 },
+  manaZ:    { label: "自分のマナゾーンのカード", u: "1枚", val: (st, s) => manaCount(P(st, s)) },
   mass5:    { label: "このモンスターの質量5枚", u: "", val: (st, s, c, t, ctx) => { const m = ctx && ctx.mon && monAt(st, ctx.mon); return m ? Math.floor((m.mats || []).length / 5) : 0; } },
   mass:     { label: "このモンスターの質量", u: "1枚", val: (st, s, c, t, ctx) => { const m = ctx && ctx.mon && monAt(st, ctx.mon); return m ? (m.mats || []).length : 0; } },
   strike:   { label: "名前に「ストライク」が入った自分のカード", u: "1枚", val: (st, s) => { const p = P(st, s); return [...p.hand, ...p.deck, ...p.grave].filter(id => /ストライク/.test(card(id).name || "")).length; } },
@@ -4578,7 +4597,7 @@ function setMkType(t){
   { const ec = $("#editCard"); if (ec) ec.classList.toggle("dfld", t === "magic" && $("#mkField").checked); }
   { const ec = $("#editCard"); if (ec) ec.classList.toggle("land", t === "magic" && $("#mkField").checked && $("#mkLand").checked && !FR_CLS[$("#mkFrame").value] && $("#mkFrame").value !== "spire"); }
   $("#exhaustRow").hidden = (t !== "magic" && t !== "trap") || pers;
-  $("#noUseRow").hidden = t !== "magic" && t !== "trap";
+  $("#noUseRow").hidden = t !== "magic" && t !== "trap"; { const lr = $("#landRow"); if (lr) lr.hidden = t !== "magic"; }
   $("#spOptRow").hidden = t !== "magic" && t !== "trap"; $("#flashLbl").hidden = t !== "magic";
   syncWhenRow(); if (typeof absFilter === "function") absFilter();
   $("#mkTab").textContent = mkTabLabel();
@@ -4714,7 +4733,7 @@ const KIND_GROUPS = [
   { g: "next",    label: "次に使うカード・手札のコスト・コピー", v: [["dblNext", "次に使う○をもう1回使う"], ["freeNext", "次に使う○のコストを0"], ["setCost", "手札のカードのコストを○にする"], ["copyPick", "手札を1枚えらんでコピーを加える"]] },
   { g: "ability", label: "能力を付与する・消す（成長・2回攻撃・ブロッカーなど）", v: [["giveAttr", "属性を付与する・変える（相手・自分のモンスター）"], ["giveAb", "モンスターに能力を付与する"], ["loseAb", "モンスターの能力を消す"]] },
   { g: "turn",    label: "ターンを追加する", v: [["extraTurn", "追加ターン（このターンのあと、もう一度自分のターン）"]] },
-  { g: "mana",    label: "マナ", v: [["manaNow", "マナを回復（このターン）"], ["manaMax", "最大マナを増やす"], ["manaDrain", "相手のマナを減らす"]] },
+  { g: "mana",    label: "マナ", v: [["manaNow", "マナを回復（このターン）"], ["manaMax", "最大マナを増やす"], ["manaDrain", "相手のマナを減らす"], ["manaBoost", "山札の上をマナゾーンに置く（マナ加速）"], ["manaHand", "手札をマナゾーンに置く"], ["manaGrave", "墓地のカードをマナゾーンに置く"], ["manaBreak", "相手のマナゾーンのカードを墓地へ（マナ破壊）"], ["manaBack", "マナゾーンのカードを手札に戻す（マナ回収）"]] },
   { g: "deck",    label: "山札・墓地をあやつる", v: [["mill", "山札の上から○枚を墓地に送る"], ["millBoth", "お互いの山札の上を墓地へ"], ["graveShuf", "墓地をすべて山札に戻してシャッフル"], ["graveShufOpp", "相手の墓地をすべて山札に戻してシャッフル"], ["graveShufBoth", "お互いの墓地をすべて山札に戻してシャッフル"], ["stealGrave", "相手の墓地のカードを自分の墓地へ移す"], ["scry", "山札の上を見て、1枚を上に・のこりを下に"], ["graveToTop", "墓地のカードを山札の一番上に"]] },
   { g: "exhaust", label: "カードを廃棄する", v: [["exhaustHand", "手札から○枚えらんで"], ["exhaustRand", "手札からランダムに○枚"], ["exhaustAll", "手札をすべて"], ["exhaustNonAtk", "手札のアタック以外をすべて"]] },
   { g: "rewrite", label: "カードを書きかえる（効果の追加・上書き・名前）", v: [["modAdd", "効果を追加する"], ["modRep", "効果を上書きする"], ["modClear", "効果をなくす"], ["modName", "名前を変える"]] },
@@ -4951,7 +4970,7 @@ function mkTrigs(){ if (MK.ctrBk) return CTR_TRIGS; if (MK.kind === "relic") ret
 const mkTrigLabel = k => { if (MK.ctrBk) return CTR_TRIG_LABEL[k]; if (MK.kind === "relic") return RELIC_TRIG_LABEL[k]; if (MK.type === "magic" && $("#mkField").checked) return ($("#mkFieldMine").checked ? FIELD_MINE_LABEL : FIELD_TRIG_LABEL)[k]; const t = MK.type, pers = (t === "magic" || t === "trap") && $("#mkPersist").checked; return pers ? PERSIST_TRIG_LABEL[k] : trigLabel(t, k); };
 // スパイア風（筋力・アタック/スキル/パワー・廃棄など）の効果: スパイア風の枠のとき以外は「スパイア風」の1つにまとめる
 const SPIRE_KINDS = ["str", "strTemp", "dex", "dexTemp", "intang", "vulnBonus", "plate", "barricade", "firstBlock2", "rageNow", "oppStrDown", "oppStr", "genAttack", "genAttack0", "genSkill", "genPower", "copyLastAtk", "graveAtkToHand", "playHandAtk", "dblAtk", "freeAttack", "freeSkill", "freePower", "corrupt", "drawUntil", "draft", "exhaustHand", "exhaustRand", "exhaustAll", "exhaustNonAtk"];
-const MANA_KINDS = ["manaNow", "manaMax", "manaDrain"];
+const MANA_KINDS = ["manaNow", "manaMax", "manaDrain", "manaBoost", "manaHand", "manaGrave", "manaBreak", "manaBack"];
 const mkSpireOn = () => MK.kind === "potion" || MK.kind === "relic" || $("#mkFrame").value === "spire";
 const kindInner = k => /^（/.test((KINDS[k] || {}).label || "");
 function kindGroups(avail, cur){
@@ -5014,7 +5033,8 @@ function syncHfUI(){ const on = $("#mkHf").checked; $("#mkHfM").hidden = !on; $(
 const mkCascadeVal = () => (MK.type === "monster" || MK.type === "magic") && $("#mkCascade").checked || null;
 // レベル・属性（カードに保存する値）
 MK.attrs = []; MK.attrDefs = {};
-function mkLvAttrVal(){ const lv = Math.max(0, Math.min(12, Math.round(+$("#mkLv").value || 0))), A = (MK.attrs || []).slice(0, 5), defs = {}; A.forEach(a => { if (!ATTR_BUILTIN[a]){ const x = MK.attrDefs[a] || attrRegistryFull()[a]; const o = typeof x === "string" ? { c: x } : x || { c: "#888888" }; defs[a] = { c: HEX6.test(o.c || "") ? o.c : "#888888", m: [...String(o.m || a)][0], ...(o.r ? { r: String(o.r).slice(0, 8) } : {}) }; } }); return { lv: lv || null, lvTrib: lv && MK.type === "monster" ? $("#mkLvTrib").checked : null, attrs: A.length ? A : null, attrDefs: Object.keys(defs).length ? defs : null, sx: mkSxVal(), fusFree: mkFusionVal() && $("#mkFusFree").checked ? true : null, ace: mkAceVal() }; }
+function mkLvAttrVal(){ const lv = Math.max(0, Math.min(12, Math.round(+$("#mkLv").value || 0))), A = (MK.attrs || []).slice(0, 5), defs = {}; A.forEach(a => { if (!ATTR_BUILTIN[a]){ const x = MK.attrDefs[a] || attrRegistryFull()[a]; const o = typeof x === "string" ? { c: x } : x || { c: "#888888" }; defs[a] = { c: HEX6.test(o.c || "") ? o.c : "#888888", m: [...String(o.m || a)][0], ...(o.r ? { r: String(o.r).slice(0, 8) } : {}) }; } }); return { lv: lv || null, lvTrib: lv && MK.type === "monster" ? $("#mkLvTrib").checked : null, attrs: A.length ? A : null, attrDefs: Object.keys(defs).length ? defs : null, sx: mkSxVal(), fusFree: mkFusionVal() && $("#mkFusFree").checked ? true : null, ace: mkAceVal(), mland: MK.type === "magic" && $("#mkIsLand").checked ? true : null }; }
+$("#mkIsLand").addEventListener("change", () => updateBkText());
 function mkAceVal(){ const on = $("#mkAceOn").value; if (!on) return null; const t = $("#mkAceT").value.trim().slice(0, 40); return { on, ...(t ? { t } : {}), col: $("#mkAceCol").value }; }
 function syncAce(){ const v = mkAceVal(), sm = $("#sumAce"); if (sm){ sm.textContent = v ? { use: "使ったとき", draw: "引いたとき", both: "使ったとき・引いたとき" }[v.on] : "なし"; sm.classList.toggle("on", !!v); } }
 ["#mkAceOn", "#mkAceT", "#mkAceCol"].forEach(q => ["input", "change"].forEach(t => $(q).addEventListener(t, syncAce)));
@@ -5034,7 +5054,7 @@ function renderSx(){
   const ec = $("#editCard"); if (ec){ ec.classList.toggle("ysyn", MK.sx === "syn"); ec.classList.toggle("yxyz", MK.sx === "xyz"); }
 }
 function mkSetSx(c){ const x = c ? sxOf(c) : null, y = x && x.k === "syn", z = x && x.k === "xyz"; MK.sx = x ? x.k : ""; $("#sxTM").value = y ? x.t.m : "tag"; $("#sxTV").value = y ? x.t.v : "チューナー"; $("#sxOM").value = y ? x.o.m : "nott"; $("#sxOV").value = y ? x.o.v : ""; $("#sxXM").value = z ? x.m : "any"; $("#sxXV").value = z ? x.v : ""; $("#sxXN").value = String(z ? x.n : 2); const ov = z && x.ov; $("#sxOvOn").checked = !!ov; $("#sxOvM").value = ov ? ov.m : "xyz"; $("#sxOvV").value = ov ? ov.v : ""; $("#sxOvLo").value = String(ov ? ov.lo : 1); $("#sxOvHi").value = String(ov ? ov.hi : 12);
-  $("#mkFusFree").checked = !!(c && c.fusFree); const a = c ? aceOf(c) : null; $("#mkAceOn").value = a ? a.on : ""; $("#mkAceT").value = a ? a.t : ""; $("#mkAceCol").value = a ? a.col : "#ffd34d"; syncAce(); renderSx(); }
+  $("#mkFusFree").checked = !!(c && c.fusFree); $("#mkIsLand").checked = !!(c && c.mland); const a = c ? aceOf(c) : null; $("#mkAceOn").value = a ? a.on : ""; $("#mkAceT").value = a ? a.t : ""; $("#mkAceCol").value = a ? a.col : "#ffd34d"; syncAce(); renderSx(); }
 $("#mkSx").addEventListener("click", e => { const b = e.target.closest("[data-sx]"); if (!b) return; MK.sx = b.dataset.sx; if (MK.sx) $("#mkEx").checked = true; renderSx(); renderBlocksUI(); updateBkText(); });
 ["#sxTM", "#sxTV", "#sxOM", "#sxOV", "#sxXM", "#sxXV", "#sxXN", "#sxOvOn", "#sxOvM", "#sxOvV", "#sxOvLo", "#sxOvHi"].forEach(q => ["input", "change"].forEach(t => $(q).addEventListener(t, () => { renderSx(); updateBkText(); })));
 function renderAttrPick(){
@@ -6345,6 +6365,8 @@ function renderCpuDeckSel(){
 }
 $("#joinCode").addEventListener("input", e => { e.target.value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ""); });
 $("#joinCode").addEventListener("keydown", e => { if (e.key === "Enter") $("#btnJoin").click(); });
+function chosenManaRule(){ const el = $("#manaRule"), v = el ? el.value : "grow"; return MANA_RULES[v] ? v : "grow"; }
+{ const el = $("#manaRule"); if (el){ const v = ls.get("cb_manaRule", "grow"); if (["grow", "zone", "land"].includes(v)) el.value = v; el.addEventListener("change", () => ls.set("cb_manaRule", el.value)); } }
 function chosenMana(){ const id = $("#deckSel").value; const d = allDeckOptions().find(x => x.id === id); return !!(d && d.mana); }
 const deckSpireVal = d => d && d.spire ? (d.spc === "silent" ? "silent" : true) : false;
 function chosenSpire(){ const id = $("#deckSel").value; const d = allDeckOptions().find(x => x.id === id); return deckSpireVal(d); }
@@ -6585,7 +6607,7 @@ function startState(pa, pb){
 $("#btnCreate").addEventListener("click", async () => {
   const ids = chosenDeckIds(); if (!deckOk(ids)) return;
   const code = makeCode();
-  const st = { v: 3, started: false, players: { a: newPlayer(ids, null, chosenMana(), chosenSpire()) }, log: [], createdAt: Date.now(), updatedAt: Date.now(), hidden: $("#roomPrivate").checked };
+  const st = { v: 3, started: false, players: { a: newPlayer(ids, null, chosenMana(), chosenSpire()) }, log: [], createdAt: Date.now(), updatedAt: Date.now(), hidden: $("#roomPrivate").checked, manaRule: chosenManaRule() };
   try{ await S.db.doc("rooms/" + code).set(st); } catch(e){ writeErr(e); return; }
   startOnline(code, "a", st);
 });
@@ -6599,7 +6621,7 @@ async function joinRoom(code){
     if (mySlot && st.players && st.players[mySlot]){ startOnline(code, mySlot, st); return; }
     if (st.players && st.players.b){ toast("この部屋はもう2人そろっています"); return; }
     const ids = chosenDeckIds(); if (!deckOk(ids)) return;
-    const full = startState(st.players.a, newPlayer(ids, null, chosenMana(), chosenSpire()));
+    const full = applyManaRule(startState(st.players.a, newPlayer(ids, null, chosenMana(), chosenSpire())), st.manaRule);
     full.updatedAt = Date.now(); full.hidden = !!st.hidden;
     await S.db.doc("rooms/" + code).set(full);
     startOnline(code, "b", full);
@@ -6625,7 +6647,7 @@ $("#btnCpu").addEventListener("click", () => {
   const cid = $("#cpuDeckSel").value, cd = cid && cid !== "auto" ? cpuDeckOptions().find(d => d.id === cid) : null;
   const cpuMana = cd ? !!cd.mana : chosenMana(), cpuIds = (cd || (cpuMana ? sampleManaDeck() : starterDeck())).cards.filter(id => S.cards.has(id));
   if ((!(cd && cd.spire) && cpuIds.length < MIN_DECK) || (!(cd && cd.spire) && !cpuIds.some(id => cardType(S.cards.get(id)) === "monster"))){ toast("CPUのデッキのカードが足りません。別のデッキをえらんでね"); return; }
-  G = { mode: "cpu", slot: "a", st: startState(newPlayer(ids, null, chosenMana(), chosenSpire()), newPlayer(cpuIds, cd ? `CPU（${cd.name}）` : "CPU", cpuMana, deckSpireVal(cd))), sel: null, atkFrom: null, chooseQ: [], evSeen: 0 };
+  G = { mode: "cpu", slot: "a", st: applyManaRule(startState(newPlayer(ids, null, chosenMana(), chosenSpire()), newPlayer(cpuIds, cd ? `CPU（${cd.name}）` : "CPU", cpuMana, deckSpireVal(cd))), chosenManaRule()), sel: null, atkFrom: null, chooseQ: [], evSeen: 0 };
   autoRelic(G.st, "b");
   after(false);
 });
@@ -6645,13 +6667,13 @@ function rematch(){
   if (!G || !G.st || !G.st.winner || G.spectate) return;
   if (G.mode !== "online"){
     const old = G.st; clearTimeout(G.cpuT); G.cpuT = null;
-    G.st = startState(freshFrom(old, "a"), freshFrom(old, "b")); autoRelic(G.st, "b"); resetLocal(); after(false); return;
+    G.st = applyManaRule(startState(freshFrom(old, "a"), freshFrom(old, "b")), old.manaRule); autoRelic(G.st, "b"); resetLocal(); after(false); return;
   }
   const me = G.slot;
   act(st => {
     st.rematch = { ...(st.rematch || {}), [me]: true };
     if (st.rematch.a && st.rematch.b){
-      const f = startState(freshFrom(st, "a"), freshFrom(st, "b"));
+      const f = applyManaRule(startState(freshFrom(st, "a"), freshFrom(st, "b")), st.manaRule);
       f.gameNo = (st.gameNo || 1) + 1; f.hidden = !!st.hidden;
       Object.keys(st).forEach(k => delete st[k]); Object.assign(st, f);
       resetLocal();
@@ -7418,6 +7440,7 @@ function whenWinOk(st, w, win){
   return true;
 }
 function useBlockedWhy(st, s, c, win){
+  if (c && c.mland) return "土地はマナゾーンに置くカード（発動はできない）";
   if (c && c.noUse && (cardType(c) === "magic" || cardType(c) === "trap")) return "このカードは発動できません";
   { const w = whenOf(c); if (w && st && !whenWinOk(st, w, win !== undefined ? win : chainWindow(st))) return `このカードは「${WHEN_LABEL[w]}」にしか発動できません`; }
   if (st && s && (P(st, s).noUseUntil || 0) >= st.turnNo) return "いまは魔法・罠を発動できません（相手の効果）";
@@ -7975,7 +7998,15 @@ function applyEffect(st, s, c, target, ctx = {}, fx = normFx(c)){
     case "revive": { const gi = me.grave.indexOf(target); if (gi >= 0){ me.grave.splice(gi, 1); me.hand.push(target); log(st, s, `${src}で墓地の「${card(target).name}」を手札に戻した`); } break; }
     case "reborn": { const gi = me.grave.indexOf(target), z = freeZone(me.mz); if (gi >= 0 && z >= 0){ me.grave.splice(gi, 1); me.mz[z] = mkMon(st, target); ev(st, { type: "summon", s, z }); log(st, s, `${src}で墓地の「${card(target).name}」を場に出した（特殊召喚）`); trigger(st, s, card(target), "ssummon", { zone: z, mon: { s, i: z, u: me.mz[z].u } }); } break; }
     case "manaNow": if (me.mana){ me.mana.cur += n; log(st, s, `${src}でマナを${n}回復（${me.mana.cur}/${me.mana.max}）`); } else log(st, s, `${src}：マナを使わないデッキなので効果なし`); break;
-    case "manaMax": if (me.mana){ const add = Math.max(0, Math.min(n, MANA_LIMIT - me.mana.max)); me.mana.max += add; me.mana.cur += n; if (me.spire) me.maxAdj = (me.maxAdj || 0) + add; log(st, s, `${src}で最大マナ+${add}、マナ+${n}（${me.mana.cur}/${me.mana.max}）`); } else log(st, s, `${src}：マナを使わないデッキなので効果なし`); break;
+    case "manaBoost": if (me.manaZ) manaFromDeck(st, s, n, src); else if (me.mana){ const add = Math.max(0, Math.min(n, MANA_LIMIT - me.mana.max)); me.mana.max += add; me.mana.cur += add; log(st, s, `${src}で最大マナを${add}増やした（${me.mana.cur}/${me.mana.max}）`); } else log(st, s, `${src}：マナを使わないデッキ`); break;
+    case "manaHand": { if (!me.manaZ){ log(st, s, `${src}：マナゾーンのないルール`); break; } const id = me.hand[target]; if (id == null){ log(st, s, `${src}：手札がない`); break; } me.hand.splice(target, 1); manaSync(me); const tp = manaPut(st, s, id); log(st, s, `${src}：手札の「${card(id).name}」をマナゾーンに置いた${tp ? "（タップ）" : ""}`); break; }
+    case "manaGrave": { if (!me.manaZ){ log(st, s, `${src}：マナゾーンのないルール`); break; } const L = me.grave.splice(Math.max(0, me.grave.length - Math.max(1, n || 1))); manaSync(me); L.forEach(id => manaPut(st, s, id)); log(st, s, L.length ? `${src}：墓地の${L.map(id => `「${card(id).name}」`).join("")}をマナゾーンに置いた` : `${src}：墓地にカードがない`); break; }
+    case "manaBreak": { if (!op.manaZ){ if (op.mana){ const k = Math.min(Math.max(1, n || 1), op.mana.max); op.mana.max -= k; op.mana.cur = Math.min(op.mana.cur, op.mana.max); log(st, s, `${src}で${op.name}の最大マナを${k}減らした`); } else log(st, s, `${src}：相手はマナを使わない`); break; }
+      let k = Math.min(Math.max(1, n || 1), op.manaZ.length); const out = []; while (k-- > 0) out.push(op.manaZ.splice(Math.floor(Math.random() * op.manaZ.length), 1)[0]);
+      op.grave.push(...out.map(x => x.c)); op.mana.cur = Math.min(op.mana.cur, manaFree(op).length); manaSync(op); log(st, s, out.length ? `${src}：${op.name}のマナゾーンの${out.map(x => `「${card(x.c).name}」`).join("")}を墓地へ置いた` : `${src}：相手のマナゾーンにカードがない`); break; }
+    case "manaBack": { if (!me.manaZ){ log(st, s, `${src}：マナゾーンのないルール`); break; } const J = me.manaZ.map((x, j) => j).sort((a, b) => cmpNum(costOf(card(me.manaZ[b].c)), costOf(card(me.manaZ[a].c)))).slice(0, Math.max(1, n || 1)).sort((a, b) => b - a), out = J.map(j => me.manaZ.splice(j, 1)[0]);
+      me.hand.push(...out.map(x => x.c)); me.mana.cur = Math.min(me.mana.cur, manaFree(me).length); manaSync(me); log(st, s, out.length ? `${src}：マナゾーンの${out.map(x => `「${card(x.c).name}」`).join("")}を手札に戻した` : `${src}：マナゾーンにカードがない`); break; }
+    case "manaMax": if (me.manaZ){ manaFromDeck(st, s, n, src); break; } if (me.mana){ const add = Math.max(0, Math.min(n, MANA_LIMIT - me.mana.max)); me.mana.max += add; me.mana.cur += n; if (me.spire) me.maxAdj = (me.maxAdj || 0) + add; log(st, s, `${src}で最大マナ+${add}、マナ+${n}（${me.mana.cur}/${me.mana.max}）`); } else log(st, s, `${src}：マナを使わないデッキなので効果なし`); break;
     case "manaDrain": if (op.mana){ const k = Math.min(n, op.mana.cur); op.mana.cur -= k; log(st, s, `${src}で${op.name}のマナを${k}減らした`); } else log(st, s, `${src}：相手はマナを使わないデッキなので効果なし`); break;
     case "negate": if (ctx.attack){ st.pending.negated = true; log(st, s, `${src}で攻撃を無効にした`); } else log(st, s, `${src}：無効にする攻撃がない`); break;
     case "atkDownAtk": { const am = ctx.attack && P(st, ctx.attack.by).mz[ctx.attack.from]; if (am){ am.mod = (am.mod || 0) - n; log(st, s, `${src}で攻撃してきた「${card(am.c).name}」のATK−${n}`); } else log(st, s, `${src}：攻撃してきたモンスターがいない`); break; }
@@ -8250,6 +8281,7 @@ function canPay(st, s, c){ const p = P(st, s), m = p.mana; return (!m || m.cur +
 // why the 追加コスト can't be paid right now ("" = it can)
 function costWhy(st, s, c){
   const p = P(st, s), m = p.mana;
+  { const cv = manaCivWhy(st, s, c); if (cv) return cv; }
   if (payLpOf(c) && p.lp <= payLpOf(c)) return `LPが${payLpOf(c)}より多くないと使えない`;
   if (payDiscOf(c)){ const pool = c.payDiscTag ? p.hand.filter(id => hasTag(id, c.payDiscTag)).length - (p.hand.includes(c.id) && hasTag(c.id, c.payDiscTag) ? 1 : 0) : p.hand.length - (c && p.hand.includes(c.id) ? 1 : 0); if (pool < payDiscOf(c)) return c.payDiscTag ? `捨てるタグ「${c.payDiscTag}」の手札が${payDiscOf(c)}枚いる` : `捨てる手札が${payDiscOf(c)}枚いる`; }
   { const cw = ctrPayWhy(st, s, payCtrOf(c), {}); if (cw) return cw; }
@@ -8279,6 +8311,50 @@ function discardCost(st, s, c, picks){
   p.grave.push(...gone); log(st, s, `「${c.name}」のコストで手札の${gone.map(id => `「${card(id).name}」`).join("")}を捨てた`); slyFire(st, s, gone);
 }
 const shiftPicks = (picks, hi) => (picks || []).map(Number).map(j => hi != null && hi >= 0 && j > hi ? j - 1 : j);
+/* ---- マナゾーン（デュエマ式・MTG式）: p.manaZ = [{ c: カード, tap }]、p.mana.cur はタップしていない枚数 ---- */
+const MANA_RULES = { grow: "毎ターン1つずつ増える", zone: "マナチャージ（デュエマ式）", land: "土地（MTG式）" };
+function applyManaRule(st, rule){
+  if (!st || !MANA_RULES[rule] || rule === "grow") return st;
+  st.manaRule = rule;
+  for (const o of ["a", "b"]){ const p = st.players && st.players[o]; if (!p || !p.mana || p.spire) continue; p.manaZ = []; p.mana = { max: 0, cur: 0 }; p.charged = false; }
+  return st;
+}
+const manaCount = p => p ? (p.manaZ ? p.manaZ.length : p.mana ? p.mana.max : 0) : 0;
+const manaFree = p => (p.manaZ || []).filter(x => !x.tap);
+// k枚タップする（need の属性を1枚ずつ先に、あとは余っている属性から）
+function manaTap(p, k, need = []){
+  const Z = p.manaZ; if (!Z) return;
+  need.forEach(a => { if (k <= 0) return; const L = Z.filter(x => !x.tap && attrsOf(card(x.c)).includes(a)); if (!L.length) return; L.sort((x, y) => attrsOf(card(x.c)).length - attrsOf(card(y.c)).length); L[0].tap = true; k--; });
+  while (k > 0){ const L = Z.filter(x => !x.tap); if (!L.length) break; const cnt = {}; L.forEach(x => attrsOf(card(x.c)).forEach(a => { cnt[a] = (cnt[a] || 0) + 1; })); const sc = x => { const A = attrsOf(card(x.c)); return A.length ? Math.min(...A.map(a => cnt[a])) : 999; }; L.sort((x, y) => sc(y) - sc(x)); L[0].tap = true; k--; }
+}
+// タップしていない枚数を p.mana.cur に合わせる
+function manaSync(p){
+  if (!p || !p.manaZ || !p.mana) return; p.mana.max = p.manaZ.length;
+  const want = Math.max(0, Math.min(p.mana.cur, p.mana.max)), u = manaFree(p).length;
+  if (u > want) manaTap(p, u - want); else if (u < want){ let k = want - u; for (const x of p.manaZ){ if (k <= 0) break; if (x.tap){ x.tap = false; k--; } } }
+}
+// 文明: カードを使うには、その属性のカードがタップしていないマナに要る
+function manaCivWhy(st, s, c){
+  const p = P(st, s); if (!p.manaZ || !c || !(effCost(st, s, c) > 0)) return "";
+  manaSync(p); const F = manaFree(p), miss = attrsOf(c).filter(a => !F.some(x => attrsOf(card(x.c)).includes(a)));
+  return miss.length ? `マナゾーンに${miss.join("・")}属性のカードがない` : "";
+}
+function chargeWhy(st, s, hi){
+  const p = P(st, s), c = card(p.hand[hi]); if (!p.manaZ) return "マナゾーンのないルール";
+  if (st.turn !== s || st.pending || st.winner) return "自分のターンだけ"; if (p.charged) return "このターンはもう置いた";
+  if (!c) return "カードがない"; if (p.exTemp && p.exTemp.i === hi) return "EXデッキのカード";
+  if (st.manaRule === "land" && !c.mland) return "土地しか置けない";
+  return "";
+}
+// マナゾーンに置く（多色はタップして置く。土地はタップしない）
+function manaPut(st, s, id, tapIn){ const p = P(st, s), c = card(id), tap = tapIn != null ? tapIn : attrsOf(c).length >= 2 && !c.mland; p.manaZ.push({ c: id, tap }); p.mana.max = p.manaZ.length; if (!tap) p.mana.cur += 1; return tap; }
+function manaCharge(st, s, hi){
+  if (chargeWhy(st, s, hi)) return false;
+  const p = P(st, s); manaSync(p); const id = p.hand.splice(hi, 1)[0], tap = manaPut(st, s, id); p.charged = true;
+  log(st, s, `「${card(id).name}」をマナゾーンに置いた${tap ? "（多色なのでタップして置いた）" : ""}（マナ ${p.mana.cur}/${p.mana.max}）`);
+  return true;
+}
+function manaFromDeck(st, s, n, src){ const p = P(st, s); manaSync(p); let k = 0; for (let r = 0; r < Math.max(1, n || 1); r++){ if (!p.deck.length) refill(st, s); if (!p.deck.length) break; manaPut(st, s, p.deck.shift()); k++; } log(st, s, `${src}：山札の上から${k}枚をマナゾーンに置いた（マナ ${p.mana.cur}/${p.mana.max}）`); }
 function pay(st, s, c){
   const p = P(st, s), m = p.mana, fk = freeKey(st, s, c);
   let k = !m ? 0 : c && c.costX ? (fk ? 0 : m.cur) : effCost(st, s, c), dv = 0;
@@ -8296,13 +8372,14 @@ function pay(st, s, c){
   // スペルブースト: 使った（出した）ときの回数を覚えておき、手札にもう1枚もなければ0にもどす
   if (c && c.id){ const sbn = (p.sb || {})[c.id] || 0; p.sbLast = { ...(p.sbLast || {}), [c.id]: sbn }; const an = cardType(c) === "monster" ? absOf(c).filter(a => a.k === "sbAtk").reduce((t, a) => t + (a.n || 0), 0) : 0; if (an && sbn) st.sbAtkPend = { id: c.id, add: an * sbn }; if (sbn && p.hand.filter(x => x === c.id).length <= 1){ const o = { ...(p.sb || {}) }; delete o[c.id]; p.sb = o; } }
   if (lpc){ p.lp -= lpc; log(st, s, `「${c.name}」のコストでLPを${lpc}払った`); lostLp(st, s); }
-  if (mx && m){ m.max -= mx; if (p.spire) p.maxAdj = (p.maxAdj || 0) - mx; log(st, s, `「${c.name}」のコストで最大マナが${mx}減った（${m.cur}/${m.max}）`); }
+  if (mx && m && p.manaZ){ p.grave.push(...p.manaZ.splice(-mx).map(x => x.c)); m.cur = Math.min(m.cur, manaFree(p).length); manaSync(p); log(st, s, `「${c.name}」のコストでマナゾーンのカード${mx}枚を墓地へ置いた`); }
+  else if (mx && m){ m.max -= mx; if (p.spire) p.maxAdj = (p.maxAdj || 0) - mx; log(st, s, `「${c.name}」のコストで最大マナが${mx}減った（${m.cur}/${m.max}）`); }
   if (fk){ p.free[fk]--; log(st, s, `「${c.name}」はコスト0で使える！`); }
   else if (!costSetOf(st, s, c) && freeNextIdx(st, s, c) >= 0 && !(c && c.costX)){ const fi = freeNextIdx(st, s, c), e = p.freeNext[fi]; e.n--; if (e.n <= 0) p.freeNext.splice(fi, 1); log(st, s, `「${c.name}」はコスト0で使える！`); }
   else if (freeId(st, s, c) && !(c && c.costX)){ p.freeIds.splice(p.freeIds.indexOf(c.id), 1); }
   { const cs = costSetOf(st, s, c); if (cs && cs.once) p.costSet.splice(p.costSet.indexOf(cs), 1); }
   if (dv){ const ex = p.grave.splice(0, dv); (p.exile = p.exile || []).push(...ex); log(st, s, `「${c.name}」の探査：墓地のカード${dv}枚を除外した`); }
-  if (m) m.cur -= k; p.lastPaid = k; return true;
+  if (m){ m.cur -= k; if (p.manaZ){ manaTap(p, Math.max(0, manaFree(p).length - Math.max(0, Math.min(m.cur, p.manaZ.length))), attrsOf(c)); manaSync(p); } } p.lastPaid = k; return true;
 }
 // a card with 「手札を捨てる」 cost: the human picks which ones first (hi = the used card's hand index, -1 if it isn't in the hand)
 const st0 = () => G.st;
@@ -8839,7 +8916,8 @@ function passTurn(st, s){
     np.mz.forEach(m => { if (m && m.vuln > 0){ m.vuln--; if (!m.vuln) log(st, st.turn, `「${card(m.c).name}」の弱体がとけた`); } });
     if (np.block && !np.barricade){ log(st, st.turn, `ブロック${np.block}が消えた`); np.block = 0; }
     np.thorns = 0; np.blockedNow = false;
-    if (np.mana){ np.mana.max = np.sz.some(z => z && z.face && isAltar(z.c)) ? 3 : Math.max(np.mana.max, Math.min(MAX_MANA, np.mana.max + 1)); np.mana.cur = np.mana.max; }
+    if (np.manaZ){ np.manaZ.forEach(x => { x.tap = false; }); np.mana.max = np.manaZ.length; np.mana.cur = np.mana.max; np.charged = false; }
+    else if (np.mana){ np.mana.max = np.sz.some(z => z && z.face && isAltar(z.c)) ? 3 : Math.max(np.mana.max, Math.min(MAX_MANA, np.mana.max + 1)); np.mana.cur = np.mana.max; }
     log(st, st.turn, `ターン${st.turnNo}：${np.name} の${xt ? "追加" : ""}ターン${np.mana ? `（マナ ${np.mana.max}）` : ""}`);
     ev(st, { type: "turn", s: st.turn, no: st.turnNo, ...(xt ? { xt: true } : {}) });
     if (np.revDebt && np.revDebt.length){ const L = np.revDebt; np.revDebt = []; for (const d of L){ const n = +d.n || 0; if (!np.mana || np.mana.cur >= n){ if (np.mana && n){ np.mana.cur -= n; } log(st, st.turn, `逆転劇「${d.name}」のコストでマナを${n}払った${np.mana ? `（${np.mana.cur}/${np.mana.max}）` : ""}`); } else { st.winner = O(st.turn); st.why = `${np.name} は逆転劇「${d.name}」のマナ${n}を払えなかった`; log(st, st.turn, `逆転劇「${d.name}」のマナ${n}を払えない…ゲームに負けた`); return; } } }
@@ -8921,8 +8999,17 @@ function scheduleCpu(){
   if (st.turn !== c || st.pending) return;
   G.cpuT = setTimeout(() => { if (!G) return; G.cpuT = null; act(st => G.tut ? tutCpu(st) : G.test && G.test.cpu === "idle" ? endTurn(st, c) : cpuStep(st, c)); }, G.tut ? Math.max(900, cpuDelay()) : cpuDelay());
 }
+// マナゾーン: 置いてあるカード（タップしたものは横向き）と、使える属性
+function manaZoneHTML(p, who){
+  manaSync(p);
+  const civ = {}; manaFree(p).forEach(x => attrsOf(card(x.c)).forEach(a => { civ[a] = (civ[a] || 0) + 1; }));
+  const cards = p.manaZ.map(x => `<button type="button" class="mzc${x.tap ? " tap" : ""}" data-cid="${esc(x.c)}" title="${esc(card(x.c).name)}${x.tap ? "（タップ）" : ""}">${attrsOf(card(x.c)).map(a => attrOrb(a, card(x.c))).join("") || '<i class="mzc-none"></i>'}<span>${esc(card(x.c).name)}</span></button>`).join("");
+  return `<div class="manazone" title="${who}のマナゾーン"><div class="mz-head"><span class="lbl">${who}のマナゾーン</span><b>${p.mana.cur}<small>/${p.mana.max}</small></b>${Object.entries(civ).map(([a, n]) => `<span class="mz-civ" title="${esc(a)}属性 ${n}枚">${attrOrb(a, null)}${n}</span>`).join("")}${p.charged ? '<span class="mz-done">チャージ済み</span>' : ""}</div><div class="mz-cards">${cards || '<span class="mz-empty">まだ空っぽ（手札のカードを「マナに置く」）</span>'}</div></div>`;
+}
 function cpuStep(st, s){
   const p = P(st, s), op = P(st, O(s));
+  // マナチャージ: 土地があれば土地、なければすぐには使えない重いカードから
+  if (p.manaZ && !p.charged && p.hand.length && (p.hand.length > 1 || p.manaZ.length < 5)){ const L = p.hand.map((id, i) => i).filter(i => !chargeWhy(st, s, i)); if (L.length){ const lands = L.filter(i => card(p.hand[i]).mland), pick = lands.length ? lands[0] : L.sort((a, b) => cmpNum(costOf(card(p.hand[b])), costOf(card(p.hand[a]))))[0]; if (manaCharge(st, s, pick)) return; } }
   if (p.spire && cpuPotion(st, s, "main")) return;
   // 1. magic from hand (only if it has a useful target / effect)
   for (let i = 0; i < p.hand.length; i++){
@@ -9177,6 +9264,7 @@ function renderBoard0(){
   } else {
     hint = st.turnNo === 1 ? "先攻の1ターン目は攻撃できません" : "カードをえらんで行動しよう";
     if (sel && sel.z === "hand"){
+      if (pm.manaZ){ const cw = chargeWhy(st, me, sel.i); acts += `<button class="ghost" data-act="charge" ${cw ? "disabled" : ""}>マナに置く${cw ? `（${cw}）` : ""}</button>`; }
       const a0 = acts.length;
       const c = card(pm.hand[sel.i]), t = cardType(c);
       const afford = canPay(st, me, c), short = afford ? "" : costWhy(st, me, c) ? `（${costWhy(st, me, c)}）` : (effCost(st, me, c) === Infinity ? "（コスト∞：ふつうには使えない）" : `（マナが${effCost(st, me, c) - pm.mana.cur}足りない）`);
@@ -9224,7 +9312,7 @@ function renderBoard0(){
   const handHTML = G.spectate ? (pm.hand.map(() => backHTML("", "", pm.sleeve)).join("") || `<p class="muted">手札なし</p>`) : pm.hand.map((id, i) => cardHTML(symView(st, me, card(id)), `pick ${sel && sel.z === "hand" && sel.i === i ? "sel" : ""} ${pm.exTemp && pm.exTemp.i === i && pm.exTemp.id === id ? "ex-temp" : ""} ${pm.mana && !canPay(st, me, card(id)) && cardType(card(id)) !== "trap" ? "dim" : ""}`, `data-z="hand" data-s="me" data-i="${i}" tabindex="0" role="button"`, mOpt(me))).join("") || `<p class="muted">手札なし</p>`;
   const logHTML = st.log.slice(-60).reverse().map(l => `<li>${l.s ? `<b>${esc(nm(st, l.s))}</b>：` : ""}${logLinks(esc(l.m))}</li>`).join("");
   const prev = G.prevLp || {}; G.prevLp = { me: pm.lp, op: po.lp };
-  const manaBox = (p, who) => p.mana ? `<div class="manabar" title="${who}のマナ"><span class="lbl">${who}のマナ</span><b>${p.mana.cur}<small>/${p.mana.max}</small></b><span class="gems">${Array.from({ length: Math.max(p.mana.max, p.mana.cur) }, (_, k) => `<i class="${k < p.mana.cur ? "" : "off"}"></i>`).join("")}${Array.from({ length: Math.max(0, MAX_MANA - Math.max(p.mana.max, p.mana.cur)) }, () => `<i class="lock"></i>`).join("")}</span></div>` : "";
+  const manaBox = (p, who) => p.manaZ ? manaZoneHTML(p, who) : p.mana ? `<div class="manabar" title="${who}のマナ"><span class="lbl">${who}のマナ</span><b>${p.mana.cur}<small>/${p.mana.max}</small></b><span class="gems">${Array.from({ length: Math.max(p.mana.max, p.mana.cur) }, (_, k) => `<i class="${k < p.mana.cur ? "" : "off"}"></i>`).join("")}${Array.from({ length: Math.max(0, MAX_MANA - Math.max(p.mana.max, p.mana.cur)) }, () => `<i class="lock"></i>`).join("")}</span></div>` : "";
   const lpBox = (p, key) => `<div id="lp-${key}" data-lp="${key}" class="lp ${p.lp <= 300 ? "low" : ""} ${prev[key] != null && p.lp < prev[key] ? "hurt" : ""}"><small>LP</small><b>${p.lp}</b></div>`;
 
   $("#board").innerHTML = `
@@ -9854,6 +9942,7 @@ $("#board").addEventListener("click", e => {
   if (k === "hfuse" && sel && sel.z === "hand"){ G.sel = null; G.hfPick = { hi: sel.i, picked: [] }; renderAll(); return; }
   if (k === "summon" && isDmEvo(card(P(st, me).hand[sel.i]))){ G.sel = null; const hi = sel.i, B = evoBases(st, me, card(P(st, me).hand[hi])); if (B.length > 1){ G.ssPick = { hi, kind: "evo", need: 1, picked: [], normal: true }; renderAll(); } else withDiscard(card(P(st, me).hand[hi]), hi, d => act(st => summon(st, me, hi, B[0], d))); return; }
   if (k === "summon" && massOf(card(P(st, me).hand[sel.i]))){ G.sel = null; G.ssPick = { hi: sel.i, kind: "mass", need: massOf(card(P(st, me).hand[sel.i])), picked: [], normal: true }; renderAll(); return; }
+  if (k === "charge"){ const hi = sel.i; G.sel = null; act(st => manaCharge(st, me, hi)); return; }
   if (k === "summon"){ G.sel = null; const tn = tribOf(card(P(st, me).hand[sel.i]), st, me); if (tn){ G.ssPick = { hi: sel.i, kind: "tribute", need: tn, picked: [], normal: true, tag: card(P(st, me).hand[sel.i]).tribTag || "" }; renderAll(); } else withDiscard(card(P(st, me).hand[sel.i]), sel.i, d => act(st => summon(st, me, sel.i, null, d))); }
   if (k === "ssummon"){
     const ss = ssOf(card(P(st, me).hand[sel.i])); G.sel = null;

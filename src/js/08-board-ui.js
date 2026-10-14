@@ -57,8 +57,17 @@ function scheduleCpu(){
   if (st.turn !== c || st.pending) return;
   G.cpuT = setTimeout(() => { if (!G) return; G.cpuT = null; act(st => G.tut ? tutCpu(st) : G.test && G.test.cpu === "idle" ? endTurn(st, c) : cpuStep(st, c)); }, G.tut ? Math.max(900, cpuDelay()) : cpuDelay());
 }
+// マナゾーン: 置いてあるカード（タップしたものは横向き）と、使える属性
+function manaZoneHTML(p, who){
+  manaSync(p);
+  const civ = {}; manaFree(p).forEach(x => attrsOf(card(x.c)).forEach(a => { civ[a] = (civ[a] || 0) + 1; }));
+  const cards = p.manaZ.map(x => `<button type="button" class="mzc${x.tap ? " tap" : ""}" data-cid="${esc(x.c)}" title="${esc(card(x.c).name)}${x.tap ? "（タップ）" : ""}">${attrsOf(card(x.c)).map(a => attrOrb(a, card(x.c))).join("") || '<i class="mzc-none"></i>'}<span>${esc(card(x.c).name)}</span></button>`).join("");
+  return `<div class="manazone" title="${who}のマナゾーン"><div class="mz-head"><span class="lbl">${who}のマナゾーン</span><b>${p.mana.cur}<small>/${p.mana.max}</small></b>${Object.entries(civ).map(([a, n]) => `<span class="mz-civ" title="${esc(a)}属性 ${n}枚">${attrOrb(a, null)}${n}</span>`).join("")}${p.charged ? '<span class="mz-done">チャージ済み</span>' : ""}</div><div class="mz-cards">${cards || '<span class="mz-empty">まだ空っぽ（手札のカードを「マナに置く」）</span>'}</div></div>`;
+}
 function cpuStep(st, s){
   const p = P(st, s), op = P(st, O(s));
+  // マナチャージ: 土地があれば土地、なければすぐには使えない重いカードから
+  if (p.manaZ && !p.charged && p.hand.length && (p.hand.length > 1 || p.manaZ.length < 5)){ const L = p.hand.map((id, i) => i).filter(i => !chargeWhy(st, s, i)); if (L.length){ const lands = L.filter(i => card(p.hand[i]).mland), pick = lands.length ? lands[0] : L.sort((a, b) => cmpNum(costOf(card(p.hand[b])), costOf(card(p.hand[a]))))[0]; if (manaCharge(st, s, pick)) return; } }
   if (p.spire && cpuPotion(st, s, "main")) return;
   // 1. magic from hand (only if it has a useful target / effect)
   for (let i = 0; i < p.hand.length; i++){
@@ -313,6 +322,7 @@ function renderBoard0(){
   } else {
     hint = st.turnNo === 1 ? "先攻の1ターン目は攻撃できません" : "カードをえらんで行動しよう";
     if (sel && sel.z === "hand"){
+      if (pm.manaZ){ const cw = chargeWhy(st, me, sel.i); acts += `<button class="ghost" data-act="charge" ${cw ? "disabled" : ""}>マナに置く${cw ? `（${cw}）` : ""}</button>`; }
       const a0 = acts.length;
       const c = card(pm.hand[sel.i]), t = cardType(c);
       const afford = canPay(st, me, c), short = afford ? "" : costWhy(st, me, c) ? `（${costWhy(st, me, c)}）` : (effCost(st, me, c) === Infinity ? "（コスト∞：ふつうには使えない）" : `（マナが${effCost(st, me, c) - pm.mana.cur}足りない）`);
@@ -360,7 +370,7 @@ function renderBoard0(){
   const handHTML = G.spectate ? (pm.hand.map(() => backHTML("", "", pm.sleeve)).join("") || `<p class="muted">手札なし</p>`) : pm.hand.map((id, i) => cardHTML(symView(st, me, card(id)), `pick ${sel && sel.z === "hand" && sel.i === i ? "sel" : ""} ${pm.exTemp && pm.exTemp.i === i && pm.exTemp.id === id ? "ex-temp" : ""} ${pm.mana && !canPay(st, me, card(id)) && cardType(card(id)) !== "trap" ? "dim" : ""}`, `data-z="hand" data-s="me" data-i="${i}" tabindex="0" role="button"`, mOpt(me))).join("") || `<p class="muted">手札なし</p>`;
   const logHTML = st.log.slice(-60).reverse().map(l => `<li>${l.s ? `<b>${esc(nm(st, l.s))}</b>：` : ""}${logLinks(esc(l.m))}</li>`).join("");
   const prev = G.prevLp || {}; G.prevLp = { me: pm.lp, op: po.lp };
-  const manaBox = (p, who) => p.mana ? `<div class="manabar" title="${who}のマナ"><span class="lbl">${who}のマナ</span><b>${p.mana.cur}<small>/${p.mana.max}</small></b><span class="gems">${Array.from({ length: Math.max(p.mana.max, p.mana.cur) }, (_, k) => `<i class="${k < p.mana.cur ? "" : "off"}"></i>`).join("")}${Array.from({ length: Math.max(0, MAX_MANA - Math.max(p.mana.max, p.mana.cur)) }, () => `<i class="lock"></i>`).join("")}</span></div>` : "";
+  const manaBox = (p, who) => p.manaZ ? manaZoneHTML(p, who) : p.mana ? `<div class="manabar" title="${who}のマナ"><span class="lbl">${who}のマナ</span><b>${p.mana.cur}<small>/${p.mana.max}</small></b><span class="gems">${Array.from({ length: Math.max(p.mana.max, p.mana.cur) }, (_, k) => `<i class="${k < p.mana.cur ? "" : "off"}"></i>`).join("")}${Array.from({ length: Math.max(0, MAX_MANA - Math.max(p.mana.max, p.mana.cur)) }, () => `<i class="lock"></i>`).join("")}</span></div>` : "";
   const lpBox = (p, key) => `<div id="lp-${key}" data-lp="${key}" class="lp ${p.lp <= 300 ? "low" : ""} ${prev[key] != null && p.lp < prev[key] ? "hurt" : ""}"><small>LP</small><b>${p.lp}</b></div>`;
 
   $("#board").innerHTML = `
@@ -990,6 +1000,7 @@ $("#board").addEventListener("click", e => {
   if (k === "hfuse" && sel && sel.z === "hand"){ G.sel = null; G.hfPick = { hi: sel.i, picked: [] }; renderAll(); return; }
   if (k === "summon" && isDmEvo(card(P(st, me).hand[sel.i]))){ G.sel = null; const hi = sel.i, B = evoBases(st, me, card(P(st, me).hand[hi])); if (B.length > 1){ G.ssPick = { hi, kind: "evo", need: 1, picked: [], normal: true }; renderAll(); } else withDiscard(card(P(st, me).hand[hi]), hi, d => act(st => summon(st, me, hi, B[0], d))); return; }
   if (k === "summon" && massOf(card(P(st, me).hand[sel.i]))){ G.sel = null; G.ssPick = { hi: sel.i, kind: "mass", need: massOf(card(P(st, me).hand[sel.i])), picked: [], normal: true }; renderAll(); return; }
+  if (k === "charge"){ const hi = sel.i; G.sel = null; act(st => manaCharge(st, me, hi)); return; }
   if (k === "summon"){ G.sel = null; const tn = tribOf(card(P(st, me).hand[sel.i]), st, me); if (tn){ G.ssPick = { hi: sel.i, kind: "tribute", need: tn, picked: [], normal: true, tag: card(P(st, me).hand[sel.i]).tribTag || "" }; renderAll(); } else withDiscard(card(P(st, me).hand[sel.i]), sel.i, d => act(st => summon(st, me, sel.i, null, d))); }
   if (k === "ssummon"){
     const ss = ssOf(card(P(st, me).hand[sel.i])); G.sel = null;

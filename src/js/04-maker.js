@@ -344,7 +344,7 @@ function setMkType(t){
   { const ec = $("#editCard"); if (ec) ec.classList.toggle("dfld", t === "magic" && $("#mkField").checked); }
   { const ec = $("#editCard"); if (ec) ec.classList.toggle("land", t === "magic" && $("#mkField").checked && $("#mkLand").checked && !FR_CLS[$("#mkFrame").value] && $("#mkFrame").value !== "spire"); }
   $("#exhaustRow").hidden = (t !== "magic" && t !== "trap") || pers;
-  $("#noUseRow").hidden = t !== "magic" && t !== "trap";
+  $("#noUseRow").hidden = t !== "magic" && t !== "trap"; { const lr = $("#landRow"); if (lr) lr.hidden = t !== "magic"; }
   $("#spOptRow").hidden = t !== "magic" && t !== "trap"; $("#flashLbl").hidden = t !== "magic";
   syncWhenRow(); if (typeof absFilter === "function") absFilter();
   $("#mkTab").textContent = mkTabLabel();
@@ -480,7 +480,7 @@ const KIND_GROUPS = [
   { g: "next",    label: "次に使うカード・手札のコスト・コピー", v: [["dblNext", "次に使う○をもう1回使う"], ["freeNext", "次に使う○のコストを0"], ["setCost", "手札のカードのコストを○にする"], ["copyPick", "手札を1枚えらんでコピーを加える"]] },
   { g: "ability", label: "能力を付与する・消す（成長・2回攻撃・ブロッカーなど）", v: [["giveAttr", "属性を付与する・変える（相手・自分のモンスター）"], ["giveAb", "モンスターに能力を付与する"], ["loseAb", "モンスターの能力を消す"]] },
   { g: "turn",    label: "ターンを追加する", v: [["extraTurn", "追加ターン（このターンのあと、もう一度自分のターン）"]] },
-  { g: "mana",    label: "マナ", v: [["manaNow", "マナを回復（このターン）"], ["manaMax", "最大マナを増やす"], ["manaDrain", "相手のマナを減らす"]] },
+  { g: "mana",    label: "マナ", v: [["manaNow", "マナを回復（このターン）"], ["manaMax", "最大マナを増やす"], ["manaDrain", "相手のマナを減らす"], ["manaBoost", "山札の上をマナゾーンに置く（マナ加速）"], ["manaHand", "手札をマナゾーンに置く"], ["manaGrave", "墓地のカードをマナゾーンに置く"], ["manaBreak", "相手のマナゾーンのカードを墓地へ（マナ破壊）"], ["manaBack", "マナゾーンのカードを手札に戻す（マナ回収）"]] },
   { g: "deck",    label: "山札・墓地をあやつる", v: [["mill", "山札の上から○枚を墓地に送る"], ["millBoth", "お互いの山札の上を墓地へ"], ["graveShuf", "墓地をすべて山札に戻してシャッフル"], ["graveShufOpp", "相手の墓地をすべて山札に戻してシャッフル"], ["graveShufBoth", "お互いの墓地をすべて山札に戻してシャッフル"], ["stealGrave", "相手の墓地のカードを自分の墓地へ移す"], ["scry", "山札の上を見て、1枚を上に・のこりを下に"], ["graveToTop", "墓地のカードを山札の一番上に"]] },
   { g: "exhaust", label: "カードを廃棄する", v: [["exhaustHand", "手札から○枚えらんで"], ["exhaustRand", "手札からランダムに○枚"], ["exhaustAll", "手札をすべて"], ["exhaustNonAtk", "手札のアタック以外をすべて"]] },
   { g: "rewrite", label: "カードを書きかえる（効果の追加・上書き・名前）", v: [["modAdd", "効果を追加する"], ["modRep", "効果を上書きする"], ["modClear", "効果をなくす"], ["modName", "名前を変える"]] },
@@ -717,7 +717,7 @@ function mkTrigs(){ if (MK.ctrBk) return CTR_TRIGS; if (MK.kind === "relic") ret
 const mkTrigLabel = k => { if (MK.ctrBk) return CTR_TRIG_LABEL[k]; if (MK.kind === "relic") return RELIC_TRIG_LABEL[k]; if (MK.type === "magic" && $("#mkField").checked) return ($("#mkFieldMine").checked ? FIELD_MINE_LABEL : FIELD_TRIG_LABEL)[k]; const t = MK.type, pers = (t === "magic" || t === "trap") && $("#mkPersist").checked; return pers ? PERSIST_TRIG_LABEL[k] : trigLabel(t, k); };
 // スパイア風（筋力・アタック/スキル/パワー・廃棄など）の効果: スパイア風の枠のとき以外は「スパイア風」の1つにまとめる
 const SPIRE_KINDS = ["str", "strTemp", "dex", "dexTemp", "intang", "vulnBonus", "plate", "barricade", "firstBlock2", "rageNow", "oppStrDown", "oppStr", "genAttack", "genAttack0", "genSkill", "genPower", "copyLastAtk", "graveAtkToHand", "playHandAtk", "dblAtk", "freeAttack", "freeSkill", "freePower", "corrupt", "drawUntil", "draft", "exhaustHand", "exhaustRand", "exhaustAll", "exhaustNonAtk"];
-const MANA_KINDS = ["manaNow", "manaMax", "manaDrain"];
+const MANA_KINDS = ["manaNow", "manaMax", "manaDrain", "manaBoost", "manaHand", "manaGrave", "manaBreak", "manaBack"];
 const mkSpireOn = () => MK.kind === "potion" || MK.kind === "relic" || $("#mkFrame").value === "spire";
 const kindInner = k => /^（/.test((KINDS[k] || {}).label || "");
 function kindGroups(avail, cur){
@@ -780,7 +780,8 @@ function syncHfUI(){ const on = $("#mkHf").checked; $("#mkHfM").hidden = !on; $(
 const mkCascadeVal = () => (MK.type === "monster" || MK.type === "magic") && $("#mkCascade").checked || null;
 // レベル・属性（カードに保存する値）
 MK.attrs = []; MK.attrDefs = {};
-function mkLvAttrVal(){ const lv = Math.max(0, Math.min(12, Math.round(+$("#mkLv").value || 0))), A = (MK.attrs || []).slice(0, 5), defs = {}; A.forEach(a => { if (!ATTR_BUILTIN[a]){ const x = MK.attrDefs[a] || attrRegistryFull()[a]; const o = typeof x === "string" ? { c: x } : x || { c: "#888888" }; defs[a] = { c: HEX6.test(o.c || "") ? o.c : "#888888", m: [...String(o.m || a)][0], ...(o.r ? { r: String(o.r).slice(0, 8) } : {}) }; } }); return { lv: lv || null, lvTrib: lv && MK.type === "monster" ? $("#mkLvTrib").checked : null, attrs: A.length ? A : null, attrDefs: Object.keys(defs).length ? defs : null, sx: mkSxVal(), fusFree: mkFusionVal() && $("#mkFusFree").checked ? true : null, ace: mkAceVal() }; }
+function mkLvAttrVal(){ const lv = Math.max(0, Math.min(12, Math.round(+$("#mkLv").value || 0))), A = (MK.attrs || []).slice(0, 5), defs = {}; A.forEach(a => { if (!ATTR_BUILTIN[a]){ const x = MK.attrDefs[a] || attrRegistryFull()[a]; const o = typeof x === "string" ? { c: x } : x || { c: "#888888" }; defs[a] = { c: HEX6.test(o.c || "") ? o.c : "#888888", m: [...String(o.m || a)][0], ...(o.r ? { r: String(o.r).slice(0, 8) } : {}) }; } }); return { lv: lv || null, lvTrib: lv && MK.type === "monster" ? $("#mkLvTrib").checked : null, attrs: A.length ? A : null, attrDefs: Object.keys(defs).length ? defs : null, sx: mkSxVal(), fusFree: mkFusionVal() && $("#mkFusFree").checked ? true : null, ace: mkAceVal(), mland: MK.type === "magic" && $("#mkIsLand").checked ? true : null }; }
+$("#mkIsLand").addEventListener("change", () => updateBkText());
 function mkAceVal(){ const on = $("#mkAceOn").value; if (!on) return null; const t = $("#mkAceT").value.trim().slice(0, 40); return { on, ...(t ? { t } : {}), col: $("#mkAceCol").value }; }
 function syncAce(){ const v = mkAceVal(), sm = $("#sumAce"); if (sm){ sm.textContent = v ? { use: "使ったとき", draw: "引いたとき", both: "使ったとき・引いたとき" }[v.on] : "なし"; sm.classList.toggle("on", !!v); } }
 ["#mkAceOn", "#mkAceT", "#mkAceCol"].forEach(q => ["input", "change"].forEach(t => $(q).addEventListener(t, syncAce)));
@@ -800,7 +801,7 @@ function renderSx(){
   const ec = $("#editCard"); if (ec){ ec.classList.toggle("ysyn", MK.sx === "syn"); ec.classList.toggle("yxyz", MK.sx === "xyz"); }
 }
 function mkSetSx(c){ const x = c ? sxOf(c) : null, y = x && x.k === "syn", z = x && x.k === "xyz"; MK.sx = x ? x.k : ""; $("#sxTM").value = y ? x.t.m : "tag"; $("#sxTV").value = y ? x.t.v : "チューナー"; $("#sxOM").value = y ? x.o.m : "nott"; $("#sxOV").value = y ? x.o.v : ""; $("#sxXM").value = z ? x.m : "any"; $("#sxXV").value = z ? x.v : ""; $("#sxXN").value = String(z ? x.n : 2); const ov = z && x.ov; $("#sxOvOn").checked = !!ov; $("#sxOvM").value = ov ? ov.m : "xyz"; $("#sxOvV").value = ov ? ov.v : ""; $("#sxOvLo").value = String(ov ? ov.lo : 1); $("#sxOvHi").value = String(ov ? ov.hi : 12);
-  $("#mkFusFree").checked = !!(c && c.fusFree); const a = c ? aceOf(c) : null; $("#mkAceOn").value = a ? a.on : ""; $("#mkAceT").value = a ? a.t : ""; $("#mkAceCol").value = a ? a.col : "#ffd34d"; syncAce(); renderSx(); }
+  $("#mkFusFree").checked = !!(c && c.fusFree); $("#mkIsLand").checked = !!(c && c.mland); const a = c ? aceOf(c) : null; $("#mkAceOn").value = a ? a.on : ""; $("#mkAceT").value = a ? a.t : ""; $("#mkAceCol").value = a ? a.col : "#ffd34d"; syncAce(); renderSx(); }
 $("#mkSx").addEventListener("click", e => { const b = e.target.closest("[data-sx]"); if (!b) return; MK.sx = b.dataset.sx; if (MK.sx) $("#mkEx").checked = true; renderSx(); renderBlocksUI(); updateBkText(); });
 ["#sxTM", "#sxTV", "#sxOM", "#sxOV", "#sxXM", "#sxXV", "#sxXN", "#sxOvOn", "#sxOvM", "#sxOvV", "#sxOvLo", "#sxOvHi"].forEach(q => ["input", "change"].forEach(t => $(q).addEventListener(t, () => { renderSx(); updateBkText(); })));
 function renderAttrPick(){

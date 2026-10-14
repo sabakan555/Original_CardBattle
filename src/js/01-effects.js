@@ -192,6 +192,11 @@ const KINDS = {
   manaNow:    { label: "マナを回復（このターン）", n: true, text: n => `マナを${n}回復する` },
   manaMax:    { label: "最大マナを増やす", n: true, text: n => `最大マナを${n}増やす` },
   manaDrain:  { label: "相手のマナを減らす", n: true, text: n => `相手のマナを${n}減らす` },
+  manaBoost:  { label: "山札の上から○枚をマナゾーンに置く（マナ加速）", n: true, text: n => `山札の上から${n}枚をマナゾーンに置く` },
+  manaHand:   { label: "手札を1枚マナゾーンに置く", target: "hand", text: () => `手札を1枚えらんでマナゾーンに置く` },
+  manaGrave:  { label: "墓地のカードを○枚マナゾーンに置く", n: true, text: n => `自分の墓地のカードを${n}枚マナゾーンに置く（新しいものから）` },
+  manaBreak:  { label: "相手のマナゾーンのカードを○枚墓地へ（マナ破壊）", n: true, text: n => `相手のマナゾーンのカードをランダムに${n}枚墓地へ置く` },
+  manaBack:   { label: "自分のマナゾーンのカードを○枚手札に戻す（マナ回収）", n: true, text: n => `自分のマナゾーンのカードを${n}枚手札に戻す（コストが大きいものから）` },
   removeBoard:{ label: "場のカードを1枚えらんで除去（モンスター・魔法・罠・フィールド）", target: "board", text: (n, _, m) => `${RB_SIDE[m && m.rside] || RB_SIDE.op}の場のカード1枚をえらんで${RB_MODE[m && m.rm] || RB_MODE.destroy}` },
   ctrAdd:     { label: "カウンターを乗せる", n: true, ctr: true, text: (n, _, m) => `${ctrWhereText(m)}に${ctrName(m && m.ctr)}を${n}個乗せる` },
   ctrDel:     { label: "カウンターを取り除く", n: true, ctr: true, text: (n, _, m) => `${ctrWhereText(m)}の${ctrName(m && m.ctr)}を${n}個取り除く` },
@@ -254,6 +259,8 @@ const ABS = {
   eqBonus:    { label: "特定の名前の装備を付けているとATKアップ", only: "mon", self: true, n: 300, name: true, text: (n, nm) => `名前に「${nm || "？"}」が入った装備を付けているとき、ATK+${n}` }
 };
 const KW_DESC = {
+  "土地": "MTG風のマナのカード。発動はできない。マナゾーンに置くと、置いたターンからマナとして使える（多色でもタップしない）。「土地（MTG式）」のルールでは、土地しかマナゾーンに置けない",
+  "マナゾーン": "「マナチャージ」「土地」のルールで使う場所。1ターンに1枚、手札のカードを置ける。置いてあるカードの枚数がマナになり、使うときにタップする。カードを使うには、その属性のカードがタップしていないマナに要る。多色のカードはタップして置く",
   "シンクロ": "EXデッキから出すモンスター。自分の場のチューナー1体と、それ以外のモンスター1体以上を墓地へ送り、そのレベルの合計がこのカードのレベルと同じなら、EXデッキから出せる（特殊召喚）",
   "チューナー": "タグ「チューナー」がついたモンスター。シンクロ召喚の素材になる",
   "エクシーズ": "EXデッキから出すモンスター。このカードのランクと同じレベルのモンスターを、自分の場から決まった数だけ重ねて出す（特殊召喚）。重ねたカードは「エクシーズ素材」になり、起動効果のコストで取り除ける。エクシーズモンスターにはレベルがない",
@@ -617,7 +624,7 @@ function fusionMatText(x){ return x.m === "any" ? "モンスター" : x.m === "t
 function fusionText(c){ return c && cardType(c) === "monster" && Array.isArray(c.fusion) && c.fusion.length ? `【融合】${c.fusion.map(fusionMatText).join("＋")}` : ""; }
 const spOptText = c => !c || (cardType(c) !== "magic" && cardType(c) !== "trap") ? "" : [c.strig ? "《S・トリガー》" : "", c.flashback && cardType(c) === "magic" ? "《フラッシュバック》" : "", +c.kick > 0 ? `《キッカー》（${+c.kick}）` : ""].join("");
 function fxText(c, detail = false){ const t = fxTextB(c, detail), k = c ? (cascadeOn(c) ? "《続唱》" : "") + glKw(c) + hfKw(c) + (c.innate ? "《天賦》" : "") + (c.retain ? "《保留》" : "") + (c.ethereal ? "《エセリアル》" : "") + (c.sly ? "《スライ》" : "") : ""; return k ? k + (t ? (detail ? "。\n" : "。") + t : "") : t; }
-function fxTextB(c, detail = false){ return (c && c.token && cardType(c) !== "monster" ? "【トークン】" : "") + (c && c.ex && cardType(c) !== "monster" ? "【EX】" : "") + (c && !c.noUse ? whenText(c) : "") + [fusionText(c) ? fusionText(c) + (isCf(c) ? "（自分の場の素材を墓地へ送れば、「融合」なしでEXデッキから出せる）" : "（「融合召喚」の効果でだけ出せる）") : "", sxText(c), c && c.noUse && (cardType(c) === "magic" || cardType(c) === "trap") ? "このカードは発動できない" : "", isPersist(c) ? "【永続】使ったあとも場に残る" : "", spOptText(c), isField(c) ? `【フィールド】お互いに1枚だけ場に置ける（新しいフィールドが出ると、前のフィールドは墓地へ）。${fieldMine(c) ? "効果は出した人にだけ効く" : "効果はお互いに効く"}` : "", extraCostText(c), costMechText(c), dmEvoText(c), mugText(c), revoText(c), tribText(c), massText(c), anySumText(c), atkCondText(c), ssText(c), fxText0(c, detail)].filter(Boolean).join(detail ? "。\n" : "。"); }
+function fxTextB(c, detail = false){ return (c && c.token && cardType(c) !== "monster" ? "【トークン】" : "") + (c && c.ex && cardType(c) !== "monster" ? "【EX】" : "") + (c && !c.noUse ? whenText(c) : "") + [fusionText(c) ? fusionText(c) + (isCf(c) ? "（自分の場の素材を墓地へ送れば、「融合」なしでEXデッキから出せる）" : "（「融合召喚」の効果でだけ出せる）") : "", sxText(c), c && c.mland ? "【《土地》】発動できない。マナゾーンに置くと、置いたターンからマナとして使える（多色でもタップしない）" : c && c.noUse && (cardType(c) === "magic" || cardType(c) === "trap") ? "このカードは発動できない" : "", isPersist(c) ? "【永続】使ったあとも場に残る" : "", spOptText(c), isField(c) ? `【フィールド】お互いに1枚だけ場に置ける（新しいフィールドが出ると、前のフィールドは墓地へ）。${fieldMine(c) ? "効果は出した人にだけ効く" : "効果はお互いに効く"}` : "", extraCostText(c), costMechText(c), dmEvoText(c), mugText(c), revoText(c), tribText(c), massText(c), anySumText(c), atkCondText(c), ssText(c), fxText0(c, detail)].filter(Boolean).join(detail ? "。\n" : "。"); }
 /* ================= effect blocks: いつ / もし / なにを / ちがったら =================
    c.blocks = [{ trig, conds: [{k, op, n | name, where, match | text}], join: "and"|"or", then: [{kind, n, to}], else: [...] }]
    Older cards (c.fx + c.combo) are read as blocks too, so everything below runs on blocks. */
@@ -628,6 +635,8 @@ const COND_DEFS = {
   grave:    { label: "自分の墓地の枚数", who: "自分の墓地が", unit: "枚", val: (st, s) => P(st, s).grave.length },
   otherMon: { label: "自分のほかのモンスターの数（このカード以外）", who: "自分のほかのモンスターが", unit: "体", val: (st, s, c, ctx) => P(st, s).mz.filter((m, i) => m && !(ctx && ctx.zone != null && i === ctx.zone)).length },
   myMon:    { label: "自分のモンスターの数", who: "自分のモンスターが", unit: "体", val: (st, s) => P(st, s).mz.filter(Boolean).length },
+  manaZ:    { label: "自分のマナゾーンのカードの数（マナの最大）", who: "自分のマナゾーンのカードが", unit: "枚", val: (st, s) => manaCount(P(st, s)) },
+  oppManaZ: { label: "相手のマナゾーンのカードの数（マナの最大）", who: "相手のマナゾーンのカードが", unit: "枚", val: (st, s) => manaCount(P(st, O(s))) },
   oppMon:   { label: "相手のモンスターの数", who: "相手のモンスターが", unit: "体", val: (st, s) => P(st, O(s)).mz.filter(Boolean).length },
   mana:     { label: "自分のマナ", who: "自分のマナが", unit: "", val: (st, s) => { const m = P(st, s).mana; return m ? m.cur : 0; } },
   block:    { label: "自分のブロック", who: "自分のブロックが", unit: "", val: (st, s) => P(st, s).block || 0 },
@@ -672,6 +681,7 @@ function attrMonN(st, s, side, attr){ const a = attr || "火"; let n = 0; for (c
 const PER_DEFS = {
   hfN:      { label: "このカードにフュージョンしたカード", u: "1枚", hf: true, val: (st, s, c, t, ctx) => hfCount(st, ctx) },
   myBlock:  { label: "自分のブロック", u: "1", val: (st, s) => P(st, s).block || 0 },
+  manaZ:    { label: "自分のマナゾーンのカード", u: "1枚", val: (st, s) => manaCount(P(st, s)) },
   mass5:    { label: "このモンスターの質量5枚", u: "", val: (st, s, c, t, ctx) => { const m = ctx && ctx.mon && monAt(st, ctx.mon); return m ? Math.floor((m.mats || []).length / 5) : 0; } },
   mass:     { label: "このモンスターの質量", u: "1枚", val: (st, s, c, t, ctx) => { const m = ctx && ctx.mon && monAt(st, ctx.mon); return m ? (m.mats || []).length : 0; } },
   strike:   { label: "名前に「ストライク」が入った自分のカード", u: "1枚", val: (st, s) => { const p = P(st, s); return [...p.hand, ...p.deck, ...p.grave].filter(id => /ストライク/.test(card(id).name || "")).length; } },

@@ -14,6 +14,8 @@ function renderCpuDeckSel(){
 }
 $("#joinCode").addEventListener("input", e => { e.target.value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ""); });
 $("#joinCode").addEventListener("keydown", e => { if (e.key === "Enter") $("#btnJoin").click(); });
+function chosenManaRule(){ const el = $("#manaRule"), v = el ? el.value : "grow"; return MANA_RULES[v] ? v : "grow"; }
+{ const el = $("#manaRule"); if (el){ const v = ls.get("cb_manaRule", "grow"); if (["grow", "zone", "land"].includes(v)) el.value = v; el.addEventListener("change", () => ls.set("cb_manaRule", el.value)); } }
 function chosenMana(){ const id = $("#deckSel").value; const d = allDeckOptions().find(x => x.id === id); return !!(d && d.mana); }
 const deckSpireVal = d => d && d.spire ? (d.spc === "silent" ? "silent" : true) : false;
 function chosenSpire(){ const id = $("#deckSel").value; const d = allDeckOptions().find(x => x.id === id); return deckSpireVal(d); }
@@ -254,7 +256,7 @@ function startState(pa, pb){
 $("#btnCreate").addEventListener("click", async () => {
   const ids = chosenDeckIds(); if (!deckOk(ids)) return;
   const code = makeCode();
-  const st = { v: 3, started: false, players: { a: newPlayer(ids, null, chosenMana(), chosenSpire()) }, log: [], createdAt: Date.now(), updatedAt: Date.now(), hidden: $("#roomPrivate").checked };
+  const st = { v: 3, started: false, players: { a: newPlayer(ids, null, chosenMana(), chosenSpire()) }, log: [], createdAt: Date.now(), updatedAt: Date.now(), hidden: $("#roomPrivate").checked, manaRule: chosenManaRule() };
   try{ await S.db.doc("rooms/" + code).set(st); } catch(e){ writeErr(e); return; }
   startOnline(code, "a", st);
 });
@@ -268,7 +270,7 @@ async function joinRoom(code){
     if (mySlot && st.players && st.players[mySlot]){ startOnline(code, mySlot, st); return; }
     if (st.players && st.players.b){ toast("この部屋はもう2人そろっています"); return; }
     const ids = chosenDeckIds(); if (!deckOk(ids)) return;
-    const full = startState(st.players.a, newPlayer(ids, null, chosenMana(), chosenSpire()));
+    const full = applyManaRule(startState(st.players.a, newPlayer(ids, null, chosenMana(), chosenSpire())), st.manaRule);
     full.updatedAt = Date.now(); full.hidden = !!st.hidden;
     await S.db.doc("rooms/" + code).set(full);
     startOnline(code, "b", full);
@@ -294,7 +296,7 @@ $("#btnCpu").addEventListener("click", () => {
   const cid = $("#cpuDeckSel").value, cd = cid && cid !== "auto" ? cpuDeckOptions().find(d => d.id === cid) : null;
   const cpuMana = cd ? !!cd.mana : chosenMana(), cpuIds = (cd || (cpuMana ? sampleManaDeck() : starterDeck())).cards.filter(id => S.cards.has(id));
   if ((!(cd && cd.spire) && cpuIds.length < MIN_DECK) || (!(cd && cd.spire) && !cpuIds.some(id => cardType(S.cards.get(id)) === "monster"))){ toast("CPUのデッキのカードが足りません。別のデッキをえらんでね"); return; }
-  G = { mode: "cpu", slot: "a", st: startState(newPlayer(ids, null, chosenMana(), chosenSpire()), newPlayer(cpuIds, cd ? `CPU（${cd.name}）` : "CPU", cpuMana, deckSpireVal(cd))), sel: null, atkFrom: null, chooseQ: [], evSeen: 0 };
+  G = { mode: "cpu", slot: "a", st: applyManaRule(startState(newPlayer(ids, null, chosenMana(), chosenSpire()), newPlayer(cpuIds, cd ? `CPU（${cd.name}）` : "CPU", cpuMana, deckSpireVal(cd))), chosenManaRule()), sel: null, atkFrom: null, chooseQ: [], evSeen: 0 };
   autoRelic(G.st, "b");
   after(false);
 });
@@ -314,13 +316,13 @@ function rematch(){
   if (!G || !G.st || !G.st.winner || G.spectate) return;
   if (G.mode !== "online"){
     const old = G.st; clearTimeout(G.cpuT); G.cpuT = null;
-    G.st = startState(freshFrom(old, "a"), freshFrom(old, "b")); autoRelic(G.st, "b"); resetLocal(); after(false); return;
+    G.st = applyManaRule(startState(freshFrom(old, "a"), freshFrom(old, "b")), old.manaRule); autoRelic(G.st, "b"); resetLocal(); after(false); return;
   }
   const me = G.slot;
   act(st => {
     st.rematch = { ...(st.rematch || {}), [me]: true };
     if (st.rematch.a && st.rematch.b){
-      const f = startState(freshFrom(st, "a"), freshFrom(st, "b"));
+      const f = applyManaRule(startState(freshFrom(st, "a"), freshFrom(st, "b")), st.manaRule);
       f.gameNo = (st.gameNo || 1) + 1; f.hidden = !!st.hidden;
       Object.keys(st).forEach(k => delete st[k]); Object.assign(st, f);
       resetLocal();
