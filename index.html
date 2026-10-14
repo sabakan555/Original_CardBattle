@@ -2594,7 +2594,7 @@ function attrRegistryFull(){ const o = {}; const put = (k, v) => { if (o[k] || !
 function attrRegistry(){ const o = { ...ATTR_BUILTIN }; Object.entries(attrRegistryFull()).forEach(([k, v]) => { if (!o[k]) o[k] = v.c; }); return o; }
 const attrList = () => Object.keys(attrRegistry());
 // 場のモンスターの属性（効果で加えた・変えた属性もふくむ）
-const monAttrs = m => !m ? [] : m.atSet ? (m.xat || []).slice() : [...new Set([...attrsOf(card(m.c)), ...(m.xat || [])])];
+const monAttrs = m => { if (!m) return []; let A = m.atSet ? (m.xat || []).slice() : [...new Set([...attrsOf(card(m.c)), ...(m.xat || [])])]; const sa = typeof staticAttrs === "function" ? staticAttrs(m) : null; if (sa){ if (sa.set) A = sa.set.slice(); A = [...new Set([...A, ...sa.add])]; } return A; };
 // 属性を付与する: だれに
 const GAT_W = { opp1: "相手のモンスター1体", oppAll: "相手のモンスターすべて", self: "このモンスター", mine1: "自分のモンスター1体", mineAll: "自分のモンスターすべて" };
 // レベル（0〜12。0ならなし）。コストを使わないデッキでも意味があるように、生贄の数をレベルから決められる（遊戯王と同じ: 5〜6は1体、7以上は2体）
@@ -5151,7 +5151,7 @@ function renderBlocksUI(){
       + (e.kind === "setCost" ? `<select data-f="sp" aria-label="どのカード">${opt("filter", "手札の（しぼる）", e.sp === "pick" ? "pick" : "filter")}${opt("pick", "1枚えらぶ", e.sp === "pick" ? "pick" : "filter")}</select><select data-f="sd" aria-label="いつまで">${opt("turn", "このターン", e.sd === "used" ? "used" : "turn")}${opt("used", "使うまで", e.sd === "used" ? "used" : "turn")}</select>` : "")
       + (e.kind === "copyPick" ? `<select data-f="cpw" aria-label="いつ加える">${opt("", "いま", e.cpw || "")}${opt("next", "次の自分のターンのはじめ", e.cpw || "")}</select>` : "")
       + (e.kind === "giveAb" ? gabUI(e, opt, (MK.blocks[bi] || {}).trig === "while") : "")
-      + (e.kind === "giveAttr" ? `<select data-f="aw" aria-label="だれに">${Object.entries(GAT_W).map(([v, l]) => opt(v, l, GAT_W[e.aw] ? e.aw : "opp1")).join("")}</select><select data-f="ga" aria-label="どの属性">${[...new Set([...attrList(), e.ga || "火"])].map(a => opt(a, a + "属性", e.ga || "火")).join("")}</select><select data-f="gm" aria-label="加える・変える">${opt("add", "を加える", e.gm || "add")}${opt("set", "に変える（もとの属性は消える）", e.gm || "add")}</select>` : "")
+      + (e.kind === "giveAttr" ? `<select data-f="aw" aria-label="だれに">${(wh => Object.entries(GAT_W).filter(([v]) => !wh || !/1$/.test(v)).map(([v, l]) => opt(v, l, GAT_W[e.aw] && !(wh && /1$/.test(e.aw)) ? e.aw : wh ? "oppAll" : "opp1")).join(""))((MK.blocks[bi] || {}).trig === "while")}</select><select data-f="ga" aria-label="どの属性">${[...new Set([...attrList(), e.ga || "火"])].map(a => opt(a, a + "属性", e.ga || "火")).join("")}</select><select data-f="gm" aria-label="加える・変える">${opt("add", "を加える", e.gm || "add")}${opt("set", "に変える（もとの属性は消える）", e.gm || "add")}</select>` : "")
       + (e.kind === "loseAb" ? `<select data-f="gw" aria-label="だれの">${Object.entries(GAB_W).map(([v, l]) => opt(v, l, GAB_W[e.gw] ? e.gw : "self")).join("")}</select><select data-f="ab" aria-label="どの能力">${labList().map(v => opt(v, v === "all" ? "すべての能力" : ABS[v].label, labKey(e))).join("")}</select><select data-f="gd" aria-label="いつまで">${Object.entries(GAB_D).map(([v, l]) => opt(v, l, e.gd || "")).join("")}</select>` : "")
       + (mfAble(e) ? `<span class="bk-mf"><select data-f="mfK" aria-label="しぼる">${opt("", "しぼらない", e.mfK || "")}${opt("cost", "コストが", e.mfK || "")}${opt("atk", "ATKが", e.mfK || "")}${opt("lv", "レベルが", e.mfK || "")}${opt("attr", "属性が", e.mfK || "")}</select>${e.mfK === "attr" ? `<select data-f="mfA" aria-label="属性">${attrList().map(a => opt(a, a, e.mfA || "火")).join("")}</select><span class="note">のモンスターだけ</span>` : MF_K[e.mfK] ? `<select data-f="mfBy" aria-label="くらべるもの">${Object.entries(MF_BY).map(([k, d]) => opt(k, d.label, MF_BY[e.mfBy] ? e.mfBy : "n")).join("")}</select>${(MF_BY[e.mfBy] ? e.mfBy : "n") === "n" ? `<input type="number" data-f="mfN" min="0" max="9999" value="${esc(e.mfN ?? 0)}" style="width:64px" aria-label="数">` : `<label class="note">＋<input type="number" data-f="mfN" min="-99" max="99" value="${esc(e.mfN ?? 0)}" style="width:52px" aria-label="たす数"></label>`}<select data-f="mfOp" aria-label="以下・以上">${opt("le", "以下", e.mfOp === "ge" ? "ge" : "le")}${opt("ge", "以上", e.mfOp === "ge" ? "ge" : "le")}</select><span class="note">のモンスターだけ</span>` : ""}</span>` : "")
       + (e.kind === "removeBoard" ? `<select data-f="rside" aria-label="どちらの場">${Object.entries(RB_SIDE).map(([k, l]) => opt(k, l + "の場", e.rside || "op")).join("")}</select><select data-f="rm" aria-label="どうする">${Object.entries(RB_MODE).map(([k, l]) => opt(k, l, e.rm || "destroy")).join("")}</select>` : "")
@@ -6810,7 +6810,30 @@ function modApply(st, s, c, fx, target, src){
   log(st, s, `${src}で${modTargetText(fx)}を書きかえた（${out.length}枚）`);
 }
 // 場にいる間: 場のモンスターと表の永続カードの「場にいる間」の効果（ATKの増減・○倍）を、そのつど計算する
-const STATIC_KINDS = ["selfAtkDown", "myAtkDownAll", "selfAtk", "atkUp", "atkAll", "atkDown", "atkDownAll", "atkMul", "giveAb", "ctrAdd"];
+// 「場にいる間」の「属性を付与する」: 出しているカードが場にいる間だけ、モンスターの属性が変わる
+function staticAttrs(m){
+  if (typeof G === "undefined" || !G || !G.st || !G.st.players || staticAttrs.busy) return null;
+  const st = G.st; let ms = null; for (const o of ["a", "b"]) if (P(st, o).mz.indexOf(m) >= 0) ms = o; if (!ms) return null;
+  staticAttrs.busy = true; const out = { add: [], set: null };
+  try{
+    const srcs = [];
+    for (const o of ["a", "b"]){ const p = P(st, o); p.mz.forEach((x, i) => { if (x) srcs.push({ o, c: monCard(x), mon: x, ctx: { zone: i, mon: { s: o, i, u: x.u } } }); }); p.sz.forEach((z, i) => { if (z && z.face && (isPersist(card(z.c)) || z.fcp)) srcs.push({ o, c: card(z.c), mon: null, ctx: { pz: i } }); }); }
+    if (st.field) srcs.push({ o: st.field.o, c: card(st.field.c), mon: null, ctx: { field: true } });
+    srcs.forEach(src => blocksOf(src.c).forEach(b => {
+      if (b.trig !== "while") return;
+      const plain = (b.conds || []).filter(x => x.k !== "ask"), ok = !plain.length || (b.join === "or" ? plain.some(x => condMet(st, src.o, src.c, x, src.ctx)) : plain.every(x => condMet(st, src.o, src.c, x, src.ctx)));
+      ((ok ? b.then : b.else) || []).forEach(e => {
+        if (!e || e.kind !== "giveAttr") return;
+        const w = e.aw || "opp1", a = String(e.ga || "火"), mine = ms === src.o, self = src.mon === m;
+        const hit = w === "self" ? self : w === "oppAll" || w === "opp1" ? !mine : w === "mineAll" || w === "mine1" ? mine : false;
+        if (!hit || (w !== "self" && !mfOk(st, src.o, e, m))) return;
+        if (e.gm === "set") out.set = [a]; else out.add.push(a);
+      });
+    }));
+  } finally { staticAttrs.busy = false; }
+  return out.add.length || out.set ? out : null;
+}
+const STATIC_KINDS = ["giveAttr", "selfAtkDown", "myAtkDownAll", "selfAtk", "atkUp", "atkAll", "atkDown", "atkDownAll", "atkMul", "giveAb", "ctrAdd"];
 /* 「場にいる間、カウンターを乗せる」: 出ている間は乗せておいて、いなくなったり条件に合わなくなったら、その分を取り除く。
    乗せた数は乗っている側に m.ctrA / p.ctrA = { "出し手のu|カウンターid": 個数 } で覚えておく（ほかの効果で取り除かれた分は、もう一度は乗せない） */
 function ctrAuraSync(st){
@@ -9300,7 +9323,7 @@ function renderBoard0(){
     const evH = mine && !G.spectate && hasAb(st, s, i, "evolve") && !z.evolved, evNo = evH ? evoWhy(st, s, i) : "";
     const sealN = (z.seals || []).length;
     const rsx = !sealN && (hasAb(st, s, i, "noEffect") || hasAb(st, s, i, "ward") || hiddenMon(st, s, i)), rsxT = [hasAb(st, s, i, "noEffect") ? "効果では破壊されない" : "", hasAb(st, s, i, "ward") ? "護法" : "", jdOn(st, s, i) ? "ジャストダイバー中" : hiddenMon(st, s, i) ? "隠密中" : ""].filter(Boolean).join("・");
-    return glBadge(st, s, i, (h => sealN ? h.replace(/<\/div>$/, `<span class="sealx" title="封印 ${sealN}（ないものとして扱う。持ち主が同じタグのモンスターを出すと1つはがれる）">封印${sealN > 1 ? " " + sealN : ""}</span></div>`) : h)((h => rsx ? h.replace(/<\/div>$/, `<span class="rsx" role="img" aria-label="除去耐性：${rsxT}" title="${rsxT}"></span></div>`) : h)((h => evH ? h.replace(/<\/div>$/, `<button type="button" class="evobtn" data-evomon="${i}" ${evNo ? "disabled" : ""} title="${esc(evNo || `エボルヴする（エボルヴポイント あと${EVO_MAX - (P(st, s).evoUsed || 0)}）`)}" aria-label="「${esc(card(z.c).name)}」をエボルヴさせる">エボルヴ</button></div>`) : h)((h => actH ? h.replace(/<\/div>$/, `<button type="button" class="actbtn" data-actmon="${i}" ${actNo ? "disabled" : ""} title="${actNo ? esc(actNo) : "能力を発動する"}" aria-label="「${esc(card(z.c).name)}」の能力を発動する">${ACT_ICON}</button></div>`) : h)(zcap(cardHTML((z.xat || []).length || z.atSet ? { ...card(z.c), attrs: monAttrs(z) } : card(z.c), cls + zz + zx + (actH ? (actNo ? " actable actused" : " actable") : "") + (atkr ? " attacking" : "") + (atkd ? " atk-tgt" : ""), attrs + (zz ? ` title="召喚酔い：次の自分のターンから攻撃できる"` : ttl), { mod: modOf(z), done: stt, eq: eqB, dmg: z.dmg || 0, ctr: z.ctr, vuln: z.vuln || 0, weak: z.weak || 0, ...mOpt(s) }), card(z.c), z))))));
+    return glBadge(st, s, i, (h => sealN ? h.replace(/<\/div>$/, `<span class="sealx" title="封印 ${sealN}（ないものとして扱う。持ち主が同じタグのモンスターを出すと1つはがれる）">封印${sealN > 1 ? " " + sealN : ""}</span></div>`) : h)((h => rsx ? h.replace(/<\/div>$/, `<span class="rsx" role="img" aria-label="除去耐性：${rsxT}" title="${rsxT}"></span></div>`) : h)((h => evH ? h.replace(/<\/div>$/, `<button type="button" class="evobtn" data-evomon="${i}" ${evNo ? "disabled" : ""} title="${esc(evNo || `エボルヴする（エボルヴポイント あと${EVO_MAX - (P(st, s).evoUsed || 0)}）`)}" aria-label="「${esc(card(z.c).name)}」をエボルヴさせる">エボルヴ</button></div>`) : h)((h => actH ? h.replace(/<\/div>$/, `<button type="button" class="actbtn" data-actmon="${i}" ${actNo ? "disabled" : ""} title="${actNo ? esc(actNo) : "能力を発動する"}" aria-label="「${esc(card(z.c).name)}」の能力を発動する">${ACT_ICON}</button></div>`) : h)(zcap(cardHTML((A => A.join() === attrsOf(card(z.c)).join() ? card(z.c) : { ...card(z.c), attrs: A })(monAttrs(z)), cls + zz + zx + (actH ? (actNo ? " actable actused" : " actable") : "") + (atkr ? " attacking" : "") + (atkd ? " atk-tgt" : ""), attrs + (zz ? ` title="召喚酔い：次の自分のターンから攻撃できる"` : ttl), { mod: modOf(z), done: stt, eq: eqB, dmg: z.dmg || 0, ctr: z.ctr, vuln: z.vuln || 0, weak: z.weak || 0, ...mOpt(s) }), card(z.c), z))))));
   }).join("");
 
   // action bar
@@ -9587,7 +9610,7 @@ function detailInfo(z, s, i){
     const es = eqsOf(slot);
     info.equips = es.map((e, k) => `「${card(e.c).name}」${eqMult(es, k) > 1 ? "（×2）" : ""}${e.o !== owner ? "（相手の）" : ""}${e.used ? "（使用ずみ）" : ""}`);
     info.cap = `${eqUsed(slot)} / ${eqCapOf(card(slot.c))}`;
-    info.mats = (slot.mats || []).map(id => card(id).name); info.xyz = isXyz(card(slot.c)); if ((slot.xat || []).length || slot.atSet) info.attrs = monAttrs(slot); info.evoU = (slot.evoU || []).map(x => card(x.c).name); info.xbFx = (slot.xb || []).filter(b => b.xfr); info.xbNo = (slot.xb || []).filter(b => !b.xfr);
+    info.mats = (slot.mats || []).map(id => card(id).name); info.xyz = isXyz(card(slot.c)); { const A = monAttrs(slot); if (A.join() !== attrsOf(card(slot.c)).join()) info.attrs = A; } info.evoU = (slot.evoU || []).map(x => card(x.c).name); info.xbFx = (slot.xb || []).filter(b => b.xfr); info.xbNo = (slot.xb || []).filter(b => !b.xfr);
     info.gab = monAbs(G.st, owner, i).filter(a => a.gab).map(a => { const x = { ...a, n: a.n0 != null ? a.n0 : a.n }; return (ABS[a.k].kw ? kwStr(x) : abPhrase(x)) + (a.stat ? `（「${a.from}」が場にいる間）` : a.until ? `（${a.until >= G.st.turnNo + 1 ? "次の自分のターンの終わりまで" : "このターンだけ"}）` : ""); });
     info.abs = [...new Set(monAbs(G.st, owner, i).filter(a => a.eqU).map(a => ABS[a.k].text && ABS[a.k].n ? ABS[a.k].text((a.n || 0) * a.mult, a.name || "") : ABS[a.k].label))];
     info.eqList = es.map((e, k) => ({ c: e.c, mult: eqMult(es, k), used: !!e.used, opp: e.o !== owner, mana: !!P(G.st, e.o).mana }));

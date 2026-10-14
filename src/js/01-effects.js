@@ -469,7 +469,7 @@ function attrRegistryFull(){ const o = {}; const put = (k, v) => { if (o[k] || !
 function attrRegistry(){ const o = { ...ATTR_BUILTIN }; Object.entries(attrRegistryFull()).forEach(([k, v]) => { if (!o[k]) o[k] = v.c; }); return o; }
 const attrList = () => Object.keys(attrRegistry());
 // 場のモンスターの属性（効果で加えた・変えた属性もふくむ）
-const monAttrs = m => !m ? [] : m.atSet ? (m.xat || []).slice() : [...new Set([...attrsOf(card(m.c)), ...(m.xat || [])])];
+const monAttrs = m => { if (!m) return []; let A = m.atSet ? (m.xat || []).slice() : [...new Set([...attrsOf(card(m.c)), ...(m.xat || [])])]; const sa = typeof staticAttrs === "function" ? staticAttrs(m) : null; if (sa){ if (sa.set) A = sa.set.slice(); A = [...new Set([...A, ...sa.add])]; } return A; };
 // 属性を付与する: だれに
 const GAT_W = { opp1: "相手のモンスター1体", oppAll: "相手のモンスターすべて", self: "このモンスター", mine1: "自分のモンスター1体", mineAll: "自分のモンスターすべて" };
 // レベル（0〜12。0ならなし）。コストを使わないデッキでも意味があるように、生贄の数をレベルから決められる（遊戯王と同じ: 5〜6は1体、7以上は2体）

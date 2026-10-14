@@ -80,7 +80,30 @@ function modApply(st, s, c, fx, target, src){
   log(st, s, `${src}で${modTargetText(fx)}を書きかえた（${out.length}枚）`);
 }
 // 場にいる間: 場のモンスターと表の永続カードの「場にいる間」の効果（ATKの増減・○倍）を、そのつど計算する
-const STATIC_KINDS = ["selfAtkDown", "myAtkDownAll", "selfAtk", "atkUp", "atkAll", "atkDown", "atkDownAll", "atkMul", "giveAb", "ctrAdd"];
+// 「場にいる間」の「属性を付与する」: 出しているカードが場にいる間だけ、モンスターの属性が変わる
+function staticAttrs(m){
+  if (typeof G === "undefined" || !G || !G.st || !G.st.players || staticAttrs.busy) return null;
+  const st = G.st; let ms = null; for (const o of ["a", "b"]) if (P(st, o).mz.indexOf(m) >= 0) ms = o; if (!ms) return null;
+  staticAttrs.busy = true; const out = { add: [], set: null };
+  try{
+    const srcs = [];
+    for (const o of ["a", "b"]){ const p = P(st, o); p.mz.forEach((x, i) => { if (x) srcs.push({ o, c: monCard(x), mon: x, ctx: { zone: i, mon: { s: o, i, u: x.u } } }); }); p.sz.forEach((z, i) => { if (z && z.face && (isPersist(card(z.c)) || z.fcp)) srcs.push({ o, c: card(z.c), mon: null, ctx: { pz: i } }); }); }
+    if (st.field) srcs.push({ o: st.field.o, c: card(st.field.c), mon: null, ctx: { field: true } });
+    srcs.forEach(src => blocksOf(src.c).forEach(b => {
+      if (b.trig !== "while") return;
+      const plain = (b.conds || []).filter(x => x.k !== "ask"), ok = !plain.length || (b.join === "or" ? plain.some(x => condMet(st, src.o, src.c, x, src.ctx)) : plain.every(x => condMet(st, src.o, src.c, x, src.ctx)));
+      ((ok ? b.then : b.else) || []).forEach(e => {
+        if (!e || e.kind !== "giveAttr") return;
+        const w = e.aw || "opp1", a = String(e.ga || "火"), mine = ms === src.o, self = src.mon === m;
+        const hit = w === "self" ? self : w === "oppAll" || w === "opp1" ? !mine : w === "mineAll" || w === "mine1" ? mine : false;
+        if (!hit || (w !== "self" && !mfOk(st, src.o, e, m))) return;
+        if (e.gm === "set") out.set = [a]; else out.add.push(a);
+      });
+    }));
+  } finally { staticAttrs.busy = false; }
+  return out.add.length || out.set ? out : null;
+}
+const STATIC_KINDS = ["giveAttr", "selfAtkDown", "myAtkDownAll", "selfAtk", "atkUp", "atkAll", "atkDown", "atkDownAll", "atkMul", "giveAb", "ctrAdd"];
 /* 「場にいる間、カウンターを乗せる」: 出ている間は乗せておいて、いなくなったり条件に合わなくなったら、その分を取り除く。
    乗せた数は乗っている側に m.ctrA / p.ctrA = { "出し手のu|カウンターid": 個数 } で覚えておく（ほかの効果で取り除かれた分は、もう一度は乗せない） */
 function ctrAuraSync(st){
