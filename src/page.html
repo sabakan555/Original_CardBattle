@@ -108,7 +108,13 @@
           <div class="row" id="mkKindSub" hidden style="margin-top:8px;gap:8px;align-items:center"><span class="note">なにを：</span><div class="seg" id="mkKind2"><button data-k2="potion" aria-pressed="true">ポーション</button><button data-k2="relic" aria-pressed="false">レリック</button><button data-k2="counter" aria-pressed="false">カウンター</button></div><span class="note" id="mkKindNote">選択の祭壇を使うデッキで、モンスターを倒すと手に入ることがある</span></div>
           <div id="ctrPanel"><div id="ctrList"></div></div>
           <label class="row" id="neowRow" hidden style="gap:6px;font-weight:700;cursor:pointer;margin-top:8px"><input type="checkbox" id="mkNeow"> ネオーレリック（試合のはじめのレリック選びに出る。ふつうの戦闘では手に入らない）</label></div>
-        <div id="mkTypeWrap"><h3>カードの種類</h3><div class="seg" id="mkType"><button data-t="monster" aria-pressed="true">モンスター</button><button data-t="magic" aria-pressed="false">魔法</button><button data-t="equip" aria-pressed="false">装備</button><button data-t="trap" aria-pressed="false">罠</button><button data-t="power" aria-pressed="false" hidden>パワー</button></div></div>
+        <div id="mkTypeWrap"><h3>カードの種類</h3><div class="seg" id="mkType"><button data-t="monster" aria-pressed="true">モンスター</button><button data-t="magic" aria-pressed="false">魔法</button><button data-t="equip" aria-pressed="false">装備</button><button data-t="trap" aria-pressed="false">罠</button><button data-t="twin" aria-pressed="false" title="モンスターとしても魔法としても使えるカード">ツインパクト</button><button data-t="power" aria-pressed="false" hidden>パワー</button></div>
+          <input type="checkbox" id="mkTw" hidden>
+          <div id="twOpts" class="bk-col tw-opts" hidden>
+            <div class="row" style="gap:6px 12px;flex-wrap:wrap;align-items:center"><input type="text" id="mkTwName" maxlength="40" placeholder="魔法側の名前" style="min-width:200px" aria-label="魔法側の名前"><label class="row" style="gap:6px">魔法側のコスト<input type="number" id="mkTwCost" min="0" max="99" value="1" style="width:64px"></label></div>
+            <div class="seg" id="mkTwSide" role="group" aria-label="どちらの効果を作る"><button type="button" data-tw="mon" aria-pressed="true">モンスター側の効果</button><button type="button" data-tw="sp" aria-pressed="false">魔法側の効果</button></div>
+            <p class="note" style="margin:0">手札から、モンスターとして出すか、魔法として使うか選べる。「魔法側の効果」を押すと、効果の欄で魔法側の効果を作れる（「モンスター側の効果」で戻る）。魔法として使ったあとはカードごと墓地へ</p>
+          </div></div>
         <div id="mkCostWrap"><h3>コスト</h3><div class="row" style="gap:8px 14px;flex-wrap:wrap;align-items:center"><div class="seg" id="mkMode"><button data-m="normal" aria-pressed="true">コストなし</button><button data-m="cost" aria-pressed="false">コストあり</button><button data-m="both" aria-pressed="false">どちらでも</button><button data-m="zone" aria-pressed="false">デュエマ式</button></div><label class="row" id="costRow" style="gap:8px;font-weight:700" hidden>マナ<select id="mkCost"></select></label></div>
           <p class="note" id="modeNote" style="margin:4px 0 0"></p>
           <div class="lv-attr" id="lvAttrBox">
@@ -287,17 +293,6 @@
                 <div class="row" style="gap:6px;flex-wrap:wrap;align-items:center"><b style="font-size:13px">素材</b><span class="note">ランクと同じレベルの</span><select id="sxXM" aria-label="素材の決め方"><option value="any">モンスター</option><option value="tag">タグで</option><option value="name">名前で</option></select><input type="text" id="sxXV" list="tagNames" maxlength="40" style="width:150px" aria-label="素材" hidden><select id="sxXN" aria-label="素材の数"><option>2</option><option>3</option><option>4</option><option>5</option></select><span class="note">体</span></div>
                 <div class="row" style="gap:6px;flex-wrap:wrap;align-items:center"><label class="row" style="gap:6px;cursor:pointer;font-weight:700"><input type="checkbox" id="sxOvOn"> 重ねるだけでも出せる</label><span class="note">自分の場の</span><select id="sxOvM" aria-label="重ねられるモンスター"><option value="xyz">エクシーズモンスター</option><option value="tag">タグで</option><option value="name">名前で</option><option value="any">どのモンスターでも</option></select><span id="sxOvR" class="row" style="gap:4px;align-items:center"><span class="note">ランク</span><input type="number" id="sxOvLo" min="1" max="12" value="1" style="width:52px" aria-label="ランクの下"><span class="note">〜</span><input type="number" id="sxOvHi" min="1" max="12" value="12" style="width:52px" aria-label="ランクの上"></span><input type="text" id="sxOvV" list="tagNames" maxlength="40" style="width:140px" aria-label="重ねられるモンスター" hidden><span class="note">1体の上に重ねる（1ターンに1回・アーゼウスみたいな）</span></div>
                 <p class="note" style="margin:0">自分の場のモンスターを重ねてEXデッキから出す。カードの「レベル」がランクになる（エクシーズモンスターにはレベルがない）。重ねたカードはエクシーズ素材になって、「起動効果」のコストで取り除ける</p>
-              </div>
-            </div>
-          </details>
-          <details class="mk-sec" id="secTw">
-            <summary><span class="mk-st">ツインパクト（呪文としても使える・デュエマ風）</span><span class="mk-sum" id="sumTw"></span></summary>
-            <div class="fxform">
-              <label class="row" style="gap:6px;font-weight:700;cursor:pointer"><input type="checkbox" id="mkTw"> ツインパクトにする（手札から、モンスターとして出すか、呪文として使うか選べる）</label>
-              <div id="twOpts" class="bk-col" hidden>
-                <div class="row" style="gap:6px 12px;flex-wrap:wrap;align-items:center"><input type="text" id="mkTwName" maxlength="40" placeholder="呪文側の名前" style="min-width:200px" aria-label="呪文側の名前"><label class="row" style="gap:6px">呪文側のコスト<input type="number" id="mkTwCost" min="0" max="99" value="1" style="width:64px"></label></div>
-                <div class="seg" id="mkTwSide" role="group" aria-label="どちらの効果を作る"><button type="button" data-tw="mon" aria-pressed="true">モンスター側の効果</button><button type="button" data-tw="sp" aria-pressed="false">呪文側の効果</button></div>
-                <p class="note" style="margin:0">「呪文側の効果」を押すと、効果の欄で呪文側の効果を作れる（もう一度「モンスター側の効果」で戻る）。呪文として使ったあとはカードごと墓地へ</p>
               </div>
             </div>
           </details>

@@ -77,7 +77,7 @@ function cpuStep(st, s){
     if (fx && fx.kind === "atkUp" && !p.mz.some(Boolean)) continue;
     if (Math.random() < .7){ activate(st, s, "hand", i); return; }
   }
-  // 1a. ツインパクトの呪文側
+  // 1a. ツインパクトの魔法側
   for (let i = 0; i < p.hand.length; i++){ const c = card(p.hand[i]); if (!twOf(c) || twinWhy(st, s, i) || Math.random() > .4) continue; if (castTwin(st, s, i)) return; }
   // 1b. equip (bad ones go on the opponent)
   for (let ei = 0; ei < p.hand.length; ei++){
@@ -330,7 +330,7 @@ function renderBoard0(){
       const afford = canPay(st, me, c), short = afford ? "" : costWhy(st, me, c) ? `（${costWhy(st, me, c)}）` : (effCost(st, me, c) === Infinity ? "（コスト∞：ふつうには使えない）" : `（マナが${effCost(st, me, c) - pm.mana.cur}足りない）`);
       if (t === "monster"){
         const ss = ssOf(c);
-        if (twOf(c)){ const sp = card(c.id + "~tw"), why = twinWhy(st, me, sel.i); acts += `<button class="mg" data-act="twin" ${why ? "disabled" : ""}>呪文「${esc(sp.name)}」として使う${why ? `（${esc(why)}）` : ""}</button>`; }
+        if (twOf(c)){ const sp = card(c.id + "~tw"), why = twinWhy(st, me, sel.i); acts += `<button class="mg" data-act="twin" ${why ? "disabled" : ""}>魔法「${esc(sp.name)}」として使う${why ? `（${esc(why)}）` : ""}</button>`; }
         const tn = tribOf(c, st, me), mineN = pm.mz.filter(m => m && (!c.tribTag || hasTag(m.c, c.tribTag))).length;
         if (isDmEvo(c)){ const B = evoBases(st, me, c), ok = canSummonNow(st, me) && afford && B.length > 0; acts += `<button class="primary" data-act="summon" ${ok ? "" : "disabled"}>進化する${!canSummonNow(st, me) ? "（このターンは召喚ずみ）" : !B.length ? `（進化元がいない）` : short}</button>`; if (ok) hint = `自分の${DM_EVO_W(c.dmEvo)}モンスターの上に重ねて出します（出たターンから攻撃できる）`; }
         else if (!(ss && ss.only)){ const ms = massOf(c), msOk = pm.grave.length >= ms, ok = canSummonNow(st, me) && afford && msOk && (tn ? mineN >= tn : freeZone(pm.mz) >= 0); acts += `<button class="primary" data-act="summon" ${ok ? "" : "disabled"}>${tn ? "生贄召喚する" : ms ? `召喚する（質量${ms}）` : "召喚する"}${!canSummonNow(st, me) ? "（このターンは召喚ずみ）" : !msOk ? `（墓地のカードが${ms}枚いる）` : tn && mineN < tn ? `（生贄が${tn}体いる）` : short}</button>`; if (ok) hint = tn ? `自分のモンスター${tn}体を生贄にして召喚します` : "光っているモンスターゾーンをクリックしても召喚できます"; }

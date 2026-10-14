@@ -2,7 +2,7 @@
 const O = s => s === "a" ? "b" : "a";
 const P = (st, s) => st.players[s];
 const card = id => S.cards.get(id) || modCardOf(id) || twCardOf(id) || { id, name: "？", type: "monster", atk: 0 };
-// ツインパクト: モンスターの c.tw = { name, cost, blocks } が呪文側。呪文側は「id~tw」の魔法カードとして扱う
+// ツインパクト: モンスターの c.tw = { name, cost, blocks } が魔法側。魔法側は「id~tw」の魔法カードとして扱う
 function twOf(c){ return c && c.tw && typeof c.tw === "object" && !c.twOf && cardType(c) === "monster" ? c.tw : null; }
 function twBase(id){ return String(id || "").endsWith("~tw") ? String(id).slice(0, -3) : id; }
 function twCardOf(id){
@@ -10,7 +10,7 @@ function twCardOf(id){
   const k = String(id || ""); if (!k.endsWith("~tw")) return null;
   const b = S.cards.get(k.slice(0, -3)), t = b && twOf(b); if (!t) return null;
   const hit = TW_CACHE.get(k); if (hit && hit.b === b) return hit.v;
-  const v = { ...b, id: k, type: "magic", name: t.name || `${b.name}（呪文）`, nameRuby: null, cost: t.cost != null && t.cost !== "" ? t.cost : b.cost, blocks: Array.isArray(t.blocks) ? t.blocks : [], fx: null, combo: null, abs: [], atk: 0, atkInf: false, effect: t.effect || "", tw: null, twOf: b.id, sx: null, fusion: null, fusFree: null, ex: null, mass: 0, trib: 0, lvTrib: false, ss: null, cascade: b.cascade || null };
+  const v = { ...b, id: k, type: "magic", name: t.name || `${b.name}（魔法）`, nameRuby: null, cost: t.cost != null && t.cost !== "" ? t.cost : b.cost, blocks: Array.isArray(t.blocks) ? t.blocks : [], fx: null, combo: null, abs: [], atk: 0, atkInf: false, effect: t.effect || "", tw: null, twOf: b.id, sx: null, fusion: null, fusFree: null, ex: null, mass: 0, trib: 0, lvTrib: false, ss: null, cascade: b.cascade || null };
   TW_CACHE.set(k, { b, v }); return v;
 }
 const hasCard = id => S.cards.has(id) || !!modCardOf(id);
@@ -1713,7 +1713,7 @@ function pay(st, s, c){
   if (dv){ const ex = p.grave.splice(0, dv); (p.exile = p.exile || []).push(...ex); log(st, s, `「${c.name}」の探査：墓地のカード${dv}枚を除外した`); }
   if (m){ m.cur -= k; if (p.manaZ){ manaTap(p, Math.max(0, manaFree(p).length - Math.max(0, Math.min(m.cur, p.manaZ.length))), attrsOf(c)); manaSync(p); } } p.lastPaid = k; return true;
 }
-// ツインパクト: 手札の hi 番目を呪文として使う
+// ツインパクト: 手札の hi 番目を魔法として使う
 function twinWhy(st, s, hi){ const p = P(st, s), id = p.hand[hi], c = card(id); if (!twOf(c)) return "ツインパクトではない"; const sp = card(id + "~tw"); return useBlockedWhy(st, s, sp) || (canPay(st, s, sp) ? "" : costWhy(st, s, sp) || "マナが足りない"); }
 function castTwin(st, s, hi, ctx = {}){ const p = P(st, s), id = p.hand[hi]; if (!twOf(card(id)) || twinWhy(st, s, hi)) return false; p.hand[hi] = id + "~tw"; if (activate(st, s, "hand", hi, ctx)) return true; if (p.hand[hi] === id + "~tw") p.hand[hi] = id; return false; }
 // a card with 「手札を捨てる」 cost: the human picks which ones first (hi = the used card's hand index, -1 if it isn't in the hand)
