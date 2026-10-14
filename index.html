@@ -1484,9 +1484,9 @@ div.f{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:13px}
 .card.dm.equip .c-atk{left:calc(var(--du)*-38);top:calc(var(--du)*206)}.card.dm.equip .c-atk .up,.card.dm.equip .c-atk .dn{color:#fff}
 .card.dm .c-lim{position:absolute;left:auto;right:calc(var(--du)*-10);top:auto;bottom:calc(var(--du)*-80);color:#bbb;font-size:calc(var(--du)*16);font-weight:700;z-index:3}
 .card.dm .c-eqc{z-index:3}
-/* 元の枠画像と左上の曲線を残し、下の絵に重なる石の面だけ抜く。 */
+/* 名前・種族の上枠と左上の曲線だけ残し、絵の左右と下には石の帯を置かない。 */
 .card.dm.frameless{background:#000!important}
-.card.dm.frameless::before{clip-path:polygon(evenodd,0 0,100% 0,100% 100%,0 100%,0 0,3.81% 62.84%,3.81% 95%,96.19% 95%,96.19% 62.84%,3.81% 62.84%)}
+.card.dm.frameless::before{clip-path:inset(0 0 calc(100% - var(--du)*120) 0)}
 .card.dm.frameless .c-art,.card.dm.frameless .c-bgart{left:calc(var(--du)*24);top:calc(var(--du)*120);right:auto;bottom:auto;width:calc(var(--du)*582);height:calc(var(--du)*716);background:transparent;z-index:0}
 .card.dm.frameless.magic .c-art,.card.dm.frameless.equip .c-art,.card.dm.frameless.trap .c-art,.card.dm.frameless.magic .c-bgart,.card.dm.frameless.equip .c-bgart,.card.dm.frameless.trap .c-bgart{top:calc(var(--du)*109);height:calc(var(--du)*727)}
 .card.dm.frameless .c-bgart{display:block!important}
