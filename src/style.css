@@ -715,6 +715,25 @@ button.chip{font-size:12px;border:1.5px solid var(--ink);border-radius:99px;padd
 @keyframes fxfloat{0%{transform:translate(-50%,10px) scale(.6);opacity:0}20%{transform:translate(-50%,-10px) scale(1.2);opacity:1}100%{transform:translate(-50%,-60px) scale(1);opacity:0}}
 .fxspell{left:50%;top:45%;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;gap:8px;animation:fxspell 1.25s ease-in-out forwards;filter:drop-shadow(0 10px 30px rgba(30,35,40,.45))}
 .fxcut{position:fixed;left:0;right:0;top:50%;height:0;z-index:8500;pointer-events:none}
+.fxace{position:fixed;inset:0;z-index:8600;pointer-events:none;overflow:hidden;--ac:#ffd34d}
+.fxace .ace-bg{position:absolute;inset:0;background:radial-gradient(ellipse at 50% 50%,color-mix(in srgb,var(--ac) 30%,#120a1e) 0,#07040d 70%);animation:aceBg 1.9s ease forwards}
+.fxace .ace-burst{position:absolute;left:50%;top:50%;width:170vmax;height:170vmax;margin:-85vmax 0 0 -85vmax;background:repeating-conic-gradient(from 0deg,color-mix(in srgb,var(--ac) 70%,transparent) 0 4deg,transparent 4deg 14deg);mix-blend-mode:screen;animation:aceBurst 1.9s linear forwards}
+.fxace .ace-band{position:absolute;left:-10vw;right:-10vw;top:50%;height:clamp(110px,24vh,210px);transform:translateY(-50%) skewY(-6deg);background:linear-gradient(90deg,transparent,color-mix(in srgb,var(--ac) 80%,#000) 18%,color-mix(in srgb,var(--ac) 55%,#1a0f2a) 50%,color-mix(in srgb,var(--ac) 80%,#000) 82%,transparent);border-block:4px solid color-mix(in srgb,var(--ac) 40%,#fff);animation:aceBand 1.9s cubic-bezier(.2,.8,.2,1) forwards}
+.fxace .ace-card{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);animation:aceCard 1.9s cubic-bezier(.2,.9,.25,1) forwards;filter:drop-shadow(0 0 22px color-mix(in srgb,var(--ac) 80%,transparent))}
+.fxace .ace-card .card{--w:min(40vw,240px)}
+.fxace .ace-txt{position:absolute;left:0;right:0;bottom:9vh;display:flex;flex-direction:column;align-items:center;gap:2px;color:#fff;text-shadow:0 3px 0 rgba(0,0,0,.45),0 0 20px color-mix(in srgb,var(--ac) 70%,transparent);animation:aceTxt 1.9s cubic-bezier(.2,.8,.2,1) forwards}
+.fxace .ace-sub{font-family:var(--display);font-size:clamp(13px,2vw,18px);letter-spacing:.5em;color:color-mix(in srgb,var(--ac) 60%,#fff)}
+.fxace .ace-line{font-family:var(--display);font-size:clamp(28px,6vw,56px);line-height:1.1;letter-spacing:.04em;text-align:center;padding:0 12px}
+.fxace .ace-name{font-weight:800;font-size:clamp(13px,2vw,18px);opacity:.92}
+.fxace .ace-flash{position:absolute;inset:0;background:#fff;opacity:0;animation:aceFlash 1.9s ease forwards}
+.fxace.draw .ace-card{animation-name:aceCardDraw}
+@keyframes aceBg{0%{opacity:0}10%{opacity:.94}85%{opacity:.94}100%{opacity:0}}
+@keyframes aceBurst{0%{opacity:0;transform:rotate(0) scale(.6)}18%{opacity:.55}80%{opacity:.35}100%{opacity:0;transform:rotate(70deg) scale(1.1)}}
+@keyframes aceBand{0%{opacity:0;transform:translateY(-50%) skewY(-6deg) scaleX(.2)}16%{opacity:1;transform:translateY(-50%) skewY(-6deg) scaleX(1)}84%{opacity:1}100%{opacity:0;transform:translateY(-50%) skewY(-6deg) scaleX(1.05)}}
+@keyframes aceCard{0%{opacity:0;transform:translate(-160%,-50%) rotate(-18deg) scale(.7)}22%{opacity:1;transform:translate(-50%,-56%) rotate(2deg) scale(1.06)}30%{transform:translate(-50%,-55%) rotate(0) scale(1)}82%{opacity:1;transform:translate(-50%,-55%) scale(1.04)}100%{opacity:0;transform:translate(-50%,-55%) scale(1.25)}}
+@keyframes aceCardDraw{0%{opacity:0;transform:translate(-50%,40%) rotateY(90deg) scale(.6)}24%{opacity:1;transform:translate(-50%,-56%) rotateY(0) scale(1.06)}32%{transform:translate(-50%,-55%) scale(1)}82%{opacity:1;transform:translate(-50%,-55%) scale(1.04)}100%{opacity:0;transform:translate(-50%,-55%) scale(1.25)}}
+@keyframes aceTxt{0%,18%{opacity:0;transform:translateX(30%)}32%{opacity:1;transform:translateX(0)}84%{opacity:1}100%{opacity:0;transform:translateX(-8%)}}
+@keyframes aceFlash{0%,19%{opacity:0}22%{opacity:.75}34%{opacity:0}100%{opacity:0}}
 .fxcut .cut-band{position:absolute;left:-10vw;right:-10vw;top:0;height:clamp(96px,17vh,150px);transform:translateY(-50%) skewY(-5deg);background:linear-gradient(90deg,transparent,var(--cut1) 14%,var(--cut2) 50%,var(--cut1) 86%,transparent);border-top:4px solid var(--cut3);border-bottom:4px solid var(--cut3);box-shadow:0 0 40px var(--cut1);overflow:hidden;animation:cutband 1.45s cubic-bezier(.2,.8,.2,1) forwards}
 .fxcut.mine{--cut1:rgba(54,190,170,.92);--cut2:rgba(40,120,170,.96);--cut3:#9ff3e6}
 .fxcut.theirs{--cut1:rgba(214,70,90,.92);--cut2:rgba(130,40,90,.96);--cut3:#ffb2bf}

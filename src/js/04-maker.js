@@ -488,7 +488,7 @@ const KIND_GROUPS = [
   { g: "give",    label: "相手にカードを送りこむ", v: [["oppGenHand", "名前を指定したカードを相手の手札に"], ["oppGenDeck", "名前を指定したカードを相手の山札に混ぜる"], ["oppSummon", "名前を指定したモンスターを相手の場に出す"], ["oppSetNamed", "名前を指定した魔法・罠を相手の場にセット"]] },
   { g: "negate",  label: "打ち消す・無効にする", v: [["cancel", "魔法・罠の発動かモンスターの召喚を打ち消す"], ["reflectFx", "相手の魔法・罠を打ち消して、その効果を自分が使う（跳ね返す）"], ["negate", "相手の攻撃を無効にする（罠・速攻魔法）"], ["dmgAtkAtk", "攻撃してきたモンスターのATKぶんのダメージを相手に与える（罠・速攻魔法）"], ["reflectDmg", "このターン、自分が受けるダメージを相手に跳ね返す"]] },
   { g: "equip",   label: "装備を動かす", v: [["moveEquips", "別のモンスターに付けかえる"], ["equipsToHand", "ほかの装備を手札に戻す"]] },
-  { g: "minus",   label: "デメリット（自分が損する・しばり）", v: [["loseLp", "LPを失う（ブロックでは防げない）"], ["oppHeal", "相手のLPを回復する"], ["oppDraw", "相手にカードを○枚引かせる"], ["selfDisc", "手札をえらんで捨てる"], ["selfDiscRand", "手札をランダムに捨てる"], ["selfDiscAll", "手札をすべて捨てる"], ["thisNoAtk", "このモンスターは攻撃できない（このターン）"], ["thisTopOnly", "一番ATKが高い相手にしか攻撃できない"], ["selfNoAtk", "自分のモンスターは攻撃できない（このターン）"], ["destroyOwn", "自分のモンスター1体を破壊"], ["destroyThis", "このモンスターを破壊"], ["destroyOwnAll", "自分のモンスターをすべて破壊"], ["oppStr", "相手が筋力を得る"], ["noDraw", "このターンもう引けない"]] },
+  { g: "minus",   label: "デメリット（自分が損する・しばり）", v: [["loseLp", "LPを失う（ブロックでは防げない）"], ["oppHeal", "相手のLPを回復する"], ["oppDraw", "相手にカードを○枚引かせる"], ["selfDisc", "手札をえらんで捨てる"], ["selfDiscRand", "手札をランダムに捨てる"], ["selfDiscAll", "手札をすべて捨てる"], ["thisNoAtk", "このモンスターは攻撃できない（このターン）"], ["thisTopOnly", "一番ATKが高い相手にしか攻撃できない"], ["selfNoAtk", "自分のモンスターは攻撃できない（このターン）"], ["destroyOwn", "自分のモンスター1体を破壊"], ["destroyThis", "このモンスターを破壊"], ["destroyOwnAll", "自分のモンスターをすべて破壊"], ["selfAtkDown", "このモンスターのATKダウン"], ["myAtkDown", "自分のモンスター1体のATKダウン"], ["myAtkDownAll", "自分のモンスターすべてのATKダウン"], ["oppStr", "相手が筋力を得る"], ["noDraw", "このターンもう引けない"]] },
   { g: "ctr",     label: "カウンター（乗せる・取り除く）", v: [["ctrAdd", "カウンターを乗せる"], ["ctrDel", "カウンターを取り除く"]] },
   { g: "win",     label: "ゲームに勝つ", v: [["win", "勝利する"]] }
 ];
@@ -601,7 +601,7 @@ $("#mkWhen").addEventListener("change", () => updateBkText());
 function mkFusionVal(){ if (MK.type !== "monster" || MK.kind === "potion" || MK.kind === "relic" || !$("#mkFusion").checked) return null; const L = (MK.fusion || []).filter(x => x.m === "any" || String(x.v || "").trim()).map(x => ({ m: x.m === "tag" || x.m === "any" ? x.m : "name", v: x.m === "any" ? "" : String(x.v).trim() })); return L.length ? L : null; }
 function renderFusion(){
   const box = $("#fusionMats"); if (!box) return;
-  const on = $("#mkFusion").checked; box.hidden = !on;
+  const on = $("#mkFusion").checked; box.hidden = !on; { const fr = $("#fusFreeRow"); if (fr) fr.hidden = !on; }
   { const sm = $("#sumFusion"); if (sm){ const v = mkFusionVal(); sm.textContent = v ? v.map(fusionMatText).join("＋") : "なし"; sm.classList.toggle("on", !!v); } }
   if (!on) return;
   if (!MK.fusion || !MK.fusion.length) MK.fusion = [{ m: "name", v: "" }, { m: "name", v: "" }];
@@ -633,7 +633,7 @@ function syncTypeNames(){ const sp = $("#mkFrame").value === "spire"; document.q
 $("#mkType").addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return; if ($("#mkFrame").value === "spire"){ const k = { monster: "attack", magic: "skill", power: "power" }[b.dataset.t]; if (!k) return; MK.sk = k; $("#mkPersist").checked = k === "power"; setMkType("magic"); return; } setMkType(b.dataset.t); });
 // sensible default numbers when the effect kind changes (cards to draw vs. points)
 // 数の入れ方: ダメージ・ATK・LP・ブロックのような「量」は100くらい、それ以外（枚数・回数・ターン数）は1から
-const BIG_N = ["dex", "dexTemp", "dmg", "heal", "oppHeal", "block", "selfAtk", "atkUp", "atkAll", "atkDown", "atkDownTmp", "loseLp", "plate", "thornsNow", "rageNow", "blast", "str", "strTemp", "oppStr", "oppStrDown", "vulnBonus", "bash", "dmgRand", "dmgAll", "atkDownAll", "atkSet", "atkSetAll"];
+const BIG_N = ["selfAtkDown", "myAtkDown", "myAtkDownAll", "dex", "dexTemp", "dmg", "heal", "oppHeal", "block", "selfAtk", "atkUp", "atkAll", "atkDown", "atkDownTmp", "loseLp", "plate", "thornsNow", "rageNow", "blast", "str", "strTemp", "oppStr", "oppStrDown", "vulnBonus", "bash", "dmgRand", "dmgAll", "atkDownAll", "atkSet", "atkSetAll"];
 // 0 を入れてよい「数」（コストを○に・ATKを○に）
 const ZERO_N = k => k === "setCost" || k === "atkSet" || k === "atkSetAll";
 const smallN = k => !BIG_N.includes(k);
@@ -780,9 +780,14 @@ function syncHfUI(){ const on = $("#mkHf").checked; $("#mkHfM").hidden = !on; $(
 const mkCascadeVal = () => (MK.type === "monster" || MK.type === "magic") && $("#mkCascade").checked || null;
 // レベル・属性（カードに保存する値）
 MK.attrs = []; MK.attrDefs = {};
-function mkLvAttrVal(){ const lv = Math.max(0, Math.min(12, Math.round(+$("#mkLv").value || 0))), A = (MK.attrs || []).slice(0, 5), defs = {}; A.forEach(a => { if (!ATTR_BUILTIN[a]){ const x = MK.attrDefs[a] || attrRegistryFull()[a]; const o = typeof x === "string" ? { c: x } : x || { c: "#888888" }; defs[a] = { c: HEX6.test(o.c || "") ? o.c : "#888888", m: [...String(o.m || a)][0], ...(o.r ? { r: String(o.r).slice(0, 8) } : {}) }; } }); return { lv: lv || null, lvTrib: lv && MK.type === "monster" ? $("#mkLvTrib").checked : null, attrs: A.length ? A : null, attrDefs: Object.keys(defs).length ? defs : null, sx: mkSxVal() }; }
+function mkLvAttrVal(){ const lv = Math.max(0, Math.min(12, Math.round(+$("#mkLv").value || 0))), A = (MK.attrs || []).slice(0, 5), defs = {}; A.forEach(a => { if (!ATTR_BUILTIN[a]){ const x = MK.attrDefs[a] || attrRegistryFull()[a]; const o = typeof x === "string" ? { c: x } : x || { c: "#888888" }; defs[a] = { c: HEX6.test(o.c || "") ? o.c : "#888888", m: [...String(o.m || a)][0], ...(o.r ? { r: String(o.r).slice(0, 8) } : {}) }; } }); return { lv: lv || null, lvTrib: lv && MK.type === "monster" ? $("#mkLvTrib").checked : null, attrs: A.length ? A : null, attrDefs: Object.keys(defs).length ? defs : null, sx: mkSxVal(), fusFree: mkFusionVal() && $("#mkFusFree").checked ? true : null, ace: mkAceVal() }; }
+function mkAceVal(){ const on = $("#mkAceOn").value; if (!on) return null; const t = $("#mkAceT").value.trim().slice(0, 40); return { on, ...(t ? { t } : {}), col: $("#mkAceCol").value }; }
+function syncAce(){ const v = mkAceVal(), sm = $("#sumAce"); if (sm){ sm.textContent = v ? { use: "使ったとき", draw: "引いたとき", both: "使ったとき・引いたとき" }[v.on] : "なし"; sm.classList.toggle("on", !!v); } }
+["#mkAceOn", "#mkAceT", "#mkAceCol"].forEach(q => ["input", "change"].forEach(t => $(q).addEventListener(t, syncAce)));
+$("#mkAcePrev").addEventListener("click", () => { const c = { ...mkPreviewCard(), id: "__acePrev", name: $("#mkName") ? $("#mkName").value || "（カード名）" : "（カード名）", ace: mkAceVal() || { on: "use", col: $("#mkAceCol").value, t: $("#mkAceT").value.trim() } }; const had = S.cards.get("__acePrev"); S.cards.set("__acePrev", c); const g0 = G; try{ G = null; aceFx({ type: "ace", s: "a", c: "__acePrev", draw: $("#mkAceOn").value === "draw" }); } finally { G = g0; } setTimeout(() => { if (had) S.cards.set("__acePrev", had); else S.cards.delete("__acePrev"); }, 2000); });
+$("#mkFusFree").addEventListener("change", () => updateBkText());
 // シンクロ・エクシーズ
-function mkSxVal(){ if (MK.type !== "monster" || MK.kind === "potion" || MK.kind === "relic" || !MK.sx) return null; if (MK.sx === "syn") return { k: "syn", t: { m: $("#sxTM").value, v: $("#sxTV").value.trim() }, o: { m: $("#sxOM").value, v: $("#sxOV").value.trim() } }; return { k: "xyz", n: +$("#sxXN").value || 2, m: $("#sxXM").value, v: $("#sxXV").value.trim() }; }
+function mkSxVal(){ if (MK.type !== "monster" || MK.kind === "potion" || MK.kind === "relic" || !MK.sx) return null; if (MK.sx === "syn") return { k: "syn", t: { m: $("#sxTM").value, v: $("#sxTV").value.trim() }, o: { m: $("#sxOM").value, v: $("#sxOV").value.trim() } }; return { k: "xyz", n: +$("#sxXN").value || 2, m: $("#sxXM").value, v: $("#sxXV").value.trim(), ...($("#sxOvOn").checked ? { ov: { m: $("#sxOvM").value, v: $("#sxOvV").value.trim(), lo: +$("#sxOvLo").value || 1, hi: +$("#sxOvHi").value || 12 } } : {}) }; }
 function renderSx(){
   const box = $("#mkSx"); if (!box) return;
   box.querySelectorAll("[data-sx]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.sx === (MK.sx || ""))));
@@ -791,11 +796,13 @@ function renderSx(){
   const sm = $("#sumSx"); if (sm){ sm.textContent = MK.sx === "xyz" ? "エクシーズ" : MK.sx === "syn" ? "シンクロ" : "なし"; sm.classList.toggle("on", !!MK.sx); }
   const lb = $("#lvRow b"); if (lb) lb.textContent = MK.sx === "xyz" ? "ランク" : "レベル";
   $("#lvTribLbl").hidden = MK.type !== "monster" || !!MK.sx;
+  { const m = $("#sxOvM").value, v = $("#sxOvV"); $("#sxOvR").hidden = m !== "xyz"; v.hidden = m !== "tag" && m !== "name"; v.setAttribute("list", m === "name" ? "cardNames" : "tagNames"); v.placeholder = m === "name" ? "モンスターの名前" : "タグ"; }
   const ec = $("#editCard"); if (ec){ ec.classList.toggle("ysyn", MK.sx === "syn"); ec.classList.toggle("yxyz", MK.sx === "xyz"); }
 }
-function mkSetSx(c){ const x = c ? sxOf(c) : null, y = x && x.k === "syn", z = x && x.k === "xyz"; MK.sx = x ? x.k : ""; $("#sxTM").value = y ? x.t.m : "tag"; $("#sxTV").value = y ? x.t.v : "チューナー"; $("#sxOM").value = y ? x.o.m : "nott"; $("#sxOV").value = y ? x.o.v : ""; $("#sxXM").value = z ? x.m : "any"; $("#sxXV").value = z ? x.v : ""; $("#sxXN").value = String(z ? x.n : 2); renderSx(); }
+function mkSetSx(c){ const x = c ? sxOf(c) : null, y = x && x.k === "syn", z = x && x.k === "xyz"; MK.sx = x ? x.k : ""; $("#sxTM").value = y ? x.t.m : "tag"; $("#sxTV").value = y ? x.t.v : "チューナー"; $("#sxOM").value = y ? x.o.m : "nott"; $("#sxOV").value = y ? x.o.v : ""; $("#sxXM").value = z ? x.m : "any"; $("#sxXV").value = z ? x.v : ""; $("#sxXN").value = String(z ? x.n : 2); const ov = z && x.ov; $("#sxOvOn").checked = !!ov; $("#sxOvM").value = ov ? ov.m : "xyz"; $("#sxOvV").value = ov ? ov.v : ""; $("#sxOvLo").value = String(ov ? ov.lo : 1); $("#sxOvHi").value = String(ov ? ov.hi : 12);
+  $("#mkFusFree").checked = !!(c && c.fusFree); const a = c ? aceOf(c) : null; $("#mkAceOn").value = a ? a.on : ""; $("#mkAceT").value = a ? a.t : ""; $("#mkAceCol").value = a ? a.col : "#ffd34d"; syncAce(); renderSx(); }
 $("#mkSx").addEventListener("click", e => { const b = e.target.closest("[data-sx]"); if (!b) return; MK.sx = b.dataset.sx; if (MK.sx) $("#mkEx").checked = true; renderSx(); renderBlocksUI(); updateBkText(); });
-["#sxTM", "#sxTV", "#sxOM", "#sxOV", "#sxXM", "#sxXV", "#sxXN"].forEach(q => ["input", "change"].forEach(t => $(q).addEventListener(t, () => { renderSx(); updateBkText(); })));
+["#sxTM", "#sxTV", "#sxOM", "#sxOV", "#sxXM", "#sxXV", "#sxXN", "#sxOvOn", "#sxOvM", "#sxOvV", "#sxOvLo", "#sxOvHi"].forEach(q => ["input", "change"].forEach(t => $(q).addEventListener(t, () => { renderSx(); updateBkText(); })));
 function renderAttrPick(){
   const box = $("#mkAttrPick"); if (!box) return;
   const reg = { ...attrRegistry(), ...MK.attrDefs }, L = [...new Set([...Object.keys(reg), ...(MK.attrs || [])])];

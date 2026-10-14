@@ -65,6 +65,9 @@ const KINDS = {
   banishGraveAll:{ label: "相手の墓地をすべて除外する", text: () => `相手の墓地のカードをすべて除外する` },
   destroyOthers: { label: "このカード以外の、お互いの場のカードをすべて破壊", text: () => `このカード以外の、お互いの場のカードをすべて破壊` },
   selfAtk:    { label: "このモンスターのATKアップ", n: true, mon: true, text: n => `このモンスターのATK+${n}` },
+  selfAtkDown: { label: "このモンスターのATKダウン", n: true, mon: true, text: n => `このモンスターのATK−${n}` },
+  myAtkDown:  { label: "自分のモンスター1体のATKダウン", n: true, target: "mine", text: n => `自分のモンスター1体のATK−${n}` },
+  myAtkDownAll: { label: "自分のモンスターすべてのATKダウン", n: true, text: n => `自分のモンスターすべてのATK−${n}` },
   moveEquips: { label: "装備を別のモンスターに付けかえる", mon: true, target: "any", text: () => `このモンスターの装備（このカード以外）をすべて、ほかのモンスター1体（相手のでもOK）に付けかえる` },
   equipsToHand: { label: "ほかの装備を手札に戻す", mon: true, text: () => `いっしょに付いていたほかの装備を、持ち主の手札に戻す` },
   blast:      { label: "自爆（装備の枚数×○以下を全部破壊）", n: true, mon: true, text: n => `付いていた装備の枚数×${n}以下のATKのモンスターをすべて破壊し、破壊したうち一番低いATKぶんのダメージを相手に与える` },
@@ -458,10 +461,21 @@ function sxOf(c){
   if (!c || cardType(c) !== "monster" || !c.sx || c.token) return null;
   const x = c.sx, M = (y, d) => { y = y || d; let m = SX_M.includes(y.m) ? y.m : d.m; const v = m === "any" || m === "nott" ? "" : String(y.v || "").trim().slice(0, 40); if ((m === "tag" || m === "name") && !v) m = "any"; return { m, v: m === "any" ? "" : v }; };
   if (x.k === "syn"){ const t = M(x.t, { m: "tag", v: "チューナー" }); if (t.m === "nott") t.m = "any"; const o = M(x.o, { m: "nott" }); if (o.m === "nott" && t.m === "any") o.m = "any"; return { k: "syn", t, o }; }
-  if (x.k === "xyz"){ const f = M(x, { m: "any" }); if (f.m === "nott") f.m = "any"; return { k: "xyz", n: Math.max(2, Math.min(5, Math.round(+x.n || 2))), m: f.m, v: f.v }; }
+  if (x.k === "xyz"){ const f = M(x, { m: "any" }); if (f.m === "nott") f.m = "any";
+    const ov = x.ov && typeof x.ov === "object" ? (o => { const m = ["xyz", "tag", "name", "any"].includes(o.m) ? o.m : "xyz", v = String(o.v || "").trim().slice(0, 40), lo = Math.max(1, Math.min(12, Math.round(+o.lo || 1))), hi = Math.max(lo, Math.min(12, Math.round(+o.hi || 12))); if ((m === "tag" || m === "name") && !v) return null; return { m, v: m === "tag" || m === "name" ? v : "", lo, hi }; })(x.ov) : null;
+    return { k: "xyz", n: Math.max(2, Math.min(5, Math.round(+x.n || 2))), m: f.m, v: f.v, ...(ov ? { ov } : {}) }; }
   return null;
 }
 const isSyn = c => (sxOf(c) || {}).k === "syn", isXyz = c => (sxOf(c) || {}).k === "xyz";
+// 「融合」なしで出せる融合モンスター（自分の場の素材を墓地へ送って出す）
+const isCf = c => !!(c && c.fusFree && cardType(c) === "monster" && Array.isArray(c.fusion) && c.fusion.length);
+// EXデッキから自分で出せるモンスター（シンクロ・エクシーズ・「融合」なしの融合）
+const sxK = c => sxOf(c) || (isCf(c) ? { k: "cf" } : null);
+// 重ねるだけエクシーズ: 重ねられるモンスター
+function ovText(o){ if (!o) return ""; if (o.m === "xyz") return `${o.lo === 1 && o.hi === 12 ? "" : o.lo === o.hi ? `ランク${o.lo}の` : `ランク${o.lo}〜${o.hi}の`}エクシーズモンスター`; if (o.m === "tag") return `タグ「${o.v}」のモンスター`; if (o.m === "name") return `「${o.v}」`; return "モンスター"; }
+// 切り札の演出（カットイン）: { on: "use"|"draw"|"both", t: セリフ, col: 色 }
+const aceOf = c => c && c.ace && ["use", "draw", "both"].includes(c.ace.on) ? { on: c.ace.on, t: String(c.ace.t || "").slice(0, 40), col: /^#[0-9a-f]{6}$/i.test(c.ace.col || "") ? c.ace.col : "#ffd34d" } : null;
+const aceOn = (c, w) => { const a = aceOf(c); return !!a && (a.on === "both" || a.on === w); };
 // 素材にするときのレベル（エクシーズモンスターにはレベルがない）
 const matLv = c => isXyz(c) ? 0 : lvOf(c);
 function sxMatText(y, t){
@@ -473,7 +487,7 @@ function sxMatText(y, t){
 function sxText(c){
   const x = sxOf(c); if (!x) return ""; const lv = lvOf(c) || "？";
   if (x.k === "syn") return `【《シンクロ》】${sxMatText(x.t)}＋${sxMatText(x.o, x.t)}1体以上（自分の場の素材を墓地へ送り、レベルの合計が${lv}ならEXデッキからシンクロ召喚できる）`;
-  return `【《エクシーズ》】レベル${lv}の${sxMatText(x)}×${x.n}（自分の場のモンスターを重ねて、EXデッキからエクシーズ召喚できる）`;
+  return `【《エクシーズ》】レベル${lv}の${sxMatText(x)}×${x.n}（自分の場のモンスターを重ねて、EXデッキからエクシーズ召喚できる）${x.ov ? `。自分の場の${ovText(x.ov)}1体の上に重ねて出してもいい（1ターンに1回）` : ""}`;
 }
 const lvTribN = lv => lv >= 7 ? 2 : lv >= 5 ? 1 : 0;
 function tribOf(c, st, s){
@@ -595,7 +609,7 @@ function fusionMatText(x){ return x.m === "any" ? "モンスター" : x.m === "t
 function fusionText(c){ return c && cardType(c) === "monster" && Array.isArray(c.fusion) && c.fusion.length ? `【融合】${c.fusion.map(fusionMatText).join("＋")}` : ""; }
 const spOptText = c => !c || (cardType(c) !== "magic" && cardType(c) !== "trap") ? "" : [c.strig ? "《S・トリガー》" : "", c.flashback && cardType(c) === "magic" ? "《フラッシュバック》" : "", +c.kick > 0 ? `《キッカー》（${+c.kick}）` : ""].join("");
 function fxText(c, detail = false){ const t = fxTextB(c, detail), k = c ? (cascadeOn(c) ? "《続唱》" : "") + glKw(c) + hfKw(c) + (c.innate ? "《天賦》" : "") + (c.retain ? "《保留》" : "") + (c.ethereal ? "《エセリアル》" : "") + (c.sly ? "《スライ》" : "") : ""; return k ? k + (t ? (detail ? "。\n" : "。") + t : "") : t; }
-function fxTextB(c, detail = false){ return (c && c.token && cardType(c) !== "monster" ? "【トークン】" : "") + (c && c.ex && cardType(c) !== "monster" ? "【EX】" : "") + (c && !c.noUse ? whenText(c) : "") + [fusionText(c) ? fusionText(c) + "（「融合召喚」の効果でだけ出せる）" : "", sxText(c), c && c.noUse && (cardType(c) === "magic" || cardType(c) === "trap") ? "このカードは発動できない" : "", isPersist(c) ? "【永続】使ったあとも場に残る" : "", spOptText(c), isField(c) ? `【フィールド】お互いに1枚だけ場に置ける（新しいフィールドが出ると、前のフィールドは墓地へ）。${fieldMine(c) ? "効果は出した人にだけ効く" : "効果はお互いに効く"}` : "", extraCostText(c), costMechText(c), dmEvoText(c), mugText(c), revoText(c), tribText(c), massText(c), anySumText(c), atkCondText(c), ssText(c), fxText0(c, detail)].filter(Boolean).join(detail ? "。\n" : "。"); }
+function fxTextB(c, detail = false){ return (c && c.token && cardType(c) !== "monster" ? "【トークン】" : "") + (c && c.ex && cardType(c) !== "monster" ? "【EX】" : "") + (c && !c.noUse ? whenText(c) : "") + [fusionText(c) ? fusionText(c) + (isCf(c) ? "（自分の場の素材を墓地へ送れば、「融合」なしでEXデッキから出せる）" : "（「融合召喚」の効果でだけ出せる）") : "", sxText(c), c && c.noUse && (cardType(c) === "magic" || cardType(c) === "trap") ? "このカードは発動できない" : "", isPersist(c) ? "【永続】使ったあとも場に残る" : "", spOptText(c), isField(c) ? `【フィールド】お互いに1枚だけ場に置ける（新しいフィールドが出ると、前のフィールドは墓地へ）。${fieldMine(c) ? "効果は出した人にだけ効く" : "効果はお互いに効く"}` : "", extraCostText(c), costMechText(c), dmEvoText(c), mugText(c), revoText(c), tribText(c), massText(c), anySumText(c), atkCondText(c), ssText(c), fxText0(c, detail)].filter(Boolean).join(detail ? "。\n" : "。"); }
 /* ================= effect blocks: いつ / もし / なにを / ちがったら =================
    c.blocks = [{ trig, conds: [{k, op, n | name, where, match | text}], join: "and"|"or", then: [{kind, n, to}], else: [...] }]
    Older cards (c.fx + c.combo) are read as blocks too, so everything below runs on blocks. */

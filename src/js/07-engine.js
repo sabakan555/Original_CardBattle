@@ -69,7 +69,7 @@ function modApply(st, s, c, fx, target, src){
   log(st, s, `${src}で${modTargetText(fx)}を書きかえた（${out.length}枚）`);
 }
 // 場にいる間: 場のモンスターと表の永続カードの「場にいる間」の効果（ATKの増減・○倍）を、そのつど計算する
-const STATIC_KINDS = ["selfAtk", "atkUp", "atkAll", "atkDown", "atkDownAll", "atkMul", "giveAb", "ctrAdd"];
+const STATIC_KINDS = ["selfAtkDown", "myAtkDownAll", "selfAtk", "atkUp", "atkAll", "atkDown", "atkDownAll", "atkMul", "giveAb", "ctrAdd"];
 /* 「場にいる間、カウンターを乗せる」: 出ている間は乗せておいて、いなくなったり条件に合わなくなったら、その分を取り除く。
    乗せた数は乗っている側に m.ctrA / p.ctrA = { "出し手のu|カウンターid": 個数 } で覚えておく（ほかの効果で取り除かれた分は、もう一度は乗せない） */
 function ctrAuraSync(st){
@@ -142,6 +142,8 @@ function staticAtk(m){
       (ok ? b.then : b.else).forEach(e => {
         const n = +e.n || 0, mine = ms === src.o, self = src.mon === m, all = e.to === "all";
         const pn = e.per && PER_DEFS[e.per] ? (e.pm ?? 1) * PER_DEFS[e.per].val(st, src.o, src.c, null, src.ctx, e) : 0;
+        if (e.kind === "selfAtkDown" && self) out.add -= n + pn;
+        if (e.kind === "myAtkDownAll" && mine) out.add -= n + pn;
         if (e.kind === "selfAtk" && self) out.add += n + pn;
         else if (e.kind === "atkMul" && self) out.mul *= Math.max(0, n || 1);
         else if ((e.kind === "atkAll" || (e.kind === "atkUp" && all)) && mine) out.add += n + pn;
@@ -217,6 +219,7 @@ function countPlay(st, s, c){
   const p = P(st, s); if (!c || !c.id) return;
   p.usedCount = { ...(p.usedCount || {}), [c.id]: ((p.usedCount || {})[c.id] || 0) + 1 };
   (p.usedNowIds = p.usedNowIds || []).push(c.id);
+  if (cardType(c) !== "monster" && aceOn(c, "use")) ev(st, { type: "ace", s, c: c.id });
   if (cardType(c) === "magic"){ const ids = [...new Set(p.hand)].filter(id => { const x = card(id); return x && (+x.sbCost > 0 || absOf(x).some(a => a.k === "sbAtk")); }); if (ids.length){ p.sb = { ...(p.sb || {}) }; ids.forEach(id => { p.sb[id] = (p.sb[id] || 0) + 1; }); log(st, s, `スペルブースト！ 手札の${ids.map(id => `「${card(id).name}」（${p.sb[id]}）`).join("")}`); } }
   if (!isAttackCard(c) || cardType(c) === "monster") return;
   p.atkNow = (p.atkNow || 0) + 1; p.lastAtk = c.id;
@@ -307,18 +310,24 @@ function sxHit(id, y, t){
   const c = card(id), w = String(y.v || "").trim(); if (!w) return false; if (y.m === "tag") return hasTag(id, w);
   return normQ(c.name).trim() === normQ(w).trim() || plainRuby(c.nameRuby || "") === w;
 }
+function ovOk(st, s, c, x, i){
+  const p = P(st, s), m = p.mz[i], o = x && x.ov; if (!m || !o || m.c === c.id || (p.ovT || {})[c.id] === st.turnNo) return false;
+  const mc = card(m.c); if (o.m === "xyz"){ const r = isXyz(mc) ? lvOf(mc) : 0; return !!r && r >= o.lo && r <= o.hi; }
+  return o.m === "any" || sxHit(m.c, o);
+}
 function sxPicksOk(st, s, c, picks){
-  const x = sxOf(c), p = P(st, s), lv = lvOf(c); if (!x || !lv) return false;
+  const x = sxK(c), p = P(st, s), lv = lvOf(c); if (!x || (!lv && x.k !== "cf")) return false;
   const L = [...new Set((picks || []).map(Number))]; if (L.length !== (picks || []).length || !L.every(i => p.mz[i])) return false;
+  if (x.k === "cf") return !!fusionPlanFrom(st, s, c, L.map(i => ({ from: "mz", i })));
   const ids = L.map(i => p.mz[i].c), lvs = ids.map(id => matLv(card(id)));
-  if (x.k === "xyz") return L.length === x.n && ids.every((id, j) => lvs[j] === lv && sxHit(id, x));
+  if (x.k === "xyz") return L.length === 1 && x.ov ? ovOk(st, s, c, x, L[0]) : L.length === x.n && ids.every((id, j) => lvs[j] === lv && sxHit(id, x));
   if (L.length < 2 || lvs.some(v => !v) || lvs.reduce((a, b) => a + b, 0) !== lv) return false;
   return ids.some((id, j) => sxHit(id, x.t) && ids.every((id2, j2) => j2 === j || sxHit(id2, x.o, x.t)));
 }
 // 素材にできそうな自分の場のモンスター（場所の番号）
 function sxCands(st, s, c){
-  const x = sxOf(c), p = P(st, s), lv = lvOf(c); if (!x || !lv) return [];
-  return p.mz.map((m, i) => i).filter(i => { const m = p.mz[i]; if (!m) return false; const v = matLv(card(m.c)); return x.k === "xyz" ? v === lv && sxHit(m.c, x) : v > 0 && v < lv && (sxHit(m.c, x.t) || sxHit(m.c, x.o, x.t)); });
+  const x = sxK(c), p = P(st, s), lv = lvOf(c); if (!x || (!lv && x.k !== "cf")) return [];
+  return p.mz.map((m, i) => i).filter(i => { const m = p.mz[i]; if (!m) return false; if (x.k === "cf") return c.fusion.some(y => fusionMatOk(m.c, y)); if (x.k === "xyz" && ovOk(st, s, c, x, i)) return true; const v = matLv(card(m.c)); return x.k === "xyz" ? v === lv && sxHit(m.c, x) : v > 0 && v < lv && (sxHit(m.c, x.t) || sxHit(m.c, x.o, x.t)); });
 }
 // どれかの正しい組み合わせに入るモンスターだけ（えらぶ画面に出す）
 function sxUsable(st, s, c){ const C = sxCands(st, s, c), U = new Set(); for (let mask = 1; mask < 1 << C.length; mask++){ const L = C.filter((_, j) => mask >> j & 1); if (sxPicksOk(st, s, c, L)) L.forEach(i => U.add(i)); } return C.filter(i => U.has(i)); }
@@ -329,22 +338,22 @@ function sxAuto(st, s, c){
   return best;
 }
 function sxWhy(st, s, c){
-  const x = sxOf(c); if (!x) return "シンクロ・エクシーズモンスターではない";
+  const x = sxK(c); if (!x) return "シンクロ・エクシーズモンスターではない";
   if (st.turn !== s || st.pending || st.winner) return "自分のターンに出せます";
-  if (!lvOf(c)) return `${x.k === "xyz" ? "ランク" : "レベル"}が決まっていないカード`;
+  if (!lvOf(c) && x.k !== "cf") return `${x.k === "xyz" ? "ランク" : "レベル"}が決まっていないカード`;
   if (!canPay(st, s, c)) return "マナが足りない";
-  if (!sxAuto(st, s, c)) return x.k === "xyz" ? `素材（レベル${lvOf(c)}のモンスター${x.n}体）がそろっていない` : `素材（レベルの合計が${lvOf(c)}）がそろっていない`;
+  if (!sxAuto(st, s, c)) return x.k === "cf" ? `素材（${c.fusion.map(fusionMatText).join("＋")}）が自分の場にそろっていない` : x.k === "xyz" ? `素材（レベル${lvOf(c)}のモンスター${x.n}体）がそろっていない` : `素材（レベルの合計が${lvOf(c)}）がそろっていない`;
   return "";
 }
 // id: EXデッキのカード、picks: 素材にする自分の場所（なければ自動）
 function sxSummon(st, s, id, picks){
-  const p = P(st, s), k = (p.ex || []).indexOf(id), c = card(id), x = sxOf(c);
+  const p = P(st, s), k = (p.ex || []).indexOf(id), c = card(id), x = sxK(c);
   if (k < 0 || sxWhy(st, s, c)) return false;
   if (!picks) picks = sxAuto(st, s, c);
   if (!sxPicksOk(st, s, c, picks)) return false;
   if (!pay(st, s, c)) return false;
-  const L = [...new Set(picks.map(Number))], matIds = L.map(i => p.mz[i].c), names = matIds.map(m => `「${card(m).name}」`).join(""), how = x.k === "xyz" ? "エクシーズ召喚" : "シンクロ召喚";
-  p.ex.splice(k, 1);
+  const L = [...new Set(picks.map(Number))], matIds = L.map(i => p.mz[i].c), names = matIds.map(m => `「${card(m).name}」`).join(""), how = x.k === "cf" ? "融合召喚" : x.k === "xyz" ? "エクシーズ召喚" : "シンクロ召喚";
+  p.ex.splice(k, 1); if (x.k === "xyz" && L.length === 1) p.ovT = { ...(p.ovT || {}), [id]: st.turnNo };
   const mats = [];
   if (x.k === "xyz") L.forEach(i => { const m = p.mz[i]; eqsOf(m).forEach(e => P(st, e.o).grave.push(e.c)); sealsOut(st, m); if (!m.cp) (m.owner && m.owner !== s ? P(st, m.owner).grave : mats).push(m.c); mats.push(...(m.mats || [])); p.mz[i] = null; ev(st, { type: "destroy", s, z: i }); });
   else L.forEach(i => sendToGrave(st, s, i));
@@ -444,7 +453,7 @@ function drawN(st, s, n, why){
   const p = P(st, s); let got = 0; p.lastDrawn = [];
   if (p.noDraw && n > 0){ log(st, s, `${why || ""}：このターンはもうカードを引けない`); return; }
   for (let i = 0; i < n; i++){ if (!p.deck.length) refill(st, s); if (p.deck.length){ p.hand.push(p.deck.shift()); got++; } }
-  p.lastDrawn = got ? p.hand.slice(-got) : [];
+  p.lastDrawn = got ? p.hand.slice(-got) : []; aceDrew(st, s, p.lastDrawn);
   if (why) log(st, s, `${why}でカードを${got}枚引いた`);
   // 「名前に○が入ったカードを引くたび自動で使う」
   if (got && (p.autoPlay || []).length && !st.winner){
@@ -456,6 +465,8 @@ function drawN(st, s, n, why){
   }
   if (got < n) log(st, s, "山札がなくて引けなかった");
 }
+// 切り札を引いたら演出（引いた人にだけ見える）
+function aceDrew(st, s, ids){ (ids || []).forEach(id => { if (aceOn(card(id), "draw")) ev(st, { type: "ace", s, c: id, draw: true }); }); }
 function freeZone(arr){ return arr.findIndex(x => !x); }
 // 場のモンスターを手札・除外に送る（破壊ではないので「破壊されたとき」は出ない）。装備と質量は墓地へ、コピーは消える
 function moveMonOut(st, o, i, to){
@@ -875,7 +886,7 @@ function equip(st, s, hi, ts, ti, pos, disc){
   return true;
 }
 // visual events, stored in the game state so both players see the same animations
-function ev(st, e){ if (e.type === "summon" && e.s && e.z != null){ const m = P(st, e.s).mz[e.z]; if (m) e = { ...e, c: e.c || m.c }; sealRelease(st, e.s, e.z); mugNote(st, e.s, e.z); } if (e.type === "spell" && e.c) st.recent = [...(st.recent || []), { c: e.c, s: e.s }].slice(-5); st.evn = (st.evn || 0) + 1; (st.ev || (st.ev = [])).push({ ...e, n: st.evn }); if (st.ev.length > 30) st.ev.splice(0, st.ev.length - 30); if (["summon", "destroy", "equip", "spell", "bounce", "banish"].includes(e.type)) ctrAuraSync(st); }
+function ev(st, e){ if (e.type === "summon" && e.s && e.z != null){ const m = P(st, e.s).mz[e.z]; if (m) e = { ...e, c: e.c || m.c }; sealRelease(st, e.s, e.z); mugNote(st, e.s, e.z); } if (e.type === "summon" && e.c && aceOn(card(e.c), "use")) ev(st, { type: "ace", s: e.s, c: e.c }); if (e.type === "spell" && e.c) st.recent = [...(st.recent || []), { c: e.c, s: e.s }].slice(-5); st.evn = (st.evn || 0) + 1; (st.ev || (st.ev = [])).push({ ...e, n: st.evn }); if (st.ev.length > 30) st.ev.splice(0, st.ev.length - 30); if (["summon", "destroy", "equip", "spell", "bounce", "banish"].includes(e.type)) ctrAuraSync(st); }
 // returns true if the monster actually left the field. opt.battle: destroyed by battle; opt.force: manual (no protection)
 function destroyMonster(st, s, i, why, opt = {}){
   const p = P(st, s), m = p.mz[i]; if (!m) return false;
@@ -1045,6 +1056,9 @@ function applyEffect(st, s, c, target, ctx = {}, fx = normFx(c)){
     case "destroyThis": { const m = ctx.mon && monAt(st, ctx.mon); if (m) destroyMonster(st, ctx.mon.s, ctx.mon.i, src); else log(st, s, `${src}：破壊するモンスターがもう場にいない`); break; }
     case "destroyOwnAll": { const L = me.mz.map((m, i) => mfOk(st, s, fx, m) ? i : -1).filter(i => i >= 0); if (!L.length) log(st, s, `${src}：自分のモンスターがいない`); L.forEach(i => { if (me.mz[i]) destroyMonster(st, s, i, src); }); break; }
     case "destroyAll": { const idx = opT.mz.map((m, i) => mfOk(st, s, fx, m) ? i : -1).filter(i => i >= 0); log(st, s, `${src}で${OS === s ? "自分" : "相手"}のモンスターをすべて破壊！`); idx.forEach(i => destroyMonster(st, OS, i, src)); break; }
+    case "selfAtkDown": { const m = ctx.mon ? monAt(st, ctx.mon) : ctx.zone != null ? me.mz[ctx.zone] : null; if (m && (ctx.mon || m.c === c.id)){ m.mod = (m.mod || 0) - n; log(st, s, `${src}で「${card(m.c).name}」のATK−${n}`); } else log(st, s, `${src}：場にいないのでATKは下がらない`); break; }
+    case "myAtkDown": if (me.mz[target]){ me.mz[target].mod = (me.mz[target].mod || 0) - n; log(st, s, `${src}で「${card(me.mz[target].c).name}」のATK−${n}`); } break;
+    case "myAtkDownAll": { let k = 0; me.mz.forEach(m => { if (m && mfOk(st, s, fx, m)){ m.mod = (m.mod || 0) - n; k++; } }); log(st, s, `${src}で自分のモンスター${k}体のATK−${n}`); break; }
     case "selfAtk": {
       const m = ctx.mon ? monAt(st, ctx.mon) : ctx.zone != null ? me.mz[ctx.zone] : null;
       if (m && (ctx.mon || m.c === c.id)){ m.mod = (m.mod || 0) + n; log(st, s, `${src}で「${card(m.c).name}」のATK+${n}`); } else log(st, s, `${src}：場にいないのでATKは上がらない`);
@@ -2127,7 +2141,7 @@ function passTurn(st, s){
     refill(st, st.turn);
     if (!np.deck.length && !np.spire){ st.winner = s; st.why = `${np.name} の山札がなくなった`; log(st, st.turn, "引くカードがない！"); return; }
     np.deck = innateTop(np.deck);
-    if (np.deck.length) np.hand.push(np.deck.shift());
+    if (np.deck.length){ np.hand.push(np.deck.shift()); aceDrew(st, st.turn, np.hand.slice(-1)); }
     if ((np.nextGive || []).length){ const L = np.nextGive; np.nextGive = []; L.forEach(g => { for (let r = 0; r < g.n; r++) np.hand.push(g.id); log(st, st.turn, `「${card(g.id).name}」のコピーを${g.n}枚手札に加えた`); }); }
     ctrTick(st, st.turn, "start"); checkEnd(st); if (st.winner) return;
     // online: the new player's own screen runs their turn-start effects (so they can choose targets)

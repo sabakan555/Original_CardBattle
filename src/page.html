@@ -270,6 +270,7 @@
             <div class="fxform">
               <label class="row" style="gap:6px;font-weight:700;cursor:pointer"><input type="checkbox" id="mkFusion"> 融合モンスターにする（EXデッキに入り、「融合召喚」の効果でだけ出せる）</label>
               <div id="fusionMats" class="bk-col" hidden></div>
+              <label class="row" id="fusFreeRow" hidden style="gap:6px;cursor:pointer"><input type="checkbox" id="mkFusFree"> 「融合」なしでも出せる（自分の場の素材を墓地へ送って、EXデッキから特殊召喚。キメラテック・フォートレス・ドラゴンみたいな）</label>
             </div>
           </details>
           <details class="mk-sec" id="secSx">
@@ -283,8 +284,17 @@
               </div>
               <div id="sxXyz" class="bk-col" hidden>
                 <div class="row" style="gap:6px;flex-wrap:wrap;align-items:center"><b style="font-size:13px">素材</b><span class="note">ランクと同じレベルの</span><select id="sxXM" aria-label="素材の決め方"><option value="any">モンスター</option><option value="tag">タグで</option><option value="name">名前で</option></select><input type="text" id="sxXV" list="tagNames" maxlength="40" style="width:150px" aria-label="素材" hidden><select id="sxXN" aria-label="素材の数"><option>2</option><option>3</option><option>4</option><option>5</option></select><span class="note">体</span></div>
+                <div class="row" style="gap:6px;flex-wrap:wrap;align-items:center"><label class="row" style="gap:6px;cursor:pointer;font-weight:700"><input type="checkbox" id="sxOvOn"> 重ねるだけでも出せる</label><span class="note">自分の場の</span><select id="sxOvM" aria-label="重ねられるモンスター"><option value="xyz">エクシーズモンスター</option><option value="tag">タグで</option><option value="name">名前で</option><option value="any">どのモンスターでも</option></select><span id="sxOvR" class="row" style="gap:4px;align-items:center"><span class="note">ランク</span><input type="number" id="sxOvLo" min="1" max="12" value="1" style="width:52px" aria-label="ランクの下"><span class="note">〜</span><input type="number" id="sxOvHi" min="1" max="12" value="12" style="width:52px" aria-label="ランクの上"></span><input type="text" id="sxOvV" list="tagNames" maxlength="40" style="width:140px" aria-label="重ねられるモンスター" hidden><span class="note">1体の上に重ねる（1ターンに1回・アーゼウスみたいな）</span></div>
                 <p class="note" style="margin:0">自分の場のモンスターを重ねてEXデッキから出す。カードの「レベル」がランクになる（エクシーズモンスターにはレベルがない）。重ねたカードはエクシーズ素材になって、「起動効果」のコストで取り除ける</p>
               </div>
+            </div>
+          </details>
+          <details class="mk-sec" id="secAce">
+            <summary><span class="mk-st">切り札の演出（カットイン）</span><span class="mk-sum" id="sumAce"></span></summary>
+            <div class="fxform">
+              <label class="row" style="gap:6px;font-weight:700;flex-wrap:wrap">演出が出るとき<select id="mkAceOn" aria-label="演出が出るとき"><option value="">なし</option><option value="use">使ったとき（召喚・発動）</option><option value="draw">引いたとき</option><option value="both">使ったときと引いたとき</option></select></label>
+              <div class="row" style="gap:6px;flex-wrap:wrap;align-items:center"><input type="text" id="mkAceT" maxlength="40" placeholder="セリフ（空なら「切り札、登場！」）" style="min-width:220px" aria-label="演出のセリフ"><input type="color" id="mkAceCol" value="#ffd34d" aria-label="演出の色"><button type="button" class="small" id="mkAcePrev">ためしに見る</button></div>
+              <p class="note" style="margin:0">デュエプレみたいに、このカードを使ったときや引いたときにカットインが入る。引いたときの演出は引いた人にだけ見える（相手には何を引いたかわからない）</p>
             </div>
           </details>
           <details class="mk-sec pro-only" id="secSs">

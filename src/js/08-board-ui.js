@@ -87,7 +87,7 @@ function cpuStep(st, s){
     if (specialSummon(st, s, i, picks)) return;
   }
   // シンクロ・エクシーズ: 素材より強くなるなら出す
-  for (const id of [...new Set(p.ex || [])]){ const c = card(id); if (!sxOf(c) || sxWhy(st, s, c) || Math.random() > .85) continue; const L = sxAuto(st, s, c); if (!L || L.some(i => cmpNum(atkOf(p.mz[i]), baseAtk(c)) >= 0)) continue; if (sxSummon(st, s, id, L)) return; }
+  for (const id of [...new Set(p.ex || [])]){ const c = card(id); if (!sxK(c) || sxWhy(st, s, c) || Math.random() > .85) continue; const L = sxAuto(st, s, c); if (!L || L.some(i => cmpNum(atkOf(p.mz[i]), baseAtk(c)) >= 0)) continue; if (sxSummon(st, s, id, L)) return; }
   // フュージョン: フュージョンできるカードがあれば、条件に合う手札をぜんぶフュージョンする
   for (let i = 0; i < p.hand.length; i++){ if (!hfOf(card(p.hand[i])) || hfWhy(st, s, i)) continue; const o = hfOpts(st, s, i); if (o.length && fuseHand(st, s, i, o)) return; }
   // 2. summon strongest
@@ -452,7 +452,7 @@ function playEvents(prevLp, nowLp){
   // one after another: a spell banner gets time to show before its hits, each hit gets its own beat (ツインストライク → 2 hits)
   const GAP = { spell: 900, summon: 900, attack: 560, hit: 420, fusion: 2800, turn: 1250, gj: 1500 };
   let t = 0;
-  list.forEach(e => { setTimeout(() => { try{ animateEvent(e); }catch(err){} }, t); t += GAP[e.type] || 320; });
+  list.forEach(e => { setTimeout(() => { try{ animateEvent(e); }catch(err){} }, t); t += e.type === "ace" ? (aceShown(e) ? 1950 : 0) : GAP[e.type] || 320; });
 }
 // 融合召喚の演出: 素材がうずを巻いて中心に吸いこまれ、光って、融合モンスターが現れる
 function fusionFx(e){
@@ -481,6 +481,18 @@ function fusionFx(e){
   setTimeout(() => box.remove(), T + 80);
 }
 // ターンが変わったときのカットイン: 画面を横切る帯に「あなたのターン／相手のターン」
+// 切り札の演出: 引いたときのものは、引いた人にだけ見える
+function aceShown(e){ return !e.draw || (!!G && !G.spectate && e.s === G.slot); }
+function aceFx(e){
+  if (G && !aceShown(e)) return;
+  const c = card(e.c); if (!c) return; const a = aceOf(c) || { t: "", col: "#ffd34d" }, me = !G || !G.st || (!G.spectate && sideOf(e.s) === "me");
+  document.querySelectorAll(".fxace").forEach(x => x.remove());
+  const d = document.createElement("div"); d.className = "fxace " + (me ? "mine" : "theirs") + (e.draw ? " draw" : ""); d.setAttribute("aria-hidden", "true"); d.style.setProperty("--ac", a.col);
+  const sub = e.draw ? "DRAW" : me ? "ACE CARD" : "ENEMY ACE", line = a.t || (e.draw ? "切り札を引いた！" : "切り札、登場！");
+  d.innerHTML = `<div class="ace-bg"></div><div class="ace-burst"></div><div class="ace-band"></div><div class="ace-card">${cardHTML(c, "", "", G && G.st ? mOpt(e.s) : {})}</div><div class="ace-txt"><span class="ace-sub">${esc(sub)}</span><b class="ace-line">${esc(line)}</b><span class="ace-name">${esc(c.name)}</span></div><div class="ace-flash"></div>`;
+  document.body.appendChild(d);
+  setTimeout(() => d.remove(), 1900);
+}
 function turnCut(e){
   document.querySelectorAll(".fxcut").forEach(x => x.remove());
   const me = !G.spectate && sideOf(e.s) === "me", nm = G.st && G.st.players[e.s] ? G.st.players[e.s].name : "";
@@ -494,6 +506,7 @@ function turnCut(e){
 function animateEvent(e){
   if (!G) return;
   if (e.type === "turn"){ turnCut(e); return; }
+  if (e.type === "ace"){ aceFx(e); return; }
   if (e.type === "summon" && e.c){
     fxEl("fxspell " + (sideOf(e.s) === "me" ? "mine" : "theirs"), `<div class="lbl">モンスター登場！</div>${cardHTML(card(e.c), "lg", "", mOpt(e.s))}`);
   }
@@ -779,11 +792,11 @@ function renderOverlay(){
     html = `<div class="box"><h2 style="margin:0">「${esc(c.name)}」にフュージョンする</h2><p class="muted" style="margin:0">フュージョンする${esc(hfDesc(hfOf(c)))}を好きなだけえらんでね（${hp.picked.length}枚）。フュージョンしたカードは廃棄札になります</p><div class="gallery">${list}</div><div class="row"><button class="primary" data-hfgo ${hp.picked.length ? "" : "disabled"}>フュージョンする</button><button class="ghost" data-close="hfpick">やめる</button></div></div>`;
   } else if (G.sxPick && canAct(st, me)){
     // シンクロ・エクシーズ召喚: 素材をえらぶ
-    const sp = G.sxPick, pm = P(st, me), c = card(sp.id), x = sxOf(c), C = sxUsable(st, me, c);
+    const sp = G.sxPick, pm = P(st, me), c = card(sp.id), x = sxK(c), C = sxUsable(st, me, c);
     sp.picked = sp.picked.filter(i => C.includes(i));
-    const sum = sp.picked.reduce((a, i) => a + matLv(card(pm.mz[i].c)), 0), ok = sxPicksOk(st, me, c, sp.picked), how = x.k === "xyz" ? "エクシーズ召喚" : "シンクロ召喚";
+    const sum = sp.picked.reduce((a, i) => a + matLv(card(pm.mz[i].c)), 0), ok = sxPicksOk(st, me, c, sp.picked), how = x.k === "cf" ? "融合召喚" : x.k === "xyz" ? "エクシーズ召喚" : "シンクロ召喚";
     const list = C.map(i => { const on = sp.picked.includes(i), mc = card(pm.mz[i].c); return `<div class="sx-pk">${cardHTML(mc, `sm pick ${on ? "sel" : ""}`, `data-sxpick="${i}" tabindex="0" role="button" aria-pressed="${on}"`, { mod: modOf(pm.mz[i]), ...mOpt(me) })}<span class="sx-lv">Lv${matLv(mc)}${x.k === "syn" && sxHit(mc.id, x.t) ? "・チューナー役" : ""}</span></div>`; }).join("");
-    const need = x.k === "xyz" ? `レベル${lvOf(c)}のモンスター${x.n}体（えらんだ ${sp.picked.length}/${x.n}）` : `${sxMatText(x.t)}1体＋${sxMatText(x.o, x.t)}1体以上で、レベルの合計${lvOf(c)}（いま ${sum}）`;
+    const need = x.k === "cf" ? `${c.fusion.map(fusionMatText).join("＋")}（えらんだ ${sp.picked.length}/${c.fusion.length}）` : x.k === "xyz" ? `レベル${lvOf(c)}のモンスター${x.n}体${x.ov ? `、または${ovText(x.ov)}1体` : ""}（えらんだ ${sp.picked.length}体）` : `${sxMatText(x.t)}1体＋${sxMatText(x.o, x.t)}1体以上で、レベルの合計${lvOf(c)}（いま ${sum}）`;
     html = `<div class="box"><h2 style="margin:0">「${esc(c.name)}」を${how}</h2><p class="muted" style="margin:0">${x.k === "xyz" ? "重ねて素材にする" : "墓地へ送る"}自分のモンスターをえらんでね：${esc(need.replace(/[《》]/g, ""))}</p><div class="gallery">${list}</div><div class="row"><button class="primary" data-sxgo ${ok ? "" : "disabled"}>${how}する</button><button class="ghost" data-close="sxpick">やめる</button></div></div>`;
   } else if (G.ssPick && canAct(st, me)){
     const sp = G.ssPick, pm = P(st, me), c = card(pm.hand[sp.hi]);
@@ -818,7 +831,7 @@ function renderOverlay(){
 }
 $("#overlay").addEventListener("click", e => {
   { const gv = e.target.closest("[data-grave]"); if (gv && G){ G.view = gv.dataset.grave; renderAll(); return; } }
-  { const xu = e.target.closest("[data-exuse]"); if (xu && G && !G.spectate){ const k = +xu.dataset.exuse, me = G.slot; let hi = -1, id = null; { const xid = P(G.st, me).ex[k], xc = card(xid); if (sxOf(xc)){ const why = sxWhy(G.st, me, xc); if (why){ toast(why); return; } G.exView = false; G.sxPick = { id: xid, picked: [] }; renderAll(); return; } } if (isFusion(card(P(G.st, me).ex[k]))){ toast("融合モンスターは「融合召喚」の効果でだけ出せます"); return; } G.exView = false; act(st => { const p = P(st, me); if (!canAct(st, me) || p.ex[k] == null) return false; exReturnP(st, me); id = p.ex.splice(k, 1)[0]; p.hand.push(id); hi = p.hand.length - 1; p.exTemp = { id, i: hi }; G.sel = { z: "hand", s: "me", i: hi }; G.atkFrom = null; }); if (hi < 0) renderAll(); return; } }
+  { const xu = e.target.closest("[data-exuse]"); if (xu && G && !G.spectate){ const k = +xu.dataset.exuse, me = G.slot; let hi = -1, id = null; { const xid = P(G.st, me).ex[k], xc = card(xid); if (sxK(xc)){ const why = sxWhy(G.st, me, xc); if (why){ toast(why); return; } G.exView = false; G.sxPick = { id: xid, picked: [] }; renderAll(); return; } } if (isFusion(card(P(G.st, me).ex[k]))){ toast("融合モンスターは「融合召喚」の効果でだけ出せます"); return; } G.exView = false; act(st => { const p = P(st, me); if (!canAct(st, me) || p.ex[k] == null) return false; exReturnP(st, me); id = p.ex.splice(k, 1)[0]; p.hand.push(id); hi = p.hand.length - 1; p.exTemp = { id, i: hi }; G.sel = { z: "hand", s: "me", i: hi }; G.atkFrom = null; }); if (hi < 0) renderAll(); return; } }
   if (!G) return;
   { const aq = e.target.closest("[data-askq]"); if (aq){ const yes = aq.dataset.askq === "yes"; act(st => { if (!st.askQ || st.askQ.to !== G.slot || st.askQ.ans != null) return false; st.askQ.ans = yes; log(st, G.slot, `「${st.askQ.name}」の質問「${st.askQ.text}」に「${yes ? "はい" : "いいえ"}」と答えた`); }); return; } }
   { const p1 = e.target.closest("[data-p1]"); if (p1 && G.chooseQ.length && G.chooseQ[0].pick1){ const q = G.chooseQ.shift(), k = +p1.dataset.p1; act(st => { q.p1go(st, k); }); return; } }
