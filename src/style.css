@@ -1141,6 +1141,12 @@ nav.tabs button{position:relative}
 .c-meta .c-attr{--d:calc(var(--w)*.14)}
 .card.ygo .y-attrs{position:absolute;right:calc(var(--yu)*46);top:calc(var(--yu)*37);display:flex;flex-direction:row-reverse;gap:calc(var(--yu)*4);z-index:3;pointer-events:none}
 .card.ygo .y-attr{--d:calc(var(--yu)*57)}
+.card.ygo.ysyn::before{filter:grayscale(1) brightness(1.62) contrast(.92)}
+.card.ygo.yxyz::before{filter:grayscale(1) brightness(.34) contrast(1.1)}
+.card.ygo.ysyn .c-text::after,.card.ygo.yxyz .c-text::after{content:"";position:absolute;left:calc(var(--yu)*-6);right:calc(var(--yu)*-6);top:calc(var(--yu)*-8);bottom:calc(var(--yu)*-38);background:#e4d6bf;border:calc(var(--yu)*3) solid rgba(0,0,0,.35);z-index:-1;pointer-events:none}
+.card.ygo.yxyz .c-name{color:#f3efe6}
+.card.ygo.yxyz .c-cost{right:auto;left:calc(var(--yu)*61);flex-direction:row}
+.sx-pk{display:flex;flex-direction:column;align-items:center;gap:2px}.sx-lv{font-size:12px;font-weight:700;color:var(--muted,#888)}
 .card.ygo.yattr1 .c-name{width:calc(var(--yu)*440)}.card.ygo.yattr2 .c-name{width:calc(var(--yu)*380)}.card.ygo.yattr3 .c-name,.card.ygo.yattr4 .c-name,.card.ygo.yattr5 .c-name{width:calc(var(--yu)*320)}
 .attr-pick button i.ap-orb{--d:20px;border:none;display:grid}.attr-pick button i.ap-orb b{font-size:12px}.attr-pick button i.ap-orb small{display:none}
 #editCard:not(.ygo) #mkAttrY,#editCard.ygo #mkAttrArt,#editCard.dm #mkAttrArt,#editCard.spire #mkAttrArt,#editCard.socra #mkAttrArt,#editCard:not(.ygo).yattr1 .y-attrs{display:none!important}

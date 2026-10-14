@@ -247,6 +247,9 @@ const ABS = {
   eqBonus:    { label: "特定の名前の装備を付けているとATKアップ", only: "mon", self: true, n: 300, name: true, text: (n, nm) => `名前に「${nm || "？"}」が入った装備を付けているとき、ATK+${n}` }
 };
 const KW_DESC = {
+  "シンクロ": "EXデッキから出すモンスター。自分の場のチューナー1体と、それ以外のモンスター1体以上を墓地へ送り、そのレベルの合計がこのカードのレベルと同じなら、EXデッキから出せる（特殊召喚）",
+  "チューナー": "タグ「チューナー」がついたモンスター。シンクロ召喚の素材になる",
+  "エクシーズ": "EXデッキから出すモンスター。このカードのランクと同じレベルのモンスターを、自分の場から決まった数だけ重ねて出す（特殊召喚）。重ねたカードは「エクシーズ素材」になり、起動効果のコストで取り除ける。エクシーズモンスターにはレベルがない",
   "属性": "カードの色のようなもの（火・水・自然・光・闇と、みんなが作った属性）。1枚に5つまで。効果の「しぼる」「もし」「1体につき」で使える。デュエマ風の枠は属性の色になる",
   "レベル": "カードの強さの目安（0〜12）。「レベルで生贄の数を決める」なら、5〜6は生贄1体、7以上は2体で召喚する",
   "ガチンコ・ジャッジ": "自分と相手は、山札の一番上のカードを1枚ずつ見せ合い、コストをくらべる。自分のほうがコストが同じか大きければ勝ち。見せたカードはそれぞれ山札の一番下へ。山札がない人は負け",
@@ -449,11 +452,34 @@ function attrRegistry(){ const o = { ...ATTR_BUILTIN }; Object.entries(attrRegis
 const attrList = () => Object.keys(attrRegistry());
 // レベル（0〜12。0ならなし）。コストを使わないデッキでも意味があるように、生贄の数をレベルから決められる（遊戯王と同じ: 5〜6は1体、7以上は2体）
 const lvOf = c => c ? Math.max(0, Math.min(12, Math.round(+c.lv || 0))) : 0;
+// シンクロ・エクシーズ（遊戯王）: { k: "syn", t: チューナー役, o: ほかの素材 } / { k: "xyz", n: 素材の数, m, v }。レベル（エクシーズはランク）は lv
+const SX_M = ["tag", "name", "any", "nott"];
+function sxOf(c){
+  if (!c || cardType(c) !== "monster" || !c.sx || c.token) return null;
+  const x = c.sx, M = (y, d) => { y = y || d; let m = SX_M.includes(y.m) ? y.m : d.m; const v = m === "any" || m === "nott" ? "" : String(y.v || "").trim().slice(0, 40); if ((m === "tag" || m === "name") && !v) m = "any"; return { m, v: m === "any" ? "" : v }; };
+  if (x.k === "syn"){ const t = M(x.t, { m: "tag", v: "チューナー" }); if (t.m === "nott") t.m = "any"; const o = M(x.o, { m: "nott" }); if (o.m === "nott" && t.m === "any") o.m = "any"; return { k: "syn", t, o }; }
+  if (x.k === "xyz"){ const f = M(x, { m: "any" }); if (f.m === "nott") f.m = "any"; return { k: "xyz", n: Math.max(2, Math.min(5, Math.round(+x.n || 2))), m: f.m, v: f.v }; }
+  return null;
+}
+const isSyn = c => (sxOf(c) || {}).k === "syn", isXyz = c => (sxOf(c) || {}).k === "xyz";
+// 素材にするときのレベル（エクシーズモンスターにはレベルがない）
+const matLv = c => isXyz(c) ? 0 : lvOf(c);
+function sxMatText(y, t){
+  if (y.m === "nott") return t.m === "tag" ? (t.v === "チューナー" ? "《チューナー》以外のモンスター" : `タグ「${t.v}」がないモンスター`) : `「${t.v}」以外のモンスター`;
+  if (y.m === "any") return "モンスター";
+  if (y.m === "tag") return y.v === "チューナー" ? "《チューナー》" : `タグ「${y.v}」のモンスター`;
+  return `「${y.v}」`;
+}
+function sxText(c){
+  const x = sxOf(c); if (!x) return ""; const lv = lvOf(c) || "？";
+  if (x.k === "syn") return `【《シンクロ》】${sxMatText(x.t)}＋${sxMatText(x.o, x.t)}1体以上（自分の場の素材を墓地へ送り、レベルの合計が${lv}ならEXデッキからシンクロ召喚できる）`;
+  return `【《エクシーズ》】レベル${lv}の${sxMatText(x)}×${x.n}（自分の場のモンスターを重ねて、EXデッキからエクシーズ召喚できる）`;
+}
 const lvTribN = lv => lv >= 7 ? 2 : lv >= 5 ? 1 : 0;
 function tribOf(c, st, s){
   if (!c || cardType(c) !== "monster") return 0;
   let v = +(st && s && P(st, s).mana && c.tribCost != null ? c.tribCost : c.trib) || 0;
-  if (!(v > 0) && lvOf(c) && c.lvTrib !== false) v = lvTribN(lvOf(c));
+  if (!(v > 0) && lvOf(c) && c.lvTrib !== false && !c.ex && !sxOf(c) && !(Array.isArray(c.fusion) && c.fusion.length)) v = lvTribN(lvOf(c));
   return v > 0 ? Math.min(3, Math.round(v)) : 0;
 }
 function tribText(c){
@@ -569,7 +595,7 @@ function fusionMatText(x){ return x.m === "any" ? "モンスター" : x.m === "t
 function fusionText(c){ return c && cardType(c) === "monster" && Array.isArray(c.fusion) && c.fusion.length ? `【融合】${c.fusion.map(fusionMatText).join("＋")}` : ""; }
 const spOptText = c => !c || (cardType(c) !== "magic" && cardType(c) !== "trap") ? "" : [c.strig ? "《S・トリガー》" : "", c.flashback && cardType(c) === "magic" ? "《フラッシュバック》" : "", +c.kick > 0 ? `《キッカー》（${+c.kick}）` : ""].join("");
 function fxText(c, detail = false){ const t = fxTextB(c, detail), k = c ? (cascadeOn(c) ? "《続唱》" : "") + glKw(c) + hfKw(c) + (c.innate ? "《天賦》" : "") + (c.retain ? "《保留》" : "") + (c.ethereal ? "《エセリアル》" : "") + (c.sly ? "《スライ》" : "") : ""; return k ? k + (t ? (detail ? "。\n" : "。") + t : "") : t; }
-function fxTextB(c, detail = false){ return (c && c.token && cardType(c) !== "monster" ? "【トークン】" : "") + (c && c.ex && cardType(c) !== "monster" ? "【EX】" : "") + (c && !c.noUse ? whenText(c) : "") + [fusionText(c) ? fusionText(c) + "（「融合召喚」の効果でだけ出せる）" : "", c && c.noUse && (cardType(c) === "magic" || cardType(c) === "trap") ? "このカードは発動できない" : "", isPersist(c) ? "【永続】使ったあとも場に残る" : "", spOptText(c), isField(c) ? `【フィールド】お互いに1枚だけ場に置ける（新しいフィールドが出ると、前のフィールドは墓地へ）。${fieldMine(c) ? "効果は出した人にだけ効く" : "効果はお互いに効く"}` : "", extraCostText(c), costMechText(c), dmEvoText(c), mugText(c), revoText(c), tribText(c), massText(c), anySumText(c), atkCondText(c), ssText(c), fxText0(c, detail)].filter(Boolean).join(detail ? "。\n" : "。"); }
+function fxTextB(c, detail = false){ return (c && c.token && cardType(c) !== "monster" ? "【トークン】" : "") + (c && c.ex && cardType(c) !== "monster" ? "【EX】" : "") + (c && !c.noUse ? whenText(c) : "") + [fusionText(c) ? fusionText(c) + "（「融合召喚」の効果でだけ出せる）" : "", sxText(c), c && c.noUse && (cardType(c) === "magic" || cardType(c) === "trap") ? "このカードは発動できない" : "", isPersist(c) ? "【永続】使ったあとも場に残る" : "", spOptText(c), isField(c) ? `【フィールド】お互いに1枚だけ場に置ける（新しいフィールドが出ると、前のフィールドは墓地へ）。${fieldMine(c) ? "効果は出した人にだけ効く" : "効果はお互いに効く"}` : "", extraCostText(c), costMechText(c), dmEvoText(c), mugText(c), revoText(c), tribText(c), massText(c), anySumText(c), atkCondText(c), ssText(c), fxText0(c, detail)].filter(Boolean).join(detail ? "。\n" : "。"); }
 /* ================= effect blocks: いつ / もし / なにを / ちがったら =================
    c.blocks = [{ trig, conds: [{k, op, n | name, where, match | text}], join: "and"|"or", then: [{kind, n, to}], else: [...] }]
    Older cards (c.fx + c.combo) are read as blocks too, so everything below runs on blocks. */
@@ -762,7 +788,7 @@ function blocksOf(c){
     ...(+b.lim > 0 && b.trig !== "act" && b.trig !== "while" ? { lim: Math.min(9, Math.round(+b.lim)) } : {}),
     ...(b.trig === "ctrReach" ? { rc: String(b.rc || ctrDefault()), rn: Math.max(1, Math.min(99, Math.round(+b.rn || 1))), rw: b.rw === "me" ? "me" : "self" } : {}),
     ...(b.trig === "act" && b.cost && b.cost.id && +b.cost.n > 0 ? { cost: { id: String(b.cost.id), n: Math.min(99, Math.round(+b.cost.n)), w: b.cost.w === "me" || b.cost.w === "field" ? b.cost.w : "self" } } : {}),
-    ...(+b.necro > 0 ? { necro: Math.min(40, Math.round(+b.necro)) } : {}), ...(b.trig === "act" && +b.mcost > 0 ? { mcost: Math.min(99, Math.round(+b.mcost)) } : {}),
+    ...(+b.necro > 0 ? { necro: Math.min(40, Math.round(+b.necro)) } : {}), ...(b.trig === "act" && +b.xc > 0 ? { xc: Math.min(9, Math.round(+b.xc)) } : {}), ...(b.trig === "act" && +b.mcost > 0 ? { mcost: Math.min(99, Math.round(+b.mcost)) } : {}),
     ...(b.cont ? { cont: true } : {}), ...(b.alt ? { alt: true } : {}), ...(b.bn ? { bn: String(b.bn).slice(0, 20) } : {}), ...(b.bic ? { bic: String(b.bic).slice(0, 12) } : {}), ...(b.bd ? { bd: String(b.bd).slice(0, 40) } : {}), ...(b.one ? { one: true } : {}),
     // プレイヤーに付与: { to: me|op, at: turnStart|turnEnd, dur: 0=ずっと / ○回 }
     grant: b.grant && ["me", "op", "pick"].includes(b.grant.to) ? { to: b.grant.to, at: b.grant.at === "turnStart" ? "turnStart" : "turnEnd", dur: Math.max(0, Math.min(9, Math.round(+b.grant.dur || 0))) } : null,
@@ -817,7 +843,7 @@ const limHead = (h, b) => !(b && b.lim > 0) ? h : h.endsWith("】") ? h.slice(0,
 const actLimText = b => { const L = actLim(b); return L.per === "free" ? "・何回でも" : L.per === "game" ? `・ゲーム中に${L.n}回` : `・1ターンに${L.n}回`; };
 function blockText(c, b, detail = false){
   const t = cardType(c), isMon = t === "monster" || t === "equip";
-  const head = c && c.ctrCard ? `【${CTR_TRIG_LABEL[b.trig] || ""}】` : c && c.relicView ? `【${RELIC_TRIG_LABEL[b.trig] || ""}】` : isMon ? (b.trig === "act" ? `【起動${actLimText(b)}】` + ((L => L.length ? L.join("、") + "：" : "")([b.mcost > 0 ? `マナを${b.mcost}払う` : "", b.cost ? ctrCostText(b.cost) : ""].filter(Boolean))) : b.trig === "ctrReach" ? `【${ctrReachHead(b)}】` : `【${trigLabel(t, b.trig)}】`) : isField(c) && b.trig !== "use" ? `【${fieldTrigLabel(c, b.trig)}】` : isPersist(c) && b.trig !== "use" ? `【${PERSIST_TRIG_LABEL[b.trig]}】` : "";
+  const head = c && c.ctrCard ? `【${CTR_TRIG_LABEL[b.trig] || ""}】` : c && c.relicView ? `【${RELIC_TRIG_LABEL[b.trig] || ""}】` : isMon ? (b.trig === "act" ? `【起動${actLimText(b)}】` + ((L => L.length ? L.join("、") + "：" : "")([b.xc > 0 ? `このカードのエクシーズ素材を${b.xc}つ取り除く` : "", b.mcost > 0 ? `マナを${b.mcost}払う` : "", b.cost ? ctrCostText(b.cost) : ""].filter(Boolean))) : b.trig === "ctrReach" ? `【${ctrReachHead(b)}】` : `【${trigLabel(t, b.trig)}】`) : isField(c) && b.trig !== "use" ? `【${fieldTrigLabel(c, b.trig)}】` : isPersist(c) && b.trig !== "use" ? `【${PERSIST_TRIG_LABEL[b.trig]}】` : "";
   const br = b.roll === "die" && b.dieBr && b.dieBr.length ? b.dieBr : null;
   const brText = br ? br.map(x => `${x.lo === x.hi ? x.lo : `${x.lo}〜${x.hi}`}が出たら、${effsText(c, x.then, detail)}`).join(detail ? "。\n" : "。") : "";
   let s = (b.cont ? "さらに、" : limHead(head, b)) + (b.necro > 0 ? `【ネクロマンス${b.necro}】` : "") + (b.delayDie ? "" : delayText(b.delay)) + (b.roll === "die" ? `サイコロ${b.faces && b.faces !== 6 ? `（${b.faces}面）` : ""}を振る。` : b.roll === "coin" ? (b.coins > 1 ? `コインを${b.coins}回投げる。` : "コインを投げる。") : b.roll === "gj" ? "ガチンコ・ジャッジする。" : b.roll === "pgj" ? "パワーガチンコ・ジャッジする。" : "") + (b.delayDie ? `出た目の数のターン後の、${c && c.ctrCard ? "乗っている側" : "自分"}のターンのはじめに：` : "") + condsText(b) + (b.then.length ? (b.one && b.then.length > 1 ? "次の効果から1つえらんで発動する：" + (detail ? "\n" : "") + b.then.map(e => effsText(c, [e])).join(detail ? "\nまたは、" : "、または、") : effsText(c, b.then, detail)) + (br ? (detail ? "。\n" : "。") : "") : br ? "" : "なにもしない") + brText;

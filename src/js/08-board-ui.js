@@ -86,6 +86,8 @@ function cpuStep(st, s){
     if (ss.cost === "discard") picks = p.hand.map((id, j) => j).filter(j => j !== i).sort((a, b) => cmpNum(cardType(card(p.hand[a])) === "monster" ? baseAtk(card(p.hand[a])) : 0, cardType(card(p.hand[b])) === "monster" ? baseAtk(card(p.hand[b])) : 0)).slice(0, ss.cn);
     if (specialSummon(st, s, i, picks)) return;
   }
+  // シンクロ・エクシーズ: 素材より強くなるなら出す
+  for (const id of [...new Set(p.ex || [])]){ const c = card(id); if (!sxOf(c) || sxWhy(st, s, c) || Math.random() > .85) continue; const L = sxAuto(st, s, c); if (!L || L.some(i => cmpNum(atkOf(p.mz[i]), baseAtk(c)) >= 0)) continue; if (sxSummon(st, s, id, L)) return; }
   // フュージョン: フュージョンできるカードがあれば、条件に合う手札をぜんぶフュージョンする
   for (let i = 0; i < p.hand.length; i++){ if (!hfOf(card(p.hand[i])) || hfWhy(st, s, i)) continue; const o = hfOpts(st, s, i); if (o.length && fuseHand(st, s, i, o)) return; }
   // 2. summon strongest
@@ -153,7 +155,7 @@ function exAutoReturn(){
   if (!G || G.spectate || !G.st || !G.st.players) return;
   const p = P(G.st, G.slot), t = p && p.exTemp; if (!t) return;
   if (!exTempOk(p)){ setTimeout(() => { if (G && P(G.st, G.slot).exTemp === t) act(st => { P(st, G.slot).exTemp = null; }); }, 0); return; }
-  const busy = G.hfPick || G.ssPick || G.mugPick || G.costPick || G.eqPlace || G.equipFrom != null || (G.sel && G.sel.z === "hand" && G.sel.i === t.i) || (G.chooseQ || []).length;
+  const busy = G.hfPick || G.ssPick || G.sxPick || G.mugPick || G.costPick || G.eqPlace || G.equipFrom != null || (G.sel && G.sel.z === "hand" && G.sel.i === t.i) || (G.chooseQ || []).length;
   if (!busy) setTimeout(() => { if (G && P(G.st, G.slot).exTemp === t) act(st => { exReturnP(st, G.slot); }); }, 0);
 }
 // short reason why card c can't be activated on your own turn ("" = it can)
@@ -270,7 +272,7 @@ function renderBoard0(){
       return zcap(cardHTML(sc, `${cls} isset`, attrs, { ...mOpt(s), done: late ? "次ターン〜" : w ? WHEN_SHORT[w] : "" }), sc);
     }
     const es = eqsOf(z), cap = eqCapOf(card(z.c));
-    const eqB = [es.length ? `装備${es.length} ${eqUsed(z)}/${cap}` : "", (z.mats || []).length ? `質量${z.mats.length}` : "", (z.evoU || []).length ? `重ね${z.evoU.length}` : ""].filter(Boolean).join(" ");
+    const eqB = [es.length ? `装備${es.length} ${eqUsed(z)}/${cap}` : "", (z.mats || []).length ? `${isXyz(card(z.c)) ? "素材" : "質量"}${z.mats.length}` : "", (z.evoU || []).length ? `重ね${z.evoU.length}` : ""].filter(Boolean).join(" ");
     const ttl = es.length ? ` title="${esc("装備（左から）：" + es.map(e => card(e.c).name).join("→"))}"` : "";
     const atkr = atkNow && atkNow.by === s && atkNow.from === i, atkd = atkNow && atkNow.by !== s && atkNow.to === i;
     const stt0 = atkr ? "攻撃中！" : atkd ? "狙われている" : "";
@@ -457,7 +459,7 @@ function fusionFx(e){
   document.querySelectorAll(".fxa.fxspell").forEach(x => x.remove());
   const mats = (e.mats || []).slice(0, 6), small = innerWidth < 640, w = small ? 78 : 112, R = small ? 120 : 220;
   const box = document.createElement("div"); box.className = "fxfusion"; box.setAttribute("aria-hidden", "true");
-  box.innerHTML = `<div class="ff-bg"></div><div class="ff-swirl"></div>${mats.map(id => `<div class="ff-mat">${cardHTML(card(id), "", "", mOpt(e.s))}</div>`).join("")}<div class="ff-flash"></div><div class="ff-res"><div class="ff-lbl">融合召喚！</div>${cardHTML(card(e.c), "", "", mOpt(e.s))}</div>`;
+  box.innerHTML = `<div class="ff-bg"></div><div class="ff-swirl"></div>${mats.map(id => `<div class="ff-mat">${cardHTML(card(id), "", "", mOpt(e.s))}</div>`).join("")}<div class="ff-flash"></div><div class="ff-res"><div class="ff-lbl">${esc(e.lbl || "融合召喚！")}</div>${cardHTML(card(e.c), "", "", mOpt(e.s))}</div>`;
   document.body.appendChild(box);
   box.querySelectorAll(".ff-mat .card").forEach(c => c.style.setProperty("--w", w + "px"));
   const T = 2700, bg = box.querySelector(".ff-bg"), sw = box.querySelector(".ff-swirl"), fl = box.querySelector(".ff-flash"), res = box.querySelector(".ff-res");
@@ -552,7 +554,7 @@ function detailInfo(z, s, i){
     const es = eqsOf(slot);
     info.equips = es.map((e, k) => `「${card(e.c).name}」${eqMult(es, k) > 1 ? "（×2）" : ""}${e.o !== owner ? "（相手の）" : ""}${e.used ? "（使用ずみ）" : ""}`);
     info.cap = `${eqUsed(slot)} / ${eqCapOf(card(slot.c))}`;
-    info.mats = (slot.mats || []).map(id => card(id).name); info.evoU = (slot.evoU || []).map(x => card(x.c).name); info.xbFx = (slot.xb || []).filter(b => b.xfr); info.xbNo = (slot.xb || []).filter(b => !b.xfr);
+    info.mats = (slot.mats || []).map(id => card(id).name); info.xyz = isXyz(card(slot.c)); info.evoU = (slot.evoU || []).map(x => card(x.c).name); info.xbFx = (slot.xb || []).filter(b => b.xfr); info.xbNo = (slot.xb || []).filter(b => !b.xfr);
     info.gab = monAbs(G.st, owner, i).filter(a => a.gab).map(a => { const x = { ...a, n: a.n0 != null ? a.n0 : a.n }; return (ABS[a.k].kw ? kwStr(x) : abPhrase(x)) + (a.stat ? `（「${a.from}」が場にいる間）` : a.until ? `（${a.until >= G.st.turnNo + 1 ? "次の自分のターンの終わりまで" : "このターンだけ"}）` : ""); });
     info.abs = [...new Set(monAbs(G.st, owner, i).filter(a => a.eqU).map(a => ABS[a.k].text && ABS[a.k].n ? ABS[a.k].text((a.n || 0) * a.mult, a.name || "") : ABS[a.k].label))];
     info.eqList = es.map((e, k) => ({ c: e.c, mult: eqMult(es, k), used: !!e.used, opp: e.o !== owner, mana: !!P(G.st, e.o).mana }));
@@ -604,7 +606,7 @@ function renderDetail(info, anim){
   if (info.hfN) rows.push(["フュージョン", `${info.hfN}枚フュージョンしている`]);
   if (info.charm) rows.push(["状態", info.charm]);
   if (info.evoU && info.evoU.length) rows.push(["下のカード", `${info.evoU.length}枚：${info.evoU.map(n => `「${n}」`).join("")}`]);
-  if (info.mats && info.mats.length) rows.push(["質量", `${info.mats.length}枚：${info.mats.map(n => `「${n}」`).join("")}`]);
+  if (info.mats && info.mats.length) rows.push([info.xyz ? "エクシーズ素材" : "質量", `${info.mats.length}枚：${info.mats.map(n => `「${n}」`).join("")}`]);
   if (info.abs && info.abs.length) rows.push(["装備でついた能力", info.abs.join("／")]);
   if (info.gab && info.gab.length) rows.push(["効果でついた能力", info.gab.join("／")]);
   if (ft) rows.push([freeText(c) ? "本来の効果" : "自動の効果", ft]);
@@ -775,6 +777,14 @@ function renderOverlay(){
     const hp = G.hfPick, pm = P(st, me), c = card(pm.hand[hp.hi]), opts = hfOpts(st, me, hp.hi);
     const list = opts.map(i => { const on = hp.picked.includes(i); return cardHTML(card(pm.hand[i]), `sm pick ${on ? "sel" : ""}`, `data-hfpick="${i}" tabindex="0" role="button" aria-pressed="${on}"`, mOpt(me)); }).join("");
     html = `<div class="box"><h2 style="margin:0">「${esc(c.name)}」にフュージョンする</h2><p class="muted" style="margin:0">フュージョンする${esc(hfDesc(hfOf(c)))}を好きなだけえらんでね（${hp.picked.length}枚）。フュージョンしたカードは廃棄札になります</p><div class="gallery">${list}</div><div class="row"><button class="primary" data-hfgo ${hp.picked.length ? "" : "disabled"}>フュージョンする</button><button class="ghost" data-close="hfpick">やめる</button></div></div>`;
+  } else if (G.sxPick && canAct(st, me)){
+    // シンクロ・エクシーズ召喚: 素材をえらぶ
+    const sp = G.sxPick, pm = P(st, me), c = card(sp.id), x = sxOf(c), C = sxUsable(st, me, c);
+    sp.picked = sp.picked.filter(i => C.includes(i));
+    const sum = sp.picked.reduce((a, i) => a + matLv(card(pm.mz[i].c)), 0), ok = sxPicksOk(st, me, c, sp.picked), how = x.k === "xyz" ? "エクシーズ召喚" : "シンクロ召喚";
+    const list = C.map(i => { const on = sp.picked.includes(i), mc = card(pm.mz[i].c); return `<div class="sx-pk">${cardHTML(mc, `sm pick ${on ? "sel" : ""}`, `data-sxpick="${i}" tabindex="0" role="button" aria-pressed="${on}"`, { mod: modOf(pm.mz[i]), ...mOpt(me) })}<span class="sx-lv">Lv${matLv(mc)}${x.k === "syn" && sxHit(mc.id, x.t) ? "・チューナー役" : ""}</span></div>`; }).join("");
+    const need = x.k === "xyz" ? `レベル${lvOf(c)}のモンスター${x.n}体（えらんだ ${sp.picked.length}/${x.n}）` : `${sxMatText(x.t)}1体＋${sxMatText(x.o, x.t)}1体以上で、レベルの合計${lvOf(c)}（いま ${sum}）`;
+    html = `<div class="box"><h2 style="margin:0">「${esc(c.name)}」を${how}</h2><p class="muted" style="margin:0">${x.k === "xyz" ? "重ねて素材にする" : "墓地へ送る"}自分のモンスターをえらんでね：${esc(need.replace(/[《》]/g, ""))}</p><div class="gallery">${list}</div><div class="row"><button class="primary" data-sxgo ${ok ? "" : "disabled"}>${how}する</button><button class="ghost" data-close="sxpick">やめる</button></div></div>`;
   } else if (G.ssPick && canAct(st, me)){
     const sp = G.ssPick, pm = P(st, me), c = card(pm.hand[sp.hi]);
     const opts = sp.kind === "evo" ? evoBases(st, me, c) : sp.kind === "tribute" ? pm.mz.map((m, i) => m && (!sp.tag || hasTag(m.c, sp.tag)) ? i : -1).filter(i => i >= 0) : sp.kind === "mass" ? pm.grave.map((id, i) => i) : pm.hand.map((id, i) => i).filter(i => i !== sp.hi);
@@ -808,7 +818,7 @@ function renderOverlay(){
 }
 $("#overlay").addEventListener("click", e => {
   { const gv = e.target.closest("[data-grave]"); if (gv && G){ G.view = gv.dataset.grave; renderAll(); return; } }
-  { const xu = e.target.closest("[data-exuse]"); if (xu && G && !G.spectate){ const k = +xu.dataset.exuse, me = G.slot; let hi = -1, id = null; if (isFusion(card(P(G.st, me).ex[k]))){ toast("融合モンスターは「融合召喚」の効果でだけ出せます"); return; } G.exView = false; act(st => { const p = P(st, me); if (!canAct(st, me) || p.ex[k] == null) return false; exReturnP(st, me); id = p.ex.splice(k, 1)[0]; p.hand.push(id); hi = p.hand.length - 1; p.exTemp = { id, i: hi }; G.sel = { z: "hand", s: "me", i: hi }; G.atkFrom = null; }); if (hi < 0) renderAll(); return; } }
+  { const xu = e.target.closest("[data-exuse]"); if (xu && G && !G.spectate){ const k = +xu.dataset.exuse, me = G.slot; let hi = -1, id = null; { const xid = P(G.st, me).ex[k], xc = card(xid); if (sxOf(xc)){ const why = sxWhy(G.st, me, xc); if (why){ toast(why); return; } G.exView = false; G.sxPick = { id: xid, picked: [] }; renderAll(); return; } } if (isFusion(card(P(G.st, me).ex[k]))){ toast("融合モンスターは「融合召喚」の効果でだけ出せます"); return; } G.exView = false; act(st => { const p = P(st, me); if (!canAct(st, me) || p.ex[k] == null) return false; exReturnP(st, me); id = p.ex.splice(k, 1)[0]; p.hand.push(id); hi = p.hand.length - 1; p.exTemp = { id, i: hi }; G.sel = { z: "hand", s: "me", i: hi }; G.atkFrom = null; }); if (hi < 0) renderAll(); return; } }
   if (!G) return;
   { const aq = e.target.closest("[data-askq]"); if (aq){ const yes = aq.dataset.askq === "yes"; act(st => { if (!st.askQ || st.askQ.to !== G.slot || st.askQ.ans != null) return false; st.askQ.ans = yes; log(st, G.slot, `「${st.askQ.name}」の質問「${st.askQ.text}」に「${yes ? "はい" : "いいえ"}」と答えた`); }); return; } }
   { const p1 = e.target.closest("[data-p1]"); if (p1 && G.chooseQ.length && G.chooseQ[0].pick1){ const q = G.chooseQ.shift(), k = +p1.dataset.p1; act(st => { q.p1go(st, k); }); return; } }
@@ -822,6 +832,8 @@ $("#overlay").addEventListener("click", e => {
   const cpk = e.target.closest("[data-cpick]");
   if (cpk && G.costPick){ const j = +cpk.dataset.cpick, cp = G.costPick; if (cp.picked.includes(j)) cp.picked = cp.picked.filter(x => x !== j); else if (cp.picked.length < cp.need) cp.picked.push(j); renderAll(); return; }
   if (e.target.closest("[data-cpgo]") && G.costPick){ const cp = G.costPick; G.costPick = null; cp.go(cp.picked.slice()); return; }
+  { const xp = e.target.closest("[data-sxpick]"); if (xp && G.sxPick){ const i = +xp.dataset.sxpick, sp = G.sxPick; sp.picked = sp.picked.includes(i) ? sp.picked.filter(v => v !== i) : [...sp.picked, i]; renderAll(); return; } }
+  if (e.target.closest("[data-sxgo]") && G.sxPick){ const sp = G.sxPick; G.sxPick = null; act(st => sxSummon(st, G.slot, sp.id, sp.picked)); return; }
   const spk = e.target.closest("[data-sspick]");
   { const mf = e.target.closest("[data-mugf]"), mg = e.target.closest("[data-mugg]"), mp = G.mugPick;
     if (mp && (mf || mg)){ const x = mugCands(st0(), mp.s).find(d => d.id === mp.id); if (x){ const key = mf ? "pf" : "pg", need = mf ? x.nf : x.ng, i = +(mf || mg).dataset[mf ? "mugf" : "mugg"]; if (mp[key].includes(i)) mp[key] = mp[key].filter(v => v !== i); else if (need === 1) mp[key] = [i]; else if (mp[key].length < need) mp[key].push(i); } renderAll(); return; }
@@ -876,6 +888,7 @@ $("#overlay").addEventListener("click", e => {
   if (k === "gh"){ G.graveHand = false; renderAll(); }
   if (k === "eqplace"){ G.eqPlace = null; renderAll(); }
   if (k === "sspick"){ G.ssPick = null; renderAll(); }
+  if (k === "sxpick"){ G.sxPick = null; renderAll(); }
   if (k === "hfpick"){ G.hfPick = null; renderAll(); }
   if (k === "mugpick"){ G.mugPick = null; renderAll(); if (G.mode === "cpu") scheduleCpu(); }
   if (k === "potion"){ G.potPick = null; renderAll(); }

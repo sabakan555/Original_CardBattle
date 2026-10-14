@@ -301,6 +301,70 @@ function fusionPlan(st, s, fc){
   if (freeZone(p.mz) < 0 && !out.some(x => x.from === "mz")) return null;
   return out;
 }
+// シンクロ・エクシーズ: 自分の場のモンスターを素材にして、EXデッキから出す
+function sxHit(id, y, t){
+  if (!y) return false; if (y.m === "nott") return !sxHit(id, t); if (y.m === "any") return true;
+  const c = card(id), w = String(y.v || "").trim(); if (!w) return false; if (y.m === "tag") return hasTag(id, w);
+  return normQ(c.name).trim() === normQ(w).trim() || plainRuby(c.nameRuby || "") === w;
+}
+function sxPicksOk(st, s, c, picks){
+  const x = sxOf(c), p = P(st, s), lv = lvOf(c); if (!x || !lv) return false;
+  const L = [...new Set((picks || []).map(Number))]; if (L.length !== (picks || []).length || !L.every(i => p.mz[i])) return false;
+  const ids = L.map(i => p.mz[i].c), lvs = ids.map(id => matLv(card(id)));
+  if (x.k === "xyz") return L.length === x.n && ids.every((id, j) => lvs[j] === lv && sxHit(id, x));
+  if (L.length < 2 || lvs.some(v => !v) || lvs.reduce((a, b) => a + b, 0) !== lv) return false;
+  return ids.some((id, j) => sxHit(id, x.t) && ids.every((id2, j2) => j2 === j || sxHit(id2, x.o, x.t)));
+}
+// 素材にできそうな自分の場のモンスター（場所の番号）
+function sxCands(st, s, c){
+  const x = sxOf(c), p = P(st, s), lv = lvOf(c); if (!x || !lv) return [];
+  return p.mz.map((m, i) => i).filter(i => { const m = p.mz[i]; if (!m) return false; const v = matLv(card(m.c)); return x.k === "xyz" ? v === lv && sxHit(m.c, x) : v > 0 && v < lv && (sxHit(m.c, x.t) || sxHit(m.c, x.o, x.t)); });
+}
+// どれかの正しい組み合わせに入るモンスターだけ（えらぶ画面に出す）
+function sxUsable(st, s, c){ const C = sxCands(st, s, c), U = new Set(); for (let mask = 1; mask < 1 << C.length; mask++){ const L = C.filter((_, j) => mask >> j & 1); if (sxPicksOk(st, s, c, L)) L.forEach(i => U.add(i)); } return C.filter(i => U.has(i)); }
+// 自動で素材をえらぶ（ATKの合計がいちばん小さい組み合わせ）。null = 出せない
+function sxAuto(st, s, c){
+  const C = sxCands(st, s, c), p = P(st, s); let best = null, bs = Infinity;
+  for (let mask = 1; mask < 1 << C.length; mask++){ const L = C.filter((_, j) => mask >> j & 1); if (!sxPicksOk(st, s, c, L)) continue; const a = L.reduce((t, i) => t + (Number(atkOf(p.mz[i])) || 0), 0); if (best == null || a < bs){ bs = a; best = L; } }
+  return best;
+}
+function sxWhy(st, s, c){
+  const x = sxOf(c); if (!x) return "シンクロ・エクシーズモンスターではない";
+  if (st.turn !== s || st.pending || st.winner) return "自分のターンに出せます";
+  if (!lvOf(c)) return `${x.k === "xyz" ? "ランク" : "レベル"}が決まっていないカード`;
+  if (!canPay(st, s, c)) return "マナが足りない";
+  if (!sxAuto(st, s, c)) return x.k === "xyz" ? `素材（レベル${lvOf(c)}のモンスター${x.n}体）がそろっていない` : `素材（レベルの合計が${lvOf(c)}）がそろっていない`;
+  return "";
+}
+// id: EXデッキのカード、picks: 素材にする自分の場所（なければ自動）
+function sxSummon(st, s, id, picks){
+  const p = P(st, s), k = (p.ex || []).indexOf(id), c = card(id), x = sxOf(c);
+  if (k < 0 || sxWhy(st, s, c)) return false;
+  if (!picks) picks = sxAuto(st, s, c);
+  if (!sxPicksOk(st, s, c, picks)) return false;
+  if (!pay(st, s, c)) return false;
+  const L = [...new Set(picks.map(Number))], matIds = L.map(i => p.mz[i].c), names = matIds.map(m => `「${card(m).name}」`).join(""), how = x.k === "xyz" ? "エクシーズ召喚" : "シンクロ召喚";
+  p.ex.splice(k, 1);
+  const mats = [];
+  if (x.k === "xyz") L.forEach(i => { const m = p.mz[i]; eqsOf(m).forEach(e => P(st, e.o).grave.push(e.c)); sealsOut(st, m); if (!m.cp) (m.owner && m.owner !== s ? P(st, m.owner).grave : mats).push(m.c); mats.push(...(m.mats || [])); p.mz[i] = null; ev(st, { type: "destroy", s, z: i }); });
+  else L.forEach(i => sendToGrave(st, s, i));
+  ev(st, { type: "fusion", s, mats: matIds, c: id, lbl: how + "！" });
+  const z = freeZone(p.mz), paid = `${names}を${x.k === "xyz" ? "重ねて" : "墓地へ送って"}`;
+  if (responseOptions(st, O(s), "summon").length){
+    st.chain = [{ s, c: id, summon: true, special: true, z, ctx: { zone: z }, mats }];
+    log(st, s, `${paid}、「${c.name}」（ATK ${fmtN(baseAtk(c))}）を${how}しようとしている…`);
+    st.pending = { type: "chain", by: s, wait: true, resume: null };
+    return true;
+  }
+  p.mz[z] = mkMon(st, id); if (mats.length) p.mz[z].mats = mats;
+  ev(st, { type: "summon", s, z });
+  log(st, s, `${paid}、「${c.name}」（ATK ${fmtN(baseAtk(c))}）を${how}！`);
+  trigger(st, s, c, "ssummon", { zone: z, mon: { s, i: z, u: p.mz[z].u } });
+  persistFire(st, s, "mySummon", {});
+  onCardUsed(st, s, c, null, p.mz[z] && p.mz[z].u);
+  summonedWindow(st, s, z, true);
+  return true;
+}
 // picks = [{from: "hand"|"mz", i}] chosen by the player → a plan, or null if they don't match the materials
 function fusionPlanFrom(st, s, fc, picks){
   const p = P(st, s), pool = (picks || []).map(x => ({ from: x.from, i: +x.i, id: x.from === "hand" ? p.hand[+x.i] : p.mz[+x.i] && p.mz[+x.i].c })).filter(x => x.id != null);
@@ -536,7 +600,7 @@ function targetOptions(st, s, kind, ctx = {}){
     const p = P(st, s), tag = ctx.tagName || "", fromEx = kind === "exSummon" || kind === "tagSummonEx", src = fromEx ? (p.ex || []) : /Hand$/.test(kind) && kind !== "tagGraveHand" ? p.hand : /Deck$|tagSearch/.test(kind) ? p.deck : p.grave;
     const summ = /^tagSummon/.test(kind) || kind === "exSummon";
     if (summ && freeZone(p.mz) < 0) return [];
-    return [...new Set(src.filter(id => (kind === "exSummon" || hasTag(id, tag)) && (!summ || cardType(card(id)) === "monster") && !(fromEx && isFusion(card(id)))))];
+    return [...new Set(src.filter(id => (kind === "exSummon" || hasTag(id, tag)) && (!summ || cardType(card(id)) === "monster") && !(fromEx && (isFusion(card(id)) || sxOf(card(id))))))];
   }
   if (t === "graveAny") return [...new Set(P(st, s).grave)].filter(id => S.cards.has(id));
   if (t === "deckType"){ const want = { searchMon: "monster", searchMagic: "magic", searchTrap: "trap" }[kind]; return [...new Set(P(st, s).deck.filter(id => cardType(card(id)) === want))]; }
@@ -692,6 +756,7 @@ function actFree(st, s, m, c, bi, b){
 }
 const actBlocks = (st, s, m) => { const c = monCard(m); return blocksOf(c).map((b, bi) => [b, bi]).filter(([b]) => b.trig === "act"); };
 // 起動効果のマナコスト（マナのないふつうのデッキではタダ）
+const xcOk = (m, b) => !(b && b.xc > 0) || (m && m.mats || []).length >= b.xc;
 const actManaOk = (st, s, b) => !(b && b.mcost > 0) || !P(st, s).mana || P(st, s).mana.cur >= b.mcost;
 function actWhy(st, s, i){
   const m = P(st, s).mz[i]; if (!m || !hasTrig(monCard(m), "act")) return "起動効果がない";
@@ -699,6 +764,7 @@ function actWhy(st, s, i){
   const c = card(m.c), L = actBlocks(st, s, m);
   if (!L.some(([b, bi]) => actFree(st, s, m, c, bi, b))) return L.every(([b]) => actLim(b).per === "game") ? "この試合ではもう使えない" : "このターンはもう使えない";
   if (!L.some(([b, bi]) => actFree(st, s, m, c, bi, b) && !ctrPayWhy(st, s, b.cost, { mon: { s, i, u: m.u } }))) return "コストのカウンターが足りない";
+  if (!L.some(([b, bi]) => actFree(st, s, m, c, bi, b) && xcOk(m, b))) return "エクシーズ素材が足りない";
   if (!L.some(([b, bi]) => actFree(st, s, m, c, bi, b) && actManaOk(st, s, b))) return "マナが足りない";
   if (!canAct(st, s)) return "いまは使えない";
   return "";
@@ -707,11 +773,12 @@ function actWhy(st, s, i){
 function activateMon(st, s, i, bi){
   if (actWhy(st, s, i)) return false;
   const m = P(st, s).mz[i], c = monCard(m), p = P(st, s);
-  const L = actBlocks(st, s, m).filter(([b, k]) => actFree(st, s, m, c, k, b) && !ctrPayWhy(st, s, b.cost, { mon: { s, i, u: m.u } }) && actManaOk(st, s, b) && (bi == null || k === +bi)).slice(0, 1);
+  const L = actBlocks(st, s, m).filter(([b, k]) => actFree(st, s, m, c, k, b) && !ctrPayWhy(st, s, b.cost, { mon: { s, i, u: m.u } }) && actManaOk(st, s, b) && xcOk(m, b) && (bi == null || k === +bi)).slice(0, 1);
   if (!L.length) return false;
   if (!m.actT || m.actT.no !== st.turnNo) m.actT = { no: st.turnNo, c: {} };
   L.forEach(([b, bi]) => { const per = actLim(b).per; if (per === "turn") m.actT.c[bi] = (m.actT.c[bi] || 0) + 1; if (per === "game"){ p.actG = p.actG || {}; p.actG[c.id + ":" + bi] = (p.actG[c.id + ":" + bi] || 0) + 1; } });
   log(st, s, `「${c.name}」の起動効果を発動！`); ev(st, { type: "spell", s, c: m.c });
+  L.forEach(([b]) => { if (b.xc > 0){ const out = (m.mats || []).splice(0, b.xc); p.grave.push(...out); log(st, s, `「${c.name}」のエクシーズ素材${out.map(x => `「${card(x).name}」`).join("")}を取り除いた`); } });
   L.forEach(([b]) => { ctrPay(st, s, b.cost, `「${c.name}」`, { mon: { s, i, u: m.u } }); if (b.mcost > 0 && p.mana){ p.mana.cur -= b.mcost; log(st, s, `「${c.name}」のコストでマナを${b.mcost}払った（${p.mana.cur}/${p.mana.max}）`); } });
   const ctx = { zone: i, mon: { s, i, u: m.u }, hit: {} };
   const step = (st2, k) => { if (k >= L.length){ checkEnd(st2); return; } runBlock(st2, s, c, L[k][0], ctx, st3 => step(st3, k + 1)); };
@@ -1558,7 +1625,7 @@ function summon(st, s, hi, zi, disc, trib, mats){
   if (ms){ if (p.grave.length < ms) return false; let L = [...new Set((mats || []).map(Number))].filter(j => p.grave[j] != null); if (L.length !== ms) L = p.grave.map((_, j) => j).slice(0, ms); mats = L; }
   let z = evo ? zi : (zi != null && !p.mz[zi]) ? zi : glZone(st, s, id);
   if (need){ const tt = card(id).tribTag; trib = [...new Set((trib || []).map(Number))].filter(i => p.mz[i] && (!tt || hasTag(p.mz[i].c, tt))); if (trib.length !== need) return false; }
-  if (!canSummonNow(st, s) || (z < 0 && !need) || cardType(card(id)) !== "monster" || !canPay(st, s, card(id)) || (ssOf(card(id)) || {}).only || isFusion(card(id))) return false;
+  if (!canSummonNow(st, s) || (z < 0 && !need) || cardType(card(id)) !== "monster" || !canPay(st, s, card(id)) || (ssOf(card(id)) || {}).only || isFusion(card(id)) || sxOf(card(id))) return false;
   if (!pay(st, s, card(id))) return false;
   let matIds = [];
   if (ms){ matIds = mats.slice().sort((a, b) => b - a).map(j => p.grave.splice(j, 1)[0]).reverse(); log(st, s, `墓地の${matIds.map(x => `「${card(x).name}」`).join("")}を質量にした`); }
@@ -1586,6 +1653,7 @@ function summon(st, s, hi, zi, disc, trib, mats){
 function ssBlock(st, s, hi){
   const p = P(st, s), op = P(st, O(s)), c = card(p.hand[hi]), ss = ssOf(c);
   if (isFusion(c)) return "融合召喚でしか出せないカード";
+  if (sxOf(c)) return isXyz(c) ? "エクシーズ召喚でしか出せないカード" : "シンクロ召喚でしか出せないカード";
   if (!ss) return "特殊召喚できないカード";
   if (!canPay(st, s, c)) return "マナが足りない";
   const mine = p.mz.filter(Boolean).length;

@@ -52,7 +52,7 @@ function renderPlay(){
 }
 $("#rejoin").addEventListener("click", e => { if (e.target.closest("#btnRejoin")){ const l = ls.get("cb_last3", null); if (l) joinRoom(l.code); } });
 
-function isEx(c){ return !!(c && c.ex); }
+function isEx(c){ return !!(c && (c.ex || sxOf(c))); }
 function newPlayer(deckIds, name, mana, spire){
   const deck = shuffle(deckIds.filter(id => !isEx(card(id)))); deck.splice(0, deck.length, ...innateTop(deck)); const hand = deck.splice(0, 5), ex = deckIds.filter(id => isEx(card(id)));
   const p = { name: name || S.name, lp: START_LP, deck, hand, grave: [], mz: Array(ZONES).fill(null), sz: Array(ZONES).fill(null), mana: mana ? { max: 0, cur: 0 } : null, sleeve: name ? null : (mySleeve() || null), deckIds: [...deckIds], ex };
@@ -309,7 +309,7 @@ function freshFrom(st, s){
   const p = P(st, s), ids = p.deckIds && p.deckIds.length ? p.deckIds : allCardsOf(st, s);
   const n = newPlayer(ids, p.name, !!p.mana, p.spire ? (p.spc === "silent" ? "silent" : true) : false); n.sleeve = p.sleeve || null; return n;
 }
-function resetLocal(){ Object.assign(G, { costPick: null, potPick: null, sel: null, atkFrom: null, chooseQ: [], evSeen: 0, recorded: false, prevLp: null, eqPlace: null, ssPick: null, view: null, graveHand: false, detailOpen: false, detailBack: null, lastDetail: null }); renderDetail(null); }
+function resetLocal(){ Object.assign(G, { costPick: null, potPick: null, sel: null, atkFrom: null, chooseQ: [], evSeen: 0, recorded: false, prevLp: null, eqPlace: null, ssPick: null, sxPick: null, view: null, graveHand: false, detailOpen: false, detailBack: null, lastDetail: null }); renderDetail(null); }
 function rematch(){
   if (!G || !G.st || !G.st.winner || G.spectate) return;
   if (G.mode !== "online"){
