@@ -1481,6 +1481,7 @@ div.f{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:13px}
 .card.dm.frameless .c-text{background:color-mix(in srgb,#fff calc(var(--fla,68%)*.35),transparent)}
 /* 種類の札は元の位置に合わせる（絵の左端だけが通常枠と異なる）。 */
 .card.dm.frameless .c-tab,.card.dm.frameless:not(.editor) .c-tab{left:calc(var(--du)*25);top:calc(var(--du)*443);box-shadow:none;z-index:4;background:var(--dmf) 11.61% 66.39%/302.885% 2750% no-repeat;border-radius:calc(var(--du)*3)}
+.card.dm.frameless.mcol .c-tab{background:var(--cframeBg,linear-gradient(var(--cframe),var(--cframe))) 0 0/100% 100%,var(--dmf) 11.61% 66.39%/302.885% 2750% no-repeat;background-blend-mode:color,normal}
 .card.editor.dm.frameless .fl-guide{display:flex!important}
 .card.dm .holo-fx{z-index:4;border-radius:calc(var(--du)*26)}
 .card.dm[class*="foil-"] .c-name{background:none!important;color:#000!important;-webkit-text-fill-color:currentColor;filter:none}
