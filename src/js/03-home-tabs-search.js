@@ -101,7 +101,7 @@ function renderAll(){
   for (const t of ["play", "make", "deck", "pack", "trade", "me", "rules"]) $("#tab-" + t).hidden = S.tab !== t;
   if (S.tab === "me") renderMe();
   if (S.tab === "play") renderPlay();
-  if (S.tab === "make"){ syncMakeView(); renderGallery(); if (typeof fitCanvas === "function") setTimeout(fitCanvas); }
+  if (S.tab === "make"){ syncMakeView(); if (typeof renderAttrPick === "function") renderAttrPick(); renderGallery(); if (typeof fitCanvas === "function") setTimeout(fitCanvas); }
   if (S.tab === "deck") renderDeckTab();
   if (S.tab === "rules") renderRulesKw();
   if (S.tab === "trade") renderTrade();
@@ -136,6 +136,7 @@ function ctrFilterHTML(cur){
 // 作者でしぼる: カードを作った人の一覧（多い順）
 const authorOf = c => String(c && c.author || "").trim();
 function authorOptionsHTML(cur){ const cnt = new Map(); [...S.cards.values()].forEach(c => { if (!c || c.tut || c.skinOf) return; const a = authorOf(c); if (a) cnt.set(a, (cnt.get(a) || 0) + 1); }); const L = [...cnt.keys()].sort((a, b) => cnt.get(b) - cnt.get(a) || a.localeCompare(b, "ja")); if (cur && !L.includes(cur)) L.unshift(cur); return `<option value="">作者：指定なし</option>` + L.map(a => `<option value="${esc(a)}"${a === cur ? " selected" : ""}>${esc(a)}（${cnt.get(a) || 0}）</option>`).join(""); }
+function attrFilterHTML(cur){ return `<option value="">属性：指定なし</option>` + attrList().map(a => `<option value="${esc(a)}"${a === cur ? " selected" : ""}>属性：${esc(a)}</option>`).join(""); }
 function tagOptionsHTML(cur){ const L = [...new Set([...S.cards.values()].filter(c => c && !c.tut).flatMap(c => tagsOf(c)))].sort((a, b) => a.localeCompare(b, "ja")); if (cur && !L.includes(cur)) L.unshift(cur); return `<option value="">タグ：指定なし</option>` + L.map(t => `<option value="${esc(t)}"${t === cur ? " selected" : ""}>#${esc(t)}</option>`).join(""); }
 const SORTS = { new: "新しい順", atkDesc: "ATKが高い順", atkAsc: "ATKが低い順", costAsc: "コストが低い順", costDesc: "コストが高い順", name: "名前順" };
 // list is already in "new" order (user cards newest first, then starters)
@@ -190,10 +191,11 @@ function initFilters(key, onChange){
     <div class="seg" id="${key}Type">${[["all", "すべて"], ["monster", "モンスター"], ["magic", "魔法"], ["quick", "速攻魔法"], ["equip", "装備"], ["trap", "罠"], ...(key === "gal" ? [["potion", "ポーション"], ["relic", "レリック"], ["counter", "カウンター"]] : [])].map(([v, l]) => `<button data-v="${v}" aria-pressed="${v === "all"}">${l}</button>`).join("")}</div>
     <select id="${key}Sort" aria-label="並べ替え">${Object.entries(SORTS).map(([k, v]) => `<option value="${k}">${v}</option>`).join("")}</select>
     <span class="count" id="${key}Count"></span>
-    <details class="flt-more" id="${key}More"${ls.get("cb_fltMore_" + key, false) ? " open" : ""}><summary>くわしく絞り込む（効果・デッキ・タグ・作者${key === "gal" ? "" : "・カウンター"}）<span class="flt-on" id="${key}MoreOn"></span></summary><div class="flt-more-in">
+    <details class="flt-more" id="${key}More"${ls.get("cb_fltMore_" + key, false) ? " open" : ""}><summary>くわしく絞り込む（効果・デッキ・タグ・属性・作者${key === "gal" ? "" : "・カウンター"}）<span class="flt-on" id="${key}MoreOn"></span></summary><div class="flt-more-in">
     <select id="${key}Fx" aria-label="効果で絞り込み">${fxOptionsHTML("")}</select>
     <select id="${key}Dm" aria-label="使えるデッキで絞り込み"><option value="">デッキ：指定なし</option><option value="cost">コストデッキ専用</option><option value="normal">コストデッキ以外（ふつうのデッキで使える・コストなしで表示）</option><option value="both">どちらでも</option></select>
     <select id="${key}Tag" aria-label="タグで絞り込み">${tagOptionsHTML("")}</select>
+    <select id="${key}Attr" aria-label="属性で絞り込み">${attrFilterHTML("")}</select>
     <select id="${key}Author" aria-label="作者で絞り込み">${authorOptionsHTML("")}</select>
     ${key === "gal" ? "" : `<select id="${key}Ctr" aria-label="カウンターで絞り込み">${ctrFilterHTML("")}</select>`}
     </div></details>`;
@@ -204,6 +206,7 @@ function initFilters(key, onChange){
   $("#" + key + "Sort").addEventListener("change", e => { f.sort = e.target.value; onChange(); });
   $("#" + key + "Dm").addEventListener("change", e => { f.dm = e.target.value; onChange(); });
   { const au = $("#" + key + "Author"), fill = () => { au.innerHTML = authorOptionsHTML(f.author || ""); }; au.addEventListener("focus", fill); au.addEventListener("mousedown", fill); au.addEventListener("change", e => { f.author = e.target.value; onChange(); }); }
+  { const at = $("#" + key + "Attr"); const fill = () => { at.innerHTML = attrFilterHTML(f.attr); }; at.addEventListener("focus", fill); at.addEventListener("mousedown", fill); at.addEventListener("change", e => { f.attr = e.target.value; onChange(); }); }
   { const tg = $("#" + key + "Tag"); const fill = () => { tg.innerHTML = tagOptionsHTML(f.tag); }; tg.addEventListener("focus", fill); tg.addEventListener("mousedown", fill); tg.addEventListener("change", e => { f.tag = e.target.value; onChange(); }); }
   { const cs = $("#" + key + "Ctr"), fill = () => { cs.innerHTML = ctrFilterHTML(f.ctr || ""); }; if (cs) cs.addEventListener("focus", fill); if (cs) cs.addEventListener("mousedown", fill); if (cs) cs.addEventListener("change", e => { f.ctr = e.target.value; onChange(); }); }
   $("#" + key + "Type").addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return; f.type = b.dataset.v; box.querySelectorAll("#" + key + "Type button").forEach(x => x.setAttribute("aria-pressed", x === b)); onChange(); });
@@ -214,6 +217,7 @@ function matchCard(c, f){
   // 「コストデッキ以外」: ふつうのデッキ専用＋どちらでも入るカード（どちらでものカードはコストなしの見た目で出す）
   if (f.dm === "normal" ? deckModeOf(c) === "cost" : f.dm && deckModeOf(c) !== f.dm) return false;
   if (f.tag && !tagsOf(c).includes(f.tag)) return false;
+  if (f.attr && !attrsOf(c).includes(f.attr)) return false;
   if (f.author && authorOf(c) !== f.author) return false;
   if (f.ctr && !cardCtrIds(c).includes(f.ctr)) return false;
   if (f.q){
@@ -235,6 +239,6 @@ S.makeView = ls.get("cb_makeView", "draw") === "gal" ? "gal" : "draw";
 function syncMakeView(){ const v = S.makeView === "gal" ? "gal" : "draw", mk = document.querySelector("#tab-make > .maker"), gw = $("#galWrap"); if (mk) mk.hidden = v !== "draw"; if (gw) gw.hidden = v !== "gal"; document.querySelectorAll("#makeView [data-mv]").forEach(b => b.setAttribute("aria-pressed", b.dataset.mv === v)); }
 function setMakeView(v){ S.makeView = v === "gal" ? "gal" : "draw"; ls.set("cb_makeView", S.makeView); syncMakeView(); }
 // くわしく絞り込む: えらんでいる数を見出しに出す
-function fltMoreSync(key){ const f = S.filt[key] || {}, n = ["fx", "dm", "tag", "author", "ctr"].filter(k => f[k]).length, el = $("#" + key + "MoreOn"); if (el) el.textContent = n ? `（${n}つ指定中）` : ""; }
+function fltMoreSync(key){ const f = S.filt[key] || {}, n = ["fx", "dm", "tag", "attr", "author", "ctr"].filter(k => f[k]).length, el = $("#" + key + "MoreOn"); if (el) el.textContent = n ? `（${n}つ指定中）` : ""; }
 function setCount(key, shown, total){ fltMoreSync(key); const el = $("#" + key + "Count"); if (el) el.textContent = shown === total ? `${total}枚` : `${shown} / ${total}枚`; }
 

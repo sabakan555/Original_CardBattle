@@ -49,7 +49,7 @@ const ctrCostText = x => x && x.id && x.n > 0 ? `${CTR_PAY[x.w] || "自分"}の$
 const payCtrOf = c => c && c.payCtr && c.payCtr.id && +c.payCtr.n > 0 ? { id: String(c.payCtr.id), n: Math.min(99, Math.round(+c.payCtr.n)), w: c.payCtr.w === "field" ? "field" : "me" } : null;
 // 「○○カウンターがN個以上になったとき」
 const ctrReachHead = b => `${b.rw === "me" ? "自分" : "このモンスター"}の${ctrName(b.rc)}が${b.rn || 1}個以上になったとき`;
-const perLab = m => m.per === "handF" ? `手札の${usedPfText(m)}1枚` : m.per === "usedNow" ? `このターン使った${usedPfText(m)}1枚` : m.per === "ctr" ? `${ctrAtText(m.pcw)}の${ctrName(m.pctr)}1個` : PER_DEFS[m.per].label + PER_DEFS[m.per].u;
+const perLab = m => m.per === "attrMon" ? `自分の場の${m.pattr || "火"}属性のモンスター1体` : m.per === "handF" ? `手札の${usedPfText(m)}1枚` : m.per === "usedNow" ? `このターン使った${usedPfText(m)}1枚` : m.per === "ctr" ? `${ctrAtText(m.pcw)}の${ctrName(m.pctr)}1個` : PER_DEFS[m.per].label + PER_DEFS[m.per].u;
 
 /* ---- カウンターの効果ブロック（モンスターと同じ作り）: 乗ったとき・乗っている側のターンのはじめ／終わり・乗っているモンスターが破壊されたとき・なくなったとき
    カウンターの定義の fx の中に { at: "bk", b: [効果ブロック] } として入れる（前からの fx の読み方では無視される）。

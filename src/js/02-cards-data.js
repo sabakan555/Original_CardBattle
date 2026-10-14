@@ -285,7 +285,15 @@ function cardHTML(c, cls = "", attrs = "", opts = {}){
   const fr = c && !c.potionView && !c.relicView && FR_CLS[c.frame] ? c.frame : "", mt = !!fr;
   // カードの表に効果の文を出さない（カードを開くと見られる）
   if (c && c.hideText && !c.potionView && !c.relicView) c = { ...c, effect: "\u200b", fxRows: false };
+  // デュエマ風: 属性（文明）の色で枠の色が変わる（自分で枠の色を決めていないとき。多色は最初と最後の色のグラデーション）
+  if (fr === "dm" && attrsOf(c).length && !HEX6.test(c.colF || "")){ const A = attrsOf(c); c = { ...c, colF: attrColor(A[0], c), ...(A.length > 1 ? { colF2: attrColor(A[A.length - 1], c), colGd: c.colGd || "h" } : {}) }; }
   let h = cardHTML0(mt ? { ...c, frameless: fr === "future" ? c.frameless : false } : c, cls, attrs, opts);
+  // レベル・属性のしるし（絵の右上）。デュエマ風は枠の色で属性がわかるのでレベルだけ、遊戯王風はレベルを星で出す
+  if (c && !c.potionView && !c.relicView && c.frame !== "spire" && c.frame !== "socra"){
+    const A = fr === "dm" ? [] : attrsOf(c), lv = fr === "ygo" ? 0 : lvOf(c);
+    if (A.length || lv) h = h.replace('<div class="c-art">', `<div class="c-art"><span class="c-meta">${lv ? `<b class="c-lv" title="レベル${lv}">Lv${lv}</b>` : ""}${A.map(a => `<i class="c-attr" style="--ac:${attrColor(a, c)}" title="${esc(a)}属性">${esc([...a][0])}</i>`).join("")}</span>`);
+    if (fr === "ygo" && lvOf(c) && !/<span class="c-cost"/.test(h)) h = h.replace('<div class="c-in">', `<div class="c-in"><span class="c-cost" title="レベル${lvOf(c)}">${ygoStars(String(lvOf(c)), cardType(c))}</span>`);
+  }
   // MTG風の枠（サバ缶デザイン）: ふつうの枠と同じ中身に、枠の見た目と下の宝石をかぶせる
   // MTG風: カードのフォントが標準（手書き）のままなら、Figmaのデザインのフォントを使う
   if (mt && (!c.font || c.font === "klee")) h = h.replace(/--cf:[^;']*;?/, "");

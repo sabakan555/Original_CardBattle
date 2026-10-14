@@ -1131,6 +1131,13 @@ nav.tabs button{position:relative}
 .guide-btn:has(.jp){padding-left:clamp(36px,calc(var(--hu)*7),110px)}.guide-btn .jp{font-size:clamp(13px,calc(var(--hu)*1.4),20px)!important}
 .hbtn .jp,.guide-btn .jp{font-family:var(--ui);font-weight:700;font-size:clamp(14px,calc(var(--hu)*1.7),24px);margin-left:.7em;opacity:.9;align-self:center;text-shadow:2px 1px 0 rgba(70,80,110,.7)}
 .admin-tag{margin:-4px 0 12px;font-size:13px}.admin-tag>summary{cursor:pointer;color:var(--muted);font-weight:700}
+.c-art>.c-meta{position:absolute;bottom:calc(var(--w)*.02);right:calc(var(--w)*.02);z-index:4;display:flex;gap:calc(var(--w)*.012);align-items:center;pointer-events:none}
+.c-meta .c-lv{font:800 calc(var(--w)*.052)/1 var(--ui);color:#fff;background:rgba(20,24,40,.78);padding:calc(var(--w)*.01) calc(var(--w)*.025);border-radius:99px;box-shadow:0 1px 3px rgba(0,0,0,.4)}
+.c-meta .c-attr{display:grid;place-items:center;width:calc(var(--w)*.1);height:calc(var(--w)*.1);border-radius:50%;background:var(--ac,#888);color:#fff;font:800 calc(var(--w)*.05)/1 var(--ui);font-style:normal;border:calc(var(--w)*.006) solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.45);text-shadow:0 1px 1px rgba(0,0,0,.4)}
+.lv-attr{display:flex;flex-direction:column;gap:6px;margin-top:6px}.lv-attr .row{gap:6px 10px;flex-wrap:wrap;align-items:center}
+.attr-pick{display:flex;flex-wrap:wrap;gap:6px}.attr-pick button{display:inline-flex;align-items:center;gap:4px;padding:3px 10px 3px 4px;border-radius:99px;font-size:13px}
+.attr-pick button i{width:18px;height:18px;border-radius:50%;background:var(--ac);display:inline-block;border:2px solid #fff}
+.attr-pick button[aria-pressed="true"]{outline:2px solid var(--ac);background:color-mix(in srgb,var(--ac) 35%,transparent)}
 .kw-box>summary{cursor:pointer;list-style:none}.kw-box>summary::-webkit-details-marker{display:none}.kw-box>summary h2::before{content:"▸ ";color:var(--muted)}.kw-box[open]>summary h2::before{content:"▾ "}
 .kw-box input[type=search]{margin:10px 0;width:min(360px,100%)}
 .kw-list{display:grid;grid-template-columns:max-content minmax(0,1fr);gap:6px 14px;margin:0;font-size:14px;line-height:1.6}
