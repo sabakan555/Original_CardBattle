@@ -727,6 +727,7 @@ button.chip{font-size:12px;border:1.5px solid var(--ink);border-radius:99px;padd
 @keyframes fxfloat{0%{transform:translate(-50%,10px) scale(.6);opacity:0}20%{transform:translate(-50%,-10px) scale(1.2);opacity:1}100%{transform:translate(-50%,-60px) scale(1);opacity:0}}
 .fxspell{left:50%;top:45%;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;gap:8px;animation:fxspell 1.25s ease-in-out forwards;filter:drop-shadow(0 10px 30px rgba(30,35,40,.45))}
 .fxcut{position:fixed;left:0;right:0;top:50%;height:0;z-index:8500;pointer-events:none}
+.nolose{display:inline-block;margin-left:6px;padding:2px 8px;border-radius:999px;background:linear-gradient(90deg,#ffd34d,#ff9f3a);color:#3a2300;font-size:11px;font-weight:800;vertical-align:middle;box-shadow:0 0 10px rgba(255,200,80,.6)}
 .fxace{position:fixed;inset:0;z-index:8600;pointer-events:none;overflow:hidden;--ac:#ffd34d}
 .fxace .ace-bg{position:absolute;inset:0;background:radial-gradient(ellipse at 50% 50%,color-mix(in srgb,var(--ac) 30%,#120a1e) 0,#07040d 70%);animation:aceBg 1.9s ease forwards}
 .fxace .ace-burst{position:absolute;left:50%;top:50%;width:170vmax;height:170vmax;margin:-85vmax 0 0 -85vmax;background:repeating-conic-gradient(from 0deg,color-mix(in srgb,var(--ac) 70%,transparent) 0 4deg,transparent 4deg 14deg);mix-blend-mode:screen;animation:aceBurst 1.9s linear forwards}
@@ -2309,6 +2310,8 @@ const KINDS = {
   setCost:    { label: "手札のカードのコストを○にする（えらぶ／種類・名前でしぼる）", n: true, target: "hand", text: (n, nm, m) => `${m && m.sp === "pick" ? "手札を1枚えらび、そのコスト" : `手札の${usedPfText(m || {})}のコスト`}を${n}にする（${m && m.sd === "used" ? "使うまで" : "このターン"}）` },
   seal:       { label: "相手のモンスターに封印をつける（同じタグのモンスターを出されるまで、ないものとして扱う）", n: true, target: "opp", text: n => `相手のモンスター1体に《封印》を${n}つつける（自分の山札の上から${n}枚を裏向きで重ねる）` },
   giveAb:     { label: "モンスターに能力を付与する（成長・2回攻撃・ブロッカーなど）", target: "any", text: (n, nm, m) => gabText(m) },
+  noLoseTurn: { label: "このターン、自分はゲームに負けない", text: () => `このターン、自分はゲームに負けない（LPが0になっても、山札がなくなっても）` },
+  noLoseWhile: { label: "このカードが場にいる限り、自分はゲームに負けない", text: () => `このカードが場にいる限り、自分はゲームに負けない（LPが0になっても、山札がなくなっても）` },
   win:        { label: "ゲームに勝利する", text: () => `ゲームに勝利する` }
 };
 const CONDS = {
@@ -2971,6 +2974,7 @@ function blockText(c, b, detail = false){
   if (b.conds.length && b.else.length) s += `。${detail ? "\n" : ""}そうでなければ、${effsText(c, b.else, detail)}`;
   if (b.grant){ const pre = head + delayText(b.delay), g = b.grant; s = pre + boonText(g) + `「自分のターンの${g.at === "turnStart" ? "はじめ" : "おわり"}に、${s.slice(pre.length)}」`; }
   if (isField(c) && !fieldMine(c)) s = s.replace(/(自分|相手)のモンスターすべて/g, "お互いのモンスターすべて");
+  if (b.trig === "while") s = s.replace("このカードが場にいる限り、自分はゲームに負けない", "自分はゲームに負けない");
   return s;
 }
 // Consecutive blocks marked alt form one choice; unrelated blocks still run in order.
@@ -4713,7 +4717,7 @@ const KIND_GROUPS = [
   { g: "equip",   label: "装備を動かす", v: [["moveEquips", "別のモンスターに付けかえる"], ["equipsToHand", "ほかの装備を手札に戻す"]] },
   { g: "minus",   label: "デメリット（自分が損する・しばり）", v: [["loseLp", "LPを失う（ブロックでは防げない）"], ["oppHeal", "相手のLPを回復する"], ["oppDraw", "相手にカードを○枚引かせる"], ["selfDisc", "手札をえらんで捨てる"], ["selfDiscRand", "手札をランダムに捨てる"], ["selfDiscAll", "手札をすべて捨てる"], ["thisNoAtk", "このモンスターは攻撃できない（このターン）"], ["thisTopOnly", "一番ATKが高い相手にしか攻撃できない"], ["selfNoAtk", "自分のモンスターは攻撃できない（このターン）"], ["destroyOwn", "自分のモンスター1体を破壊"], ["destroyThis", "このモンスターを破壊"], ["destroyOwnAll", "自分のモンスターをすべて破壊"], ["selfAtkDown", "このモンスターのATKダウン"], ["myAtkDown", "自分のモンスター1体のATKダウン"], ["myAtkDownAll", "自分のモンスターすべてのATKダウン"], ["oppStr", "相手が筋力を得る"], ["noDraw", "このターンもう引けない"]] },
   { g: "ctr",     label: "カウンター（乗せる・取り除く）", v: [["ctrAdd", "カウンターを乗せる"], ["ctrDel", "カウンターを取り除く"]] },
-  { g: "win",     label: "ゲームに勝つ", v: [["win", "勝利する"]] }
+  { g: "win",     label: "勝ち負け（勝利する・敗北回避）", v: [["win", "勝利する"], ["noLoseTurn", "このターン、自分は負けない（敗北回避）"], ["noLoseWhile", "このカードが場にいる限り、自分は負けない（敗北回避）"]] }
 ];
 // kinds shown only when an older card already uses them (they're now 基本の効果 + 「だれに」)
 const intoText = into => into ? `「${into}」` : "ランダムなスパイア風カード";
@@ -7101,10 +7105,27 @@ const isHumanHere = s => G && s === G.slot;
 function checkEnd(st){
   if (st.winner) return;
   ctrAuraSync(st);
-  const la = st.players.a.lp, lb = st.players.b.lp;
-  if (la <= 0 && lb <= 0){ st.winner = "draw"; st.why = "両者LP0"; }
-  else if (la <= 0){ st.winner = "b"; st.why = `${nm(st, "a")} のLPが0になった`; }
-  else if (lb <= 0){ st.winner = "a"; st.why = `${nm(st, "b")} のLPが0になった`; }
+  const la = st.players.a.lp, lb = st.players.b.lp, na = la <= 0 ? noLoseBy(st, "a") : "", nb = lb <= 0 ? noLoseBy(st, "b") : "", xa = la <= 0 && !na, xb = lb <= 0 && !nb;
+  if (xa && xb){ st.winner = "draw"; st.why = "両者LP0"; }
+  else if (xa){ st.winner = "b"; st.why = `${nm(st, "a")} のLPが0になった`; }
+  else if (xb){ st.winner = "a"; st.why = `${nm(st, "b")} のLPが0になった`; }
+  // 敗北回避: LPが0以下でも負けない（1回だけお知らせ）
+  [["a", na], ["b", nb]].forEach(([s, w]) => { if (!w) return; const p = P(st, s), k = st.turnNo + ":" + p.lp + ":" + w; if (p.noLoseLog !== k){ p.noLoseLog = k; log(st, s, `LPが${p.lp}だけど、「${w}」の効果でゲームに負けない！`); } });
+}
+// 敗北回避: 負けないなら、その効果を出したカードの名前（なければ ""）
+function noLoseBy(st, s){
+  const p = P(st, s); if (!p) return "";
+  if (p.noLoseT === st.turnNo) return p.noLoseSrc || "敗北回避";
+  const srcs = [];
+  p.mz.forEach((m, i) => { if (m) srcs.push({ c: monCard(m), ctx: { zone: i, mon: { s, i, u: m.u } } }); });
+  p.sz.forEach((z, i) => { if (z && z.face && (isPersist(card(z.c)) || z.fcp)) srcs.push({ c: card(z.c), ctx: { pz: i } }); });
+  if (st.field && st.field.o === s) srcs.push({ c: card(st.field.c), ctx: { field: true } });
+  for (const x of srcs) for (const b of blocksOf(x.c)){
+    let L = b.then || [];
+    if (b.trig === "while"){ const plain = (b.conds || []).filter(y => y.k !== "ask"), ok = !plain.length || (b.join === "or" ? plain.some(y => condMet(st, s, x.c, y, x.ctx)) : plain.every(y => condMet(st, s, x.c, y, x.ctx))); L = (ok ? b.then : b.else) || []; }
+    if (L.some(e => e && e.kind === "noLoseWhile")) return x.c.name;
+  }
+  return "";
 }
 function drawN(st, s, n, why){
   const p = P(st, s); let got = 0; p.lastDrawn = [];
@@ -7938,12 +7959,15 @@ function applyEffect(st, s, c, target, ctx = {}, fx = normFx(c)){
     case "atkDownAtk": { const am = ctx.attack && P(st, ctx.attack.by).mz[ctx.attack.from]; if (am){ am.mod = (am.mod || 0) - n; log(st, s, `${src}で攻撃してきた「${card(am.c).name}」のATK−${n}`); } else log(st, s, `${src}：攻撃してきたモンスターがいない`); break; }
     case "dmgAtkAtk": { const am = ctx.attack && P(st, ctx.attack.by).mz[ctx.attack.from], d = am ? Math.max(0, +atkOf(am) || 0) : 0; if (am && d > 0 && isFinite(d)){ log(st, s, `${src}：攻撃してきた「${card(am.c).name}」のATK ${fmtN(d)}ぶんのダメージを${P(st, ctx.attack.by).name}に与えた`); dealDmg(st, ctx.attack.by, d); } else log(st, s, `${src}：攻撃してきたモンスターがいない`); break; }
     case "killAtk": if (ctx.attack){ destroyMonster(st, ctx.attack.by, ctx.attack.from, src); } else log(st, s, `${src}：攻撃してきたモンスターがいない`); break;
+    case "noLoseTurn": me.noLoseT = st.turnNo; me.noLoseSrc = c.name; log(st, s, `${src}：このターン、${me.name}はゲームに負けない！`); break;
+    case "noLoseWhile": log(st, s, `${src}：このカードが場にいる限り、${me.name}はゲームに負けない`); break;
     case "win": {
       let ok = true;
       if (fx.cond === "lp") ok = me.lp <= fx.cn;
       if (fx.cond === "grave") ok = me.grave.length >= fx.cn;
       if (fx.cond === "hand") ok = me.hand.filter(id => id === c.id).length + (ctx.fromHand ? 1 : 0) >= fx.cn;
-      if (ok){ st.winner = s; st.why = `${src}の効果で勝利`; log(st, s, `${src}の効果でゲームに勝利！`); }
+      if (ok && noLoseBy(st, O(s))) log(st, s, `${src}：勝利の条件はそろったけど、相手は「${noLoseBy(st, O(s))}」の効果で負けない`);
+      else if (ok){ st.winner = s; st.why = `${src}の効果で勝利`; log(st, s, `${src}の効果でゲームに勝利！`); }
       else log(st, s, `${src}：勝利の条件がそろっていない`);
       break;
     }
@@ -8795,8 +8819,9 @@ function passTurn(st, s){
     log(st, st.turn, `ターン${st.turnNo}：${np.name} の${xt ? "追加" : ""}ターン${np.mana ? `（マナ ${np.mana.max}）` : ""}`);
     ev(st, { type: "turn", s: st.turn, no: st.turnNo, ...(xt ? { xt: true } : {}) });
     if (np.revDebt && np.revDebt.length){ const L = np.revDebt; np.revDebt = []; for (const d of L){ const n = +d.n || 0; if (!np.mana || np.mana.cur >= n){ if (np.mana && n){ np.mana.cur -= n; } log(st, st.turn, `逆転劇「${d.name}」のコストでマナを${n}払った${np.mana ? `（${np.mana.cur}/${np.mana.max}）` : ""}`); } else { st.winner = O(st.turn); st.why = `${np.name} は逆転劇「${d.name}」のマナ${n}を払えなかった`; log(st, st.turn, `逆転劇「${d.name}」のマナ${n}を払えない…ゲームに負けた`); return; } } }
+    checkEnd(st); if (st.winner) return;
     refill(st, st.turn);
-    if (!np.deck.length && !np.spire){ st.winner = s; st.why = `${np.name} の山札がなくなった`; log(st, st.turn, "引くカードがない！"); return; }
+    if (!np.deck.length && !np.spire){ const nl = noLoseBy(st, st.turn); if (nl) log(st, st.turn, `引くカードがないけど、「${nl}」の効果でゲームに負けない！`); else { st.winner = s; st.why = `${np.name} の山札がなくなった`; log(st, st.turn, "引くカードがない！"); return; } }
     np.deck = innateTop(np.deck);
     if (np.deck.length){ np.hand.push(np.deck.shift()); aceDrew(st, st.turn, np.hand.slice(-1)); }
     if ((np.nextGive || []).length){ const L = np.nextGive; np.nextGive = []; L.forEach(g => { for (let r = 0; r < g.n; r++) np.hand.push(g.id); log(st, st.turn, `「${card(g.id).name}」のコピーを${g.n}枚手札に加えた`); }); }
@@ -9182,7 +9207,7 @@ function renderBoard0(){
   <div class="board">
     <div class="table">
       ${manaBox(po, esc(po.name))}${blockBox(po, esc(po.name))}
-      <div class="mstat"><span class="who">${esc(po.name)}</span><span>山札 ${po.deck.length}</span>${(po.ex || []).length ? `<span>EX ${po.ex.length}</span>` : ""}<button class="chip" data-grave="op:grave">墓地 ${po.grave.length}</button>${(po.exile || []).length ? `<button class="chip" data-grave="op:exile">廃棄 ${po.exile.length}</button>` : ""}<span class="lpv ${po.lp <= 300 ? "low" : ""}" data-lp="op"><small>LP</small>${po.lp}</span></div>
+      <div class="mstat"><span class="who">${esc(po.name)}</span><span>山札 ${po.deck.length}</span>${(po.ex || []).length ? `<span>EX ${po.ex.length}</span>` : ""}<button class="chip" data-grave="op:grave">墓地 ${po.grave.length}</button>${(po.exile || []).length ? `<button class="chip" data-grave="op:exile">廃棄 ${po.exile.length}</button>` : ""}<span class="lpv ${po.lp <= 300 ? "low" : ""}" data-lp="op"><small>LP</small>${po.lp}</span>${noLoseBy(st, O(me)) ? `<span class="nolose" title="「${esc(noLoseBy(st, O(me)))}」の効果で負けない">負けない</span>` : ""}</div>
       <div class="ohand">${backHTML("xs", "", po.sleeve)}<span class="cnt-x">×${po.hand.length - (exTempOk(po) ? 1 : 0)}</span><span class="lbl">手札（${esc(po.name)}）</span></div>
       <span class="zlabel">相手の魔法・罠ゾーン</span>
       <div class="zones">${zoneHTML(op, "sz")}</div>
@@ -9204,7 +9229,7 @@ function renderBoard0(){
       <div class="zones">${zoneHTML(me, "mz")}</div>
       <span class="zlabel">自分の魔法・罠ゾーン</span>
       <div class="zones">${zoneHTML(me, "sz")}</div>
-      <div class="mstat"><span class="who">${esc(pm.name)}${G.spectate ? "" : "（あなた）"}</span><button class="chip" data-grave="me:deck">山札 ${pm.deck.length}</button>${(pm.ex || []).length ? `<button class="chip exchip" data-exopen>EX ${pm.ex.length}</button>` : ""}<button class="chip" data-grave="me:grave">墓地 ${pm.grave.length}</button>${(pm.exile || []).length ? `<button class="chip" data-grave="me:exile">廃棄 ${pm.exile.length}</button>` : ""}<span class="lpv ${pm.lp <= 300 ? "low" : ""}" data-lp="me"><small>LP</small>${pm.lp}</span></div>
+      <div class="mstat"><span class="who">${esc(pm.name)}${G.spectate ? "" : "（あなた）"}</span><button class="chip" data-grave="me:deck">山札 ${pm.deck.length}</button>${(pm.ex || []).length ? `<button class="chip exchip" data-exopen>EX ${pm.ex.length}</button>` : ""}<button class="chip" data-grave="me:grave">墓地 ${pm.grave.length}</button>${(pm.exile || []).length ? `<button class="chip" data-grave="me:exile">廃棄 ${pm.exile.length}</button>` : ""}<span class="lpv ${pm.lp <= 300 ? "low" : ""}" data-lp="me"><small>LP</small>${pm.lp}</span>${noLoseBy(st, me) ? `<span class="nolose" title="「${esc(noLoseBy(st, me))}」の効果で負けない">負けない</span>` : ""}</div>
       <span class="zlabel">手札</span>
       <div class="hand">${handHTML}</div>
       ${handActs ? `<div class="actions hand-acts">${handActs}</div>` : ""}

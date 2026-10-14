@@ -444,10 +444,27 @@ const isHumanHere = s => G && s === G.slot;
 function checkEnd(st){
   if (st.winner) return;
   ctrAuraSync(st);
-  const la = st.players.a.lp, lb = st.players.b.lp;
-  if (la <= 0 && lb <= 0){ st.winner = "draw"; st.why = "両者LP0"; }
-  else if (la <= 0){ st.winner = "b"; st.why = `${nm(st, "a")} のLPが0になった`; }
-  else if (lb <= 0){ st.winner = "a"; st.why = `${nm(st, "b")} のLPが0になった`; }
+  const la = st.players.a.lp, lb = st.players.b.lp, na = la <= 0 ? noLoseBy(st, "a") : "", nb = lb <= 0 ? noLoseBy(st, "b") : "", xa = la <= 0 && !na, xb = lb <= 0 && !nb;
+  if (xa && xb){ st.winner = "draw"; st.why = "両者LP0"; }
+  else if (xa){ st.winner = "b"; st.why = `${nm(st, "a")} のLPが0になった`; }
+  else if (xb){ st.winner = "a"; st.why = `${nm(st, "b")} のLPが0になった`; }
+  // 敗北回避: LPが0以下でも負けない（1回だけお知らせ）
+  [["a", na], ["b", nb]].forEach(([s, w]) => { if (!w) return; const p = P(st, s), k = st.turnNo + ":" + p.lp + ":" + w; if (p.noLoseLog !== k){ p.noLoseLog = k; log(st, s, `LPが${p.lp}だけど、「${w}」の効果でゲームに負けない！`); } });
+}
+// 敗北回避: 負けないなら、その効果を出したカードの名前（なければ ""）
+function noLoseBy(st, s){
+  const p = P(st, s); if (!p) return "";
+  if (p.noLoseT === st.turnNo) return p.noLoseSrc || "敗北回避";
+  const srcs = [];
+  p.mz.forEach((m, i) => { if (m) srcs.push({ c: monCard(m), ctx: { zone: i, mon: { s, i, u: m.u } } }); });
+  p.sz.forEach((z, i) => { if (z && z.face && (isPersist(card(z.c)) || z.fcp)) srcs.push({ c: card(z.c), ctx: { pz: i } }); });
+  if (st.field && st.field.o === s) srcs.push({ c: card(st.field.c), ctx: { field: true } });
+  for (const x of srcs) for (const b of blocksOf(x.c)){
+    let L = b.then || [];
+    if (b.trig === "while"){ const plain = (b.conds || []).filter(y => y.k !== "ask"), ok = !plain.length || (b.join === "or" ? plain.some(y => condMet(st, s, x.c, y, x.ctx)) : plain.every(y => condMet(st, s, x.c, y, x.ctx))); L = (ok ? b.then : b.else) || []; }
+    if (L.some(e => e && e.kind === "noLoseWhile")) return x.c.name;
+  }
+  return "";
 }
 function drawN(st, s, n, why){
   const p = P(st, s); let got = 0; p.lastDrawn = [];
@@ -1281,12 +1298,15 @@ function applyEffect(st, s, c, target, ctx = {}, fx = normFx(c)){
     case "atkDownAtk": { const am = ctx.attack && P(st, ctx.attack.by).mz[ctx.attack.from]; if (am){ am.mod = (am.mod || 0) - n; log(st, s, `${src}で攻撃してきた「${card(am.c).name}」のATK−${n}`); } else log(st, s, `${src}：攻撃してきたモンスターがいない`); break; }
     case "dmgAtkAtk": { const am = ctx.attack && P(st, ctx.attack.by).mz[ctx.attack.from], d = am ? Math.max(0, +atkOf(am) || 0) : 0; if (am && d > 0 && isFinite(d)){ log(st, s, `${src}：攻撃してきた「${card(am.c).name}」のATK ${fmtN(d)}ぶんのダメージを${P(st, ctx.attack.by).name}に与えた`); dealDmg(st, ctx.attack.by, d); } else log(st, s, `${src}：攻撃してきたモンスターがいない`); break; }
     case "killAtk": if (ctx.attack){ destroyMonster(st, ctx.attack.by, ctx.attack.from, src); } else log(st, s, `${src}：攻撃してきたモンスターがいない`); break;
+    case "noLoseTurn": me.noLoseT = st.turnNo; me.noLoseSrc = c.name; log(st, s, `${src}：このターン、${me.name}はゲームに負けない！`); break;
+    case "noLoseWhile": log(st, s, `${src}：このカードが場にいる限り、${me.name}はゲームに負けない`); break;
     case "win": {
       let ok = true;
       if (fx.cond === "lp") ok = me.lp <= fx.cn;
       if (fx.cond === "grave") ok = me.grave.length >= fx.cn;
       if (fx.cond === "hand") ok = me.hand.filter(id => id === c.id).length + (ctx.fromHand ? 1 : 0) >= fx.cn;
-      if (ok){ st.winner = s; st.why = `${src}の効果で勝利`; log(st, s, `${src}の効果でゲームに勝利！`); }
+      if (ok && noLoseBy(st, O(s))) log(st, s, `${src}：勝利の条件はそろったけど、相手は「${noLoseBy(st, O(s))}」の効果で負けない`);
+      else if (ok){ st.winner = s; st.why = `${src}の効果で勝利`; log(st, s, `${src}の効果でゲームに勝利！`); }
       else log(st, s, `${src}：勝利の条件がそろっていない`);
       break;
     }
@@ -2138,8 +2158,9 @@ function passTurn(st, s){
     log(st, st.turn, `ターン${st.turnNo}：${np.name} の${xt ? "追加" : ""}ターン${np.mana ? `（マナ ${np.mana.max}）` : ""}`);
     ev(st, { type: "turn", s: st.turn, no: st.turnNo, ...(xt ? { xt: true } : {}) });
     if (np.revDebt && np.revDebt.length){ const L = np.revDebt; np.revDebt = []; for (const d of L){ const n = +d.n || 0; if (!np.mana || np.mana.cur >= n){ if (np.mana && n){ np.mana.cur -= n; } log(st, st.turn, `逆転劇「${d.name}」のコストでマナを${n}払った${np.mana ? `（${np.mana.cur}/${np.mana.max}）` : ""}`); } else { st.winner = O(st.turn); st.why = `${np.name} は逆転劇「${d.name}」のマナ${n}を払えなかった`; log(st, st.turn, `逆転劇「${d.name}」のマナ${n}を払えない…ゲームに負けた`); return; } } }
+    checkEnd(st); if (st.winner) return;
     refill(st, st.turn);
-    if (!np.deck.length && !np.spire){ st.winner = s; st.why = `${np.name} の山札がなくなった`; log(st, st.turn, "引くカードがない！"); return; }
+    if (!np.deck.length && !np.spire){ const nl = noLoseBy(st, st.turn); if (nl) log(st, st.turn, `引くカードがないけど、「${nl}」の効果でゲームに負けない！`); else { st.winner = s; st.why = `${np.name} の山札がなくなった`; log(st, st.turn, "引くカードがない！"); return; } }
     np.deck = innateTop(np.deck);
     if (np.deck.length){ np.hand.push(np.deck.shift()); aceDrew(st, st.turn, np.hand.slice(-1)); }
     if ((np.nextGive || []).length){ const L = np.nextGive; np.nextGive = []; L.forEach(g => { for (let r = 0; r < g.n; r++) np.hand.push(g.id); log(st, st.turn, `「${card(g.id).name}」のコピーを${g.n}枚手札に加えた`); }); }

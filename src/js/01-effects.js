@@ -202,6 +202,8 @@ const KINDS = {
   setCost:    { label: "手札のカードのコストを○にする（えらぶ／種類・名前でしぼる）", n: true, target: "hand", text: (n, nm, m) => `${m && m.sp === "pick" ? "手札を1枚えらび、そのコスト" : `手札の${usedPfText(m || {})}のコスト`}を${n}にする（${m && m.sd === "used" ? "使うまで" : "このターン"}）` },
   seal:       { label: "相手のモンスターに封印をつける（同じタグのモンスターを出されるまで、ないものとして扱う）", n: true, target: "opp", text: n => `相手のモンスター1体に《封印》を${n}つつける（自分の山札の上から${n}枚を裏向きで重ねる）` },
   giveAb:     { label: "モンスターに能力を付与する（成長・2回攻撃・ブロッカーなど）", target: "any", text: (n, nm, m) => gabText(m) },
+  noLoseTurn: { label: "このターン、自分はゲームに負けない", text: () => `このターン、自分はゲームに負けない（LPが0になっても、山札がなくなっても）` },
+  noLoseWhile: { label: "このカードが場にいる限り、自分はゲームに負けない", text: () => `このカードが場にいる限り、自分はゲームに負けない（LPが0になっても、山札がなくなっても）` },
   win:        { label: "ゲームに勝利する", text: () => `ゲームに勝利する` }
 };
 const CONDS = {
@@ -864,6 +866,7 @@ function blockText(c, b, detail = false){
   if (b.conds.length && b.else.length) s += `。${detail ? "\n" : ""}そうでなければ、${effsText(c, b.else, detail)}`;
   if (b.grant){ const pre = head + delayText(b.delay), g = b.grant; s = pre + boonText(g) + `「自分のターンの${g.at === "turnStart" ? "はじめ" : "おわり"}に、${s.slice(pre.length)}」`; }
   if (isField(c) && !fieldMine(c)) s = s.replace(/(自分|相手)のモンスターすべて/g, "お互いのモンスターすべて");
+  if (b.trig === "while") s = s.replace("このカードが場にいる限り、自分はゲームに負けない", "自分はゲームに負けない");
   return s;
 }
 // Consecutive blocks marked alt form one choice; unrelated blocks still run in order.

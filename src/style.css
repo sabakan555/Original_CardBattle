@@ -715,6 +715,7 @@ button.chip{font-size:12px;border:1.5px solid var(--ink);border-radius:99px;padd
 @keyframes fxfloat{0%{transform:translate(-50%,10px) scale(.6);opacity:0}20%{transform:translate(-50%,-10px) scale(1.2);opacity:1}100%{transform:translate(-50%,-60px) scale(1);opacity:0}}
 .fxspell{left:50%;top:45%;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;gap:8px;animation:fxspell 1.25s ease-in-out forwards;filter:drop-shadow(0 10px 30px rgba(30,35,40,.45))}
 .fxcut{position:fixed;left:0;right:0;top:50%;height:0;z-index:8500;pointer-events:none}
+.nolose{display:inline-block;margin-left:6px;padding:2px 8px;border-radius:999px;background:linear-gradient(90deg,#ffd34d,#ff9f3a);color:#3a2300;font-size:11px;font-weight:800;vertical-align:middle;box-shadow:0 0 10px rgba(255,200,80,.6)}
 .fxace{position:fixed;inset:0;z-index:8600;pointer-events:none;overflow:hidden;--ac:#ffd34d}
 .fxace .ace-bg{position:absolute;inset:0;background:radial-gradient(ellipse at 50% 50%,color-mix(in srgb,var(--ac) 30%,#120a1e) 0,#07040d 70%);animation:aceBg 1.9s ease forwards}
 .fxace .ace-burst{position:absolute;left:50%;top:50%;width:170vmax;height:170vmax;margin:-85vmax 0 0 -85vmax;background:repeating-conic-gradient(from 0deg,color-mix(in srgb,var(--ac) 70%,transparent) 0 4deg,transparent 4deg 14deg);mix-blend-mode:screen;animation:aceBurst 1.9s linear forwards}
