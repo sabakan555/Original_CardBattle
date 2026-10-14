@@ -435,10 +435,17 @@ const anySumText = c => c && c.anySum && cardType(c) === "monster" ? "【自分�
 const monCard = m => !m ? null : (m.xb || []).length ? { ...card(m.c), blocks: [...blocksOf(card(m.c)), ...m.xb] } : card(m.c);
 /* ---- 属性（文明）: カードに名前で入れる。はじめからの5文明＋自分で作った属性（名前と色をカードの中に入れておくので、だれのカードでも同じ色で出る） ---- */
 const ATTR_BUILTIN = { "火": "#d8382b", "水": "#2f7fd6", "自然": "#3b9a43", "光": "#e8c639", "闇": "#4a3d55" };
+const ATTR_MARK = { "火": ["炎", "ほのお"], "水": ["水", "みず"], "自然": ["然", "しぜん"], "光": ["光", "ひかり"], "闇": ["闇", "やみ"] };
+const attrDefCol = d => typeof d === "string" ? d : d && d.c;
+// 属性の玉: まん中の字とふりがな
+function attrMark(name, c){ const d = c && c.attrDefs && c.attrDefs[name], reg = typeof attrRegistryFull === "function" ? attrRegistryFull()[name] : null, x = d && typeof d === "object" ? d : reg && typeof reg === "object" ? reg : null; if (x && x.m) return [x.m, x.r || ""]; if (ATTR_MARK[name]) return ATTR_MARK[name]; return [[...name][0] || "？", x && x.r || ""]; }
+function attrOrb(name, c, cls = "c-attr"){ const [m, r] = attrMark(name, c); return `<i class="${cls}" style="--ac:${attrColor(name, c)}" title="${esc(name)}属性">${r ? `<small>${esc(r)}</small>` : ""}<b>${esc(m)}</b></i>`; }
 const attrsOf = c => c && Array.isArray(c.attrs) ? [...new Set(c.attrs.map(x => String(x || "").trim()).filter(Boolean))].slice(0, 5) : [];
-function attrColor(name, c){ const d = c && c.attrDefs && c.attrDefs[name]; if (HEX6.test(d || "")) return d; if (ATTR_BUILTIN[name]) return ATTR_BUILTIN[name]; const r = typeof attrRegistry === "function" ? attrRegistry()[name] : null; return HEX6.test(r || "") ? r : "#888888"; }
+function attrColor(name, c){ const d = attrDefCol(c && c.attrDefs && c.attrDefs[name]); if (HEX6.test(d || "")) return d; if (ATTR_BUILTIN[name]) return ATTR_BUILTIN[name]; const r = typeof attrRegistry === "function" ? attrRegistry()[name] : null; return HEX6.test(r || "") ? r : "#888888"; }
 // みんなのカードに出てくる属性（自分で作った属性も、カードを保存すれば一覧に出る）
-function attrRegistry(){ const o = { ...ATTR_BUILTIN }; try{ (typeof S !== "undefined" && S.cards ? [...S.cards.values()] : []).forEach(c => { if (c && c.attrDefs) Object.entries(c.attrDefs).forEach(([k, v]) => { if (!o[k] && HEX6.test(v || "")) o[k] = v; }); }); const my = typeof ls !== "undefined" ? ls.get("cb_myAttrs", {}) : {}; Object.entries(my || {}).forEach(([k, v]) => { if (!o[k] && HEX6.test(v || "")) o[k] = v; }); }catch(e){} return o; }
+// 名前 → { c: 色, m: 字, r: ふりがな }（自分で作ったもの・みんなのカードに出てくるもの）
+function attrRegistryFull(){ const o = {}; const put = (k, v) => { if (o[k] || !v) return; const x = typeof v === "string" ? { c: v } : v; if (HEX6.test(x.c || "")) o[k] = x; }; try{ const my = typeof ls !== "undefined" ? ls.get("cb_myAttrs", {}) : {}; Object.entries(my || {}).forEach(([k, v]) => put(k, v)); (typeof S !== "undefined" && S.cards ? [...S.cards.values()] : []).forEach(c => { if (c && c.attrDefs) Object.entries(c.attrDefs).forEach(([k, v]) => put(k, v)); }); }catch(e){} return o; }
+function attrRegistry(){ const o = { ...ATTR_BUILTIN }; Object.entries(attrRegistryFull()).forEach(([k, v]) => { if (!o[k]) o[k] = v.c; }); return o; }
 const attrList = () => Object.keys(attrRegistry());
 // レベル（0〜12。0ならなし）。コストを使わないデッキでも意味があるように、生贄の数をレベルから決められる（遊戯王と同じ: 5〜6は1体、7以上は2体）
 const lvOf = c => c ? Math.max(0, Math.min(12, Math.round(+c.lv || 0))) : 0;

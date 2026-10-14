@@ -1133,7 +1133,18 @@ nav.tabs button{position:relative}
 .admin-tag{margin:-4px 0 12px;font-size:13px}.admin-tag>summary{cursor:pointer;color:var(--muted);font-weight:700}
 .c-art>.c-meta{position:absolute;bottom:calc(var(--w)*.02);right:calc(var(--w)*.02);z-index:4;display:flex;gap:calc(var(--w)*.012);align-items:center;pointer-events:none}
 .c-meta .c-lv{font:800 calc(var(--w)*.052)/1 var(--ui);color:#fff;background:rgba(20,24,40,.78);padding:calc(var(--w)*.01) calc(var(--w)*.025);border-radius:99px;box-shadow:0 1px 3px rgba(0,0,0,.4)}
-.c-meta .c-attr{display:grid;place-items:center;width:calc(var(--w)*.1);height:calc(var(--w)*.1);border-radius:50%;background:var(--ac,#888);color:#fff;font:800 calc(var(--w)*.05)/1 var(--ui);font-style:normal;border:calc(var(--w)*.006) solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.45);text-shadow:0 1px 1px rgba(0,0,0,.4)}
+.c-attr,.y-attr{position:relative;display:grid;place-items:center;flex:none;border-radius:50%;font-style:normal;color:#fff;
+  background:radial-gradient(circle at 34% 28%,color-mix(in srgb,var(--ac,#888) 35%,#fff) 0,var(--ac,#888) 46%,color-mix(in srgb,var(--ac,#888) 62%,#000) 100%);
+  box-shadow:inset 0 0 0 calc(var(--d)*.05) color-mix(in srgb,var(--ac,#888) 55%,#000),0 calc(var(--d)*.04) calc(var(--d)*.1) rgba(0,0,0,.45);width:var(--d);height:var(--d)}
+.c-attr b,.y-attr b{font-family:"Shippori Mincho",serif;font-weight:700;font-size:calc(var(--d)*.6);line-height:1;transform:translateY(calc(var(--d)*.06));text-shadow:0 0 calc(var(--d)*.06) rgba(0,0,0,.65),0 calc(var(--d)*.03) 0 rgba(0,0,0,.5)}
+.c-attr small,.y-attr small{position:absolute;top:calc(var(--d)*.06);left:0;right:0;text-align:center;font:700 calc(var(--d)*.17)/1 var(--ui);letter-spacing:-.04em;white-space:nowrap;text-shadow:0 0 calc(var(--d)*.06) rgba(0,0,0,.7)}
+.c-meta .c-attr{--d:calc(var(--w)*.14)}
+.card.ygo .y-attrs{position:absolute;right:calc(var(--yu)*46);top:calc(var(--yu)*37);display:flex;flex-direction:row-reverse;gap:calc(var(--yu)*4);z-index:3;pointer-events:none}
+.card.ygo .y-attr{--d:calc(var(--yu)*57)}
+.card.ygo.yattr1 .c-name{width:calc(var(--yu)*440)}.card.ygo.yattr2 .c-name{width:calc(var(--yu)*380)}.card.ygo.yattr3 .c-name,.card.ygo.yattr4 .c-name,.card.ygo.yattr5 .c-name{width:calc(var(--yu)*320)}
+.attr-pick button i.ap-orb{--d:20px;border:none;display:grid}.attr-pick button i.ap-orb b{font-size:12px}.attr-pick button i.ap-orb small{display:none}
+#editCard:not(.ygo) #mkAttrY,#editCard.ygo #mkAttrArt,#editCard.dm #mkAttrArt,#editCard.spire #mkAttrArt,#editCard.socra #mkAttrArt,#editCard:not(.ygo).yattr1 .y-attrs{display:none!important}
+#editCard .c-meta:empty{display:none}
 .lv-attr{display:flex;flex-direction:column;gap:6px;margin-top:6px}.lv-attr .row{gap:6px 10px;flex-wrap:wrap;align-items:center}
 .attr-pick{display:flex;flex-wrap:wrap;gap:6px}.attr-pick button{display:inline-flex;align-items:center;gap:4px;padding:3px 10px 3px 4px;border-radius:99px;font-size:13px}
 .attr-pick button i{width:18px;height:18px;border-radius:50%;background:var(--ac);display:inline-block;border:2px solid #fff}

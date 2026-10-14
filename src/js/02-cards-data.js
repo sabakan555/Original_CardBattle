@@ -290,8 +290,9 @@ function cardHTML(c, cls = "", attrs = "", opts = {}){
   let h = cardHTML0(mt ? { ...c, frameless: fr === "future" ? c.frameless : false } : c, cls, attrs, opts);
   // レベル・属性のしるし（絵の右上）。デュエマ風は枠の色で属性がわかるのでレベルだけ、遊戯王風はレベルを星で出す
   if (c && !c.potionView && !c.relicView && c.frame !== "spire" && c.frame !== "socra"){
-    const A = fr === "dm" ? [] : attrsOf(c), lv = fr === "ygo" ? 0 : lvOf(c);
-    if (A.length || lv) h = h.replace('<div class="c-art">', `<div class="c-art"><span class="c-meta">${lv ? `<b class="c-lv" title="レベル${lv}">Lv${lv}</b>` : ""}${A.map(a => `<i class="c-attr" style="--ac:${attrColor(a, c)}" title="${esc(a)}属性">${esc([...a][0])}</i>`).join("")}</span>`);
+    const A = fr === "dm" || fr === "ygo" ? [] : attrsOf(c), lv = fr === "ygo" ? 0 : lvOf(c);
+    if (A.length || lv) h = h.replace('<div class="c-art">', `<div class="c-art"><span class="c-meta">${lv ? `<b class="c-lv" title="レベル${lv}">Lv${lv}</b>` : ""}${A.map(a => attrOrb(a, c)).join("")}</span>`);
+    if (fr === "ygo" && attrsOf(c).length) h = h.replace(/^<div class="card /, `<div class="card yattr${attrsOf(c).length} `).replace('<div class="c-in">', `<div class="c-in"><span class="y-attrs">${attrsOf(c).slice(0, 3).map(a => attrOrb(a, c, "y-attr")).join("")}</span>`);
     if (fr === "ygo" && lvOf(c) && !/<span class="c-cost"/.test(h)) h = h.replace('<div class="c-in">', `<div class="c-in"><span class="c-cost" title="レベル${lvOf(c)}">${ygoStars(String(lvOf(c)), cardType(c))}</span>`);
   }
   // MTG風の枠（サバ缶デザイン）: ふつうの枠と同じ中身に、枠の見た目と下の宝石をかぶせる

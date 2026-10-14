@@ -88,8 +88,8 @@
     <div class="seg mk-view" id="makeView" role="tablist" aria-label="カード工房とカード図鑑"><button type="button" role="tab" data-mv="draw" aria-pressed="true">カードを描く</button><button type="button" role="tab" data-mv="gal" aria-pressed="false">カード図鑑</button></div>
     <div class="maker">
       <div class="mk-left"><div class="card editor" id="editCard"><span class="holo-fx" aria-hidden="true"></span><span class="m-gem" aria-hidden="true"></span><div class="c-in">
-        <span class="c-cost" id="mkCostBadge" hidden></span><div class="c-name"><input type="text" id="mkName" maxlength="1000" placeholder="カード名"><span class="c-tribe-n" id="mkTribeN" hidden></span></div>
-        <div class="c-art"><span class="c-tribe" id="mkTribe" hidden></span><canvas id="cv" width="560" height="400" aria-label="イラストを描くところ"></canvas><div class="fl-guide" id="flGuide" hidden>ここから下は半透明の文字の欄</div><div class="c-tab" id="mkTab">モンスター</div></div>
+        <span class="c-cost" id="mkCostBadge" hidden></span><span class="y-attrs" id="mkAttrY"></span><div class="c-name"><input type="text" id="mkName" maxlength="1000" placeholder="カード名"><span class="c-tribe-n" id="mkTribeN" hidden></span></div>
+        <div class="c-art"><span class="c-tribe" id="mkTribe" hidden></span><span class="c-meta" id="mkAttrArt"></span><canvas id="cv" width="560" height="400" aria-label="イラストを描くところ"></canvas><div class="fl-guide" id="flGuide" hidden>ここから下は半透明の文字の欄</div><div class="c-tab" id="mkTab">モンスター</div></div>
         <div class="c-text">
           <div class="fxline" id="mkFxLine"></div>
           <textarea id="mkEff" maxlength="1000" placeholder="カードに書く文（なくてもOK）" title="書くと、自動の効果の文の代わりにカードに出る。本来の効果はカードを開くと見られる"></textarea>
@@ -114,7 +114,7 @@
           <div class="lv-attr" id="lvAttrBox">
             <div class="row" id="lvRow"><b style="font-size:13px">レベル</b><input type="number" id="mkLv" min="0" max="12" step="1" value="0" style="width:64px" aria-label="レベル"><span class="note">0ならなし</span><label class="row" id="lvTribLbl" style="gap:4px;font-size:13px;cursor:pointer"><input type="checkbox" id="mkLvTrib" checked> レベルで生贄の数を決める（5〜6は1体・7以上は2体）</label></div>
             <div class="row"><b style="font-size:13px">属性</b><div class="attr-pick" id="mkAttrPick"></div><button type="button" class="small ghost" id="attrNewBtn">＋ 属性を作る</button></div>
-            <div class="row" id="attrNewRow" hidden><input type="text" id="attrNewName" maxlength="10" placeholder="属性の名前（例: 雷）" style="width:150px"><input type="color" id="attrNewColor" value="#9b59b6" aria-label="属性の色"><button type="button" class="small primary" id="attrNewOk">作る</button><span class="note">作った属性は、このカードを保存すると、みんなの工房の一覧にも出ます</span></div>
+            <div class="row" id="attrNewRow" hidden><input type="text" id="attrNewName" maxlength="10" placeholder="属性の名前（例: 雷）" style="width:150px"><input type="color" id="attrNewColor" value="#9b59b6" aria-label="属性の色"><input type="text" id="attrNewMark" maxlength="2" placeholder="マークの字" style="width:84px" aria-label="マークの字（1字）"><input type="text" id="attrNewRuby" maxlength="8" placeholder="ふりがな" style="width:90px" aria-label="ふりがな"><button type="button" class="small primary" id="attrNewOk">作る</button><span class="note">作った属性は、このカードを保存すると、みんなの工房の一覧にも出ます</span></div>
           </div></div>
         <details class="mk-sec" id="secSpOpt" hidden><summary><span class="mk-st" id="secSpOptTitle">魔法の細かい設定</span><span class="mk-sum" id="sumSpOpt"></span></summary><div class="fxform sp-opts">
         <label class="row" id="quickRow" hidden style="gap:6px;font-weight:700;cursor:pointer"><input type="checkbox" id="mkQuick"> 速攻魔法（相手のターンにも使える）</label>

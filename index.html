@@ -1145,7 +1145,18 @@ nav.tabs button{position:relative}
 .admin-tag{margin:-4px 0 12px;font-size:13px}.admin-tag>summary{cursor:pointer;color:var(--muted);font-weight:700}
 .c-art>.c-meta{position:absolute;bottom:calc(var(--w)*.02);right:calc(var(--w)*.02);z-index:4;display:flex;gap:calc(var(--w)*.012);align-items:center;pointer-events:none}
 .c-meta .c-lv{font:800 calc(var(--w)*.052)/1 var(--ui);color:#fff;background:rgba(20,24,40,.78);padding:calc(var(--w)*.01) calc(var(--w)*.025);border-radius:99px;box-shadow:0 1px 3px rgba(0,0,0,.4)}
-.c-meta .c-attr{display:grid;place-items:center;width:calc(var(--w)*.1);height:calc(var(--w)*.1);border-radius:50%;background:var(--ac,#888);color:#fff;font:800 calc(var(--w)*.05)/1 var(--ui);font-style:normal;border:calc(var(--w)*.006) solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.45);text-shadow:0 1px 1px rgba(0,0,0,.4)}
+.c-attr,.y-attr{position:relative;display:grid;place-items:center;flex:none;border-radius:50%;font-style:normal;color:#fff;
+  background:radial-gradient(circle at 34% 28%,color-mix(in srgb,var(--ac,#888) 35%,#fff) 0,var(--ac,#888) 46%,color-mix(in srgb,var(--ac,#888) 62%,#000) 100%);
+  box-shadow:inset 0 0 0 calc(var(--d)*.05) color-mix(in srgb,var(--ac,#888) 55%,#000),0 calc(var(--d)*.04) calc(var(--d)*.1) rgba(0,0,0,.45);width:var(--d);height:var(--d)}
+.c-attr b,.y-attr b{font-family:"Shippori Mincho",serif;font-weight:700;font-size:calc(var(--d)*.6);line-height:1;transform:translateY(calc(var(--d)*.06));text-shadow:0 0 calc(var(--d)*.06) rgba(0,0,0,.65),0 calc(var(--d)*.03) 0 rgba(0,0,0,.5)}
+.c-attr small,.y-attr small{position:absolute;top:calc(var(--d)*.06);left:0;right:0;text-align:center;font:700 calc(var(--d)*.17)/1 var(--ui);letter-spacing:-.04em;white-space:nowrap;text-shadow:0 0 calc(var(--d)*.06) rgba(0,0,0,.7)}
+.c-meta .c-attr{--d:calc(var(--w)*.14)}
+.card.ygo .y-attrs{position:absolute;right:calc(var(--yu)*46);top:calc(var(--yu)*37);display:flex;flex-direction:row-reverse;gap:calc(var(--yu)*4);z-index:3;pointer-events:none}
+.card.ygo .y-attr{--d:calc(var(--yu)*57)}
+.card.ygo.yattr1 .c-name{width:calc(var(--yu)*440)}.card.ygo.yattr2 .c-name{width:calc(var(--yu)*380)}.card.ygo.yattr3 .c-name,.card.ygo.yattr4 .c-name,.card.ygo.yattr5 .c-name{width:calc(var(--yu)*320)}
+.attr-pick button i.ap-orb{--d:20px;border:none;display:grid}.attr-pick button i.ap-orb b{font-size:12px}.attr-pick button i.ap-orb small{display:none}
+#editCard:not(.ygo) #mkAttrY,#editCard.ygo #mkAttrArt,#editCard.dm #mkAttrArt,#editCard.spire #mkAttrArt,#editCard.socra #mkAttrArt,#editCard:not(.ygo).yattr1 .y-attrs{display:none!important}
+#editCard .c-meta:empty{display:none}
 .lv-attr{display:flex;flex-direction:column;gap:6px;margin-top:6px}.lv-attr .row{gap:6px 10px;flex-wrap:wrap;align-items:center}
 .attr-pick{display:flex;flex-wrap:wrap;gap:6px}.attr-pick button{display:inline-flex;align-items:center;gap:4px;padding:3px 10px 3px 4px;border-radius:99px;font-size:13px}
 .attr-pick button i{width:18px;height:18px;border-radius:50%;background:var(--ac);display:inline-block;border:2px solid #fff}
@@ -1597,8 +1608,8 @@ div.f{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:13px}
     <div class="seg mk-view" id="makeView" role="tablist" aria-label="カード工房とカード図鑑"><button type="button" role="tab" data-mv="draw" aria-pressed="true">カードを描く</button><button type="button" role="tab" data-mv="gal" aria-pressed="false">カード図鑑</button></div>
     <div class="maker">
       <div class="mk-left"><div class="card editor" id="editCard"><span class="holo-fx" aria-hidden="true"></span><span class="m-gem" aria-hidden="true"></span><div class="c-in">
-        <span class="c-cost" id="mkCostBadge" hidden></span><div class="c-name"><input type="text" id="mkName" maxlength="1000" placeholder="カード名"><span class="c-tribe-n" id="mkTribeN" hidden></span></div>
-        <div class="c-art"><span class="c-tribe" id="mkTribe" hidden></span><canvas id="cv" width="560" height="400" aria-label="イラストを描くところ"></canvas><div class="fl-guide" id="flGuide" hidden>ここから下は半透明の文字の欄</div><div class="c-tab" id="mkTab">モンスター</div></div>
+        <span class="c-cost" id="mkCostBadge" hidden></span><span class="y-attrs" id="mkAttrY"></span><div class="c-name"><input type="text" id="mkName" maxlength="1000" placeholder="カード名"><span class="c-tribe-n" id="mkTribeN" hidden></span></div>
+        <div class="c-art"><span class="c-tribe" id="mkTribe" hidden></span><span class="c-meta" id="mkAttrArt"></span><canvas id="cv" width="560" height="400" aria-label="イラストを描くところ"></canvas><div class="fl-guide" id="flGuide" hidden>ここから下は半透明の文字の欄</div><div class="c-tab" id="mkTab">モンスター</div></div>
         <div class="c-text">
           <div class="fxline" id="mkFxLine"></div>
           <textarea id="mkEff" maxlength="1000" placeholder="カードに書く文（なくてもOK）" title="書くと、自動の効果の文の代わりにカードに出る。本来の効果はカードを開くと見られる"></textarea>
@@ -1623,7 +1634,7 @@ div.f{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:13px}
           <div class="lv-attr" id="lvAttrBox">
             <div class="row" id="lvRow"><b style="font-size:13px">レベル</b><input type="number" id="mkLv" min="0" max="12" step="1" value="0" style="width:64px" aria-label="レベル"><span class="note">0ならなし</span><label class="row" id="lvTribLbl" style="gap:4px;font-size:13px;cursor:pointer"><input type="checkbox" id="mkLvTrib" checked> レベルで生贄の数を決める（5〜6は1体・7以上は2体）</label></div>
             <div class="row"><b style="font-size:13px">属性</b><div class="attr-pick" id="mkAttrPick"></div><button type="button" class="small ghost" id="attrNewBtn">＋ 属性を作る</button></div>
-            <div class="row" id="attrNewRow" hidden><input type="text" id="attrNewName" maxlength="10" placeholder="属性の名前（例: 雷）" style="width:150px"><input type="color" id="attrNewColor" value="#9b59b6" aria-label="属性の色"><button type="button" class="small primary" id="attrNewOk">作る</button><span class="note">作った属性は、このカードを保存すると、みんなの工房の一覧にも出ます</span></div>
+            <div class="row" id="attrNewRow" hidden><input type="text" id="attrNewName" maxlength="10" placeholder="属性の名前（例: 雷）" style="width:150px"><input type="color" id="attrNewColor" value="#9b59b6" aria-label="属性の色"><input type="text" id="attrNewMark" maxlength="2" placeholder="マークの字" style="width:84px" aria-label="マークの字（1字）"><input type="text" id="attrNewRuby" maxlength="8" placeholder="ふりがな" style="width:90px" aria-label="ふりがな"><button type="button" class="small primary" id="attrNewOk">作る</button><span class="note">作った属性は、このカードを保存すると、みんなの工房の一覧にも出ます</span></div>
           </div></div>
         <details class="mk-sec" id="secSpOpt" hidden><summary><span class="mk-st" id="secSpOptTitle">魔法の細かい設定</span><span class="mk-sum" id="sumSpOpt"></span></summary><div class="fxform sp-opts">
         <label class="row" id="quickRow" hidden style="gap:6px;font-weight:700;cursor:pointer"><input type="checkbox" id="mkQuick"> 速攻魔法（相手のターンにも使える）</label>
@@ -2478,10 +2489,17 @@ const anySumText = c => c && c.anySum && cardType(c) === "monster" ? "【自分�
 const monCard = m => !m ? null : (m.xb || []).length ? { ...card(m.c), blocks: [...blocksOf(card(m.c)), ...m.xb] } : card(m.c);
 /* ---- 属性（文明）: カードに名前で入れる。はじめからの5文明＋自分で作った属性（名前と色をカードの中に入れておくので、だれのカードでも同じ色で出る） ---- */
 const ATTR_BUILTIN = { "火": "#d8382b", "水": "#2f7fd6", "自然": "#3b9a43", "光": "#e8c639", "闇": "#4a3d55" };
+const ATTR_MARK = { "火": ["炎", "ほのお"], "水": ["水", "みず"], "自然": ["然", "しぜん"], "光": ["光", "ひかり"], "闇": ["闇", "やみ"] };
+const attrDefCol = d => typeof d === "string" ? d : d && d.c;
+// 属性の玉: まん中の字とふりがな
+function attrMark(name, c){ const d = c && c.attrDefs && c.attrDefs[name], reg = typeof attrRegistryFull === "function" ? attrRegistryFull()[name] : null, x = d && typeof d === "object" ? d : reg && typeof reg === "object" ? reg : null; if (x && x.m) return [x.m, x.r || ""]; if (ATTR_MARK[name]) return ATTR_MARK[name]; return [[...name][0] || "？", x && x.r || ""]; }
+function attrOrb(name, c, cls = "c-attr"){ const [m, r] = attrMark(name, c); return `<i class="${cls}" style="--ac:${attrColor(name, c)}" title="${esc(name)}属性">${r ? `<small>${esc(r)}</small>` : ""}<b>${esc(m)}</b></i>`; }
 const attrsOf = c => c && Array.isArray(c.attrs) ? [...new Set(c.attrs.map(x => String(x || "").trim()).filter(Boolean))].slice(0, 5) : [];
-function attrColor(name, c){ const d = c && c.attrDefs && c.attrDefs[name]; if (HEX6.test(d || "")) return d; if (ATTR_BUILTIN[name]) return ATTR_BUILTIN[name]; const r = typeof attrRegistry === "function" ? attrRegistry()[name] : null; return HEX6.test(r || "") ? r : "#888888"; }
+function attrColor(name, c){ const d = attrDefCol(c && c.attrDefs && c.attrDefs[name]); if (HEX6.test(d || "")) return d; if (ATTR_BUILTIN[name]) return ATTR_BUILTIN[name]; const r = typeof attrRegistry === "function" ? attrRegistry()[name] : null; return HEX6.test(r || "") ? r : "#888888"; }
 // みんなのカードに出てくる属性（自分で作った属性も、カードを保存すれば一覧に出る）
-function attrRegistry(){ const o = { ...ATTR_BUILTIN }; try{ (typeof S !== "undefined" && S.cards ? [...S.cards.values()] : []).forEach(c => { if (c && c.attrDefs) Object.entries(c.attrDefs).forEach(([k, v]) => { if (!o[k] && HEX6.test(v || "")) o[k] = v; }); }); const my = typeof ls !== "undefined" ? ls.get("cb_myAttrs", {}) : {}; Object.entries(my || {}).forEach(([k, v]) => { if (!o[k] && HEX6.test(v || "")) o[k] = v; }); }catch(e){} return o; }
+// 名前 → { c: 色, m: 字, r: ふりがな }（自分で作ったもの・みんなのカードに出てくるもの）
+function attrRegistryFull(){ const o = {}; const put = (k, v) => { if (o[k] || !v) return; const x = typeof v === "string" ? { c: v } : v; if (HEX6.test(x.c || "")) o[k] = x; }; try{ const my = typeof ls !== "undefined" ? ls.get("cb_myAttrs", {}) : {}; Object.entries(my || {}).forEach(([k, v]) => put(k, v)); (typeof S !== "undefined" && S.cards ? [...S.cards.values()] : []).forEach(c => { if (c && c.attrDefs) Object.entries(c.attrDefs).forEach(([k, v]) => put(k, v)); }); }catch(e){} return o; }
+function attrRegistry(){ const o = { ...ATTR_BUILTIN }; Object.entries(attrRegistryFull()).forEach(([k, v]) => { if (!o[k]) o[k] = v.c; }); return o; }
 const attrList = () => Object.keys(attrRegistry());
 // レベル（0〜12。0ならなし）。コストを使わないデッキでも意味があるように、生贄の数をレベルから決められる（遊戯王と同じ: 5〜6は1体、7以上は2体）
 const lvOf = c => c ? Math.max(0, Math.min(12, Math.round(+c.lv || 0))) : 0;
@@ -3158,8 +3176,9 @@ function cardHTML(c, cls = "", attrs = "", opts = {}){
   let h = cardHTML0(mt ? { ...c, frameless: fr === "future" ? c.frameless : false } : c, cls, attrs, opts);
   // レベル・属性のしるし（絵の右上）。デュエマ風は枠の色で属性がわかるのでレベルだけ、遊戯王風はレベルを星で出す
   if (c && !c.potionView && !c.relicView && c.frame !== "spire" && c.frame !== "socra"){
-    const A = fr === "dm" ? [] : attrsOf(c), lv = fr === "ygo" ? 0 : lvOf(c);
-    if (A.length || lv) h = h.replace('<div class="c-art">', `<div class="c-art"><span class="c-meta">${lv ? `<b class="c-lv" title="レベル${lv}">Lv${lv}</b>` : ""}${A.map(a => `<i class="c-attr" style="--ac:${attrColor(a, c)}" title="${esc(a)}属性">${esc([...a][0])}</i>`).join("")}</span>`);
+    const A = fr === "dm" || fr === "ygo" ? [] : attrsOf(c), lv = fr === "ygo" ? 0 : lvOf(c);
+    if (A.length || lv) h = h.replace('<div class="c-art">', `<div class="c-art"><span class="c-meta">${lv ? `<b class="c-lv" title="レベル${lv}">Lv${lv}</b>` : ""}${A.map(a => attrOrb(a, c)).join("")}</span>`);
+    if (fr === "ygo" && attrsOf(c).length) h = h.replace(/^<div class="card /, `<div class="card yattr${attrsOf(c).length} `).replace('<div class="c-in">', `<div class="c-in"><span class="y-attrs">${attrsOf(c).slice(0, 3).map(a => attrOrb(a, c, "y-attr")).join("")}</span>`);
     if (fr === "ygo" && lvOf(c) && !/<span class="c-cost"/.test(h)) h = h.replace('<div class="c-in">', `<div class="c-in"><span class="c-cost" title="レベル${lvOf(c)}">${ygoStars(String(lvOf(c)), cardType(c))}</span>`);
   }
   // MTG風の枠（サバ缶デザイン）: ふつうの枠と同じ中身に、枠の見た目と下の宝石をかぶせる
@@ -4879,18 +4898,21 @@ function syncHfUI(){ const on = $("#mkHf").checked; $("#mkHfM").hidden = !on; $(
 const mkCascadeVal = () => (MK.type === "monster" || MK.type === "magic") && $("#mkCascade").checked || null;
 // レベル・属性（カードに保存する値）
 MK.attrs = []; MK.attrDefs = {};
-function mkLvAttrVal(){ const lv = Math.max(0, Math.min(12, Math.round(+$("#mkLv").value || 0))), A = (MK.attrs || []).slice(0, 5), defs = {}; A.forEach(a => { if (!ATTR_BUILTIN[a]) defs[a] = MK.attrDefs[a] || attrRegistry()[a] || "#888888"; }); return { lv: lv || null, lvTrib: lv && MK.type === "monster" ? $("#mkLvTrib").checked : null, attrs: A.length ? A : null, attrDefs: Object.keys(defs).length ? defs : null }; }
+function mkLvAttrVal(){ const lv = Math.max(0, Math.min(12, Math.round(+$("#mkLv").value || 0))), A = (MK.attrs || []).slice(0, 5), defs = {}; A.forEach(a => { if (!ATTR_BUILTIN[a]){ const x = MK.attrDefs[a] || attrRegistryFull()[a]; const o = typeof x === "string" ? { c: x } : x || { c: "#888888" }; defs[a] = { c: HEX6.test(o.c || "") ? o.c : "#888888", m: [...String(o.m || a)][0], ...(o.r ? { r: String(o.r).slice(0, 8) } : {}) }; } }); return { lv: lv || null, lvTrib: lv && MK.type === "monster" ? $("#mkLvTrib").checked : null, attrs: A.length ? A : null, attrDefs: Object.keys(defs).length ? defs : null }; }
 function renderAttrPick(){
   const box = $("#mkAttrPick"); if (!box) return;
   const reg = { ...attrRegistry(), ...MK.attrDefs }, L = [...new Set([...Object.keys(reg), ...(MK.attrs || [])])];
-  box.innerHTML = L.map(a => `<button type="button" data-attr="${esc(a)}" aria-pressed="${(MK.attrs || []).includes(a)}" style="--ac:${reg[a] || attrColor(a)}"><i></i>${esc(a)}</button>`).join("");
+  const cc = { attrDefs: MK.attrDefs };
+  box.innerHTML = L.map(a => `<button type="button" data-attr="${esc(a)}" aria-pressed="${(MK.attrs || []).includes(a)}" style="--ac:${attrColor(a, cc)}">${attrOrb(a, cc, "ap-orb")}${esc(a)}</button>`).join("");
+  // 工房のカード: 遊戯王風は名前の欄の右はし、ほかの枠は絵の右下
+  { const A = (MK.attrs || []).slice(0, 5), y = $("#mkAttrY"), r = $("#mkAttrArt"), ec = $("#editCard"); if (y) y.innerHTML = A.slice(0, 3).map(a => attrOrb(a, cc, "y-attr")).join(""); if (r) r.innerHTML = A.map(a => attrOrb(a, cc)).join(""); if (ec){ ec.classList.remove("yattr1", "yattr2", "yattr3"); if (A.length) ec.classList.add("yattr" + Math.min(3, A.length)); } }
   $("#lvTribLbl").hidden = MK.type !== "monster";
   syncColor();
 }
 function mkSetLvAttr(c){ $("#mkLv").value = c ? lvOf(c) : 0; $("#mkLvTrib").checked = !c || c.lvTrib !== false; MK.attrs = c ? attrsOf(c) : []; MK.attrDefs = c && c.attrDefs ? { ...c.attrDefs } : {}; renderAttrPick(); }
 $("#mkAttrPick").addEventListener("click", e => { const b = e.target.closest("[data-attr]"); if (!b) return; const a = b.dataset.attr, L = MK.attrs || []; MK.attrs = L.includes(a) ? L.filter(x => x !== a) : [...L, a].slice(0, 5); renderAttrPick(); if (typeof updateBkText === "function") updateBkText(); });
 $("#attrNewBtn").addEventListener("click", () => { $("#attrNewRow").hidden = !$("#attrNewRow").hidden; if (!$("#attrNewRow").hidden) $("#attrNewName").focus(); });
-$("#attrNewOk").addEventListener("click", () => { const n = $("#attrNewName").value.trim().replace(/属性$/, "").slice(0, 10), col = $("#attrNewColor").value; if (!n){ toast("属性の名前を書いてね"); return; } MK.attrDefs[n] = col; const my = ls.get("cb_myAttrs", {}) || {}; my[n] = col; ls.set("cb_myAttrs", my); if (!(MK.attrs || []).includes(n)) MK.attrs = [...(MK.attrs || []), n].slice(0, 5); $("#attrNewName").value = ""; $("#attrNewRow").hidden = true; renderAttrPick(); });
+$("#attrNewOk").addEventListener("click", () => { const n = $("#attrNewName").value.trim().replace(/属性$/, "").slice(0, 10), col = $("#attrNewColor").value, mk = [...$("#attrNewMark").value.trim()].slice(0, 1).join("") || [...n][0], rb = $("#attrNewRuby").value.trim().slice(0, 8); if (!n){ toast("属性の名前を書いてね"); return; } const def = { c: col, m: mk, ...(rb ? { r: rb } : {}) }; MK.attrDefs[n] = def; const my = ls.get("cb_myAttrs", {}) || {}; my[n] = def; ls.set("cb_myAttrs", my); $("#attrNewMark").value = ""; $("#attrNewRuby").value = ""; if (!(MK.attrs || []).includes(n)) MK.attrs = [...(MK.attrs || []), n].slice(0, 5); $("#attrNewName").value = ""; $("#attrNewRow").hidden = true; renderAttrPick(); });
 $("#mkLv").addEventListener("input", () => { if (typeof updateBkText === "function") updateBkText(); });
 $("#mkFrame").addEventListener("change", () => syncColor());
 function mkPreviewCard(){ if (MK.ctrBk) return { type: "monster", ctrCard: "x", name: "このカウンター", blocks: readBlocks() }; return { ...mkLvAttrVal(), cascade: mkCascadeVal(), gl: mkGlVal(), hf: mkHfVal(), fusion: mkFusionVal(), when: mkWhenVal(), field: MK.type === "magic" && $("#mkField").checked, ex: $("#mkEx").checked, noUse: (MK.type === "magic" || MK.type === "trap") && $("#mkNoUse").checked, fxRows: $("#mkFxRows").checked, ...mkSpOpts(), mass: mkMassVal(), fieldMine: MK.type === "magic" && $("#mkField").checked && $("#mkFieldMine").checked || null, anySum: MK.type === "monster" && $("#mkAnySum").checked || null, land: MK.type === "magic" && $("#mkField").checked && $("#mkLand").checked || null, tags: MK.kind === "card" || !MK.kind ? parseTags($("#mkTags").value) : [], showTags: (MK.kind === "card" || !MK.kind) && $("#mkShowTags").checked || null, tribTag: MK.type === "monster" ? $("#mkTribTag").value.trim() || null : null, ...(MK.type === "monster" ? mkVarFields() : {}), ...(MK.kind === "relic" ? { relicView: true } : {}), type: MK.type, frame: MK.kind === "potion" || MK.kind === "relic" ? "spire" : $("#mkFrame").value, persist: (MK.type === "magic" || MK.type === "trap") && $("#mkPersist").checked && !$("#mkField").checked, costX: $("#mkCost").value === "X", costInf: $("#mkCost").value === "∞", ...mkPays(), blocks: readBlocks(), ss: readSS(), eqN: Math.round(+$("#mkEq").value || 0), abs: readAbs() }; }
