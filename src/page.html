@@ -238,7 +238,7 @@
                 <label data-cat="card"><input type="checkbox" id="mkInnate"> 天賦（ゲーム開始時と自分のターンのはじめ、山札にあれば一番上に置く）</label>
                 <label data-cat="card"><input type="checkbox" id="mkRetain"> 保留（ターンの終わりに手札から捨てられない・スパイアデッキ）</label>
                 <label data-cat="card"><input type="checkbox" id="mkEthereal"> エセリアル（ターンの終わりに手札にあると廃棄される）</label>
-                <label data-cat="card"><input type="checkbox" id="mkCascade"> 続唱（コストを払って使ったとき、山札からコストが小さいカードを1枚タダで使える・モンスターと魔法・コストデッキ用）</label>
+                <label data-cat="card"><input type="checkbox" id="mkCascade"> 続唱（コストを払って使ったとき、山札からコストが小さいカードを1枚タダで使える・コストデッキ用）<select id="mkCascT" aria-label="続唱でめくって使えるもの" style="margin-left:6px"><option value="all">モンスターと魔法（すべて）</option><option value="monster">モンスターだけ</option><option value="magic">魔法だけ</option></select></label>
                 <label data-cat="card" data-q="ゆうごう 融合 ふゅーじょん シャドバ"><input type="checkbox" id="mkHf"> フュージョン（シャドバの融合風・EXデッキの「融合モンスター」とは別・手札のこのカードに、ほかの手札をフュージョンできる・モンスターと魔法）<select id="mkHfM" aria-label="フュージョンできるカード" hidden><option value="tag">タグ</option><option value="part">名前に入る文字</option><option value="name">名前がぴったり</option><option value="monster">モンスターなら何でも</option><option value="magic">魔法なら何でも</option><option value="any">どのカードでも</option></select><input type="text" id="mkHfW" list="tagNames" maxlength="40" placeholder="タグ・名前" aria-label="フュージョンできるカードの名前・タグ" style="width:120px" hidden></label>
                 <label data-cat="card"><input type="checkbox" id="mkSly"> スライ（手札から捨てられたら、タダで使う・魔法と罠）</label>
               </div>

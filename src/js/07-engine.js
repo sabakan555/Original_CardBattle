@@ -1410,8 +1410,10 @@ function runCard(st, s, c, trig, ctx = {}, then){
   step(st, 0);
 }
 // 続唱（MTG）: 山札の上から、このカードよりコストが小さいモンスターか魔法が出るまでめくり、それをタダで使ってよい。めくった残りはランダムな順で山札の下へ
-function cascadeOk(st, s, x, lim){
+// ct: めくって使えるもの（"monster" / "magic"、なければどちらも）
+function cascadeOk(st, s, x, lim, ct){
   const t = cardType(x); if (!x || (t !== "monster" && t !== "magic") || !hasCost(x) || !(costOf(x) < lim)) return false;
+  if ((ct === "monster" || ct === "magic") && t !== ct) return false;
   if (t === "monster") return !isFusion(x) && !isEx(x) && !isDmEvo(x) && !tribOf(x, st, s) && !massOf(x) && !(ssOf(x) || {}).only;
   return !x.noUse && !useBlockedWhy(st, s, x);
 }
@@ -1419,7 +1421,7 @@ function doCascade(st, s, c, then){
   const p = P(st, s), src = `「${c.name}」の続唱`;
   if (!p.mana){ log(st, s, `${src}：コストを使うデッキでだけ働く`); then && then(st); return; }
   const lim = costOf(c), shown = []; let hit = null;
-  while (p.deck.length){ const id = p.deck.shift(); if (cascadeOk(st, s, card(id), lim)){ hit = id; break; } shown.push(id); }
+  while (p.deck.length){ const id = p.deck.shift(); if (cascadeOk(st, s, card(id), lim, c.cascT)){ hit = id; break; } shown.push(id); }
   log(st, s, `${src}：山札の上から${shown.length + (hit ? 1 : 0)}枚めくった${hit ? `→「${card(hit).name}」（コスト${costLabel(card(hit))}）` : "（コストが小さいカードは出なかった）"}`);
   const bottom = st2 => P(st2, s).deck.push(...shuffle(shown));
   if (!hit){ bottom(st); then && then(st); return; }

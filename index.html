@@ -1794,7 +1794,7 @@ div.f{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:13px}
                 <label data-cat="card"><input type="checkbox" id="mkInnate"> 天賦（ゲーム開始時と自分のターンのはじめ、山札にあれば一番上に置く）</label>
                 <label data-cat="card"><input type="checkbox" id="mkRetain"> 保留（ターンの終わりに手札から捨てられない・スパイアデッキ）</label>
                 <label data-cat="card"><input type="checkbox" id="mkEthereal"> エセリアル（ターンの終わりに手札にあると廃棄される）</label>
-                <label data-cat="card"><input type="checkbox" id="mkCascade"> 続唱（コストを払って使ったとき、山札からコストが小さいカードを1枚タダで使える・モンスターと魔法・コストデッキ用）</label>
+                <label data-cat="card"><input type="checkbox" id="mkCascade"> 続唱（コストを払って使ったとき、山札からコストが小さいカードを1枚タダで使える・コストデッキ用）<select id="mkCascT" aria-label="続唱でめくって使えるもの" style="margin-left:6px"><option value="all">モンスターと魔法（すべて）</option><option value="monster">モンスターだけ</option><option value="magic">魔法だけ</option></select></label>
                 <label data-cat="card" data-q="ゆうごう 融合 ふゅーじょん シャドバ"><input type="checkbox" id="mkHf"> フュージョン（シャドバの融合風・EXデッキの「融合モンスター」とは別・手札のこのカードに、ほかの手札をフュージョンできる・モンスターと魔法）<select id="mkHfM" aria-label="フュージョンできるカード" hidden><option value="tag">タグ</option><option value="part">名前に入る文字</option><option value="name">名前がぴったり</option><option value="monster">モンスターなら何でも</option><option value="magic">魔法なら何でも</option><option value="any">どのカードでも</option></select><input type="text" id="mkHfW" list="tagNames" maxlength="40" placeholder="タグ・名前" aria-label="フュージョンできるカードの名前・タグ" style="width:120px" hidden></label>
                 <label data-cat="card"><input type="checkbox" id="mkSly"> スライ（手札から捨てられたら、タダで使う・魔法と罠）</label>
               </div>
@@ -2743,7 +2743,7 @@ function whenText(c){ const w = whenOf(c); return w ? `【${WHEN_LABEL[w]}に発
 function fusionMatText(x){ return x.m === "any" ? "モンスター" : x.m === "tag" ? `タグ「${x.v || "？"}」のモンスター` : `「${x.v || "？"}」`; }
 function fusionText(c){ return c && cardType(c) === "monster" && Array.isArray(c.fusion) && c.fusion.length ? `【融合】${c.fusion.map(fusionMatText).join("＋")}` : ""; }
 const spOptText = c => !c || (cardType(c) !== "magic" && cardType(c) !== "trap") ? "" : [c.strig ? "《S・トリガー》" : "", c.flashback && cardType(c) === "magic" ? "《フラッシュバック》" : "", +c.kick > 0 ? `《キッカー》（${+c.kick}）` : ""].join("");
-function fxText(c, detail = false){ const t = fxTextB(c, detail), k = c ? (cascadeOn(c) ? "《続唱》" : "") + glKw(c) + hfKw(c) + (c.innate ? "《天賦》" : "") + (c.retain ? "《保留》" : "") + (c.ethereal ? "《エセリアル》" : "") + (c.sly ? "《スライ》" : "") : ""; return k ? k + (t ? (detail ? "。\n" : "。") + t : "") : t; }
+function fxText(c, detail = false){ const t = fxTextB(c, detail), k = c ? (cascadeOn(c) ? "《続唱》" + (c.cascT === "monster" ? "（モンスター）" : c.cascT === "magic" ? "（魔法）" : "") : "") + glKw(c) + hfKw(c) + (c.innate ? "《天賦》" : "") + (c.retain ? "《保留》" : "") + (c.ethereal ? "《エセリアル》" : "") + (c.sly ? "《スライ》" : "") : ""; return k ? k + (t ? (detail ? "。\n" : "。") + t : "") : t; }
 function fxTextB(c, detail = false){ return (c && c.token && cardType(c) !== "monster" ? "【トークン】" : "") + (c && c.ex && cardType(c) !== "monster" ? "【EX】" : "") + (c && !c.noUse ? whenText(c) : "") + [fusionText(c) ? fusionText(c) + (isCf(c) ? "（自分の場の素材を墓地へ送れば、「融合」なしでEXデッキから出せる）" : "（「融合召喚」の効果でだけ出せる）") : "", sxText(c), c && c.mland ? "【《土地》】発動できない。マナゾーンに置くと、置いたターンからマナとして使える（多色でもタップしない）" : c && c.noUse && (cardType(c) === "magic" || cardType(c) === "trap") ? "このカードは発動できない" : "", isPersist(c) ? "【永続】使ったあとも場に残る" : "", spOptText(c), isField(c) ? `【フィールド】お互いに1枚だけ場に置ける（新しいフィールドが出ると、前のフィールドは墓地へ）。${fieldMine(c) ? "効果は出した人にだけ効く" : "効果はお互いに効く"}` : "", extraCostText(c), costMechText(c), dmEvoText(c), mugText(c), revoText(c), tribText(c), massText(c), anySumText(c), atkCondText(c), ssText(c), fxText0(c, detail)].filter(Boolean).join(detail ? "。\n" : "。"); }
 /* ================= effect blocks: いつ / もし / なにを / ちがったら =================
    c.blocks = [{ trig, conds: [{k, op, n | name, where, match | text}], join: "and"|"or", then: [{kind, n, to}], else: [...] }]
@@ -4481,7 +4481,7 @@ function absFilter(){
 $("#absQ").addEventListener("input", absFilter);
 $("#absCats").addEventListener("click", e => { const b = e.target.closest("[data-abscat]"); if (!b) return; MK.absCat = b.dataset.abscat; absFilter(); });
 ["#mkInnate", "#mkRetain", "#mkEthereal", "#mkSly"].forEach(q => $(q).addEventListener("change", () => { if (typeof updateSecs === "function") updateSecs(); }));
-["#mkCascade", "#mkGl", "#mkGlSide", "#mkGlW"].forEach(q => $(q).addEventListener("input", () => updateBkText()));
+["#mkCascade", "#mkCascT", "#mkGl", "#mkGlSide", "#mkGlW"].forEach(q => $(q).addEventListener("input", () => updateBkText()));
 // フュージョン: つけた・外したら、条件と「1枚につき」の一覧（「フュージョンしたカードの枚数」）を出しなおす
 ["#mkHf", "#mkHfM", "#mkHfW"].forEach(q => $(q).addEventListener("input", () => updateBkText()));
 ["#mkHf", "#mkHfM"].forEach(q => $(q).addEventListener("change", () => { syncHfUI(); renderBlocksUI(); if (typeof renderAtkConds === "function") renderAtkConds(); }));
@@ -5036,7 +5036,7 @@ function syncHfUI(){ const on = $("#mkHf").checked; $("#mkHfM").hidden = !on; $(
 const mkCascadeVal = () => (MK.type === "monster" || MK.type === "magic") && $("#mkCascade").checked || null;
 // レベル・属性（カードに保存する値）
 MK.attrs = []; MK.attrDefs = {};
-function mkLvAttrVal(){ const lv = Math.max(0, Math.min(12, Math.round(+$("#mkLv").value || 0))), A = (MK.attrs || []).slice(0, 5), defs = {}; A.forEach(a => { if (!ATTR_BUILTIN[a]){ const x = MK.attrDefs[a] || attrRegistryFull()[a]; const o = typeof x === "string" ? { c: x } : x || { c: "#888888" }; defs[a] = { c: HEX6.test(o.c || "") ? o.c : "#888888", m: [...String(o.m || a)][0], ...(o.r ? { r: String(o.r).slice(0, 8) } : {}) }; } }); return { lv: lv || null, lvTrib: lv && MK.type === "monster" ? $("#mkLvTrib").checked : null, attrs: A.length ? A : null, attrHide: A.length && $("#mkAttrHide").checked ? true : null, attrDefs: Object.keys(defs).length ? defs : null, sx: mkSxVal(), fusFree: mkFusionVal() && $("#mkFusFree").checked ? true : null, ace: mkAceVal(), mland: MK.type === "magic" && $("#mkIsLand").checked ? true : null }; }
+function mkLvAttrVal(){ const lv = Math.max(0, Math.min(12, Math.round(+$("#mkLv").value || 0))), A = (MK.attrs || []).slice(0, 5), defs = {}; A.forEach(a => { if (!ATTR_BUILTIN[a]){ const x = MK.attrDefs[a] || attrRegistryFull()[a]; const o = typeof x === "string" ? { c: x } : x || { c: "#888888" }; defs[a] = { c: HEX6.test(o.c || "") ? o.c : "#888888", m: [...String(o.m || a)][0], ...(o.r ? { r: String(o.r).slice(0, 8) } : {}) }; } }); return { lv: lv || null, lvTrib: lv && MK.type === "monster" ? $("#mkLvTrib").checked : null, attrs: A.length ? A : null, attrHide: A.length && $("#mkAttrHide").checked ? true : null, attrDefs: Object.keys(defs).length ? defs : null, sx: mkSxVal(), fusFree: mkFusionVal() && $("#mkFusFree").checked ? true : null, ace: mkAceVal(), mland: MK.type === "magic" && $("#mkIsLand").checked ? true : null, cascT: mkCascadeVal() && $("#mkCascT").value !== "all" ? $("#mkCascT").value : null }; }
 $("#mkIsLand").addEventListener("change", () => updateBkText());
 function mkAceVal(){ const on = $("#mkAceOn").value; if (!on) return null; const t = $("#mkAceT").value.trim().slice(0, 40); return { on, ...(t ? { t } : {}), col: $("#mkAceCol").value }; }
 function syncAce(){ const v = mkAceVal(), sm = $("#sumAce"); if (sm){ sm.textContent = v ? { use: "使ったとき", draw: "引いたとき", both: "使ったとき・引いたとき" }[v.on] : "なし"; sm.classList.toggle("on", !!v); } }
@@ -5057,7 +5057,7 @@ function renderSx(){
   const ec = $("#editCard"); if (ec){ ec.classList.toggle("ysyn", MK.sx === "syn"); ec.classList.toggle("yxyz", MK.sx === "xyz"); }
 }
 function mkSetSx(c){ const x = c ? sxOf(c) : null, y = x && x.k === "syn", z = x && x.k === "xyz"; MK.sx = x ? x.k : ""; $("#sxTM").value = y ? x.t.m : "tag"; $("#sxTV").value = y ? x.t.v : "チューナー"; $("#sxOM").value = y ? x.o.m : "nott"; $("#sxOV").value = y ? x.o.v : ""; $("#sxXM").value = z ? x.m : "any"; $("#sxXV").value = z ? x.v : ""; $("#sxXN").value = String(z ? x.n : 2); const ov = z && x.ov; $("#sxOvOn").checked = !!ov; $("#sxOvM").value = ov ? ov.m : "xyz"; $("#sxOvV").value = ov ? ov.v : ""; $("#sxOvLo").value = String(ov ? ov.lo : 1); $("#sxOvHi").value = String(ov ? ov.hi : 12);
-  $("#mkFusFree").checked = !!(c && c.fusFree); $("#mkIsLand").checked = !!(c && c.mland); const a = c ? aceOf(c) : null; $("#mkAceOn").value = a ? a.on : ""; $("#mkAceT").value = a ? a.t : ""; $("#mkAceCol").value = a ? a.col : "#ffd34d"; syncAce(); renderSx(); }
+  $("#mkFusFree").checked = !!(c && c.fusFree); $("#mkIsLand").checked = !!(c && c.mland); $("#mkCascT").value = c && (c.cascT === "monster" || c.cascT === "magic") ? c.cascT : "all"; const a = c ? aceOf(c) : null; $("#mkAceOn").value = a ? a.on : ""; $("#mkAceT").value = a ? a.t : ""; $("#mkAceCol").value = a ? a.col : "#ffd34d"; syncAce(); renderSx(); }
 $("#mkSx").addEventListener("click", e => { const b = e.target.closest("[data-sx]"); if (!b) return; MK.sx = b.dataset.sx; if (MK.sx) $("#mkEx").checked = true; renderSx(); renderBlocksUI(); updateBkText(); });
 ["#sxTM", "#sxTV", "#sxOM", "#sxOV", "#sxXM", "#sxXV", "#sxXN", "#sxOvOn", "#sxOvM", "#sxOvV", "#sxOvLo", "#sxOvHi"].forEach(q => ["input", "change"].forEach(t => $(q).addEventListener(t, () => { renderSx(); updateBkText(); })));
 function renderAttrPick(){
@@ -8111,8 +8111,10 @@ function runCard(st, s, c, trig, ctx = {}, then){
   step(st, 0);
 }
 // 続唱（MTG）: 山札の上から、このカードよりコストが小さいモンスターか魔法が出るまでめくり、それをタダで使ってよい。めくった残りはランダムな順で山札の下へ
-function cascadeOk(st, s, x, lim){
+// ct: めくって使えるもの（"monster" / "magic"、なければどちらも）
+function cascadeOk(st, s, x, lim, ct){
   const t = cardType(x); if (!x || (t !== "monster" && t !== "magic") || !hasCost(x) || !(costOf(x) < lim)) return false;
+  if ((ct === "monster" || ct === "magic") && t !== ct) return false;
   if (t === "monster") return !isFusion(x) && !isEx(x) && !isDmEvo(x) && !tribOf(x, st, s) && !massOf(x) && !(ssOf(x) || {}).only;
   return !x.noUse && !useBlockedWhy(st, s, x);
 }
@@ -8120,7 +8122,7 @@ function doCascade(st, s, c, then){
   const p = P(st, s), src = `「${c.name}」の続唱`;
   if (!p.mana){ log(st, s, `${src}：コストを使うデッキでだけ働く`); then && then(st); return; }
   const lim = costOf(c), shown = []; let hit = null;
-  while (p.deck.length){ const id = p.deck.shift(); if (cascadeOk(st, s, card(id), lim)){ hit = id; break; } shown.push(id); }
+  while (p.deck.length){ const id = p.deck.shift(); if (cascadeOk(st, s, card(id), lim, c.cascT)){ hit = id; break; } shown.push(id); }
   log(st, s, `${src}：山札の上から${shown.length + (hit ? 1 : 0)}枚めくった${hit ? `→「${card(hit).name}」（コスト${costLabel(card(hit))}）` : "（コストが小さいカードは出なかった）"}`);
   const bottom = st2 => P(st2, s).deck.push(...shuffle(shown));
   if (!hit){ bottom(st); then && then(st); return; }
