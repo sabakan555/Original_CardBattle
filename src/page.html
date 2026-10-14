@@ -290,6 +290,17 @@
               </div>
             </div>
           </details>
+          <details class="mk-sec" id="secTw">
+            <summary><span class="mk-st">ツインパクト（呪文としても使える・デュエマ風）</span><span class="mk-sum" id="sumTw"></span></summary>
+            <div class="fxform">
+              <label class="row" style="gap:6px;font-weight:700;cursor:pointer"><input type="checkbox" id="mkTw"> ツインパクトにする（手札から、モンスターとして出すか、呪文として使うか選べる）</label>
+              <div id="twOpts" class="bk-col" hidden>
+                <div class="row" style="gap:6px 12px;flex-wrap:wrap;align-items:center"><input type="text" id="mkTwName" maxlength="40" placeholder="呪文側の名前" style="min-width:200px" aria-label="呪文側の名前"><label class="row" style="gap:6px">呪文側のコスト<input type="number" id="mkTwCost" min="0" max="99" value="1" style="width:64px"></label></div>
+                <div class="seg" id="mkTwSide" role="group" aria-label="どちらの効果を作る"><button type="button" data-tw="mon" aria-pressed="true">モンスター側の効果</button><button type="button" data-tw="sp" aria-pressed="false">呪文側の効果</button></div>
+                <p class="note" style="margin:0">「呪文側の効果」を押すと、効果の欄で呪文側の効果を作れる（もう一度「モンスター側の効果」で戻る）。呪文として使ったあとはカードごと墓地へ</p>
+              </div>
+            </div>
+          </details>
           <details class="mk-sec" id="secAce">
             <summary><span class="mk-st">切り札の演出（カットイン）</span><span class="mk-sum" id="sumAce"></span></summary>
             <div class="fxform">

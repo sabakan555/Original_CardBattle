@@ -1178,6 +1178,7 @@ nav.tabs button{position:relative}
 .c-attr b,.y-attr b{font-family:"Shippori Mincho",serif;font-weight:700;font-size:calc(var(--d)*.6);line-height:1;transform:translateY(calc(var(--d)*.06));text-shadow:0 0 calc(var(--d)*.06) rgba(0,0,0,.65),0 calc(var(--d)*.03) 0 rgba(0,0,0,.5)}
 .c-attr small,.y-attr small{position:absolute;top:calc(var(--d)*.06);left:0;right:0;text-align:center;font:700 calc(var(--d)*.17)/1 var(--ui);letter-spacing:-.04em;white-space:nowrap;text-shadow:0 0 calc(var(--d)*.06) rgba(0,0,0,.7)}
 .c-meta .c-attr{--d:calc(var(--w)*.14)}
+.c-twb{position:absolute;left:calc(var(--w)*.02);top:calc(var(--w)*.02);z-index:3;font-size:calc(var(--w)*.05);font-weight:800;line-height:1.2;padding:1px calc(var(--w)*.025);border-radius:999px;background:linear-gradient(90deg,#d8382b,#7b3fd0,#2f7fd6);color:#fff;box-shadow:0 1px 3px rgba(0,0,0,.4);pointer-events:none}
 .dd-attrs{display:inline-flex;flex-wrap:wrap;gap:4px 12px;align-items:center}.dd-attr{display:inline-flex;align-items:center;gap:5px;font-weight:700}.dd-attr .c-attr{--d:26px}
 .card.ygo .y-attrs{position:absolute;right:calc(var(--yu)*46);top:calc(var(--yu)*37);display:flex;flex-direction:row-reverse;gap:calc(var(--yu)*4);z-index:3;pointer-events:none}
 .card.ygo .y-attr{--d:calc(var(--yu)*57)}
@@ -1846,6 +1847,17 @@ div.f{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:13px}
               </div>
             </div>
           </details>
+          <details class="mk-sec" id="secTw">
+            <summary><span class="mk-st">ツインパクト（呪文としても使える・デュエマ風）</span><span class="mk-sum" id="sumTw"></span></summary>
+            <div class="fxform">
+              <label class="row" style="gap:6px;font-weight:700;cursor:pointer"><input type="checkbox" id="mkTw"> ツインパクトにする（手札から、モンスターとして出すか、呪文として使うか選べる）</label>
+              <div id="twOpts" class="bk-col" hidden>
+                <div class="row" style="gap:6px 12px;flex-wrap:wrap;align-items:center"><input type="text" id="mkTwName" maxlength="40" placeholder="呪文側の名前" style="min-width:200px" aria-label="呪文側の名前"><label class="row" style="gap:6px">呪文側のコスト<input type="number" id="mkTwCost" min="0" max="99" value="1" style="width:64px"></label></div>
+                <div class="seg" id="mkTwSide" role="group" aria-label="どちらの効果を作る"><button type="button" data-tw="mon" aria-pressed="true">モンスター側の効果</button><button type="button" data-tw="sp" aria-pressed="false">呪文側の効果</button></div>
+                <p class="note" style="margin:0">「呪文側の効果」を押すと、効果の欄で呪文側の効果を作れる（もう一度「モンスター側の効果」で戻る）。呪文として使ったあとはカードごと墓地へ</p>
+              </div>
+            </div>
+          </details>
           <details class="mk-sec" id="secAce">
             <summary><span class="mk-st">切り札の演出（カットイン）</span><span class="mk-sum" id="sumAce"></span></summary>
             <div class="fxform">
@@ -2378,6 +2390,7 @@ const ABS = {
   eqBonus:    { label: "特定の名前の装備を付けているとATKアップ", only: "mon", self: true, n: 300, name: true, text: (n, nm) => `名前に「${nm || "？"}」が入った装備を付けているとき、ATK+${n}` }
 };
 const KW_DESC = {
+  "ツインパクト": "モンスターと呪文（魔法）の2つの面をもつカード。手札から、モンスターとして出すか、呪文として使うかを選べる。呪文として使ったあとはカードごと墓地へ",
   "土地": "MTG風のマナのカード。発動はできない。マナゾーンに置くと、置いたターンからマナとして使える（多色でもタップしない）。「土地（MTG式）」のルールでは、土地しかマナゾーンに置けない",
   "マナゾーン": "「マナチャージ」「土地」のルールで使う場所。1ターンに1枚、手札のカードを置ける。置いてあるカードの枚数がマナになり、使うときにタップする。カードを使うには、その属性のカードがタップしていないマナに要る。多色のカードはタップして置く",
   "シンクロ": "EXデッキから出すモンスター。自分の場のチューナー1体と、それ以外のモンスター1体以上を墓地へ送り、そのレベルの合計がこのカードのレベルと同じなら、EXデッキから出せる（特殊召喚）",
@@ -2619,6 +2632,7 @@ function sxMatText(y, t){
   if (y.m === "tag") return y.v === "チューナー" ? "《チューナー》" : `タグ「${y.v}」のモンスター`;
   return `「${y.v}」`;
 }
+function twText(c){ const t = twOf(c); if (!t) return ""; const v = card(c.id + "~tw"); return `【《ツインパクト》】呪文「${v.name}」${hasCost(v) ? `（コスト${costLabel(v)}）` : ""}：${fxTextB(v) || "効果なし"}（手札から、モンスターとして出すか呪文として使うか選べる。呪文として使ったあとは墓地へ）`; }
 function sxText(c){
   const x = sxOf(c); if (!x) return ""; const lv = lvOf(c) || "？";
   if (x.k === "syn") return `【《シンクロ》】${sxMatText(x.t)}＋${sxMatText(x.o, x.t)}1体以上（自分の場の素材を墓地へ送り、レベルの合計が${lv}ならEXデッキからシンクロ召喚できる）`;
@@ -2744,7 +2758,7 @@ function fusionMatText(x){ return x.m === "any" ? "モンスター" : x.m === "t
 function fusionText(c){ return c && cardType(c) === "monster" && Array.isArray(c.fusion) && c.fusion.length ? `【融合】${c.fusion.map(fusionMatText).join("＋")}` : ""; }
 const spOptText = c => !c || (cardType(c) !== "magic" && cardType(c) !== "trap") ? "" : [c.strig ? "《S・トリガー》" : "", c.flashback && cardType(c) === "magic" ? "《フラッシュバック》" : "", +c.kick > 0 ? `《キッカー》（${+c.kick}）` : ""].join("");
 function fxText(c, detail = false){ const t = fxTextB(c, detail), k = c ? (cascadeOn(c) ? "《続唱》" + (c.cascT === "monster" ? "（モンスター）" : c.cascT === "magic" ? "（魔法）" : "") : "") + glKw(c) + hfKw(c) + (c.innate ? "《天賦》" : "") + (c.retain ? "《保留》" : "") + (c.ethereal ? "《エセリアル》" : "") + (c.sly ? "《スライ》" : "") : ""; return k ? k + (t ? (detail ? "。\n" : "。") + t : "") : t; }
-function fxTextB(c, detail = false){ return (c && c.token && cardType(c) !== "monster" ? "【トークン】" : "") + (c && c.ex && cardType(c) !== "monster" ? "【EX】" : "") + (c && !c.noUse ? whenText(c) : "") + [fusionText(c) ? fusionText(c) + (isCf(c) ? "（自分の場の素材を墓地へ送れば、「融合」なしでEXデッキから出せる）" : "（「融合召喚」の効果でだけ出せる）") : "", sxText(c), c && c.mland ? "【《土地》】発動できない。マナゾーンに置くと、置いたターンからマナとして使える（多色でもタップしない）" : c && c.noUse && (cardType(c) === "magic" || cardType(c) === "trap") ? "このカードは発動できない" : "", isPersist(c) ? "【永続】使ったあとも場に残る" : "", spOptText(c), isField(c) ? `【フィールド】お互いに1枚だけ場に置ける（新しいフィールドが出ると、前のフィールドは墓地へ）。${fieldMine(c) ? "効果は出した人にだけ効く" : "効果はお互いに効く"}` : "", extraCostText(c), costMechText(c), dmEvoText(c), mugText(c), revoText(c), tribText(c), massText(c), anySumText(c), atkCondText(c), ssText(c), fxText0(c, detail)].filter(Boolean).join(detail ? "。\n" : "。"); }
+function fxTextB(c, detail = false){ return (c && c.token && cardType(c) !== "monster" ? "【トークン】" : "") + (c && c.ex && cardType(c) !== "monster" ? "【EX】" : "") + (c && !c.noUse ? whenText(c) : "") + [fusionText(c) ? fusionText(c) + (isCf(c) ? "（自分の場の素材を墓地へ送れば、「融合」なしでEXデッキから出せる）" : "（「融合召喚」の効果でだけ出せる）") : "", sxText(c), twText(c), c && c.mland ? "【《土地》】発動できない。マナゾーンに置くと、置いたターンからマナとして使える（多色でもタップしない）" : c && c.noUse && (cardType(c) === "magic" || cardType(c) === "trap") ? "このカードは発動できない" : "", isPersist(c) ? "【永続】使ったあとも場に残る" : "", spOptText(c), isField(c) ? `【フィールド】お互いに1枚だけ場に置ける（新しいフィールドが出ると、前のフィールドは墓地へ）。${fieldMine(c) ? "効果は出した人にだけ効く" : "効果はお互いに効く"}` : "", extraCostText(c), costMechText(c), dmEvoText(c), mugText(c), revoText(c), tribText(c), massText(c), anySumText(c), atkCondText(c), ssText(c), fxText0(c, detail)].filter(Boolean).join(detail ? "。\n" : "。"); }
 /* ================= effect blocks: いつ / もし / なにを / ちがったら =================
    c.blocks = [{ trig, conds: [{k, op, n | name, where, match | text}], join: "and"|"or", then: [{kind, n, to}], else: [...] }]
    Older cards (c.fx + c.combo) are read as blocks too, so everything below runs on blocks. */
@@ -3319,6 +3333,7 @@ function cardHTML(c, cls = "", attrs = "", opts = {}){
     // 遊戯王風: シンクロは白い枠、エクシーズは黒い枠（ランクの星は左）
     if (fr === "ygo" && sxOf(c)) h = h.replace(/^<div class="card /, `<div class="card ${isXyz(c) ? "yxyz" : "ysyn"} `);
   }
+  if (c && twOf(c) && !c.potionView && !c.relicView) h = h.replace('<div class="c-art">', '<div class="c-art"><span class="c-twb" title="ツインパクト（呪文としても使える）">ツインパクト</span>');
   // MTG風の枠（サバ缶デザイン）: ふつうの枠と同じ中身に、枠の見た目と下の宝石をかぶせる
   // MTG風: カードのフォントが標準（手書き）のままなら、Figmaのデザインのフォントを使う
   if (mt && (!c.font || c.font === "klee")) h = h.replace(/--cf:[^;']*;?/, "");
@@ -4612,7 +4627,7 @@ function setMkType(t){
   renderAbsForm(t);
   $("#cbBox").hidden = t === "equip";
   $("#ssBox").hidden = t !== "monster";
-  { const fs = $("#secFusion"); if (fs) fs.hidden = t !== "monster"; const sx = $("#secSx"); if (sx) sx.hidden = t !== "monster"; }
+  { const fs = $("#secFusion"); if (fs) fs.hidden = t !== "monster"; const sx = $("#secSx"); if (sx) sx.hidden = t !== "monster"; const tw = $("#secTw"); if (tw) tw.hidden = t !== "monster" && !MK.twSide; }
   const trigs = t === "monster" ? MON_TRIGS : t === "equip" ? EQ_TRIGS : pers ? PERSIST_TRIGS : ["use"];
   const cur = $("#fxTrig").value;
   $("#fxTrig").innerHTML = trigs.map(k => `<option value="${k}">${pers ? PERSIST_TRIG_LABEL[k] : trigLabel(t, k)}</option>`).join("");
@@ -5036,7 +5051,11 @@ function syncHfUI(){ const on = $("#mkHf").checked; $("#mkHfM").hidden = !on; $(
 const mkCascadeVal = () => (MK.type === "monster" || MK.type === "magic") && $("#mkCascade").checked || null;
 // レベル・属性（カードに保存する値）
 MK.attrs = []; MK.attrDefs = {};
-function mkLvAttrVal(){ const lv = Math.max(0, Math.min(12, Math.round(+$("#mkLv").value || 0))), A = (MK.attrs || []).slice(0, 5), defs = {}; A.forEach(a => { if (!ATTR_BUILTIN[a]){ const x = MK.attrDefs[a] || attrRegistryFull()[a]; const o = typeof x === "string" ? { c: x } : x || { c: "#888888" }; defs[a] = { c: HEX6.test(o.c || "") ? o.c : "#888888", m: [...String(o.m || a)][0], ...(o.r ? { r: String(o.r).slice(0, 8) } : {}) }; } }); return { lv: lv || null, lvTrib: lv && MK.type === "monster" ? $("#mkLvTrib").checked : null, attrs: A.length ? A : null, attrHide: A.length && $("#mkAttrHide").checked ? true : null, attrDefs: Object.keys(defs).length ? defs : null, sx: mkSxVal(), fusFree: mkFusionVal() && $("#mkFusFree").checked ? true : null, ace: mkAceVal(), mland: MK.type === "magic" && $("#mkIsLand").checked ? true : null, cascT: mkCascadeVal() && $("#mkCascT").value !== "all" ? $("#mkCascT").value : null }; }
+function mkLvAttrVal(){ const lv = Math.max(0, Math.min(12, Math.round(+$("#mkLv").value || 0))), A = (MK.attrs || []).slice(0, 5), defs = {}; A.forEach(a => { if (!ATTR_BUILTIN[a]){ const x = MK.attrDefs[a] || attrRegistryFull()[a]; const o = typeof x === "string" ? { c: x } : x || { c: "#888888" }; defs[a] = { c: HEX6.test(o.c || "") ? o.c : "#888888", m: [...String(o.m || a)][0], ...(o.r ? { r: String(o.r).slice(0, 8) } : {}) }; } }); return { lv: lv || null, lvTrib: lv && MK.type === "monster" ? $("#mkLvTrib").checked : null, attrs: A.length ? A : null, attrHide: A.length && $("#mkAttrHide").checked ? true : null, attrDefs: Object.keys(defs).length ? defs : null, sx: mkSxVal(), fusFree: mkFusionVal() && $("#mkFusFree").checked ? true : null, ace: mkAceVal(), mland: MK.type === "magic" && $("#mkIsLand").checked ? true : null, cascT: mkCascadeVal() && $("#mkCascT").value !== "all" ? $("#mkCascT").value : null, tw: mkTwVal() }; }
+$("#mkTw").addEventListener("change", () => { syncTwUI(); updateBkText(); });
+["#mkTwName", "#mkTwCost"].forEach(q => $(q).addEventListener("input", () => { syncTwUI(); updateBkText(); }));
+$("#mkTwSide").addEventListener("click", e => { const b = e.target.closest("[data-tw]"); if (b) mkTwSide(b.dataset.tw === "sp"); });
+$("#mkType").addEventListener("click", () => { if (MK.twSide) mkTwSide(false); }, true);
 $("#mkIsLand").addEventListener("change", () => updateBkText());
 function mkAceVal(){ const on = $("#mkAceOn").value; if (!on) return null; const t = $("#mkAceT").value.trim().slice(0, 40); return { on, ...(t ? { t } : {}), col: $("#mkAceCol").value }; }
 function syncAce(){ const v = mkAceVal(), sm = $("#sumAce"); if (sm){ sm.textContent = v ? { use: "使ったとき", draw: "引いたとき", both: "使ったとき・引いたとき" }[v.on] : "なし"; sm.classList.toggle("on", !!v); } }
@@ -5057,7 +5076,8 @@ function renderSx(){
   const ec = $("#editCard"); if (ec){ ec.classList.toggle("ysyn", MK.sx === "syn"); ec.classList.toggle("yxyz", MK.sx === "xyz"); }
 }
 function mkSetSx(c){ const x = c ? sxOf(c) : null, y = x && x.k === "syn", z = x && x.k === "xyz"; MK.sx = x ? x.k : ""; $("#sxTM").value = y ? x.t.m : "tag"; $("#sxTV").value = y ? x.t.v : "チューナー"; $("#sxOM").value = y ? x.o.m : "nott"; $("#sxOV").value = y ? x.o.v : ""; $("#sxXM").value = z ? x.m : "any"; $("#sxXV").value = z ? x.v : ""; $("#sxXN").value = String(z ? x.n : 2); const ov = z && x.ov; $("#sxOvOn").checked = !!ov; $("#sxOvM").value = ov ? ov.m : "xyz"; $("#sxOvV").value = ov ? ov.v : ""; $("#sxOvLo").value = String(ov ? ov.lo : 1); $("#sxOvHi").value = String(ov ? ov.hi : 12);
-  $("#mkFusFree").checked = !!(c && c.fusFree); $("#mkIsLand").checked = !!(c && c.mland); $("#mkCascT").value = c && (c.cascT === "monster" || c.cascT === "magic") ? c.cascT : "all"; const a = c ? aceOf(c) : null; $("#mkAceOn").value = a ? a.on : ""; $("#mkAceT").value = a ? a.t : ""; $("#mkAceCol").value = a ? a.col : "#ffd34d"; syncAce(); renderSx(); }
+  $("#mkFusFree").checked = !!(c && c.fusFree); $("#mkIsLand").checked = !!(c && c.mland); $("#mkCascT").value = c && (c.cascT === "monster" || c.cascT === "magic") ? c.cascT : "all";
+  { MK.twSide = false; MK._twMon = null; const tw = c ? twOf(c) : null; $("#mkTw").checked = !!tw; $("#mkTwName").value = tw ? tw.name || "" : ""; $("#mkTwCost").value = String(tw && tw.cost != null ? tw.cost : 1); MK.twBlocks = tw ? JSON.parse(JSON.stringify(blocksOf({ type: "magic", blocks: tw.blocks || [] }))) : []; document.querySelectorAll("#mkTwSide [data-tw]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.tw === "mon"))); syncTwUI(); } const a = c ? aceOf(c) : null; $("#mkAceOn").value = a ? a.on : ""; $("#mkAceT").value = a ? a.t : ""; $("#mkAceCol").value = a ? a.col : "#ffd34d"; syncAce(); renderSx(); }
 $("#mkSx").addEventListener("click", e => { const b = e.target.closest("[data-sx]"); if (!b) return; MK.sx = b.dataset.sx; if (MK.sx) $("#mkEx").checked = true; renderSx(); renderBlocksUI(); updateBkText(); });
 ["#sxTM", "#sxTV", "#sxOM", "#sxOV", "#sxXM", "#sxXV", "#sxXN", "#sxOvOn", "#sxOvM", "#sxOvV", "#sxOvLo", "#sxOvHi"].forEach(q => ["input", "change"].forEach(t => $(q).addEventListener(t, () => { renderSx(); updateBkText(); })));
 function renderAttrPick(){
@@ -5077,7 +5097,19 @@ $("#attrNewBtn").addEventListener("click", () => { $("#attrNewRow").hidden = !$(
 $("#attrNewOk").addEventListener("click", () => { const n = $("#attrNewName").value.trim().replace(/属性$/, "").slice(0, 10), col = $("#attrNewColor").value, mk = [...$("#attrNewMark").value.trim()].slice(0, 1).join("") || [...n][0], rb = $("#attrNewRuby").value.trim().slice(0, 8); if (!n){ toast("属性の名前を書いてね"); return; } const def = { c: col, m: mk, ...(rb ? { r: rb } : {}) }; MK.attrDefs[n] = def; const my = ls.get("cb_myAttrs", {}) || {}; my[n] = def; ls.set("cb_myAttrs", my); $("#attrNewMark").value = ""; $("#attrNewRuby").value = ""; if (!(MK.attrs || []).includes(n)) MK.attrs = [...(MK.attrs || []), n].slice(0, 5); $("#attrNewName").value = ""; $("#attrNewRow").hidden = true; renderAttrPick(); });
 $("#mkLv").addEventListener("input", () => { if (typeof updateBkText === "function") updateBkText(); });
 $("#mkFrame").addEventListener("change", () => syncColor());
-function mkPreviewCard(){ if (MK.ctrBk) return { type: "monster", ctrCard: "x", name: "このカウンター", blocks: readBlocks() }; return { ...mkLvAttrVal(), cascade: mkCascadeVal(), gl: mkGlVal(), hf: mkHfVal(), fusion: mkFusionVal(), when: mkWhenVal(), field: MK.type === "magic" && $("#mkField").checked, ex: $("#mkEx").checked, noUse: (MK.type === "magic" || MK.type === "trap") && $("#mkNoUse").checked, fxRows: $("#mkFxRows").checked, ...mkSpOpts(), mass: mkMassVal(), fieldMine: MK.type === "magic" && $("#mkField").checked && $("#mkFieldMine").checked || null, anySum: MK.type === "monster" && $("#mkAnySum").checked || null, land: MK.type === "magic" && $("#mkField").checked && $("#mkLand").checked || null, tags: MK.kind === "card" || !MK.kind ? parseTags($("#mkTags").value) : [], showTags: (MK.kind === "card" || !MK.kind) && $("#mkShowTags").checked || null, tribTag: MK.type === "monster" ? $("#mkTribTag").value.trim() || null : null, ...(MK.type === "monster" ? mkVarFields() : {}), ...(MK.kind === "relic" ? { relicView: true } : {}), type: MK.type, frame: MK.kind === "potion" || MK.kind === "relic" ? "spire" : $("#mkFrame").value, persist: (MK.type === "magic" || MK.type === "trap") && $("#mkPersist").checked && !$("#mkField").checked, costX: $("#mkCost").value === "X", costInf: $("#mkCost").value === "∞", ...mkPays(), blocks: readBlocks(), ss: readSS(), eqN: Math.round(+$("#mkEq").value || 0), abs: readAbs() }; }
+// ツインパクト: 呪文側を作っているあいだは MK.blocks が呪文側（モンスター側は MK._twMon にとっておく）
+function mkTwSide(on){
+  on = !!on; if (on === !!MK.twSide) return;
+  if (on){ MK._twMon = { blocks: MK.blocks, type: MK.type }; MK.twSide = true; MK.type = "magic"; MK.blocks = MK.twBlocks || (MK.twBlocks = []); }
+  else { MK.twBlocks = MK.blocks; const sv = MK._twMon || {}; MK.blocks = sv.blocks || []; MK.type = sv.type || "monster"; MK._twMon = null; MK.twSide = false; }
+  document.querySelectorAll("#mkTwSide [data-tw]").forEach(b => b.setAttribute("aria-pressed", String((b.dataset.tw === "sp") === MK.twSide)));
+  renderBlocksUI(); updateBkText();
+}
+function twWith(fn){ const cur = MK.blocks, ty = MK.type, sv = MK._twMon || {}; MK.twBlocks = cur; MK.blocks = sv.blocks || []; MK.type = sv.type || "monster"; MK.twSide = false; try{ return fn(); } finally { MK.blocks = cur; MK.type = ty; MK.twSide = true; } }
+function twRead(){ const sv = [MK.blocks, MK.type]; MK.blocks = MK.twBlocks || []; MK.type = "magic"; try{ return readBlocks(); } finally { MK.blocks = sv[0]; MK.type = sv[1]; } }
+function mkTwVal(){ if (MK.type !== "monster" || MK.kind === "potion" || MK.kind === "relic" || !$("#mkTw").checked) return null; const n = Math.round(+$("#mkTwCost").value); return { name: $("#mkTwName").value.trim().slice(0, 40), cost: isFinite(n) ? Math.max(0, Math.min(99, n)) : 1, blocks: twRead() }; }
+function syncTwUI(){ const on = $("#mkTw").checked; $("#twOpts").hidden = !on; if (!on && MK.twSide) mkTwSide(false); const sm = $("#sumTw"); if (sm){ sm.textContent = on ? `呪文「${$("#mkTwName").value.trim() || "？"}」` : "なし"; sm.classList.toggle("on", on); } }
+function mkPreviewCard(){ if (MK.ctrBk) return { type: "monster", ctrCard: "x", name: "このカウンター", blocks: readBlocks() }; if (MK.twSide) return twWith(mkPreviewCard); return { ...mkLvAttrVal(), cascade: mkCascadeVal(), gl: mkGlVal(), hf: mkHfVal(), fusion: mkFusionVal(), when: mkWhenVal(), field: MK.type === "magic" && $("#mkField").checked, ex: $("#mkEx").checked, noUse: (MK.type === "magic" || MK.type === "trap") && $("#mkNoUse").checked, fxRows: $("#mkFxRows").checked, ...mkSpOpts(), mass: mkMassVal(), fieldMine: MK.type === "magic" && $("#mkField").checked && $("#mkFieldMine").checked || null, anySum: MK.type === "monster" && $("#mkAnySum").checked || null, land: MK.type === "magic" && $("#mkField").checked && $("#mkLand").checked || null, tags: MK.kind === "card" || !MK.kind ? parseTags($("#mkTags").value) : [], showTags: (MK.kind === "card" || !MK.kind) && $("#mkShowTags").checked || null, tribTag: MK.type === "monster" ? $("#mkTribTag").value.trim() || null : null, ...(MK.type === "monster" ? mkVarFields() : {}), ...(MK.kind === "relic" ? { relicView: true } : {}), type: MK.type, frame: MK.kind === "potion" || MK.kind === "relic" ? "spire" : $("#mkFrame").value, persist: (MK.type === "magic" || MK.type === "trap") && $("#mkPersist").checked && !$("#mkField").checked, costX: $("#mkCost").value === "X", costInf: $("#mkCost").value === "∞", ...mkPays(), blocks: readBlocks(), ss: readSS(), eqN: Math.round(+$("#mkEq").value || 0), abs: readAbs() }; }
 function readBlocks(){
   const bs = (MK.blocks || []).map(b => ({ trig: b.trig, ...(b.cont ? { cont: true } : {}), ...(b.alt ? { alt: true } : {}), ...(b.bn ? { bn: b.bn } : {}), ...(b.necro > 0 ? { necro: b.necro } : {}), ...(b.trig === "act" && b.mcost > 0 ? { mcost: b.mcost } : {}), ...(b.trig === "act" && b.xc > 0 && MK.sx === "xyz" ? { xc: b.xc } : {}), ...(b.trig === "ctrReach" ? { rc: b.rc || ctrDefault(), rn: b.rn || 1, rw: b.rw === "me" ? "me" : "self" } : {}), ...(b.trig === "act" && b.cost && b.cost.id && b.cost.n > 0 ? { cost: { id: b.cost.id, n: b.cost.n, w: b.cost.w } } : {}), ...(b.bic ? { bic: b.bic } : {}), ...(b.bd ? { bd: b.bd } : {}), ...(b.one ? { one: true } : {}), ...(b.lim > 0 && b.trig !== "act" && b.trig !== "while" ? { lim: b.lim } : {}), ...(b.trig === "act" ? { ap: b.ap === "game" || b.ap === "free" ? b.ap : "turn", an: Math.max(1, Math.min(9, Math.round(+b.an || 1))) } : {}), ...(b.delay > 0 ? { delay: b.delay } : {}), ...(b.delayDie ? { delayDie: true, roll: "die", faces: b.faces || 6 } : {}), ...(b.grant && b.grant.to ? { grant: { to: b.grant.to, at: b.grant.at === "turnStart" ? "turnStart" : "turnEnd", dur: b.grant.dur || 0 } } : {}), ...(b.roll === "die" || b.roll === "coin" || b.roll === "gj" || b.roll === "pgj" ? { roll: b.roll, ...(b.roll === "die" && b.faces && b.faces !== 6 ? { faces: b.faces } : {}), ...(b.roll === "coin" && b.coins > 1 ? { coins: b.coins } : {}) } : {}), join: b.join === "or" ? "or" : "and", conds: (b.conds || []).map(x => ({ ...x })), then: (b.then || []).map(cleanEff).filter(Boolean), else: (b.conds || []).length ? (b.else || []).map(cleanEff).filter(Boolean) : [], ...(b.roll === "die" && (b.dieBr || []).length ? { dieBr: b.dieBr.map(x => ({ lo: x.lo, hi: x.hi, then: (x.then || []).map(cleanEff).filter(Boolean) })).filter(x => x.then.length) } : {}) })).filter(b => b.then.length || (b.dieBr || []).length || b.else.length);
   return bs.length ? bs : null;
@@ -5506,6 +5538,7 @@ $("#mkSkinName").addEventListener("input", e => { const s = MK.skins && MK.skins
 $("#mkSkinDel").addEventListener("click", () => { if (!(MK.skinCur >= 0)) return; MK.skins.splice(MK.skinCur, 1); MK.skinCur = -1; mkApplyLook(MK.baseLook); renderSkinUI(); });
 // 保存するときのカードの中身（テストモードでも使う）
 function mkBuildDoc(){
+  if (MK.twSide) mkTwSide(false);
   const name = $("#mkName").value.trim();
   if (!name){ toast("カード名を書いてね"); $("#mkName").focus(); return; }
   const atkRaw = $("#mkAtk").value.trim().toLowerCase().replace(/[０-９]/g, ch => String.fromCharCode(ch.charCodeAt(0) - 0xFEE0));
@@ -6702,7 +6735,18 @@ $("#waiting").addEventListener("click", e => {
 /* ================= game engine (pure-ish over st) ================= */
 const O = s => s === "a" ? "b" : "a";
 const P = (st, s) => st.players[s];
-const card = id => S.cards.get(id) || modCardOf(id) || { id, name: "？", type: "monster", atk: 0 };
+const card = id => S.cards.get(id) || modCardOf(id) || twCardOf(id) || { id, name: "？", type: "monster", atk: 0 };
+// ツインパクト: モンスターの c.tw = { name, cost, blocks } が呪文側。呪文側は「id~tw」の魔法カードとして扱う
+function twOf(c){ return c && c.tw && typeof c.tw === "object" && !c.twOf && cardType(c) === "monster" ? c.tw : null; }
+function twBase(id){ return String(id || "").endsWith("~tw") ? String(id).slice(0, -3) : id; }
+function twCardOf(id){
+  const TW_CACHE = twCardOf.cache || (twCardOf.cache = new Map());
+  const k = String(id || ""); if (!k.endsWith("~tw")) return null;
+  const b = S.cards.get(k.slice(0, -3)), t = b && twOf(b); if (!t) return null;
+  const hit = TW_CACHE.get(k); if (hit && hit.b === b) return hit.v;
+  const v = { ...b, id: k, type: "magic", name: t.name || `${b.name}（呪文）`, nameRuby: null, cost: t.cost != null && t.cost !== "" ? t.cost : b.cost, blocks: Array.isArray(t.blocks) ? t.blocks : [], fx: null, combo: null, abs: [], atk: 0, atkInf: false, effect: t.effect || "", tw: null, twOf: b.id, sx: null, fusion: null, fusFree: null, ex: null, mass: 0, trib: 0, lvTrib: false, ss: null, cascade: b.cascade || null };
+  TW_CACHE.set(k, { b, v }); return v;
+}
 const hasCard = id => S.cards.has(id) || !!modCardOf(id);
 // 書きかえたカード: 対戦データ st.mods["mod:N"] = { b: もとのカード, add, rep, clear, name } から、その場で作る
 function modCardOf(id){
@@ -8403,6 +8447,9 @@ function pay(st, s, c){
   if (dv){ const ex = p.grave.splice(0, dv); (p.exile = p.exile || []).push(...ex); log(st, s, `「${c.name}」の探査：墓地のカード${dv}枚を除外した`); }
   if (m){ m.cur -= k; if (p.manaZ){ manaTap(p, Math.max(0, manaFree(p).length - Math.max(0, Math.min(m.cur, p.manaZ.length))), attrsOf(c)); manaSync(p); } } p.lastPaid = k; return true;
 }
+// ツインパクト: 手札の hi 番目を呪文として使う
+function twinWhy(st, s, hi){ const p = P(st, s), id = p.hand[hi], c = card(id); if (!twOf(c)) return "ツインパクトではない"; const sp = card(id + "~tw"); return useBlockedWhy(st, s, sp) || (canPay(st, s, sp) ? "" : costWhy(st, s, sp) || "マナが足りない"); }
+function castTwin(st, s, hi, ctx = {}){ const p = P(st, s), id = p.hand[hi]; if (!twOf(card(id)) || twinWhy(st, s, hi)) return false; p.hand[hi] = id + "~tw"; if (activate(st, s, "hand", hi, ctx)) return true; if (p.hand[hi] === id + "~tw") p.hand[hi] = id; return false; }
 // a card with 「手札を捨てる」 cost: the human picks which ones first (hi = the used card's hand index, -1 if it isn't in the hand)
 const st0 = () => G.st;
 function withDiscard(c, hi, go){
@@ -8571,8 +8618,8 @@ function activate(st, s, from, i, ctx = {}){
   // 永続: stays face-up in the magic/trap zone
   if (isField(c)){ placeField(st, s, id); if (fms){ st.field.mats = p.grave.splice(0, fms); log(st, s, `墓地の${fms}枚を「${c.name}」の質量にした`); } }
   else if (keep){ st.un = (st.un || 0) + 1; p.sz[pz] = { c: id, turn: st.turnNo, face: true, u: st.un }; }
-  else if (exhausts(c) || corrupted(st, s, c) || from === "grave") (p.exile = p.exile || []).push(id);
-  else if (!wasCp) p.grave.push(id);
+  else if (exhausts(c) || corrupted(st, s, c) || from === "grave") (p.exile = p.exile || []).push(twBase(id));
+  else if (!wasCp) p.grave.push(twBase(id));
   ev(st, { type: "spell", s, c: id });
   if (from === "grave") log(st, s, `「${c.name}」を墓地から発動（フラッシュバック）。使ったあとは廃棄される`);
   // ワン・ツーパンチ: this attack is played twice
@@ -9041,6 +9088,8 @@ function cpuStep(st, s){
     if (fx && fx.kind === "atkUp" && !p.mz.some(Boolean)) continue;
     if (Math.random() < .7){ activate(st, s, "hand", i); return; }
   }
+  // 1a. ツインパクトの呪文側
+  for (let i = 0; i < p.hand.length; i++){ const c = card(p.hand[i]); if (!twOf(c) || twinWhy(st, s, i) || Math.random() > .4) continue; if (castTwin(st, s, i)) return; }
   // 1b. equip (bad ones go on the opponent)
   for (let ei = 0; ei < p.hand.length; ei++){
     const id = p.hand[ei], c = card(id); if (cardType(c) !== "equip" || !canPay(st, s, c) || Math.random() > .75) continue;
@@ -9292,6 +9341,7 @@ function renderBoard0(){
       const afford = canPay(st, me, c), short = afford ? "" : costWhy(st, me, c) ? `（${costWhy(st, me, c)}）` : (effCost(st, me, c) === Infinity ? "（コスト∞：ふつうには使えない）" : `（マナが${effCost(st, me, c) - pm.mana.cur}足りない）`);
       if (t === "monster"){
         const ss = ssOf(c);
+        if (twOf(c)){ const sp = card(c.id + "~tw"), why = twinWhy(st, me, sel.i); acts += `<button class="mg" data-act="twin" ${why ? "disabled" : ""}>呪文「${esc(sp.name)}」として使う${why ? `（${esc(why)}）` : ""}</button>`; }
         const tn = tribOf(c, st, me), mineN = pm.mz.filter(m => m && (!c.tribTag || hasTag(m.c, c.tribTag))).length;
         if (isDmEvo(c)){ const B = evoBases(st, me, c), ok = canSummonNow(st, me) && afford && B.length > 0; acts += `<button class="primary" data-act="summon" ${ok ? "" : "disabled"}>進化する${!canSummonNow(st, me) ? "（このターンは召喚ずみ）" : !B.length ? `（進化元がいない）` : short}</button>`; if (ok) hint = `自分の${DM_EVO_W(c.dmEvo)}モンスターの上に重ねて出します（出たターンから攻撃できる）`; }
         else if (!(ss && ss.only)){ const ms = massOf(c), msOk = pm.grave.length >= ms, ok = canSummonNow(st, me) && afford && msOk && (tn ? mineN >= tn : freeZone(pm.mz) >= 0); acts += `<button class="primary" data-act="summon" ${ok ? "" : "disabled"}>${tn ? "生贄召喚する" : ms ? `召喚する（質量${ms}）` : "召喚する"}${!canSummonNow(st, me) ? "（このターンは召喚ずみ）" : !msOk ? `（墓地のカードが${ms}枚いる）` : tn && mineN < tn ? `（生贄が${tn}体いる）` : short}</button>`; if (ok) hint = tn ? `自分のモンスター${tn}体を生贄にして召喚します` : "光っているモンスターゾーンをクリックしても召喚できます"; }
@@ -9964,6 +10014,7 @@ $("#board").addEventListener("click", e => {
   if (k === "hfuse" && sel && sel.z === "hand"){ G.sel = null; G.hfPick = { hi: sel.i, picked: [] }; renderAll(); return; }
   if (k === "summon" && isDmEvo(card(P(st, me).hand[sel.i]))){ G.sel = null; const hi = sel.i, B = evoBases(st, me, card(P(st, me).hand[hi])); if (B.length > 1){ G.ssPick = { hi, kind: "evo", need: 1, picked: [], normal: true }; renderAll(); } else withDiscard(card(P(st, me).hand[hi]), hi, d => act(st => summon(st, me, hi, B[0], d))); return; }
   if (k === "summon" && massOf(card(P(st, me).hand[sel.i]))){ G.sel = null; G.ssPick = { hi: sel.i, kind: "mass", need: massOf(card(P(st, me).hand[sel.i])), picked: [], normal: true }; renderAll(); return; }
+  if (k === "twin"){ const hi = sel.i, id = P(st, me).hand[hi]; G.sel = null; withDiscard(card(id + "~tw"), hi, d => act(st2 => { if (P(st2, me).hand[hi] !== id) return false; return castTwin(st2, me, hi, d.length ? { disc: d } : {}); })); return; }
   if (k === "charge"){ const hi = sel.i; G.sel = null; act(st => manaCharge(st, me, hi)); return; }
   if (k === "summon"){ G.sel = null; const tn = tribOf(card(P(st, me).hand[sel.i]), st, me); if (tn){ G.ssPick = { hi: sel.i, kind: "tribute", need: tn, picked: [], normal: true, tag: card(P(st, me).hand[sel.i]).tribTag || "" }; renderAll(); } else withDiscard(card(P(st, me).hand[sel.i]), sel.i, d => act(st => summon(st, me, sel.i, null, d))); }
   if (k === "ssummon"){

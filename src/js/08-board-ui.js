@@ -77,6 +77,8 @@ function cpuStep(st, s){
     if (fx && fx.kind === "atkUp" && !p.mz.some(Boolean)) continue;
     if (Math.random() < .7){ activate(st, s, "hand", i); return; }
   }
+  // 1a. ツインパクトの呪文側
+  for (let i = 0; i < p.hand.length; i++){ const c = card(p.hand[i]); if (!twOf(c) || twinWhy(st, s, i) || Math.random() > .4) continue; if (castTwin(st, s, i)) return; }
   // 1b. equip (bad ones go on the opponent)
   for (let ei = 0; ei < p.hand.length; ei++){
     const id = p.hand[ei], c = card(id); if (cardType(c) !== "equip" || !canPay(st, s, c) || Math.random() > .75) continue;
@@ -328,6 +330,7 @@ function renderBoard0(){
       const afford = canPay(st, me, c), short = afford ? "" : costWhy(st, me, c) ? `（${costWhy(st, me, c)}）` : (effCost(st, me, c) === Infinity ? "（コスト∞：ふつうには使えない）" : `（マナが${effCost(st, me, c) - pm.mana.cur}足りない）`);
       if (t === "monster"){
         const ss = ssOf(c);
+        if (twOf(c)){ const sp = card(c.id + "~tw"), why = twinWhy(st, me, sel.i); acts += `<button class="mg" data-act="twin" ${why ? "disabled" : ""}>呪文「${esc(sp.name)}」として使う${why ? `（${esc(why)}）` : ""}</button>`; }
         const tn = tribOf(c, st, me), mineN = pm.mz.filter(m => m && (!c.tribTag || hasTag(m.c, c.tribTag))).length;
         if (isDmEvo(c)){ const B = evoBases(st, me, c), ok = canSummonNow(st, me) && afford && B.length > 0; acts += `<button class="primary" data-act="summon" ${ok ? "" : "disabled"}>進化する${!canSummonNow(st, me) ? "（このターンは召喚ずみ）" : !B.length ? `（進化元がいない）` : short}</button>`; if (ok) hint = `自分の${DM_EVO_W(c.dmEvo)}モンスターの上に重ねて出します（出たターンから攻撃できる）`; }
         else if (!(ss && ss.only)){ const ms = massOf(c), msOk = pm.grave.length >= ms, ok = canSummonNow(st, me) && afford && msOk && (tn ? mineN >= tn : freeZone(pm.mz) >= 0); acts += `<button class="primary" data-act="summon" ${ok ? "" : "disabled"}>${tn ? "生贄召喚する" : ms ? `召喚する（質量${ms}）` : "召喚する"}${!canSummonNow(st, me) ? "（このターンは召喚ずみ）" : !msOk ? `（墓地のカードが${ms}枚いる）` : tn && mineN < tn ? `（生贄が${tn}体いる）` : short}</button>`; if (ok) hint = tn ? `自分のモンスター${tn}体を生贄にして召喚します` : "光っているモンスターゾーンをクリックしても召喚できます"; }
@@ -1000,6 +1003,7 @@ $("#board").addEventListener("click", e => {
   if (k === "hfuse" && sel && sel.z === "hand"){ G.sel = null; G.hfPick = { hi: sel.i, picked: [] }; renderAll(); return; }
   if (k === "summon" && isDmEvo(card(P(st, me).hand[sel.i]))){ G.sel = null; const hi = sel.i, B = evoBases(st, me, card(P(st, me).hand[hi])); if (B.length > 1){ G.ssPick = { hi, kind: "evo", need: 1, picked: [], normal: true }; renderAll(); } else withDiscard(card(P(st, me).hand[hi]), hi, d => act(st => summon(st, me, hi, B[0], d))); return; }
   if (k === "summon" && massOf(card(P(st, me).hand[sel.i]))){ G.sel = null; G.ssPick = { hi: sel.i, kind: "mass", need: massOf(card(P(st, me).hand[sel.i])), picked: [], normal: true }; renderAll(); return; }
+  if (k === "twin"){ const hi = sel.i, id = P(st, me).hand[hi]; G.sel = null; withDiscard(card(id + "~tw"), hi, d => act(st2 => { if (P(st2, me).hand[hi] !== id) return false; return castTwin(st2, me, hi, d.length ? { disc: d } : {}); })); return; }
   if (k === "charge"){ const hi = sel.i; G.sel = null; act(st => manaCharge(st, me, hi)); return; }
   if (k === "summon"){ G.sel = null; const tn = tribOf(card(P(st, me).hand[sel.i]), st, me); if (tn){ G.ssPick = { hi: sel.i, kind: "tribute", need: tn, picked: [], normal: true, tag: card(P(st, me).hand[sel.i]).tribTag || "" }; renderAll(); } else withDiscard(card(P(st, me).hand[sel.i]), sel.i, d => act(st => summon(st, me, sel.i, null, d))); }
   if (k === "ssummon"){

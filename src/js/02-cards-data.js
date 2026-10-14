@@ -307,6 +307,7 @@ function cardHTML(c, cls = "", attrs = "", opts = {}){
     // 遊戯王風: シンクロは白い枠、エクシーズは黒い枠（ランクの星は左）
     if (fr === "ygo" && sxOf(c)) h = h.replace(/^<div class="card /, `<div class="card ${isXyz(c) ? "yxyz" : "ysyn"} `);
   }
+  if (c && twOf(c) && !c.potionView && !c.relicView) h = h.replace('<div class="c-art">', '<div class="c-art"><span class="c-twb" title="ツインパクト（呪文としても使える）">ツインパクト</span>');
   // MTG風の枠（サバ缶デザイン）: ふつうの枠と同じ中身に、枠の見た目と下の宝石をかぶせる
   // MTG風: カードのフォントが標準（手書き）のままなら、Figmaのデザインのフォントを使う
   if (mt && (!c.font || c.font === "klee")) h = h.replace(/--cf:[^;']*;?/, "");
