@@ -1151,6 +1151,7 @@ nav.tabs button{position:relative}
 .c-attr b,.y-attr b{font-family:"Shippori Mincho",serif;font-weight:700;font-size:calc(var(--d)*.6);line-height:1;transform:translateY(calc(var(--d)*.06));text-shadow:0 0 calc(var(--d)*.06) rgba(0,0,0,.65),0 calc(var(--d)*.03) 0 rgba(0,0,0,.5)}
 .c-attr small,.y-attr small{position:absolute;top:calc(var(--d)*.06);left:0;right:0;text-align:center;font:700 calc(var(--d)*.17)/1 var(--ui);letter-spacing:-.04em;white-space:nowrap;text-shadow:0 0 calc(var(--d)*.06) rgba(0,0,0,.7)}
 .c-meta .c-attr{--d:calc(var(--w)*.14)}
+.dd-attrs{display:inline-flex;flex-wrap:wrap;gap:4px 12px;align-items:center}.dd-attr{display:inline-flex;align-items:center;gap:5px;font-weight:700}.dd-attr .c-attr{--d:26px}
 .card.ygo .y-attrs{position:absolute;right:calc(var(--yu)*46);top:calc(var(--yu)*37);display:flex;flex-direction:row-reverse;gap:calc(var(--yu)*4);z-index:3;pointer-events:none}
 .card.ygo .y-attr{--d:calc(var(--yu)*57)}
 .card.ygo.ysyn::before{filter:grayscale(1) brightness(1.62) contrast(.92)}
@@ -3214,6 +3215,16 @@ function ygoStars(v, t){
   const max = YGO_STAR_MAX[t] || 9, n = /^\d+$/.test(s) ? +s : null;
   if (n != null && n >= 1 && n <= max) return `<i class="ys"></i>`.repeat(n);
   return `<i class="ys"></i><span class="ys-x">×${esc(s)}</span>`;
+}
+// カード詳細の行に、レベル（ランク）と属性を足す（タグの前。[見出し, 文, HTML]）
+function lvAttrRowsIn(rows, c){
+  if (!c || c.potionView || c.relicView) return rows;
+  const add = [], lv = lvOf(c), A = attrsOf(c);
+  if (lv) add.push([isXyz(c) ? "ランク" : "レベル", String(lv) + (cardType(c) === "monster" && !isXyz(c) && tribOf(c) && !(+c.trib > 0) ? `（生贄${tribOf(c)}体で召喚）` : "")]);
+  if (A.length) add.push(["属性", A.join("・"), `<span class="dd-attrs">${A.map(a => `<span class="dd-attr">${attrOrb(a, c)}${esc(a)}</span>`).join("")}</span>`]);
+  if (sxOf(c)) add.push(["召喚", isXyz(c) ? "エクシーズモンスター" : "シンクロモンスター"]);
+  if (!add.length) return rows;
+  const k = rows.findIndex(r => r[0] === "タグ" || r[0] === "作った人"), out = rows.slice(); out.splice(k < 0 ? out.length : k, 0, ...add); return out;
 }
 function cardHTML(c, cls = "", attrs = "", opts = {}){
   // 画像の枠（MTG風・近未来）: ふつうの枠と同じ中身に、枠の画像と文字の位置をかぶせる
@@ -5758,7 +5769,7 @@ function renderCardView(){
     <button class="cv-x ghost" data-cv="close" aria-label="とじる">×</button>
     <button class="cv-nav prev" data-cv="prev" ${CV.i ? "" : "disabled"} aria-label="前のカード">‹</button>
     <div class="cv-card">${cardHTML(c, "", "", mana === undefined ? {} : { mana })}</div>
-    <div class="cv-info"><div class="row" style="justify-content:space-between;align-items:center;gap:8px"><h2>${rubyHTML(c.nameRuby || c.name)}</h2><button class="small" data-cv="shot" title="このカードを画像（PNG）で保存">📷 画像で保存</button></div><dl class="cv-dl">${rows.map(([k, v]) => `<dt>${k}</dt><dd>${tkLink(esc(v))}</dd>`).join("")}</dl><h3>テキスト</h3><div class="cv-text">${text}</div>${foot}</div>
+    <div class="cv-info"><div class="row" style="justify-content:space-between;align-items:center;gap:8px"><h2>${rubyHTML(c.nameRuby || c.name)}</h2><button class="small" data-cv="shot" title="このカードを画像（PNG）で保存">📷 画像で保存</button></div><dl class="cv-dl">${lvAttrRowsIn(rows, c).map(([k, v, h]) => `<dt>${k}</dt><dd>${h || tkLink(esc(v))}</dd>`).join("")}</dl><h3>テキスト</h3><div class="cv-text">${text}</div>${foot}</div>
     <button class="cv-nav next" data-cv="next" ${CV.i < CV.ids.length - 1 ? "" : "disabled"} aria-label="次のカード">›</button>
     <div class="cv-pos">${CV.i + 1} / ${CV.ids.length}</div></div>`;
   $("#cardView").hidden = false;
@@ -9368,7 +9379,7 @@ function renderDetail(info, anim){
   // equips stuck on this monster, shown as cards from left to right (tap one to read it)
   const eqRow = info.eqList && info.eqList.length ? `<div class="eqrow"><div class="eqlbl">装備（左から順）　${esc(info.cap || "")}</div><div class="eqlist">${info.eqList.map((e, k) => `${k ? `<span class="eqarr">→</span>` : ""}<button class="eqi" data-eqcid="${esc(e.c)}" aria-label="「${esc(card(e.c).name)}」の詳細">${cardHTML(card(e.c), "xs", "", { mana: e.mana })}${e.mult > 1 || e.used || e.opp ? `<span class="eqtag">${[e.mult > 1 ? "×2" : "", e.used ? "使用ずみ" : "", e.opp ? "相手の" : ""].filter(Boolean).join("・")}</span>` : ""}</button>`).join("")}</div></div>` : "";
   const back = G.detailBack ? `<button class="small ghost eqback" data-detailback>← もどる</button>` : "";
-  box.innerHTML = `${CLOSE}<h3>カード詳細</h3>${back}${info.glIds && info.glIds.length > 1 ? `<div class="detailcard gl-join" style="--gln:${info.glIds.length}">${info.glIds.map(x => cardHTML(card(x.id), "detail" + (x.me ? " gl-me" : ""), "", { mod: x.mod, mana: info.mana })).join("")}</div><p class="note gl-cap" style="margin:4px 0 0;text-align:center">${info.glIds.map(x => `「${esc(card(x.id).name)}」`).join("＋")}がGリンク中</p>` : `<div class="detailcard">${cardHTML(c, "detail", "", { mod: info.mod, mana: info.mana })}</div>`}${eqRow}${ownFx}${xbFx}<dl class="dl">${rows.map(([k, v]) => `<dt>${k}</dt><dd>${tkLink(esc(v))}</dd>`).join("")}</dl>${actDetail(c)}`;
+  box.innerHTML = `${CLOSE}<h3>カード詳細</h3>${back}${info.glIds && info.glIds.length > 1 ? `<div class="detailcard gl-join" style="--gln:${info.glIds.length}">${info.glIds.map(x => cardHTML(card(x.id), "detail" + (x.me ? " gl-me" : ""), "", { mod: x.mod, mana: info.mana })).join("")}</div><p class="note gl-cap" style="margin:4px 0 0;text-align:center">${info.glIds.map(x => `「${esc(card(x.id).name)}」`).join("＋")}がGリンク中</p>` : `<div class="detailcard">${cardHTML(c, "detail", "", { mod: info.mod, mana: info.mana })}</div>`}${eqRow}${ownFx}${xbFx}<dl class="dl">${lvAttrRowsIn(rows, c).map(([k, v, h]) => `<dt>${k}</dt><dd>${h || tkLink(esc(v))}</dd>`).join("")}</dl>${actDetail(c)}`;
 }
 // 詳細: 起動効果を持つ自分の場のモンスターなら「発動する」
 function actDetail(c){

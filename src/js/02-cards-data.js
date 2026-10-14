@@ -280,6 +280,16 @@ function ygoStars(v, t){
   if (n != null && n >= 1 && n <= max) return `<i class="ys"></i>`.repeat(n);
   return `<i class="ys"></i><span class="ys-x">×${esc(s)}</span>`;
 }
+// カード詳細の行に、レベル（ランク）と属性を足す（タグの前。[見出し, 文, HTML]）
+function lvAttrRowsIn(rows, c){
+  if (!c || c.potionView || c.relicView) return rows;
+  const add = [], lv = lvOf(c), A = attrsOf(c);
+  if (lv) add.push([isXyz(c) ? "ランク" : "レベル", String(lv) + (cardType(c) === "monster" && !isXyz(c) && tribOf(c) && !(+c.trib > 0) ? `（生贄${tribOf(c)}体で召喚）` : "")]);
+  if (A.length) add.push(["属性", A.join("・"), `<span class="dd-attrs">${A.map(a => `<span class="dd-attr">${attrOrb(a, c)}${esc(a)}</span>`).join("")}</span>`]);
+  if (sxOf(c)) add.push(["召喚", isXyz(c) ? "エクシーズモンスター" : "シンクロモンスター"]);
+  if (!add.length) return rows;
+  const k = rows.findIndex(r => r[0] === "タグ" || r[0] === "作った人"), out = rows.slice(); out.splice(k < 0 ? out.length : k, 0, ...add); return out;
+}
 function cardHTML(c, cls = "", attrs = "", opts = {}){
   // 画像の枠（MTG風・近未来）: ふつうの枠と同じ中身に、枠の画像と文字の位置をかぶせる
   const fr = c && !c.potionView && !c.relicView && FR_CLS[c.frame] ? c.frame : "", mt = !!fr;

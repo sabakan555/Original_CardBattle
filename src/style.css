@@ -1139,6 +1139,7 @@ nav.tabs button{position:relative}
 .c-attr b,.y-attr b{font-family:"Shippori Mincho",serif;font-weight:700;font-size:calc(var(--d)*.6);line-height:1;transform:translateY(calc(var(--d)*.06));text-shadow:0 0 calc(var(--d)*.06) rgba(0,0,0,.65),0 calc(var(--d)*.03) 0 rgba(0,0,0,.5)}
 .c-attr small,.y-attr small{position:absolute;top:calc(var(--d)*.06);left:0;right:0;text-align:center;font:700 calc(var(--d)*.17)/1 var(--ui);letter-spacing:-.04em;white-space:nowrap;text-shadow:0 0 calc(var(--d)*.06) rgba(0,0,0,.7)}
 .c-meta .c-attr{--d:calc(var(--w)*.14)}
+.dd-attrs{display:inline-flex;flex-wrap:wrap;gap:4px 12px;align-items:center}.dd-attr{display:inline-flex;align-items:center;gap:5px;font-weight:700}.dd-attr .c-attr{--d:26px}
 .card.ygo .y-attrs{position:absolute;right:calc(var(--yu)*46);top:calc(var(--yu)*37);display:flex;flex-direction:row-reverse;gap:calc(var(--yu)*4);z-index:3;pointer-events:none}
 .card.ygo .y-attr{--d:calc(var(--yu)*57)}
 .card.ygo.ysyn::before{filter:grayscale(1) brightness(1.62) contrast(.92)}
