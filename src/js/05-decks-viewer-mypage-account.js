@@ -2,6 +2,11 @@
 S.deckEdit = { id: null, cards: {} };
 function myDecks(){ return S.decks.filter(d => isMine(d, "owner")); }
 function allDeckOptions(){ return [...builtinDecks(), ...myDecks()]; }
+// デッキのマナ: false / true（毎ターン増える）/ "zone"（デュエマ式）/ "land"（MTG式）
+const deckManaVal = d => !(d && d.mana) ? false : d.mz ? (d.landOnly ? "land" : "zone") : true;
+function deckKindNow(){ const m = $("#deckMana"), z = $("#deckZone"), l = $("#deckLand"); return !(m && m.checked) ? false : z && z.checked ? (l && l.checked ? "land" : "zone") : true; }
+function syncDeckZone(){ const r = $("#deckZoneRow"); if (r) r.hidden = !$("#deckMana").checked; const lr = $("#deckLandRow"); if (lr) lr.hidden = !$("#deckZone").checked; }
+["#deckMana", "#deckZone", "#deckLand"].forEach(q => { const el = $(q); if (el) el.addEventListener("change", () => { syncDeckZone(); if (typeof renderDeck === "function") renderDeck(); }); });
 function deckCount(){ return Object.entries(S.deckEdit.cards).reduce((a, [id, k]) => a + (isEx(S.cards.get(id)) ? 0 : k), 0); }
 function deckExCount(){ return Object.entries(S.deckEdit.cards).reduce((a, [id, k]) => a + (isEx(S.cards.get(id)) ? k : 0), 0); }
 function deckMonsters(){ return Object.entries(S.deckEdit.cards).reduce((a, [id, k]) => a + (cardType(S.cards.get(id)) === "monster" && !isEx(S.cards.get(id)) ? k : 0), 0); }
@@ -16,7 +21,7 @@ function renderDeck(){
   $("#btnDeckDel").hidden = !S.deckEdit.id;
   { const ids = []; for (const [id, k] of Object.entries(S.deckEdit.cards)) for (let i = 0; i < k; i++) ids.push(id); $("#deckView").innerHTML = deckViewHTML(ids, $("#deckMana").checked); $("#deckViewNote").textContent = `${ids.length}枚・押すとくわしく見られる`; }
   const pool0 = [...S.userCards].filter(c => owns(c.id) || S.deckEdit.cards[c.id] || isBorrowed(c.id)).sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0)).concat(S.starters).filter(c => !c.token || S.deckEdit.cards[c.id]);
-  const pool = sortCards(pool0.filter(c => matchCard(c, S.filt.deck) && (fitsDeck(c, $("#deckMana").checked) || S.deckEdit.cards[c.id])), S.filt.deck.sort);
+  const pool = sortCards(pool0.filter(c => matchCard(c, S.filt.deck) && (fitsDeck(c, deckKindNow()) || S.deckEdit.cards[c.id])), S.filt.deck.sort);
   S.deckPoolIds = pool.map(c => c.id);
   setCount("deck", pool.length, pool0.length);
   $("#deckPool").innerHTML = (pool.length ? "" : `<p class="muted">条件に合うカードがありません。</p>`) + pool.map(c => {
@@ -39,7 +44,7 @@ $("#deckEditSel").addEventListener("change", e => {
   S.deckEdit = { id: d ? d.id : null, cards: {}, key: (d && d.key) || null, borrow: d && Array.isArray(d.borrow) ? d.borrow.slice() : [] };
   if (d) d.cards.forEach(id => S.deckEdit.cards[id] = (S.deckEdit.cards[id] || 0) + 1);
   $("#deckName").value = d ? d.name : "";
-  $("#deckMana").checked = !!(d && d.mana); $("#deckSpire").checked = !!(d && d.spire); $("#deckSpc").value = d && d.spc === "silent" ? "silent" : ""; $("#deckSpcRow").hidden = !$("#deckSpire").checked;
+  $("#deckMana").checked = !!(d && d.mana); $("#deckZone").checked = !!(d && d.mz); $("#deckLand").checked = !!(d && d.landOnly); syncDeckZone(); $("#deckSpire").checked = !!(d && d.spire); $("#deckSpc").value = d && d.spc === "silent" ? "silent" : ""; $("#deckSpcRow").hidden = !$("#deckSpire").checked;
   renderDeck();
 });
 // スキン違いは同じカードとして数える（枚数制限もまとめて）
@@ -72,7 +77,7 @@ $("#btnDeckSave").addEventListener("click", async () => {
   const limitIssue = deckLimitIssue(cards); if (limitIssue){ toast(limitIssue); return; }
   if (cards.some(id => !S.cards.has(id) || (!owns(id) && !isBorrowed(id)))){ toast("使えないカードが入っています。デッキを編集してね"); return; }
   const id = S.deckEdit.id || uid("d");
-  try{ await saveDeckDoc(id, { name, owner: S.name, ownerId: (S.decks.find(d => d.id === id) || {}).ownerId || S.uid || null, cards, mana: $("#deckMana").checked, spire: $("#deckSpire").checked, spc: $("#deckSpire").checked && $("#deckSpc").value === "silent" ? "silent" : null, key: S.deckEdit.key && S.deckEdit.cards[S.deckEdit.key] ? S.deckEdit.key : null, borrow: (b => b.length ? b : null)([...new Set(cards.filter(id => !owns(id)))]), updatedAt: Date.now() }); S.deckEdit.id = id; ls.set("cb_deck", id); toast("デッキを保存しました"); renderDeck(); }
+  try{ await saveDeckDoc(id, { name, owner: S.name, ownerId: (S.decks.find(d => d.id === id) || {}).ownerId || S.uid || null, cards, mz: $("#deckMana").checked && $("#deckZone").checked ? true : null, landOnly: $("#deckMana").checked && $("#deckZone").checked && $("#deckLand").checked ? true : null, mana: $("#deckMana").checked, spire: $("#deckSpire").checked, spc: $("#deckSpire").checked && $("#deckSpc").value === "silent" ? "silent" : null, key: S.deckEdit.key && S.deckEdit.cards[S.deckEdit.key] ? S.deckEdit.key : null, borrow: (b => b.length ? b : null)([...new Set(cards.filter(id => !owns(id)))]), updatedAt: Date.now() }); S.deckEdit.id = id; ls.set("cb_deck", id); toast("デッキを保存しました"); renderDeck(); }
   catch(e){ writeErr(e); }
 });
 let deckDelArm = false;
@@ -350,7 +355,7 @@ function copyDeckToEditor(d){
   const cards = d.cards.filter(id => S.cards.has(id)), bor = [...new Set(cards.filter(id => !canUseCard(id)))], miss = bor.length;
   openDeckEditor("");
   S.deckEdit = { id: null, cards: {}, key: d.key && cards.includes(d.key) ? d.key : null, borrow: bor }; cards.forEach(id => S.deckEdit.cards[id] = (S.deckEdit.cards[id] || 0) + 1);
-  $("#deckName").value = d.name.replace(/【コスト】/, "") + "のコピー"; $("#deckMana").checked = !!d.mana; $("#deckSpire").checked = !!d.spire; $("#deckSpc").value = d.spc === "silent" ? "silent" : ""; $("#deckSpcRow").hidden = !d.spire; renderDeck();
+  $("#deckName").value = d.name.replace(/【コスト】/, "") + "のコピー"; $("#deckMana").checked = !!d.mana; $("#deckZone").checked = !!d.mz; $("#deckLand").checked = !!d.landOnly; syncDeckZone(); $("#deckSpire").checked = !!d.spire; $("#deckSpc").value = d.spc === "silent" ? "silent" : ""; $("#deckSpcRow").hidden = !d.spire; renderDeck();
   return miss;
 }
 function renderDeckList(){
@@ -379,7 +384,7 @@ function renderDeckList(){
     <div class="dk-right">
       <div class="dk-key" style="${bgUrl(key)}"><span class="dk-keylbl">キーカード</span>${key ? `<span class="dk-keyname">${esc(key.name)}</span>` : ""}</div>
       <div class="box" style="display:flex;flex-direction:column;gap:12px">
-        <div class="dk-title"><h2>${esc(d.name)}${d.mana ? `<span class="note">　コストデッキ</span>` : ""}${theirs ? `<span class="note dk-owner">作った人：${esc(d.owner || "だれか")}</span>` : ""}</h2><span class="dk-total">${cs.length}<small> 枚</small></span></div>
+        <div class="dk-title"><h2>${esc(d.name)}${d.mana ? `<span class="note">　${d.mz ? (d.landOnly ? "マナゾーンデッキ（MTG式）" : "マナゾーンデッキ（デュエマ式）") : "コストデッキ"}</span>` : ""}${theirs ? `<span class="note dk-owner">作った人：${esc(d.owner || "だれか")}</span>` : ""}</h2><span class="dk-total">${cs.length}<small> 枚</small></span></div>
         <div class="dk-stats">
           <div><div class="dk-cap">${cap}</div><div class="dk-bars">${buckets.map(([l, n]) => `<div class="dk-bar"><b>${n}</b><i style="height:${Math.round(n / mx * 82)}%"></i><span>${l}</span></div>`).join("")}</div></div>
           <dl class="dk-types"><dt>モンスター</dt><dd>${cnt.monster}</dd><dt>魔法</dt><dd>${cnt.magic}</dd><dt>装備</dt><dd>${cnt.equip}</dd><dt>罠</dt><dd>${cnt.trap}</dd></dl>
@@ -435,14 +440,14 @@ $("#deckList").addEventListener("click", async e => {
     const issue = (typeof deckLimitIssue === "function" ? deckLimitIssue(cards) : "") || (!d.spire && (main.length < MIN_DECK || !mons) ? `このままだと${!mons ? "モンスターが入っていない" : `${MIN_DECK}枚に足りない`}ので、編集してから保存してね` : "");
     if (!cards.length || issue){ copyDeckToEditor(d); toast(issue || "使えるカードがありませんでした"); return; }
     const id = uid("d"), name = d.name.replace(/【コスト】/, "") + "のコピー";
-    try{ await saveDeckDoc(id, { name, owner: S.name, ownerId: S.uid || null, cards, mana: !!d.mana, spire: !!d.spire, spc: d.spire && d.spc === "silent" ? "silent" : null, key: d.key && cards.includes(d.key) ? d.key : null, borrow: bor.length ? bor : null, updatedAt: Date.now() }); S.deckPick = id; ls.set("cb_deck", id); toast(`「${name}」を自分のデッキに入れました${miss ? `（持っていないカード ${miss} 種類は借りています）` : ""}`); renderDeckList(); }
+    try{ await saveDeckDoc(id, { name, owner: S.name, ownerId: S.uid || null, cards, mana: !!d.mana, mz: d.mz || null, landOnly: d.landOnly || null, spire: !!d.spire, spc: d.spire && d.spc === "silent" ? "silent" : null, key: d.key && cards.includes(d.key) ? d.key : null, borrow: bor.length ? bor : null, updatedAt: Date.now() }); S.deckPick = id; ls.set("cb_deck", id); toast(`「${name}」を自分のデッキに入れました${miss ? `（持っていないカード ${miss} 種類は借りています）` : ""}`); renderDeckList(); }
     catch(err){ writeErr(err); }
     return;
   }
   if (g("[data-dthumb]")){ S.thumbPick = !S.thumbPick; renderDeckList(); return; }
   if (g("[data-dkey]")){
     const key = g("[data-dkey]").dataset.dkey;
-    try{ await saveDeckDoc(d.id, { name: d.name, owner: d.owner || S.name, ownerId: d.ownerId || S.uid || null, cards: d.cards, mana: !!d.mana, key, updatedAt: Date.now() }); S.thumbPick = false; toast("サムネを変えました"); renderDeckList(); }
+    try{ await saveDeckDoc(d.id, { name: d.name, owner: d.owner || S.name, ownerId: d.ownerId || S.uid || null, cards: d.cards, mana: !!d.mana, mz: d.mz || null, landOnly: d.landOnly || null, key, updatedAt: Date.now() }); S.thumbPick = false; toast("サムネを変えました"); renderDeckList(); }
     catch(err){ writeErr(err); }
     return;
   }

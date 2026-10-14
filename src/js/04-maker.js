@@ -269,7 +269,7 @@ function syncCost(){
 }
 $("#mkCost").innerHTML = [...Array.from({ length: 31 }, (_, k) => k), 35, 40, 45, 50, 60, 70, 80, 90, 99].map(k => `<option value="${k}">${k}</option>`).join("") + `<option value="∞">∞（ふつうには払えない。踏み倒しでだけ使える）</option><option value="X">X（あるマナを全部使って、効果をX回くり返す）</option>`;
 $("#mkCost").value = "1";
-const MODE_NOTE = { normal: "マナを使わない、ふつうのデッキ用。コストはつかない", cost: "コストデッキ専用。ふつうのデッキには入れられない", both: "どちらのデッキにも入れられる。ふつうのデッキで遊ぶときはコストが表示されない" };
+const MODE_NOTE = { normal: "マナを使わない、ふつうのデッキ用。コストはつかない", cost: "コストデッキ専用。ふつうのデッキには入れられない", both: "どちらのデッキにも入れられる。ふつうのデッキで遊ぶときはコストが表示されない", zone: "マナゾーン（デュエマ式・MTG式）のデッキ専用。手札を1ターンに1枚マナに置いて、そのマナで払う。属性のマナが要る・多色はタップして置く" };
 function setMkDeck(m){ MK.deck = DECK_LABEL[m] ? m : "normal"; if (typeof syncMkView === "function") setTimeout(syncMkView); document.querySelectorAll("#mkMode button").forEach(b => b.setAttribute("aria-pressed", b.dataset.m === MK.deck)); $("#costRow").hidden = MK.deck === "normal"; $("#modeNote").textContent = MODE_NOTE[MK.deck]; syncCost(); }
 $("#mkMode").addEventListener("click", e => { const b = e.target.closest("button"); if (b){ setMkDeck(b.dataset.m); if (typeof bkSync === "function") bkSync(); } });
 $("#mkFrame").addEventListener("change", () => { if (typeof bkSync === "function") bkSync(); if (typeof absFilter === "function") absFilter(); });

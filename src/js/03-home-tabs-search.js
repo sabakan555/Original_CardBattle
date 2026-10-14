@@ -193,7 +193,7 @@ function initFilters(key, onChange){
     <span class="count" id="${key}Count"></span>
     <details class="flt-more" id="${key}More"${ls.get("cb_fltMore_" + key, false) ? " open" : ""}><summary>くわしく絞り込む（効果・デッキ・タグ・属性・作者${key === "gal" ? "" : "・カウンター"}）<span class="flt-on" id="${key}MoreOn"></span></summary><div class="flt-more-in">
     <select id="${key}Fx" aria-label="効果で絞り込み">${fxOptionsHTML("")}</select>
-    <select id="${key}Dm" aria-label="使えるデッキで絞り込み"><option value="">デッキ：指定なし</option><option value="cost">コストデッキ専用</option><option value="normal">コストデッキ以外（ふつうのデッキで使える・コストなしで表示）</option><option value="both">どちらでも</option></select>
+    <select id="${key}Dm" aria-label="使えるデッキで絞り込み"><option value="">デッキ：指定なし</option><option value="cost">コストデッキ専用</option><option value="zone">デュエマ式（マナゾーン）専用</option><option value="normal">コストデッキ以外（ふつうのデッキで使える・コストなしで表示）</option><option value="both">どちらでも</option></select>
     <select id="${key}Tag" aria-label="タグで絞り込み">${tagOptionsHTML("")}</select>
     <select id="${key}Attr" aria-label="属性で絞り込み">${attrFilterHTML("")}</select>
     <select id="${key}Author" aria-label="作者で絞り込み">${authorOptionsHTML("")}</select>
@@ -215,7 +215,7 @@ function matchCard(c, f){
   const t = cardType(c), nf = normFx(c);
   if (f.type === "quick" ? !isQuick(c) : (f.type !== "all" && t !== f.type)) return false;
   // 「コストデッキ以外」: ふつうのデッキ専用＋どちらでも入るカード（どちらでものカードはコストなしの見た目で出す）
-  if (f.dm === "normal" ? deckModeOf(c) === "cost" : f.dm && deckModeOf(c) !== f.dm) return false;
+  if (f.dm === "normal" ? ["cost", "zone"].includes(deckModeOf(c)) : f.dm && deckModeOf(c) !== f.dm) return false;
   if (f.tag && !tagsOf(c).includes(f.tag)) return false;
   if (f.attr && !attrsOf(c).includes(f.attr)) return false;
   if (f.author && authorOf(c) !== f.author) return false;

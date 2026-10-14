@@ -1617,7 +1617,6 @@ div.f{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:13px}
           <h2>対戦のじゅんび</h2>
           <label class="f">プレイヤー名<input type="text" id="pname" maxlength="16"></label>
           <label class="f">使うデッキ<select id="deckSel"></select></label>
-          <label class="f">コストデッキのマナ<select id="manaRule"><option value="grow">毎ターン1つずつ増える（ふつう）</option><option value="zone">マナチャージ（デュエマ式：手札を1ターンに1枚マナゾーンに置く）</option><option value="land">土地（MTG式：土地のカードだけマナゾーンに置ける）</option></select><span class="note">部屋を作った人のルールで遊びます。CPU戦は自分とCPUの両方に</span></label>
           <label class="row" style="gap:6px;font-size:13px;cursor:pointer;flex-wrap:nowrap;align-items:flex-start"><input type="checkbox" id="optManual" style="flex:none;margin-top:3px"> 対戦中に「手動で効果を処理」のボタンを出す（LP±・1枚引く・墓地から手札へなど。自由に書いた効果を手で処理するとき用）</label>
           <div id="offlineNote" class="offline" hidden>サーバーにつながっていないので、オンライン対戦とカードの共有は使えません（config.js の設定を確認してね）。いまはこのブラウザだけに保存され、CPU練習ができます。</div>
         </div>
@@ -1666,7 +1665,7 @@ div.f{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:13px}
           <div id="ctrPanel"><div id="ctrList"></div></div>
           <label class="row" id="neowRow" hidden style="gap:6px;font-weight:700;cursor:pointer;margin-top:8px"><input type="checkbox" id="mkNeow"> ネオーレリック（試合のはじめのレリック選びに出る。ふつうの戦闘では手に入らない）</label></div>
         <div id="mkTypeWrap"><h3>カードの種類</h3><div class="seg" id="mkType"><button data-t="monster" aria-pressed="true">モンスター</button><button data-t="magic" aria-pressed="false">魔法</button><button data-t="equip" aria-pressed="false">装備</button><button data-t="trap" aria-pressed="false">罠</button><button data-t="power" aria-pressed="false" hidden>パワー</button></div></div>
-        <div id="mkCostWrap"><h3>コスト</h3><div class="row" style="gap:8px 14px;flex-wrap:wrap;align-items:center"><div class="seg" id="mkMode"><button data-m="normal" aria-pressed="true">コストなし</button><button data-m="cost" aria-pressed="false">コストあり</button><button data-m="both" aria-pressed="false">どちらでも</button></div><label class="row" id="costRow" style="gap:8px;font-weight:700" hidden>マナ<select id="mkCost"></select></label></div>
+        <div id="mkCostWrap"><h3>コスト</h3><div class="row" style="gap:8px 14px;flex-wrap:wrap;align-items:center"><div class="seg" id="mkMode"><button data-m="normal" aria-pressed="true">コストなし</button><button data-m="cost" aria-pressed="false">コストあり</button><button data-m="both" aria-pressed="false">どちらでも</button><button data-m="zone" aria-pressed="false">デュエマ式</button></div><label class="row" id="costRow" style="gap:8px;font-weight:700" hidden>マナ<select id="mkCost"></select></label></div>
           <p class="note" id="modeNote" style="margin:4px 0 0"></p>
           <div class="lv-attr" id="lvAttrBox">
             <div class="row" id="lvRow"><b style="font-size:13px">レベル</b><input type="number" id="mkLv" min="0" max="12" step="1" value="0" style="width:64px" aria-label="レベル"><span class="note">0ならなし</span><label class="row" id="lvTribLbl" style="gap:4px;font-size:13px;cursor:pointer"><input type="checkbox" id="mkLvTrib" checked> レベルで生贄の数を決める（5〜6は1体・7以上は2体）</label></div>
@@ -1910,6 +1909,7 @@ div.f{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:13px}
         <label class="f">編集するデッキ<select id="deckEditSel"></select></label>
         <label class="f">デッキ名<input type="text" id="deckName" maxlength="20" placeholder="例: かわいい軍団"></label>
         <label class="row" style="gap:6px;font-weight:700;font-size:14px;cursor:pointer"><input type="checkbox" id="deckMana" style="flex:none;margin-top:4px"> コストデッキ（マナを使って遊ぶ）</label>
+        <div class="row" id="deckZoneRow" hidden style="gap:6px 14px;flex-wrap:wrap;padding-left:22px"><label class="row" style="gap:6px;font-weight:700;font-size:13px;cursor:pointer"><input type="checkbox" id="deckZone"> マナゾーン（デュエマ式：手札を1ターンに1枚マナに置く）</label><label class="row" id="deckLandRow" style="gap:6px;font-size:13px;cursor:pointer"><input type="checkbox" id="deckLand"> 土地だけマナに置ける（MTG式）</label></div>
         <label class="row" style="gap:6px;font-weight:700;font-size:14px;cursor:pointer"><input type="checkbox" id="deckSpire" style="flex:none;margin-top:4px"> スパイアデッキ（「選択の祭壇」が最初から場にあって、山札切れで負けない）</label>
         <label class="row" id="deckSpcRow" style="gap:6px;font-size:14px" hidden>キャラ<select id="deckSpc"><option value="">アイアンクラッド（#アイアンクラッドのカードが出る）</option><option value="silent">サイレント（#サイレントのカードが出る）</option></select></label>
       </div>
@@ -2517,9 +2517,10 @@ const cascadeOn = c => !!(c && c.cascade && (cardType(c) === "monster" || cardTy
 const MAX_COST = 99, MANA_LIMIT = 99;
 function costOf(c){ return !hasCost(c) ? 0 : c.costInf ? Infinity : Math.max(0, Math.min(MAX_COST, +c.cost)); }
 // which decks a card can go in: normal (no mana), cost (mana decks only), both. Older cards: with a cost → both, without → normal
-const DECK_LABEL = { normal: "ふつうのデッキ", cost: "コストデッキ", both: "どちらでも" };
+const DECK_LABEL = { normal: "ふつうのデッキ", cost: "コストデッキ", both: "どちらでも", zone: "マナゾーンデッキ（デュエマ式）" };
 const deckModeOf = c => c && DECK_LABEL[c.deckMode] ? c.deckMode : hasCost(c) ? (c && c.starter ? "cost" : "both") : "normal";
-const fitsDeck = (c, mana) => { const m = deckModeOf(c); return m === "both" || m === (mana ? "cost" : "normal"); };
+// mana: false（ふつう）/ true（コスト）/ "zone"・"land"（マナゾーン）。デュエマ式のカードはマナゾーンのデッキだけ、マナゾーンのデッキにはコストのカードも入る
+const fitsDeck = (c, mana) => { const m = deckModeOf(c), z = mana === "zone" || mana === "land"; if (m === "zone") return z; return m === "both" || m === (mana ? "cost" : "normal"); };
 const cardLimit = c => (c && c.limit != null) ? +c.limit : 3;
 function normFx(c){
   if (c && Array.isArray(c.blocks)){ const b = blocksOf(c).find(x => x.then.length); return b ? { ...b.then[0], trig: b.trig } : null; }
@@ -4202,7 +4203,7 @@ function initFilters(key, onChange){
     <span class="count" id="${key}Count"></span>
     <details class="flt-more" id="${key}More"${ls.get("cb_fltMore_" + key, false) ? " open" : ""}><summary>くわしく絞り込む（効果・デッキ・タグ・属性・作者${key === "gal" ? "" : "・カウンター"}）<span class="flt-on" id="${key}MoreOn"></span></summary><div class="flt-more-in">
     <select id="${key}Fx" aria-label="効果で絞り込み">${fxOptionsHTML("")}</select>
-    <select id="${key}Dm" aria-label="使えるデッキで絞り込み"><option value="">デッキ：指定なし</option><option value="cost">コストデッキ専用</option><option value="normal">コストデッキ以外（ふつうのデッキで使える・コストなしで表示）</option><option value="both">どちらでも</option></select>
+    <select id="${key}Dm" aria-label="使えるデッキで絞り込み"><option value="">デッキ：指定なし</option><option value="cost">コストデッキ専用</option><option value="zone">デュエマ式（マナゾーン）専用</option><option value="normal">コストデッキ以外（ふつうのデッキで使える・コストなしで表示）</option><option value="both">どちらでも</option></select>
     <select id="${key}Tag" aria-label="タグで絞り込み">${tagOptionsHTML("")}</select>
     <select id="${key}Attr" aria-label="属性で絞り込み">${attrFilterHTML("")}</select>
     <select id="${key}Author" aria-label="作者で絞り込み">${authorOptionsHTML("")}</select>
@@ -4224,7 +4225,7 @@ function matchCard(c, f){
   const t = cardType(c), nf = normFx(c);
   if (f.type === "quick" ? !isQuick(c) : (f.type !== "all" && t !== f.type)) return false;
   // 「コストデッキ以外」: ふつうのデッキ専用＋どちらでも入るカード（どちらでものカードはコストなしの見た目で出す）
-  if (f.dm === "normal" ? deckModeOf(c) === "cost" : f.dm && deckModeOf(c) !== f.dm) return false;
+  if (f.dm === "normal" ? ["cost", "zone"].includes(deckModeOf(c)) : f.dm && deckModeOf(c) !== f.dm) return false;
   if (f.tag && !tagsOf(c).includes(f.tag)) return false;
   if (f.attr && !attrsOf(c).includes(f.attr)) return false;
   if (f.author && authorOf(c) !== f.author) return false;
@@ -4522,7 +4523,7 @@ function syncCost(){
 }
 $("#mkCost").innerHTML = [...Array.from({ length: 31 }, (_, k) => k), 35, 40, 45, 50, 60, 70, 80, 90, 99].map(k => `<option value="${k}">${k}</option>`).join("") + `<option value="∞">∞（ふつうには払えない。踏み倒しでだけ使える）</option><option value="X">X（あるマナを全部使って、効果をX回くり返す）</option>`;
 $("#mkCost").value = "1";
-const MODE_NOTE = { normal: "マナを使わない、ふつうのデッキ用。コストはつかない", cost: "コストデッキ専用。ふつうのデッキには入れられない", both: "どちらのデッキにも入れられる。ふつうのデッキで遊ぶときはコストが表示されない" };
+const MODE_NOTE = { normal: "マナを使わない、ふつうのデッキ用。コストはつかない", cost: "コストデッキ専用。ふつうのデッキには入れられない", both: "どちらのデッキにも入れられる。ふつうのデッキで遊ぶときはコストが表示されない", zone: "マナゾーン（デュエマ式・MTG式）のデッキ専用。手札を1ターンに1枚マナに置いて、そのマナで払う。属性のマナが要る・多色はタップして置く" };
 function setMkDeck(m){ MK.deck = DECK_LABEL[m] ? m : "normal"; if (typeof syncMkView === "function") setTimeout(syncMkView); document.querySelectorAll("#mkMode button").forEach(b => b.setAttribute("aria-pressed", b.dataset.m === MK.deck)); $("#costRow").hidden = MK.deck === "normal"; $("#modeNote").textContent = MODE_NOTE[MK.deck]; syncCost(); }
 $("#mkMode").addEventListener("click", e => { const b = e.target.closest("button"); if (b){ setMkDeck(b.dataset.m); if (typeof bkSync === "function") bkSync(); } });
 $("#mkFrame").addEventListener("change", () => { if (typeof bkSync === "function") bkSync(); if (typeof absFilter === "function") absFilter(); });
@@ -5737,6 +5738,11 @@ $("#gallery").addEventListener("click", async e => {
 S.deckEdit = { id: null, cards: {} };
 function myDecks(){ return S.decks.filter(d => isMine(d, "owner")); }
 function allDeckOptions(){ return [...builtinDecks(), ...myDecks()]; }
+// デッキのマナ: false / true（毎ターン増える）/ "zone"（デュエマ式）/ "land"（MTG式）
+const deckManaVal = d => !(d && d.mana) ? false : d.mz ? (d.landOnly ? "land" : "zone") : true;
+function deckKindNow(){ const m = $("#deckMana"), z = $("#deckZone"), l = $("#deckLand"); return !(m && m.checked) ? false : z && z.checked ? (l && l.checked ? "land" : "zone") : true; }
+function syncDeckZone(){ const r = $("#deckZoneRow"); if (r) r.hidden = !$("#deckMana").checked; const lr = $("#deckLandRow"); if (lr) lr.hidden = !$("#deckZone").checked; }
+["#deckMana", "#deckZone", "#deckLand"].forEach(q => { const el = $(q); if (el) el.addEventListener("change", () => { syncDeckZone(); if (typeof renderDeck === "function") renderDeck(); }); });
 function deckCount(){ return Object.entries(S.deckEdit.cards).reduce((a, [id, k]) => a + (isEx(S.cards.get(id)) ? 0 : k), 0); }
 function deckExCount(){ return Object.entries(S.deckEdit.cards).reduce((a, [id, k]) => a + (isEx(S.cards.get(id)) ? k : 0), 0); }
 function deckMonsters(){ return Object.entries(S.deckEdit.cards).reduce((a, [id, k]) => a + (cardType(S.cards.get(id)) === "monster" && !isEx(S.cards.get(id)) ? k : 0), 0); }
@@ -5751,7 +5757,7 @@ function renderDeck(){
   $("#btnDeckDel").hidden = !S.deckEdit.id;
   { const ids = []; for (const [id, k] of Object.entries(S.deckEdit.cards)) for (let i = 0; i < k; i++) ids.push(id); $("#deckView").innerHTML = deckViewHTML(ids, $("#deckMana").checked); $("#deckViewNote").textContent = `${ids.length}枚・押すとくわしく見られる`; }
   const pool0 = [...S.userCards].filter(c => owns(c.id) || S.deckEdit.cards[c.id] || isBorrowed(c.id)).sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0)).concat(S.starters).filter(c => !c.token || S.deckEdit.cards[c.id]);
-  const pool = sortCards(pool0.filter(c => matchCard(c, S.filt.deck) && (fitsDeck(c, $("#deckMana").checked) || S.deckEdit.cards[c.id])), S.filt.deck.sort);
+  const pool = sortCards(pool0.filter(c => matchCard(c, S.filt.deck) && (fitsDeck(c, deckKindNow()) || S.deckEdit.cards[c.id])), S.filt.deck.sort);
   S.deckPoolIds = pool.map(c => c.id);
   setCount("deck", pool.length, pool0.length);
   $("#deckPool").innerHTML = (pool.length ? "" : `<p class="muted">条件に合うカードがありません。</p>`) + pool.map(c => {
@@ -5774,7 +5780,7 @@ $("#deckEditSel").addEventListener("change", e => {
   S.deckEdit = { id: d ? d.id : null, cards: {}, key: (d && d.key) || null, borrow: d && Array.isArray(d.borrow) ? d.borrow.slice() : [] };
   if (d) d.cards.forEach(id => S.deckEdit.cards[id] = (S.deckEdit.cards[id] || 0) + 1);
   $("#deckName").value = d ? d.name : "";
-  $("#deckMana").checked = !!(d && d.mana); $("#deckSpire").checked = !!(d && d.spire); $("#deckSpc").value = d && d.spc === "silent" ? "silent" : ""; $("#deckSpcRow").hidden = !$("#deckSpire").checked;
+  $("#deckMana").checked = !!(d && d.mana); $("#deckZone").checked = !!(d && d.mz); $("#deckLand").checked = !!(d && d.landOnly); syncDeckZone(); $("#deckSpire").checked = !!(d && d.spire); $("#deckSpc").value = d && d.spc === "silent" ? "silent" : ""; $("#deckSpcRow").hidden = !$("#deckSpire").checked;
   renderDeck();
 });
 // スキン違いは同じカードとして数える（枚数制限もまとめて）
@@ -5807,7 +5813,7 @@ $("#btnDeckSave").addEventListener("click", async () => {
   const limitIssue = deckLimitIssue(cards); if (limitIssue){ toast(limitIssue); return; }
   if (cards.some(id => !S.cards.has(id) || (!owns(id) && !isBorrowed(id)))){ toast("使えないカードが入っています。デッキを編集してね"); return; }
   const id = S.deckEdit.id || uid("d");
-  try{ await saveDeckDoc(id, { name, owner: S.name, ownerId: (S.decks.find(d => d.id === id) || {}).ownerId || S.uid || null, cards, mana: $("#deckMana").checked, spire: $("#deckSpire").checked, spc: $("#deckSpire").checked && $("#deckSpc").value === "silent" ? "silent" : null, key: S.deckEdit.key && S.deckEdit.cards[S.deckEdit.key] ? S.deckEdit.key : null, borrow: (b => b.length ? b : null)([...new Set(cards.filter(id => !owns(id)))]), updatedAt: Date.now() }); S.deckEdit.id = id; ls.set("cb_deck", id); toast("デッキを保存しました"); renderDeck(); }
+  try{ await saveDeckDoc(id, { name, owner: S.name, ownerId: (S.decks.find(d => d.id === id) || {}).ownerId || S.uid || null, cards, mz: $("#deckMana").checked && $("#deckZone").checked ? true : null, landOnly: $("#deckMana").checked && $("#deckZone").checked && $("#deckLand").checked ? true : null, mana: $("#deckMana").checked, spire: $("#deckSpire").checked, spc: $("#deckSpire").checked && $("#deckSpc").value === "silent" ? "silent" : null, key: S.deckEdit.key && S.deckEdit.cards[S.deckEdit.key] ? S.deckEdit.key : null, borrow: (b => b.length ? b : null)([...new Set(cards.filter(id => !owns(id)))]), updatedAt: Date.now() }); S.deckEdit.id = id; ls.set("cb_deck", id); toast("デッキを保存しました"); renderDeck(); }
   catch(e){ writeErr(e); }
 });
 let deckDelArm = false;
@@ -6085,7 +6091,7 @@ function copyDeckToEditor(d){
   const cards = d.cards.filter(id => S.cards.has(id)), bor = [...new Set(cards.filter(id => !canUseCard(id)))], miss = bor.length;
   openDeckEditor("");
   S.deckEdit = { id: null, cards: {}, key: d.key && cards.includes(d.key) ? d.key : null, borrow: bor }; cards.forEach(id => S.deckEdit.cards[id] = (S.deckEdit.cards[id] || 0) + 1);
-  $("#deckName").value = d.name.replace(/【コスト】/, "") + "のコピー"; $("#deckMana").checked = !!d.mana; $("#deckSpire").checked = !!d.spire; $("#deckSpc").value = d.spc === "silent" ? "silent" : ""; $("#deckSpcRow").hidden = !d.spire; renderDeck();
+  $("#deckName").value = d.name.replace(/【コスト】/, "") + "のコピー"; $("#deckMana").checked = !!d.mana; $("#deckZone").checked = !!d.mz; $("#deckLand").checked = !!d.landOnly; syncDeckZone(); $("#deckSpire").checked = !!d.spire; $("#deckSpc").value = d.spc === "silent" ? "silent" : ""; $("#deckSpcRow").hidden = !d.spire; renderDeck();
   return miss;
 }
 function renderDeckList(){
@@ -6114,7 +6120,7 @@ function renderDeckList(){
     <div class="dk-right">
       <div class="dk-key" style="${bgUrl(key)}"><span class="dk-keylbl">キーカード</span>${key ? `<span class="dk-keyname">${esc(key.name)}</span>` : ""}</div>
       <div class="box" style="display:flex;flex-direction:column;gap:12px">
-        <div class="dk-title"><h2>${esc(d.name)}${d.mana ? `<span class="note">　コストデッキ</span>` : ""}${theirs ? `<span class="note dk-owner">作った人：${esc(d.owner || "だれか")}</span>` : ""}</h2><span class="dk-total">${cs.length}<small> 枚</small></span></div>
+        <div class="dk-title"><h2>${esc(d.name)}${d.mana ? `<span class="note">　${d.mz ? (d.landOnly ? "マナゾーンデッキ（MTG式）" : "マナゾーンデッキ（デュエマ式）") : "コストデッキ"}</span>` : ""}${theirs ? `<span class="note dk-owner">作った人：${esc(d.owner || "だれか")}</span>` : ""}</h2><span class="dk-total">${cs.length}<small> 枚</small></span></div>
         <div class="dk-stats">
           <div><div class="dk-cap">${cap}</div><div class="dk-bars">${buckets.map(([l, n]) => `<div class="dk-bar"><b>${n}</b><i style="height:${Math.round(n / mx * 82)}%"></i><span>${l}</span></div>`).join("")}</div></div>
           <dl class="dk-types"><dt>モンスター</dt><dd>${cnt.monster}</dd><dt>魔法</dt><dd>${cnt.magic}</dd><dt>装備</dt><dd>${cnt.equip}</dd><dt>罠</dt><dd>${cnt.trap}</dd></dl>
@@ -6170,14 +6176,14 @@ $("#deckList").addEventListener("click", async e => {
     const issue = (typeof deckLimitIssue === "function" ? deckLimitIssue(cards) : "") || (!d.spire && (main.length < MIN_DECK || !mons) ? `このままだと${!mons ? "モンスターが入っていない" : `${MIN_DECK}枚に足りない`}ので、編集してから保存してね` : "");
     if (!cards.length || issue){ copyDeckToEditor(d); toast(issue || "使えるカードがありませんでした"); return; }
     const id = uid("d"), name = d.name.replace(/【コスト】/, "") + "のコピー";
-    try{ await saveDeckDoc(id, { name, owner: S.name, ownerId: S.uid || null, cards, mana: !!d.mana, spire: !!d.spire, spc: d.spire && d.spc === "silent" ? "silent" : null, key: d.key && cards.includes(d.key) ? d.key : null, borrow: bor.length ? bor : null, updatedAt: Date.now() }); S.deckPick = id; ls.set("cb_deck", id); toast(`「${name}」を自分のデッキに入れました${miss ? `（持っていないカード ${miss} 種類は借りています）` : ""}`); renderDeckList(); }
+    try{ await saveDeckDoc(id, { name, owner: S.name, ownerId: S.uid || null, cards, mana: !!d.mana, mz: d.mz || null, landOnly: d.landOnly || null, spire: !!d.spire, spc: d.spire && d.spc === "silent" ? "silent" : null, key: d.key && cards.includes(d.key) ? d.key : null, borrow: bor.length ? bor : null, updatedAt: Date.now() }); S.deckPick = id; ls.set("cb_deck", id); toast(`「${name}」を自分のデッキに入れました${miss ? `（持っていないカード ${miss} 種類は借りています）` : ""}`); renderDeckList(); }
     catch(err){ writeErr(err); }
     return;
   }
   if (g("[data-dthumb]")){ S.thumbPick = !S.thumbPick; renderDeckList(); return; }
   if (g("[data-dkey]")){
     const key = g("[data-dkey]").dataset.dkey;
-    try{ await saveDeckDoc(d.id, { name: d.name, owner: d.owner || S.name, ownerId: d.ownerId || S.uid || null, cards: d.cards, mana: !!d.mana, key, updatedAt: Date.now() }); S.thumbPick = false; toast("サムネを変えました"); renderDeckList(); }
+    try{ await saveDeckDoc(d.id, { name: d.name, owner: d.owner || S.name, ownerId: d.ownerId || S.uid || null, cards: d.cards, mana: !!d.mana, mz: d.mz || null, landOnly: d.landOnly || null, key, updatedAt: Date.now() }); S.thumbPick = false; toast("サムネを変えました"); renderDeckList(); }
     catch(err){ writeErr(err); }
     return;
   }
@@ -6357,7 +6363,7 @@ $("#cpuDeckSel").addEventListener("change", e => ls.set("cb_cpudeck", e.target.v
 function cpuDeckOptions(){ return [...builtinDecks(), ...S.decks.filter(d => d && Array.isArray(d.cards) && d.cards.length)]; }
 function renderCpuDeckSel(){
   const sel = $("#cpuDeckSel"), want = ls.get("cb_cpudeck", "auto"), mine = myDecks(), others = S.decks.filter(d => d && Array.isArray(d.cards) && d.cards.length && !isMine(d, "owner"));
-  const opt = d => `<option value="${esc(d.id)}">${esc(d.name)}${d.mana && !d.builtin ? "【コスト】" : ""}（${d.cards.length}枚）${d.builtin || isMine(d, "owner") ? "" : "／" + esc(d.owner || "？")}</option>`;
+  const opt = d => `<option value="${esc(d.id)}">${esc(d.name)}${d.mana && !d.builtin ? (d.mz ? "【デュエマ式】" : "【コスト】") : ""}（${d.cards.length}枚）${d.builtin || isMine(d, "owner") ? "" : "／" + esc(d.owner || "？")}</option>`;
   sel.innerHTML = `<option value="auto">おまかせ（自分と同じルールのサンプル）</option><optgroup label="はじめからあるデッキ">${builtinDecks().map(opt).join("")}</optgroup>`
     + (mine.length ? `<optgroup label="自分のデッキ">${mine.map(opt).join("")}</optgroup>` : "")
     + (others.length ? `<optgroup label="みんなのデッキ">${others.map(opt).join("")}</optgroup>` : "");
@@ -6367,7 +6373,7 @@ $("#joinCode").addEventListener("input", e => { e.target.value = e.target.value.
 $("#joinCode").addEventListener("keydown", e => { if (e.key === "Enter") $("#btnJoin").click(); });
 function chosenManaRule(){ const el = $("#manaRule"), v = el ? el.value : "grow"; return MANA_RULES[v] ? v : "grow"; }
 { const el = $("#manaRule"); if (el){ const v = ls.get("cb_manaRule", "grow"); if (["grow", "zone", "land"].includes(v)) el.value = v; el.addEventListener("change", () => ls.set("cb_manaRule", el.value)); } }
-function chosenMana(){ const id = $("#deckSel").value; const d = allDeckOptions().find(x => x.id === id); return !!(d && d.mana); }
+function chosenMana(){ const id = $("#deckSel").value; const d = allDeckOptions().find(x => x.id === id); return deckManaVal(d); }
 const deckSpireVal = d => d && d.spire ? (d.spc === "silent" ? "silent" : true) : false;
 function chosenSpire(){ const id = $("#deckSel").value; const d = allDeckOptions().find(x => x.id === id); return deckSpireVal(d); }
 function chosenDeckIds(){
@@ -6386,7 +6392,7 @@ function deckOk(ids){
 function renderPlay(){
   if (document.activeElement !== $("#pname")) $("#pname").value = S.name;
   const opts = allDeckOptions(); const want = ls.get("cb_deck", "starter");
-  $("#deckSel").innerHTML = opts.map(d => `<option value="${esc(d.id)}">${esc(d.name)}${d.mana && !d.builtin ? "【コスト】" : ""}（${d.cards.length}枚）</option>`).join("");
+  $("#deckSel").innerHTML = opts.map(d => `<option value="${esc(d.id)}">${esc(d.name)}${d.mana && !d.builtin ? (d.mz ? "【デュエマ式】" : "【コスト】") : ""}（${d.cards.length}枚）</option>`).join("");
   $("#deckSel").value = opts.some(d => d.id === want) ? want : "starter";
   if (document.activeElement !== $("#cpuDeckSel")) renderCpuDeckSel();
   $("#offlineNote").hidden = !!S.db;
@@ -6408,7 +6414,7 @@ $("#rejoin").addEventListener("click", e => { if (e.target.closest("#btnRejoin")
 function isEx(c){ return !!(c && (c.ex || sxOf(c))); }
 function newPlayer(deckIds, name, mana, spire){
   const deck = shuffle(deckIds.filter(id => !isEx(card(id)))); deck.splice(0, deck.length, ...innateTop(deck)); const hand = deck.splice(0, 5), ex = deckIds.filter(id => isEx(card(id)));
-  const p = { name: name || S.name, lp: START_LP, deck, hand, grave: [], mz: Array(ZONES).fill(null), sz: Array(ZONES).fill(null), mana: mana ? { max: 0, cur: 0 } : null, sleeve: name ? null : (mySleeve() || null), deckIds: [...deckIds], ex };
+  const p = { name: name || S.name, lp: START_LP, deck, hand, grave: [], mz: Array(ZONES).fill(null), sz: Array(ZONES).fill(null), mana: mana ? { max: 0, cur: 0 } : null, ...(mana === "zone" || mana === "land" ? { manaZ: [], charged: false, ...(mana === "land" ? { landOnly: true } : {}) } : {}), sleeve: name ? null : (mySleeve() || null), deckIds: [...deckIds], ex };
   // スパイアデッキ: the altar starts on the field, and the deck never runs out (the graveyard is shuffled back in)
   // スパイアデッキ: the opening hand is drawn only after the relic is picked (若葉 can change any card of the deck)
   if (spire){ p.spire = true; p.relicPick = neowChoices(); p.deck = innateTop(shuffle([...p.hand, ...p.deck])); p.hand = []; p.openHand = 5; if (!p.mana) p.mana = { max: 0, cur: 0 }; p.spc = spire === "silent" ? "silent" : null; p.relics = [p.spc ? "snake" : "blood"]; if (p.spc) p.openHand += 2; p.sz[0] = { c: p.spc ? SPIRE_ALTAR_S.id : SPIRE_ALTAR.id, turn: 0, face: true, u: -1 }; }
@@ -6599,7 +6605,7 @@ function refill(st, s){
 function makeCode(){ const a = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; let s = ""; for (let i = 0; i < 4; i++) s += a[Math.floor(Math.random() * a.length)]; return s; }
 function startState(pa, pb){
   const first = Math.random() < .5 ? "a" : "b";
-  const fp = first === "a" ? pa : pb; if (fp.mana){ fp.mana.max = 1; fp.mana.cur = 1; }
+  const fp = first === "a" ? pa : pb; if (fp.mana && !fp.manaZ){ fp.mana.max = 1; fp.mana.cur = 1; }
   [pa, pb].forEach(p => { if (p.mana && p.sz.some(z => z && z.face && isAltar(z.c))){ p.mana.max = 3; p.mana.cur = p === fp ? 3 : 0; } });
   return { v: 3, started: true, players: { a: pa, b: pb }, first, turn: first, turnNo: 1, summoned: false, pending: null, winner: null, why: "", log: [{ t: Date.now(), m: `${(first === "a" ? pa : pb).name} の先攻でスタート！` }], ev: [{ type: "turn", s: first, no: 1, first: true, n: 1 }], evn: 1 };
 }
@@ -6645,7 +6651,7 @@ $("#btnCpu").addEventListener("click", () => {
   const ids = chosenDeckIds(); if (!deckOk(ids)) return;
   leaveGame();
   const cid = $("#cpuDeckSel").value, cd = cid && cid !== "auto" ? cpuDeckOptions().find(d => d.id === cid) : null;
-  const cpuMana = cd ? !!cd.mana : chosenMana(), cpuIds = (cd || (cpuMana ? sampleManaDeck() : starterDeck())).cards.filter(id => S.cards.has(id));
+  const cpuMana = cd ? deckManaVal(cd) : chosenMana(), cpuIds = (cd || (cpuMana ? sampleManaDeck() : starterDeck())).cards.filter(id => S.cards.has(id));
   if ((!(cd && cd.spire) && cpuIds.length < MIN_DECK) || (!(cd && cd.spire) && !cpuIds.some(id => cardType(S.cards.get(id)) === "monster"))){ toast("CPUのデッキのカードが足りません。別のデッキをえらんでね"); return; }
   G = { mode: "cpu", slot: "a", st: applyManaRule(startState(newPlayer(ids, null, chosenMana(), chosenSpire()), newPlayer(cpuIds, cd ? `CPU（${cd.name}）` : "CPU", cpuMana, deckSpireVal(cd))), chosenManaRule()), sel: null, atkFrom: null, chooseQ: [], evSeen: 0 };
   autoRelic(G.st, "b");
@@ -6660,7 +6666,7 @@ function allCardsOf(st, s){
 }
 function freshFrom(st, s){
   const p = P(st, s), ids = p.deckIds && p.deckIds.length ? p.deckIds : allCardsOf(st, s);
-  const n = newPlayer(ids, p.name, !!p.mana, p.spire ? (p.spc === "silent" ? "silent" : true) : false); n.sleeve = p.sleeve || null; return n;
+  const n = newPlayer(ids, p.name, p.manaZ ? (p.landOnly ? "land" : "zone") : !!p.mana, p.spire ? (p.spc === "silent" ? "silent" : true) : false); n.sleeve = p.sleeve || null; return n;
 }
 function resetLocal(){ Object.assign(G, { costPick: null, potPick: null, sel: null, atkFrom: null, chooseQ: [], evSeen: 0, recorded: false, prevLp: null, eqPlace: null, ssPick: null, sxPick: null, view: null, graveHand: false, detailOpen: false, detailBack: null, lastDetail: null }); renderDetail(null); }
 function rematch(){
@@ -8343,7 +8349,7 @@ function chargeWhy(st, s, hi){
   const p = P(st, s), c = card(p.hand[hi]); if (!p.manaZ) return "マナゾーンのないルール";
   if (st.turn !== s || st.pending || st.winner) return "自分のターンだけ"; if (p.charged) return "このターンはもう置いた";
   if (!c) return "カードがない"; if (p.exTemp && p.exTemp.i === hi) return "EXデッキのカード";
-  if (st.manaRule === "land" && !c.mland) return "土地しか置けない";
+  if ((p.landOnly || st.manaRule === "land") && !c.mland) return "土地しか置けない";
   return "";
 }
 // マナゾーンに置く（多色はタップして置く。土地はタップしない）

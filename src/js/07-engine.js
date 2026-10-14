@@ -1651,7 +1651,7 @@ function chargeWhy(st, s, hi){
   const p = P(st, s), c = card(p.hand[hi]); if (!p.manaZ) return "マナゾーンのないルール";
   if (st.turn !== s || st.pending || st.winner) return "自分のターンだけ"; if (p.charged) return "このターンはもう置いた";
   if (!c) return "カードがない"; if (p.exTemp && p.exTemp.i === hi) return "EXデッキのカード";
-  if (st.manaRule === "land" && !c.mland) return "土地しか置けない";
+  if ((p.landOnly || st.manaRule === "land") && !c.mland) return "土地しか置けない";
   return "";
 }
 // マナゾーンに置く（多色はタップして置く。土地はタップしない）

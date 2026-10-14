@@ -400,9 +400,10 @@ const cascadeOn = c => !!(c && c.cascade && (cardType(c) === "monster" || cardTy
 const MAX_COST = 99, MANA_LIMIT = 99;
 function costOf(c){ return !hasCost(c) ? 0 : c.costInf ? Infinity : Math.max(0, Math.min(MAX_COST, +c.cost)); }
 // which decks a card can go in: normal (no mana), cost (mana decks only), both. Older cards: with a cost → both, without → normal
-const DECK_LABEL = { normal: "ふつうのデッキ", cost: "コストデッキ", both: "どちらでも" };
+const DECK_LABEL = { normal: "ふつうのデッキ", cost: "コストデッキ", both: "どちらでも", zone: "マナゾーンデッキ（デュエマ式）" };
 const deckModeOf = c => c && DECK_LABEL[c.deckMode] ? c.deckMode : hasCost(c) ? (c && c.starter ? "cost" : "both") : "normal";
-const fitsDeck = (c, mana) => { const m = deckModeOf(c); return m === "both" || m === (mana ? "cost" : "normal"); };
+// mana: false（ふつう）/ true（コスト）/ "zone"・"land"（マナゾーン）。デュエマ式のカードはマナゾーンのデッキだけ、マナゾーンのデッキにはコストのカードも入る
+const fitsDeck = (c, mana) => { const m = deckModeOf(c), z = mana === "zone" || mana === "land"; if (m === "zone") return z; return m === "both" || m === (mana ? "cost" : "normal"); };
 const cardLimit = c => (c && c.limit != null) ? +c.limit : 3;
 function normFx(c){
   if (c && Array.isArray(c.blocks)){ const b = blocksOf(c).find(x => x.then.length); return b ? { ...b.then[0], trig: b.trig } : null; }
