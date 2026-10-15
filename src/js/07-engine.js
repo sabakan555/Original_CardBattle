@@ -1103,6 +1103,7 @@ function applyEffect(st, s, c, target, ctx = {}, fx = normFx(c)){
       if (zi < 0){ log(st, s, `${src}：魔法・罠ゾーンに空きがない`); break; }
       const z = me.sz[zi]; z.mats = (z.mats || []).concat(f.mats.splice(0, k)); z.stack = (z.stack || 0) + k; ev(st, { type: "spell", s, c: f.c });
       log(st, s, `${src}：質量${k}枚が「${card(f.c).name}」のコピーになって、魔法・罠ゾーンにストックされた（ストック${z.stack}枚・のこりの質量 ${f.mats.length}枚）`); break; }
+    case "skipTurn": requestTurnEnd(st, s, c); break;
     case "reflectDmg": me.reflectUntil = st.turnNo; log(st, s, `${src}：このターン、${me.name}が受けるダメージは相手に跳ね返る！`); break;
     case "extraTurn": me.extraTurns = (me.extraTurns || 0) + (n || 1); log(st, s, `${src}：このターンのあと、もう${(n || 1) > 1 ? (n || 1) + "回" : "1回"}自分のターン！`); break;
     case "dblAtk": me.dblAtk = (me.dblAtk || 0) + (n || 1); log(st, s, `${src}：次に使うアタックをもう1回プレイする`); break;
@@ -2264,6 +2265,24 @@ function resolveAttack(st){
   }
   checkEnd(st);
 }
+// 「このターンの残りを飛ばす」は、いま解決中の効果・チェーンを終えてから通常のターン終了へ合流する。
+// 直接 passTurn しないことで、ターン終了時効果・一時効果の解除・追加ターン・相手の応答を保つ。
+function turnEnding(st){ return !!(st && st.pending && (st.pending.type === "end" || (st.pending.type === "chain" && st.pending.resume && st.pending.resume.type === "end"))); }
+function requestTurnEnd(st, s, c){
+  if (!st || st.winner) return;
+  if (turnEnding(st)){ log(st, s, `「${c && c.name || "？"}」：ターンはすでに終了中`); return; }
+  st.endTurnRequested = { s: st.turn, no: st.turnNo };
+  log(st, s, `「${c && c.name || "？"}」の効果で、このターンの残りを飛ばす！`);
+}
+function flushTurnEndRequest(st){
+  const r = st && st.endTurnRequested;
+  if (!r) return false;
+  if (r.s !== st.turn || r.no !== st.turnNo){ delete st.endTurnRequested; return false; }
+  if (st.winner || st.pending || st.askQ || (st.chain && st.chain.length)) return false;
+  delete st.endTurnRequested;
+  endTurn(st, r.s);
+  return true;
+}
 // ending the turn first gives the other player a chance to use quick spells / traps
 function endTurn(st, s){
   exReturnP(st, s);
@@ -2272,6 +2291,7 @@ function endTurn(st, s){
 }
 function finishEndTurn(st){ const pd = st.pending; st.pending = null; checkEnd(st); if (!st.winner && pd) passTurn(st, pd.by); }
 function passTurn(st, s){
+  if (st.endTurnRequested && st.endTurnRequested.s === s && st.endTurnRequested.no === st.turnNo) delete st.endTurnRequested;
   fireTurn(st, s, "turnEnd", st => {
     ctrTick(st, s, "end"); checkEnd(st); if (st.winner) return;
     evolveCheck(st, s, "end");

@@ -24,6 +24,8 @@ function act(fn){
   if (ok === false) return;
   mugRun(G.st);
   checkEnd(G.st);
+  if (!G.st.winner && !G.chooseQ.length) flushTurnEndRequest(G.st);
+  checkEnd(G.st);
   persist();
   after(true);
 }
