@@ -246,11 +246,41 @@ function refill(st, s){
   p.deck = shuffle(p.grave.splice(0)); log(st, s, `山札がなくなったので、墓地の${p.deck.length}枚をシャッフルして山札に戻した`);
 }
 function makeCode(){ const a = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; let s = ""; for (let i = 0; i < 4; i++) s += a[Math.floor(Math.random() * a.length)]; return s; }
+// Starting cards are placed before play; they do not consume the opening hand or fire summon/use effects.
+function startingField(st){
+  for (const s of [st.first, O(st.first)]){
+    const p = P(st, s), opening = p.hand.length;
+    const ids = [...p.deckIds].filter(id => card(id) && card(id).startOnField);
+    // Monsters first so an equipment's future host is visible immediately.
+    ids.sort((a, b) => (cardType(card(b)) === "monster") - (cardType(card(a)) === "monster"));
+    ids.forEach(id => {
+      const c = card(id), t = cardType(c), src = [p.deck, p.hand, p.ex || []].find(a => a.includes(id));
+      if (!src) return;
+      if (t === "monster"){
+        const z = freeZone(p.mz); if (z < 0) return;
+        p.mz[z] = mkMon(st, id); p.mz[z].born = 0;
+      } else if (t === "equip"){
+        st.un = (st.un || 0) + 1; (p.standingEq || (p.standingEq = [])).push({ c: id, o: s, u: st.un });
+      } else if (isField(c)){
+        if (st.field) return; // Only one starting field can occupy the shared zone.
+        placeField(st, s, id);
+      } else {
+        const z = freeZone(p.sz); if (z < 0) return;
+        st.un = (st.un || 0) + 1;
+        p.sz[z] = { c: id, turn: 0, face: !!(c.persist || c.cannotLeave) && t !== "trap", u: st.un };
+      }
+      src.splice(src.indexOf(id), 1);
+      log(st, s, `「${c.name}」をゲーム開始時に場へ置いた`);
+    });
+    while (p.hand.length < opening && p.deck.length) p.hand.push(p.deck.shift());
+  }
+}
 function startState(pa, pb){
   const first = Math.random() < .5 ? "a" : "b";
   const fp = first === "a" ? pa : pb; if (fp.mana && !fp.manaZ){ fp.mana.max = 1; fp.mana.cur = 1; }
   [pa, pb].forEach(p => { if (p.mana && p.sz.some(z => z && z.face && isAltar(z.c))){ p.mana.max = 3; p.mana.cur = p === fp ? 3 : 0; } });
-  return { v: 3, started: true, players: { a: pa, b: pb }, first, turn: first, turnNo: 1, summoned: false, pending: null, winner: null, why: "", log: [{ t: Date.now(), m: `${(first === "a" ? pa : pb).name} の先攻でスタート！` }], ev: [{ type: "turn", s: first, no: 1, first: true, n: 1 }], evn: 1 };
+  const st = { v: 3, started: true, players: { a: pa, b: pb }, first, turn: first, turnNo: 1, summoned: false, pending: null, winner: null, why: "", log: [{ t: Date.now(), m: `${(first === "a" ? pa : pb).name} の先攻でスタート！` }], ev: [{ type: "turn", s: first, no: 1, first: true, n: 1 }], evn: 1 };
+  startingField(st); return st;
 }
 
 $("#btnCreate").addEventListener("click", async () => {

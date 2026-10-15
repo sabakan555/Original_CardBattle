@@ -1,3 +1,8 @@
+// Equipment without a host is still on the field, and can be attached for free on your turn.
+function standingEqHTML(st, s, own){
+  const p = P(st, s);
+  return (p.standingEq || []).map((e, k) => `<div class="note">待機中の装備：${cardHTML(card(e.c), "sm")} ${esc(card(e.c).name)}${own && canAct(st, s) ? [s, O(s)].map(ts => P(st, ts).mz.map((m, i) => m && canEquipOn(st, e.c, ts, i) ? `<button class="small" data-standing-eq="${k}:${ts}:${i}">${ts === s ? "自分" : "相手"}の${i + 1}番「${esc(card(m.c).name)}」に装備</button>` : "").join("")).join("") : ""}</div>`).join("");
+}
 /* ================= glue: act / persist / cpu ================= */
 function persist(){
   if (G.mode !== "online") return;
@@ -93,7 +98,7 @@ function cpuStep(st, s){
     if (!canSpecial(st, s, i) || Math.random() > .8) continue;
     const c = card(p.hand[i]), ss = ssOf(c); let picks = [];
     if (ss.cost === "tribute"){
-      picks = p.mz.map((m, j) => m ? j : -1).filter(j => j >= 0).sort((a, b) => atkOf(p.mz[a]) - atkOf(p.mz[b])).slice(0, ss.cn);
+      picks = p.mz.map((m, j) => m && !monCannotLeave(m) ? j : -1).filter(j => j >= 0).sort((a, b) => atkOf(p.mz[a]) - atkOf(p.mz[b])).slice(0, ss.cn);
       if (picks.some(j => cmpNum(atkOf(p.mz[j]), baseAtk(c)) >= 0)) continue;
     }
     if (ss.cost === "discard") picks = p.hand.map((id, j) => j).filter(j => j !== i).sort((a, b) => cmpNum(cardType(card(p.hand[a])) === "monster" ? baseAtk(card(p.hand[a])) : 0, cardType(card(p.hand[b])) === "monster" ? baseAtk(card(p.hand[b])) : 0)).slice(0, ss.cn);
@@ -111,7 +116,7 @@ function cpuStep(st, s){
       const need = tribOf(c, st, s);
       if (!need){ if (freeZone(p.mz) >= 0){ summon(st, s, i); return; } continue; }
       // 生贄召喚: only when the weakest ones it gives up are all weaker than it
-      const mine = p.mz.map((m, j) => m && (!c.tribTag || hasTag(m.c, c.tribTag)) ? j : -1).filter(j => j >= 0).sort((a, b) => cmpNum(atkOf(p.mz[a]), atkOf(p.mz[b])));
+      const mine = p.mz.map((m, j) => m && !monCannotLeave(m) && (!c.tribTag || hasTag(m.c, c.tribTag)) ? j : -1).filter(j => j >= 0).sort((a, b) => cmpNum(atkOf(p.mz[a]), atkOf(p.mz[b])));
       if (mine.length < need) continue;
       const picks = mine.slice(0, need); if (picks.some(j => cmpNum(atkOf(p.mz[j]), baseAtk(c)) >= 0)) continue;
       if (summon(st, s, i, null, null, picks)) return;
@@ -333,7 +338,7 @@ function renderBoard0(){
       if (t === "monster"){
         const ss = ssOf(c);
         if (twOf(c)){ const sp = card(c.id + "~tw"), why = twinWhy(st, me, sel.i); acts += `<button class="mg" data-act="twin" ${why ? "disabled" : ""}>魔法「${esc(sp.name)}」として使う${why ? `（${esc(why)}）` : ""}</button>`; }
-        const tn = tribOf(c, st, me), mineN = pm.mz.filter(m => m && (!c.tribTag || hasTag(m.c, c.tribTag))).length;
+        const tn = tribOf(c, st, me), mineN = pm.mz.filter(m => m && !monCannotLeave(m) && (!c.tribTag || hasTag(m.c, c.tribTag))).length;
         if (isDmEvo(c)){ const B = evoBases(st, me, c), ok = canSummonNow(st, me) && afford && B.length > 0; acts += `<button class="primary" data-act="summon" ${ok ? "" : "disabled"}>進化する${!canSummonNow(st, me) ? "（このターンは召喚ずみ）" : !B.length ? `（進化元がいない）` : short}</button>`; if (ok) hint = `自分の${DM_EVO_W(c.dmEvo)}モンスターの上に重ねて出します（出たターンから攻撃できる）`; }
         else if (!(ss && ss.only)){ const ms = massOf(c), msOk = pm.grave.length >= ms, ok = canSummonNow(st, me) && afford && msOk && (tn ? mineN >= tn : freeZone(pm.mz) >= 0); acts += `<button class="primary" data-act="summon" ${ok ? "" : "disabled"}>${tn ? "生贄召喚する" : ms ? `召喚する（質量${ms}）` : "召喚する"}${!canSummonNow(st, me) ? "（このターンは召喚ずみ）" : !msOk ? `（墓地のカードが${ms}枚いる）` : tn && mineN < tn ? `（生贄が${tn}体いる）` : short}</button>`; if (ok) hint = tn ? `自分のモンスター${tn}体を生贄にして召喚します` : "光っているモンスターゾーンをクリックしても召喚できます"; }
         else hint = "このカードは特殊召喚でしか出せません";
@@ -386,6 +391,7 @@ function renderBoard0(){
       <div class="ohand">${backHTML("xs", "", po.sleeve)}<span class="cnt-x">×${po.hand.length - (exTempOk(po) ? 1 : 0)}</span><span class="lbl">手札（${esc(po.name)}）</span></div>
       <span class="zlabel">相手の魔法・罠ゾーン</span>
       <div class="zones">${zoneHTML(op, "sz")}</div>
+      ${standingEqHTML(st, op, false)}
       <span class="zlabel">相手のモンスターゾーン</span>
       <div class="zones">${zoneHTML(op, "mz")}</div>
       <div class="bz">
@@ -404,6 +410,7 @@ function renderBoard0(){
       <div class="zones">${zoneHTML(me, "mz")}</div>
       <span class="zlabel">自分の魔法・罠ゾーン</span>
       <div class="zones">${zoneHTML(me, "sz")}</div>
+      ${standingEqHTML(st, me, true)}
       <div class="mstat"><span class="who">${esc(pm.name)}${G.spectate ? "" : "（あなた）"}</span><button class="chip" data-grave="me:deck">山札 ${pm.deck.length}</button>${(pm.ex || []).length ? `<button class="chip exchip" data-exopen>EX ${pm.ex.length}</button>` : ""}<button class="chip" data-grave="me:grave">墓地 ${pm.grave.length}</button>${(pm.exile || []).length ? `<button class="chip" data-grave="me:exile">廃棄 ${pm.exile.length}</button>` : ""}<span class="lpv ${pm.lp <= 300 ? "low" : ""}" data-lp="me"><small>LP</small>${pm.lp}</span>${noLoseBy(st, me) ? `<span class="nolose" title="「${esc(noLoseBy(st, me))}」の効果で負けない">負けない</span>` : ""}</div>
       <span class="zlabel">手札</span>
       <div class="hand">${handHTML}</div>
@@ -740,6 +747,7 @@ function renderOverlay(){
         if (o === "field"){ const f = st.field; return `<div class="g-item">${cardHTML(card(f.c), "sm pick", `data-opt="field" tabindex="0" role="button"`, mOpt(f.o))}<div class="meta">フィールド</div></div>`; }
         const [os, zk, oi] = String(o).split(":"), X = P(st, os), who = os === me ? "自分" : "相手";
         if (zk === "mz"){ const m = X.mz[+oi]; return `<div class="g-item">${cardHTML(card(m.c), "sm pick", `data-opt="${o}" tabindex="0" role="button"`, { mod: modOf(m), ...mOpt(os) })}<div class="meta">${who}のモンスター</div></div>`; }
+        if (zk === "eq"){ const e = X.standingEq[+oi]; return `<div class="g-item">${cardHTML(card(e.c), "sm pick", `data-opt="${o}" tabindex="0" role="button"`, mOpt(os))}<div class="meta">${who}の待機中の装備</div></div>`; }
         const z = X.sz[+oi], vis = z.face || os === me;
         return `<div class="g-item">${vis ? cardHTML(card(z.c), "sm pick", `data-opt="${o}" tabindex="0" role="button"`, mOpt(os)) : backHTML("sm pick", `data-opt="${o}" tabindex="0" role="button"`, X.sleeve)}<div class="meta">${who}の${z.face ? "魔法・罠" : "セット中"}</div></div>`;
       }
@@ -815,7 +823,7 @@ function renderOverlay(){
     html = `<div class="box"><h2 style="margin:0">「${esc(c.name)}」を${how}</h2><p class="muted" style="margin:0">${x.k === "xyz" ? "重ねて素材にする" : "墓地へ送る"}自分のモンスターをえらんでね：${esc(need.replace(/[《》]/g, ""))}</p><div class="gallery">${list}</div><div class="row"><button class="primary" data-sxgo ${ok ? "" : "disabled"}>${how}する</button><button class="ghost" data-close="sxpick">やめる</button></div></div>`;
   } else if (G.ssPick && canAct(st, me)){
     const sp = G.ssPick, pm = P(st, me), c = card(pm.hand[sp.hi]);
-    const opts = sp.kind === "evo" ? evoBases(st, me, c) : sp.kind === "tribute" ? pm.mz.map((m, i) => m && (!sp.tag || hasTag(m.c, sp.tag)) ? i : -1).filter(i => i >= 0) : sp.kind === "mass" ? pm.grave.map((id, i) => i) : pm.hand.map((id, i) => i).filter(i => i !== sp.hi);
+    const opts = sp.kind === "evo" ? evoBases(st, me, c) : sp.kind === "tribute" ? pm.mz.map((m, i) => m && !monCannotLeave(m) && (!sp.tag || hasTag(m.c, sp.tag)) ? i : -1).filter(i => i >= 0) : sp.kind === "mass" ? pm.grave.map((id, i) => i) : pm.hand.map((id, i) => i).filter(i => i !== sp.hi);
     const list = opts.map(i => { const on = sp.picked.includes(i), cc = sp.kind === "tribute" || sp.kind === "evo" ? card(pm.mz[i].c) : sp.kind === "mass" ? card(pm.grave[i]) : card(pm.hand[i]); return cardHTML(cc, `sm pick ${on ? "sel" : ""}`, `data-sspick="${i}" tabindex="0" role="button" aria-pressed="${on}"`, sp.kind === "tribute" || sp.kind === "evo" ? { mod: modOf(pm.mz[i]), ...mOpt(me) } : mOpt(me)); }).join("");
     html = `<div class="box"><h2 style="margin:0">「${esc(c.name)}」を${sp.kind === "evo" ? "進化" : sp.kind === "mass" ? "召喚（質量）" : sp.normal ? "生贄召喚" : "特殊召喚"}</h2><p class="muted" style="margin:0">${sp.kind === "evo" ? "上に重ねる進化元のモンスターを1体えらんでね" : sp.kind === "mass" ? `質量としてモンスターの下に重ねる墓地のカードを${sp.need}枚えらんでね` : sp.kind === "tribute" ? `墓地へ送るモンスターを${sp.need}体えらんでね` : `捨てる手札を${sp.need}枚えらんでね`}（${sp.picked.length} / ${sp.need}）</p><div class="gallery">${list}</div><div class="row"><button class="primary" data-ssgo ${sp.picked.length === sp.need ? "" : "disabled"}>${sp.kind === "evo" ? "進化する" : sp.kind === "mass" ? "質量にして召喚する" : sp.normal ? "生贄召喚する" : "特殊召喚する"}</button><button class="ghost" data-close="sspick">やめる</button></div></div>`;
   } else if (G.eqPlace){
@@ -962,6 +970,8 @@ $("#board").addEventListener("click", e => {
   if (gv){ G.view = gv.dataset.grave; renderAll(); return; }
   const adj = e.target.closest("[data-adj]");
   if (adj){ const d = +adj.dataset.d, who = adj.dataset.adj === "me" ? me : O(me); act(st => { P(st, who).lp += d; log(st, me, `（手動）${nm(st, who)}のLPを${d > 0 ? "+" : ""}${d}`); }); return; }
+  const ready = e.target.closest("[data-standing-eq]");
+  if (ready){ const [k, ts, ti] = ready.dataset.standingEq.split(":"); act(st => attachStanding(st, me, +k, ts, +ti)); return; }
   const man = e.target.closest("[data-man]");
   if (man && G.sel){
     const sel = G.sel, owner = sel.s === "me" ? me : O(me), kind = man.dataset.man;
@@ -969,9 +979,10 @@ $("#board").addEventListener("click", e => {
     act(st => {
       const X = P(st, owner), z = X[sel.z][sel.i]; if (!z) return false;
       if (kind === "atk"){ const d = +man.dataset.d; z.mod = (z.mod || 0) + d; log(st, me, `（手動）「${card(z.c).name}」のATKを${d > 0 ? "+" : ""}${d}`); G.sel = sel; }
+      if ((kind === "grave" || kind === "hand") && (sel.z === "mz" ? monCannotLeave(z) : cannotLeave(z.c))) return false;
       if (kind === "grave"){ if (sel.z === "mz") destroyMonster(st, owner, sel.i, "手動", { force: true }); else { X.sz[sel.i] = null; X.grave.push(z.c); log(st, me, `（手動）「${card(z.c).name}」を墓地へ`); } }
       if (kind === "hand"){ if (sel.z === "mz") detachEquips(st, owner, sel.i); X[sel.z][sel.i] = null; X.hand.push(z.c); log(st, me, `（手動）「${card(z.c).name}」を手札に戻した`); }
-      if (kind === "uneq"){ const k = +man.dataset.k, e = eqsOf(z)[k]; if (!e) return false; z.eqs.splice(k, 1); P(st, e.o).grave.push(e.c); log(st, me, `（手動）「${card(e.c).name}」を外して墓地へ`); G.sel = sel; }
+      if (kind === "uneq"){ const k = +man.dataset.k, e = eqsOf(z)[k]; if (!e || cannotLeave(e.c)) return false; z.eqs.splice(k, 1); P(st, e.o).grave.push(e.c); log(st, me, `（手動）「${card(e.c).name}」を外して墓地へ`); G.sel = sel; }
     });
     return;
   }
