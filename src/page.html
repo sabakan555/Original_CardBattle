@@ -176,6 +176,14 @@
 
         <div class="mk-pane" data-pane="fx" hidden>
           <div class="row" id="fxModeRow"><div class="seg" id="mkFxMode"><button type="button" data-m="easy" aria-pressed="true">かんたん</button><button type="button" data-m="pro" aria-pressed="false">こだわり</button></div><span class="note" id="fxModeNote"></span></div>
+          <details class="mk-sec" id="useCondRow">
+            <summary><span class="mk-st">発動コスト（発動できる条件）</span><span class="mk-sum" id="sumUseCond">なし</span></summary>
+            <div class="fxform cost-box">
+              <p class="note">すべての条件を満たすと使えます。カードは消費しません。召喚・装備・発動に適用され、コスト0で使う場合も必要です。</p>
+              <div id="mkUseConds"></div>
+              <button type="button" class="small" id="mkUseCondAdd">＋ 発動条件を追加</button>
+            </div>
+          </details>
           <details class="mk-sec pro-only" id="payRow">
             <summary><span class="mk-st">使うときのコスト（追加コスト）</span><span class="mk-sum" id="sumCost"></span></summary>
             <div class="fxform cost-box">

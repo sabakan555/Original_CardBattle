@@ -267,7 +267,7 @@ function fxRowsHTML(c, noMeta, noIc){
     (b.conds.length ? b.else || [] : []).forEach(e => rows.push(row(one(e, "そうでなければ、"))));
   });
   if (c.anySum && t === "monster") rows.push(row({ name: c.anyDn || "どこからでも", ic: "spark", desc: "ターン開始時、質量が足りていればどこからでも召喚できる（してもしなくてもいい）" }));
-  const meta = [fieldAbilityText(c), c.strig && t !== "equip" ? "S・トリガー" : "", massOf(c) ? `要求質量 ${massOf(c)}` : "", t === "monster" ? fxAbsText(c) : t === "equip" ? eqText(c) : ""].filter(Boolean).join("　");
+  const meta = [useCondText(c), fieldAbilityText(c), c.strig && t !== "equip" ? "S・トリガー" : "", massOf(c) ? `要求質量 ${massOf(c)}` : "", t === "monster" ? fxAbsText(c) : t === "equip" ? eqText(c) : ""].filter(Boolean).join("　");
   return `${meta && !noMeta ? `<div class="fxr-meta">${kwLink(esc(meta))}</div>` : ""}<div class="fxrs">${rows.join("")}</div>`;
 }
 // 画像の枠: カードの frame → クラス名

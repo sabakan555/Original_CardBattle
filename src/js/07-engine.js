@@ -445,6 +445,7 @@ function transformAt(st, s, k, into, src, srcCard, fxo){
 // 自動で使う: the drawn card is played for free (targets at random), then goes to the graveyard (or 廃棄 / stays if 永続)
 function autoPlayCard(st, s, id){
   const p = P(st, s), c = card(id);
+  { const why = useCondWhy(st, s, c); if (why){ p.hand.push(id); log(st, s, `「${c.name}」は発動条件を満たさないため手札へ：${why}`); return; } }
   if (isField(c) && st.field && cannotLeave(st.field.c)){ p.hand.push(id); log(st, s, `場から離れないフィールドがあるため「${c.name}」は手札へ`); return; }
   log(st, s, `「${c.name}」を自動で使った！`); ev(st, { type: "spell", s, c: id }); countPlay(st, s, c);
   const pz = isPersist(c) ? freeZone(p.sz) : -1;
@@ -815,6 +816,7 @@ function whenWinOk(st, w, win){
   return true;
 }
 function useBlockedWhy(st, s, c, win){
+  if (st && s){ const why = useCondWhy(st, s, c); if (why) return why; }
   if (st && isField(c) && st.field && cannotLeave(st.field.c)) return "場から離れないフィールドがあるため置き換えられません";
   if (c && c.mland) return "土地はマナゾーンに置くカード（発動はできない）";
   if (c && c.noUse && (cardType(c) === "magic" || cardType(c) === "trap")) return "このカードは発動できません";
@@ -866,6 +868,7 @@ function actWhy(st, s, i){
   const m = P(st, s).mz[i]; if (!m || !hasTrig(monCard(m), "act")) return "起動効果がない";
   if (st.turn !== s) return "自分のターンだけ使える";
   const c = card(m.c), L = actBlocks(st, s, m);
+  { const why = useCondWhy(st, s, c); if (why) return why; }
   if (!L.some(([b, bi]) => actFree(st, s, m, c, bi, b))) return L.every(([b]) => actLim(b).per === "game") ? "この試合ではもう使えない" : "このターンはもう使えない";
   if (!L.some(([b, bi]) => actFree(st, s, m, c, bi, b) && !ctrPayWhy(st, s, b.cost, { mon: { s, i, u: m.u } }))) return "コストのカウンターが足りない";
   if (!L.some(([b, bi]) => actFree(st, s, m, c, bi, b) && xcOk(m, b))) return "エクシーズ素材が足りない";
@@ -1510,6 +1513,7 @@ function doCascade(st, s, c, then){
 // 続唱で出たカードを、コストを払わずに使う（モンスターは召喚・魔法は発動。どちらも「使った」扱いなので、続唱があればまた続唱する）
 function castFree(st, s, id, src, then){
   const p = P(st, s), c = card(id);
+  { const why = useCondWhy(st, s, c); if (why){ p.hand.push(id); log(st, s, `${src}：「${c.name}」は発動条件を満たさないため手札へ：${why}`); then && then(st); return; } }
   if (cardType(c) === "monster"){
     const z = glZone(st, s, id);
     if (z < 0){ p.grave.push(id); log(st, s, `${src}：場がいっぱいなので「${c.name}」は墓地へ`); then && then(st); return; }
@@ -1677,8 +1681,25 @@ function symCost(st, s, c, base){
 // マナ化（ベイBジャック風）: 自分の場に「マナ化」がいれば、攻撃していないモンスター1体を1マナとして払える
 function bayBMons(st, s){ const p = P(st, s); if (!p.mana || !p.mz.some((m, i) => m && hasAb(st, s, i, "bayB"))) return []; return p.mz.map((m, i) => m && !m.attacked && !sealedM(m) ? i : -1).filter(i => i >= 0); }
 function canPay(st, s, c){ const p = P(st, s), m = p.mana; return (!m || m.cur + bayBMons(st, s).length >= effCost(st, s, c)) && costWhy(st, s, c) === ""; }
+// Activation requirements only inspect the pre-payment state; they never consume cards.
+function useCondCount(st, s, x){
+  const p = P(st, s), match = id => !x.attr || attrsOf(card(id)).includes(x.attr);
+  if (x.where === "grave" || x.where === "hand") return (p[x.where] || []).filter(match).length;
+  if (x.where === "mana") return (p.manaZ || []).filter(z => match(z.c)).length;
+  let count = p.mz.filter(m => m && (!x.attr || monAttrs(m).includes(x.attr))).length;
+  count += p.sz.filter(z => z && match(z.c)).length;
+  for (const o of ["a", "b"]) P(st, o).mz.forEach(m => { count += eqsOf(m).filter(e => e.o === s && match(e.c)).length; });
+  count += (p.standingEq || []).filter(e => match(e.c)).length;
+  if (st.field && st.field.o === s && match(st.field.c)) count++;
+  return count;
+}
+function useCondWhy(st, s, c){
+  for (const x of useCondsOf(c)){ const n = useCondCount(st, s, x); if (n < x.n) return `${useCondPart(x)}必要（いま${n}枚）`; }
+  return "";
+}
 // why the 追加コスト can't be paid right now ("" = it can)
 function costWhy(st, s, c){
+  { const why = useCondWhy(st, s, c); if (why) return why; }
   const p = P(st, s), m = p.mana;
   { const cv = manaCivWhy(st, s, c); if (cv) return cv; }
   if (payLpOf(c) && p.lp <= payLpOf(c)) return `LPが${payLpOf(c)}より多くないと使えない`;
@@ -1697,7 +1718,7 @@ function etherealEnd(st, s){
 }
 function slyFire(st, s, ids){
   if ((ids || []).length) P(st, s).discNow = (P(st, s).discNow || 0) + ids.length;
-  (ids || []).forEach(id => { const c = card(id); if (!c || !c.sly || (cardType(c) !== "magic" && cardType(c) !== "trap")) return;
+  (ids || []).forEach(id => { const c = card(id); if (!c || !c.sly || useCondWhy(st, s, c) || (cardType(c) !== "magic" && cardType(c) !== "trap")) return;
     log(st, s, `スライ！ 捨てられた「${c.name}」をタダで使った`); ev(st, { type: "spell", s, c: id }); countPlay(st, s, c); runCard(st, s, c, "use", { sly: true }); });
 }
 function discardCost(st, s, c, picks){
@@ -2247,7 +2268,7 @@ function sTrigger(st, s){
   const c = card(id), t = cardType(c);
   if (!c || !c.strig || (t !== "monster" && t !== "magic" && t !== "trap") || c.noUse) return false;
   p.deck.shift(); log(st, s, `S・トリガー！ 山札の一番上の「${c.name}」をダメージを受ける前にタダで使う！`);
-  if (t !== "monster" && useBlockedWhy(st, s, c)){ p.hand.push(id); log(st, s, `「${c.name}」はいま発動できないので手札に加えた`); return false; }
+  if (useCondWhy(st, s, c) || (t !== "monster" && useBlockedWhy(st, s, c))){ p.hand.push(id); log(st, s, `「${c.name}」はいま発動できないので手札に加えた`); return false; }
   if (t === "monster"){
     const z = glZone(st, s, id);
     if (z < 0){ p.hand.push(id); log(st, s, `モンスターゾーンがいっぱいなので「${c.name}」は手札に加えた`); return false; }

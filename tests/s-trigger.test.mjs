@@ -10,7 +10,7 @@ function harness(type = 'monster', options = {}) {
   const p = { deck: [c.id, 'next'], hand: [], grave: [], exile: [], mz: [null], sz: [null] };
   const calls = [];
   const ctx = { P: () => p, card: () => c, cardType: c => c.type, log: () => {},
-    useBlockedWhy: () => options.blocked || '', glZone: () => options.full ? -1 : 0,
+    useCondWhy: () => options.condition || '', useBlockedWhy: () => options.blocked || '', glZone: () => options.full ? -1 : 0,
     countPlay: () => calls.push('count'), pushChain: (...a) => calls.push(a),
     isPersist: () => false, isField: () => false, exhausts: () => false,
     ev: () => {}, freeZone: () => 0 };
