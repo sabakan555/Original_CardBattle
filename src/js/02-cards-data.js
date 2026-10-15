@@ -324,6 +324,20 @@ function cardHTML(c, cls = "", attrs = "", opts = {}){
   if (c && c.showTags && !c.potionView && !c.relicView && tagsOf(c).length) { const tr = esc(tagsOf(c).join("／")), band = (!fr || fr === "dm") && c.frame !== "spire" && c.frame !== "socra", trn = Math.max(1, [...tagsOf(c).join("／")].length);
     if (band) h = fr === "dm" ? h.replace(/<div class="c-name"><span class="m-nm">([\s\S]*?)<\/span><\/div>/, `<div class="c-name has-tr"><span class="m-nm">$1</span><span class="c-tribe-n" style="--trn:${trn}">${tr}</span></div>`) : h.replace(/<div class="c-name">([\s\S]*?)<\/div><div class="c-art">/, `<div class="c-name has-tr"><span class="c-nm1">$1</span><span class="c-tribe-n" style="--trn:${trn}">${tr}</span></div><div class="c-art">`);
     else h = c.frame === "spire" ? h.replace('<div class="p-type">', `<div class="p-tribe">${esc(tagsOf(c).join("／"))}</div><div class="p-type">`) : h.replace('<div class="c-art">', `<div class="c-art"><span class="c-tribe">${esc(tagsOf(c).join("／"))}</span>`); }
+  // 標準枠: ルビ・名前・タグを専用のヘッダー内に収める。
+  if (!fr && c && !c.potionView && !c.relicView && c.frame !== "spire" && c.frame !== "socra") {
+    const name = rubyHTML(c.nameRuby || c.name || "");
+    const units = text => [...text].reduce((n, ch) => n + (/^[\x00-\x7f]$/.test(ch) ? .6 : 1), 0);
+    let titleUnits = 0, end = 0;
+    for (const m of name.matchAll(/<ruby>(.*?)<rt>(.*?)<\/rt><\/ruby>/g)) {
+      titleUnits += units(name.slice(end, m.index)) + Math.max(units(m[1]), units(m[2]) * .4);
+      end = m.index + m[0].length;
+    }
+    titleUnits += units(name.slice(end));
+    h = h.replace(/^<div class="card /, '<div class="card compact-head ')
+      .replace(/<div class="c-name( has-tr)?">([\s\S]*?)<\/div><div class="c-art">/, (_, tr, body) =>
+        `<div class="c-name${tr || ""}" style="--title-units:${Math.max(1, titleUnits)}">${tr ? body : `<span class="c-nm1">${body}</span>`}</div><div class="c-art">`);
+  }
   const ho = c && HOLO[c.holo] ? c.holo : "", fo = c && FOIL[c.foil] ? c.foil : "";
   if (!ho && !fo) return h;
   return h.replace(/^<div class="card /, `<div class="card${ho ? ` holo holo-${ho}` : ""}${fo ? ` foil-${fo}` : ""} `).replace(/<\/div>$/, ho ? `<span class="holo-fx" aria-hidden="true"></span></div>` : "</div>");
