@@ -15,7 +15,7 @@ function harness(type = 'monster', options = {}) {
     isPersist: () => false, isField: () => false, exhausts: () => false,
     ev: () => {}, freeZone: () => 0 };
   vm.createContext(ctx); vm.runInContext(source + ';this.fire=sTrigger;', ctx);
-  ctx.fire({}, 'b'); return { p, calls };
+  ctx.fire({pending:{type:'attack',by:'a',to:'direct'}}, 'b'); return { p, calls };
 }
 test('monster S-trigger queues a free summon without spending a normal summon or mana', () => {
   const { p, calls } = harness();
@@ -57,3 +57,31 @@ test('monsters can save and display S-trigger, while flashback and kicker stay s
 });
 
 test('a spell lock does not prevent an S-trigger monster summon',()=>{assert.equal(harness('monster',{blocked:'魔法・罠は禁止'}).calls[1][5].summon,true);});
+
+test('direct-attack trigger resolves before responses and damage, once per attack', () => {
+  const events=[]; const ctx={ O:s=>s==='a'?'b':'a', resolveAttack:()=>events.push('damage'),
+    responseOptions:()=>{events.push('responses');return ['block'];},
+    sTrigger:st=>{events.push('trigger');return true;} };
+  vm.createContext(ctx);
+  vm.runInContext(engine.slice(engine.indexOf('function attackResponse('),engine.indexOf('// 「相手が攻撃してきたとき」'))+';this.go=attackResponse;',ctx);
+  const st={pending:{type:'attack',by:'a',to:'direct'}};
+  ctx.go(st,'a'); assert.deepEqual(events,['trigger']);
+  ctx.go(st,'a'); assert.deepEqual(events,['trigger','responses']); assert.equal(st.pending.wait,true);
+  events.length=0;ctx.go({pending:{type:'attack',by:'a',to:0}},'a');assert.deepEqual(events,['responses']);
+});
+
+test('skip-rest-of-turn from a trigger cancels the pending attack before damage', () => {
+  const events=[]; const ctx={checkEnd:()=>{},flushTurnEndRequest:st=>{events.push('end');return true;},
+    attackResponse:()=>events.push('responses'),resolveAttack:()=>events.push('damage')};
+  vm.createContext(ctx);
+  vm.runInContext(engine.slice(engine.indexOf('function afterChain('),engine.indexOf('// after a summon succeeds'))+';this.after=afterChain;',ctx);
+  const st={turn:'a',turnNo:4,endTurnRequested:{s:'a',no:4},pending:{type:'attack',by:'a',to:'direct',strigResume:true}};
+  ctx.after(st);assert.equal(st.pending,null);assert.deepEqual(events,['end']);
+});
+
+test('S-trigger ignores monster attacks and non-attack damage',()=>{
+  for(const pending of [null,{type:'attack',by:'a',to:0},{type:'attack',by:'b',to:'direct'},{type:'attack',by:'a',to:'direct',negated:true}]){
+    const ctx={};vm.createContext(ctx);vm.runInContext(source+';this.fire=sTrigger;',ctx);
+    assert.equal(ctx.fire({pending},'b'),false);
+  }
+});

@@ -2029,7 +2029,14 @@ function resolveChain(st, resume){
 function afterChain(st){
   checkEnd(st);
   const pd = st.pending; if (!pd || st.winner) return;
-  if (pd.type === "attack") resolveAttack(st);
+  if (pd.type === "attack" && pd.strigResume){
+    delete pd.strigResume;
+    // ターンを飛ばす効果は、保留中の直接攻撃を終えてからターン終了へ進む。
+    const r = st.endTurnRequested;
+    if (r && r.s === st.turn && r.no === st.turnNo){ st.pending = null; flushTurnEndRequest(st); return; }
+    attackResponse(st, pd.by);
+  }
+  else if (pd.type === "attack") resolveAttack(st);
   else if (pd.type === "end") finishEndTurn(st);
   else if (pd.type === "summoned") st.pending = null;
 }
@@ -2167,10 +2174,23 @@ function declareAttack(st, s, from, to, noRevo){
   return true;
 }
 function attackGo(st, s, from){
-  const go = st2 => { const pd = st2.pending; if (!pd || pd.type !== "attack" || pd.by !== s || st2.winner) return; if (pd.negated){ resolveAttack(st2); return; } pd.wait = responseOptions(st2, O(s), "attack").length > 0; if (!pd.wait) resolveAttack(st2); };
+  const go = st2 => attackResponse(st2, s);
   const L = monTrigList(st, s, from, "attack").filter(x => hasTrig(x.c, "attack"));
   const reply = st2 => { const pd = st2.pending; if (!pd || pd.type !== "attack" || pd.by !== s || st2.winner) return; const R = oppAttackList(st2, O(s), { attack: { by: s, from } }); if (R.length) runList(st2, R, go); else go(st2); };
   if (L.length) runList(st, L, reply); else reply(st);
+}
+// 直接攻撃のS・トリガーを先に解決し、その後にブロック・罠の応答へ進む。
+function attackResponse(st, s){
+  const pd = st.pending;
+  if (!pd || pd.type !== "attack" || pd.by !== s || st.winner) return;
+  if (pd.negated){ resolveAttack(st); return; }
+  if (pd.to === "direct" && !pd.strigChecked){
+    pd.strigChecked = true; pd.strigResume = true;
+    if (sTrigger(st, O(s))) return;
+    delete pd.strigResume;
+  }
+  pd.wait = responseOptions(st, O(s), "attack").length > 0;
+  if (!pd.wait) resolveAttack(st);
 }
 // 「相手が攻撃してきたとき」: 攻撃された側 d のモンスター（と装備）・永続カード
 function oppAttackList(st, d, actx){
@@ -2195,23 +2215,25 @@ function respond(st, s, choice){
 }
 // 吸収: モンスター (s,i) が戦闘で与えたダメージ y のぶん、持ち主のLPを回復
 function drain(st, s, i, y){ const m = P(st, s).mz[i]; if (!m || !(y > 0) || !isFinite(y) || !hasAb(st, s, i, "lifelink")) return; P(st, s).lp += y; log(st, s, `「${card(m.c).name}」の吸収でLPを${fmtN(y)}回復`); }
-// S・トリガー: 相手の攻撃でダメージを受けたとき、山札の一番上がS・トリガーならタダで発動
+// S・トリガー: 直接攻撃の宣言時、ダメージ前に山札の一番上をタダで使う（1回の攻撃につき1回）
 function sTrigger(st, s){
-  const p = P(st, s), id = p.deck[0]; if (!id) return;
+  const attack = st.pending;
+  if (!attack || attack.type !== "attack" || attack.to !== "direct" || attack.by === s || attack.negated) return false;
+  const p = P(st, s), id = p.deck[0]; if (!id) return false;
   const c = card(id), t = cardType(c);
-  if (!c || !c.strig || (t !== "monster" && t !== "magic" && t !== "trap") || c.noUse) return;
-  p.deck.shift(); log(st, s, `S・トリガー！ 山札の一番上の「${c.name}」をタダで発動！`);
-  if (t !== "monster" && useBlockedWhy(st, s, c)){ p.hand.push(id); log(st, s, `「${c.name}」はいま発動できないので手札に加えた`); return; }
+  if (!c || !c.strig || (t !== "monster" && t !== "magic" && t !== "trap") || c.noUse) return false;
+  p.deck.shift(); log(st, s, `S・トリガー！ 山札の一番上の「${c.name}」をダメージを受ける前にタダで使う！`);
+  if (t !== "monster" && useBlockedWhy(st, s, c)){ p.hand.push(id); log(st, s, `「${c.name}」はいま発動できないので手札に加えた`); return false; }
   if (t === "monster"){
     const z = glZone(st, s, id);
-    if (z < 0){ p.hand.push(id); log(st, s, `モンスターゾーンがいっぱいなので「${c.name}」は手札に加えた`); return; }
+    if (z < 0){ p.hand.push(id); log(st, s, `モンスターゾーンがいっぱいなので「${c.name}」は手札に加えた`); return false; }
     countPlay(st, s, c);
     // 通常の召喚回数やコストを使わず、召喚時の効果は共通のチェーン処理で解決する。
     pushChain(st, s, id, { strig: true }, `S・トリガー「${c.name}」の召喚`, { summon: true, cast: false, z });
-    return;
+    return true;
   }
   const keep = isPersist(c), pz = keep ? freeZone(p.sz) : -1;
-  if (keep && pz < 0){ p.hand.push(id); log(st, s, `魔法・罠ゾーンがいっぱいなので「${c.name}」は手札に加えた`); return; }
+  if (keep && pz < 0){ p.hand.push(id); log(st, s, `魔法・罠ゾーンがいっぱいなので「${c.name}」は手札に加えた`); return false; }
   countPlay(st, s, c);
   if (isField(c)) placeField(st, s, id);
   else if (keep){ st.un = (st.un || 0) + 1; p.sz[pz] = { c: id, turn: st.turnNo, face: true, u: st.un }; }
@@ -2219,6 +2241,7 @@ function sTrigger(st, s){
   else p.grave.push(id);
   ev(st, { type: "spell", s, c: id });
   pushChain(st, s, id, { strig: true }, `S・トリガー「${c.name}」`, keep ? { pz, pu: p.sz[pz].u } : isField(c) && st.field ? { fu: st.field.u } : null);
+  return true;
 }
 // 成長: when "end" → 攻撃の回数（ターンのおわり）、"start" → むかえたターンの数（ターンのはじめ）
 function evolveCheck(st, s, when){
@@ -2241,7 +2264,7 @@ function resolveAttack(st){
   if (pd.to === "direct"){
     const a = battleHit(st, A, pd.from, atkOf(am)); dealDmg(st, D, a); log(st, A, `${nm(st, D)} に直接 ${fmtN(a)} ダメージ！`);
     drain(st, A, pd.from, a);
-    checkEnd(st); if (!st.winner && a > 0) sTrigger(st, D);
+    checkEnd(st);
     return;
   } else {
     const dm = P(st, D).mz[pd.to];
@@ -2249,9 +2272,9 @@ function resolveAttack(st){
     const a = atkOf(am), d = atkOf(dm);
     // damage to a player is cut by the losing monster's 鉄壁-type ability
     const hurt = (s2, i2, x) => { const cut = abN(st, s2, i2, "dmgCut"), y = x === Infinity ? x : Math.max(0, x - cut); dealDmg(st, s2, y); if (y > 0 && hasAb(st, s2, i2, "reflect")){ log(st, s2, `「${card(P(st, s2).mz[i2].c).name}」の反射！ ${nm(st, O(s2))}にも${y === Infinity ? "" : fmtN(y)}ダメージ`); dealDmg(st, O(s2), y); } return [y, cut]; };
-    const losers = []; let hitD = false;
+    const losers = [];
     // 貫通: 差ではなくATKぶん全部 ／ 吸収: 与えたぶん回復
-    if (a > d){ const pc = hasAb(st, A, pd.from, "pierce"), [y, cut] = hurt(D, pd.to, battleHit(st, A, pd.from, pc ? a : a - d)); log(st, A, `バトル ${fmtN(a)} vs ${fmtN(d)}：${nm(st, D)} に ${fmtN(y)} ダメージ${pc ? "（貫通）" : ""}${cut ? `（${cut}へった）` : ""}`); drain(st, A, pd.from, y); hitD = y > 0; losers.push([D, pd.to, dm.u]); }
+    if (a > d){ const pc = hasAb(st, A, pd.from, "pierce"), [y, cut] = hurt(D, pd.to, battleHit(st, A, pd.from, pc ? a : a - d)); log(st, A, `バトル ${fmtN(a)} vs ${fmtN(d)}：${nm(st, D)} に ${fmtN(y)} ダメージ${pc ? "（貫通）" : ""}${cut ? `（${cut}へった）` : ""}`); drain(st, A, pd.from, y); losers.push([D, pd.to, dm.u]); }
     else if (a < d){ const pc = hasAb(st, D, pd.to, "pierce"), [y, cut] = hurt(A, pd.from, battleHit(st, D, pd.to, pc ? d : d - a)); log(st, A, `バトル ${fmtN(a)} vs ${fmtN(d)}：${nm(st, A)} に ${fmtN(y)} ダメージ${pc ? "（貫通）" : ""}${cut ? `（${cut}へった）` : ""}`); drain(st, D, pd.to, y); losers.push([A, pd.from, am.u]); }
     else { log(st, A, `バトル ${fmtN(a)} vs ${fmtN(d)}：相打ち！`); losers.push([A, pd.from, am.u], [D, pd.to, dm.u]); }
     if (hasAb(st, A, pd.from, "bane") && !losers.some(l => l[0] === D)){ losers.push([D, pd.to, dm.u]); log(st, A, `「${card(am.c).name}」の必殺！`); }
@@ -2267,7 +2290,7 @@ function resolveAttack(st){
         const kc = m2.c; if (destroyMonster(st2, s2, i2, "戦闘", { battle: true })){ killed = true; if (!W || s2 !== W[0]) kills.push({ s: s2, c: kc }); }
       });
       if (W && killed){ const wm = P(st2, W[0]).mz[W[1]]; if (wm && wm.u === W[2]) runList(st2, monTrigList(st2, W[0], W[1], "kill", null, { killed: kills }), null); }
-      checkEnd(st2); if (!st2.winner && hitD) sTrigger(st2, D);
+      checkEnd(st2);
     });
     return;
   }
