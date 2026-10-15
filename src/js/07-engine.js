@@ -2199,9 +2199,17 @@ function drain(st, s, i, y){ const m = P(st, s).mz[i]; if (!m || !(y > 0) || !is
 function sTrigger(st, s){
   const p = P(st, s), id = p.deck[0]; if (!id) return;
   const c = card(id), t = cardType(c);
-  if (!c || !c.strig || (t !== "magic" && t !== "trap") || c.noUse) return;
+  if (!c || !c.strig || (t !== "monster" && t !== "magic" && t !== "trap") || c.noUse) return;
   p.deck.shift(); log(st, s, `S・トリガー！ 山札の一番上の「${c.name}」をタダで発動！`);
-  if (useBlockedWhy(st, s, c)){ p.hand.push(id); log(st, s, `「${c.name}」はいま発動できないので手札に加えた`); return; }
+  if (t !== "monster" && useBlockedWhy(st, s, c)){ p.hand.push(id); log(st, s, `「${c.name}」はいま発動できないので手札に加えた`); return; }
+  if (t === "monster"){
+    const z = glZone(st, s, id);
+    if (z < 0){ p.hand.push(id); log(st, s, `モンスターゾーンがいっぱいなので「${c.name}」は手札に加えた`); return; }
+    countPlay(st, s, c);
+    // 通常の召喚回数やコストを使わず、召喚時の効果は共通のチェーン処理で解決する。
+    pushChain(st, s, id, { strig: true }, `S・トリガー「${c.name}」の召喚`, { summon: true, cast: false, z });
+    return;
+  }
   const keep = isPersist(c), pz = keep ? freeZone(p.sz) : -1;
   if (keep && pz < 0){ p.hand.push(id); log(st, s, `魔法・罠ゾーンがいっぱいなので「${c.name}」は手札に加えた`); return; }
   countPlay(st, s, c);

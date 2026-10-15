@@ -346,7 +346,7 @@ function setMkType(t){
   { const ec = $("#editCard"); if (ec) ec.classList.toggle("land", t === "magic" && $("#mkField").checked && $("#mkLand").checked && !FR_CLS[$("#mkFrame").value] && $("#mkFrame").value !== "spire"); }
   $("#exhaustRow").hidden = (t !== "magic" && t !== "trap") || pers;
   $("#noUseRow").hidden = t !== "magic" && t !== "trap"; { const lr = $("#landRow"); if (lr) lr.hidden = t !== "magic"; }
-  $("#spOptRow").hidden = t !== "magic" && t !== "trap"; $("#flashLbl").hidden = t !== "magic";
+  $("#spOptRow").hidden = t !== "magic" && t !== "trap"; $("#flashLbl").hidden = t !== "magic"; $("#strigRow").hidden = t === "equip";
   syncWhenRow(); if (typeof absFilter === "function") absFilter();
   $("#mkTab").textContent = mkTabLabel();
   if (typeof syncCost === "function" && $("#mkCost").options.length) syncCost();
@@ -691,7 +691,7 @@ MK.easy = ls.get("cb_fxmode") !== "pro";
 function easyKinds(){ const ks = mkKinds(), e = ks.filter(isEasyKind); return e.length ? e : ks; }
 function syncProOn(){
   const on = (q, v) => { const el = $(q); if (el) el.classList.toggle("pro-on", !!v); };
-  { const c = mkPreviewCard(), tx = extraCostText(c).replace(/^【コスト】/, ""), el = $("#sumCost"); if (el){ el.textContent = tx || "なし"; el.classList.toggle("on", !!tx); } }
+  { const c = mkPreviewCard(), tx = [c.strig ? "S・トリガー" : "", extraCostText(c).replace(/^【コスト】/, "")].filter(Boolean).join("・"), el = $("#sumCost"); if (el){ el.textContent = tx || "なし"; el.classList.toggle("on", !!tx); } }
   on("#payRow", (+$("#mkPayLp").value || 0) || (+$("#mkPayDisc").value || 0) || $("#mkPayDiscAll").checked || (+$("#mkPayMax").value || 0) || (+$("#mkPayCtrN").value || 0) || (+$("#mkSbCost").value || 0) || $("#mkGz").checked || $("#mkDelve").checked || ($("#mkRevG") && $("#mkRevG").checked) || $("#mkRevo").checked || ($("#mkDmEvo") && $("#mkDmEvo").checked) || ($("#mkMug") && $("#mkMug").checked));
   on("#secAtk", (MK.atkConds || []).length);
   on("#secSs", (+$("#mkTrib").value || 0) || $("#ssOn").checked || $("#mkGl").checked);
@@ -772,7 +772,7 @@ const TRIG_HELP = { summon: "手札から召喚したとき（効果で出した
 const WHILE_NG_CONDS = ["used", "kicked"];
 const NO_LIM = ["summon", "ssummon", "enter", "destroyed", "evolve", "turnStart", "turnEnd", "use", "attach"];
 // フラッシュバック（魔法だけ）・S・トリガー・キッカー
-function mkSpOpts(){ const sp = MK.type === "magic" || MK.type === "trap", k = Math.max(0, Math.min(99, Math.round(+$("#mkKick").value || 0))); return { ...(sp && MK.type === "magic" && $("#mkFlash").checked ? { flashback: true } : {}), ...(sp && $("#mkStrig").checked ? { strig: true } : {}), ...(sp && k ? { kick: k } : {}) }; }
+function mkSpOpts(){ const sp = MK.type === "magic" || MK.type === "trap", k = Math.max(0, Math.min(99, Math.round(+$("#mkKick").value || 0))); return { ...(sp && MK.type === "magic" && $("#mkFlash").checked ? { flashback: true } : {}), ...(MK.kind !== "potion" && MK.kind !== "relic" && MK.type !== "equip" && $("#mkStrig").checked ? { strig: true } : {}), ...(sp && k ? { kick: k } : {}) }; }
 // 要求質量: モンスターは召喚のとき、フィールド魔法は発動のとき
 function mkMassVal(){ const v = id => Math.max(0, Math.min(40, Math.round(+$(id).value || 0))) || null; return MK.type === "monster" ? v("#mkMass") : MK.type === "magic" && $("#mkField").checked ? v("#mkFMass") : null; }
 function mkGlVal(){ if (MK.type !== "monster" || !$("#mkGl").checked) return null; const v = $("#mkGlSide").value; return { l: v !== "r", r: v !== "l", w: $("#mkGlW").value.trim().slice(0, 40) }; }
@@ -1142,7 +1142,7 @@ function syncSpOpt(){
   const rows = ["#quickRow", "#whenRow", "#fieldRow", "#fieldOpts", "#persistRow", "#exhaustRow", "#noUseRow", "#spOptRow"].map(q => $(q)).filter(Boolean);
   box.hidden = MK.kind === "potion" || MK.kind === "relic" || rows.every(r => r.hidden);
   const ck = q => { const e = $(q); return !!e && e.checked && !e.closest("[hidden]"); }, on = [];
-  [["#mkQuick", "速攻"], ["#mkField", "フィールド"], ["#mkPersist", "永続"], ["#mkExhaust", "廃棄"], ["#mkNoUse", "発動できない"], ["#mkFlash", "フラッシュバック"], ["#mkStrig", "S・トリガー"]].forEach(([q, l]) => { if (ck(q)) on.push(l); });
+  [["#mkQuick", "速攻"], ["#mkField", "フィールド"], ["#mkPersist", "永続"], ["#mkExhaust", "廃棄"], ["#mkNoUse", "発動できない"], ["#mkFlash", "フラッシュバック"]].forEach(([q, l]) => { if (ck(q)) on.push(l); });
   const k = +$("#mkKick").value || 0; if (k && !$("#spOptRow").hidden) on.push("キッカー" + k);
   const w = $("#mkWhen").value; if (w && !$("#whenRow").hidden && WHEN_LABEL[w]) on.push(WHEN_LABEL[w]);
   $("#secSpOptTitle").textContent = MK.type === "trap" ? "罠の細かい設定" : MK.type === "magic" ? "魔法の細かい設定" : "細かい設定";

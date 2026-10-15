@@ -1721,7 +1721,7 @@ div.f{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:13px}
         <label class="row" id="exhaustRow" hidden style="gap:6px;font-weight:700;cursor:pointer"><input type="checkbox" id="mkExhaust"> 廃棄（使ったら墓地に行かず、そのゲームから消える）</label>
         <label class="row" id="landRow" hidden style="gap:6px;font-weight:700;cursor:pointer"><input type="checkbox" id="mkIsLand"> 土地（MTG風：発動できない。マナゾーンに置くと、置いたターンからマナとして使える・多色でもタップしない）</label>
         <label class="row" id="noUseRow" hidden style="gap:6px;font-weight:700;cursor:pointer"><input type="checkbox" id="mkNoUse"> 発動できない（手札からもセットしても使えない。相手の場にセットして場所をふさぐ用）</label>
-        <div class="row" id="spOptRow" hidden style="gap:6px 16px;flex-wrap:wrap;align-items:center;font-weight:700"><label class="row" id="flashLbl" style="gap:6px;cursor:pointer"><input type="checkbox" id="mkFlash"> フラッシュバック（墓地からもう1回使える。使ったら廃棄）</label><label class="row" style="gap:6px;cursor:pointer"><input type="checkbox" id="mkStrig"> S・トリガー（相手の攻撃でダメージを受けたとき、山札の一番上にあればタダで発動）</label><label class="row" style="gap:6px">キッカー<input type="number" id="mkKick" min="0" max="99" step="1" value="0" style="width:64px">マナ<span class="muted" style="font-size:13px;font-weight:400">0ならなし。コストデッキで多く払うと「もし：キッカーを払った」が成立</span></label></div>
+        <div class="row" id="spOptRow" hidden style="gap:6px 16px;flex-wrap:wrap;align-items:center;font-weight:700"><label class="row" id="flashLbl" style="gap:6px;cursor:pointer"><input type="checkbox" id="mkFlash"> フラッシュバック（墓地からもう1回使える。使ったら廃棄）</label><label class="row" style="gap:6px">キッカー<input type="number" id="mkKick" min="0" max="99" step="1" value="0" style="width:64px">マナ<span class="muted" style="font-size:13px;font-weight:400">0ならなし。コストデッキで多く払うと「もし：キッカーを払った」が成立</span></label></div>
         </div></details>
         <div class="mk-tabs" id="mkTabs" role="tablist">
           <button data-pane="draw" aria-pressed="true">絵</button><button data-pane="look" aria-pressed="false">見た目</button><button data-pane="fx" aria-pressed="false">効果・能力</button><button data-pane="deck" aria-pressed="false">デッキ</button>
@@ -1776,6 +1776,7 @@ div.f{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:13px}
                 <div class="cost-line"><span class="cost-k">カウンター</span><div class="cost-in"><select id="mkPayCtrW" aria-label="どこのカウンター"><option value="me">自分の</option><option value="field">自分のモンスターの</option></select><select id="mkPayCtr" aria-label="カウンター"></select><input type="number" id="mkPayCtrN" min="0" max="99" step="1" value="0" style="width:56px" aria-label="取り除く数"><span>個取り除く</span></div></div>
               </div>
               <div class="cost-grp"><div class="cost-gh">コストが下がる・タダになる</div>
+                <div class="cost-line" id="strigRow"><span class="cost-k">S・トリガー</span><div class="cost-in"><label class="row cost-on"><input type="checkbox" id="mkStrig">ダメージを受けたとき、山札の一番上にあればタダで使う</label><span class="note">モンスターは召喚、魔法・罠は発動</span></div></div>
                 <div class="cost-line"><span class="cost-k">スペルブースト</span><div class="cost-in"><span>魔法を使うたびにコスト−</span><input type="number" id="mkSbCost" min="0" max="20" step="1" value="0" style="width:56px" aria-label="下がる数"><span class="note">手札にある間・0ならなし</span></div></div>
                 <div class="cost-line"><span class="cost-k">G・ゼロ</span><div class="cost-in"><label class="row cost-on"><input type="checkbox" id="mkGz">あれば0コスト</label><span class="cost-sub" data-sub="mkGz"><select id="mkGzWhere" aria-label="どこに"><option value="field">自分の場に</option><option value="grave">自分の墓地に</option><option value="hand">自分の手札に</option><option value="none">条件なし（いつでも）</option></select><select id="mkGzMatch" class="gz-c" aria-label="合わせ方"><option value="tag">タグ</option><option value="exact">カード名</option><option value="part">名前に入る文字</option></select><input type="text" id="mkGzName" class="gz-c" list="tagNames" maxlength="40" placeholder="例: 竜" style="width:96px" aria-label="タグか名前"><input type="number" id="mkGzCnt" class="gz-c" min="1" max="20" value="1" style="width:52px" aria-label="枚数"><span class="gz-c">枚以上</span></span></div></div>
                 <div class="cost-line"><span class="cost-k">探査</span><div class="cost-in"><label class="row cost-on"><input type="checkbox" id="mkDelve">墓地を除外してコストを下げる</label><span class="note">払いきれないぶん、1枚につき−1</span></div></div>
@@ -2786,7 +2787,7 @@ function whenText(c){ const w = whenOf(c); return w ? `【${WHEN_LABEL[w]}に発
 // 融合モンスター: materials {m: "name"|"tag"|"any", v}
 function fusionMatText(x){ return x.m === "any" ? "モンスター" : x.m === "tag" ? `タグ「${x.v || "？"}」のモンスター` : `「${x.v || "？"}」`; }
 function fusionText(c){ return c && cardType(c) === "monster" && Array.isArray(c.fusion) && c.fusion.length ? `【融合】${c.fusion.map(fusionMatText).join("＋")}` : ""; }
-const spOptText = c => !c || (cardType(c) !== "magic" && cardType(c) !== "trap") ? "" : [c.strig ? "《S・トリガー》" : "", c.flashback && cardType(c) === "magic" ? "《フラッシュバック》" : "", +c.kick > 0 ? `《キッカー》（${+c.kick}）` : ""].join("");
+const spOptText = c => !c ? "" : [c.strig && cardType(c) !== "equip" ? "《S・トリガー》" : "", c.flashback && cardType(c) === "magic" ? "《フラッシュバック》" : "", (cardType(c) === "magic" || cardType(c) === "trap") && +c.kick > 0 ? `《キッカー》（${+c.kick}）` : ""].join("");
 function fxText(c, detail = false){ const t = fxTextB(c, detail), k = c ? (cascadeOn(c) ? "《続唱》" + (c.cascT === "monster" ? "（モンスター）" : c.cascT === "magic" ? "（魔法）" : "") : "") + glKw(c) + hfKw(c) + (c.innate ? "《天賦》" : "") + (c.retain ? "《保留》" : "") + (c.ethereal ? "《エセリアル》" : "") + (c.sly ? "《スライ》" : "") : ""; return k ? k + (t ? (detail ? "。\n" : "。") + t : "") : t; }
 function fxTextB(c, detail = false){ return (c && c.token && cardType(c) !== "monster" ? "【トークン】" : "") + (c && c.ex && cardType(c) !== "monster" ? "【EX】" : "") + (c && !c.noUse ? whenText(c) : "") + [fusionText(c) ? fusionText(c) + (isCf(c) ? "（自分の場の素材を墓地へ送れば、「融合」なしでEXデッキから出せる）" : "（「融合召喚」の効果でだけ出せる）") : "", sxText(c), twText(c), c && c.mland ? "【《土地》】発動できない。マナゾーンに置くと、置いたターンからマナとして使える（多色でもタップしない）" : c && c.noUse && (cardType(c) === "magic" || cardType(c) === "trap") ? "このカードは発動できない" : "", isPersist(c) ? "【永続】使ったあとも場に残る" : "", spOptText(c), isField(c) ? `【フィールド】お互いに1枚だけ場に置ける（新しいフィールドが出ると、前のフィールドは墓地へ）。${fieldMine(c) ? "効果は出した人にだけ効く" : "効果はお互いに効く"}` : "", extraCostText(c), costMechText(c), dmEvoText(c), mugText(c), revoText(c), tribText(c), massText(c), anySumText(c), atkCondText(c), ssText(c), fxText0(c, detail)].filter(Boolean).join(detail ? "。\n" : "。"); }
 /* ================= effect blocks: いつ / もし / なにを / ちがったら =================
@@ -3323,7 +3324,7 @@ function fxRowsHTML(c, noMeta, noIc){
     (b.conds.length ? b.else || [] : []).forEach(e => rows.push(row(one(e, "そうでなければ、"))));
   });
   if (c.anySum && t === "monster") rows.push(row({ name: c.anyDn || "どこからでも", ic: "spark", desc: "ターン開始時、質量が足りていればどこからでも召喚できる（してもしなくてもいい）" }));
-  const meta = [massOf(c) ? `要求質量 ${massOf(c)}` : "", t === "monster" ? fxAbsText(c) : t === "equip" ? eqText(c) : ""].filter(Boolean).join("　");
+  const meta = [c.strig && t !== "equip" ? "S・トリガー" : "", massOf(c) ? `要求質量 ${massOf(c)}` : "", t === "monster" ? fxAbsText(c) : t === "equip" ? eqText(c) : ""].filter(Boolean).join("　");
   return `${meta && !noMeta ? `<div class="fxr-meta">${kwLink(esc(meta))}</div>` : ""}<div class="fxrs">${rows.join("")}</div>`;
 }
 // 画像の枠: カードの frame → クラス名
@@ -4661,7 +4662,7 @@ function setMkType(t){
   { const ec = $("#editCard"); if (ec) ec.classList.toggle("land", t === "magic" && $("#mkField").checked && $("#mkLand").checked && !FR_CLS[$("#mkFrame").value] && $("#mkFrame").value !== "spire"); }
   $("#exhaustRow").hidden = (t !== "magic" && t !== "trap") || pers;
   $("#noUseRow").hidden = t !== "magic" && t !== "trap"; { const lr = $("#landRow"); if (lr) lr.hidden = t !== "magic"; }
-  $("#spOptRow").hidden = t !== "magic" && t !== "trap"; $("#flashLbl").hidden = t !== "magic";
+  $("#spOptRow").hidden = t !== "magic" && t !== "trap"; $("#flashLbl").hidden = t !== "magic"; $("#strigRow").hidden = t === "equip";
   syncWhenRow(); if (typeof absFilter === "function") absFilter();
   $("#mkTab").textContent = mkTabLabel();
   if (typeof syncCost === "function" && $("#mkCost").options.length) syncCost();
@@ -5006,7 +5007,7 @@ MK.easy = ls.get("cb_fxmode") !== "pro";
 function easyKinds(){ const ks = mkKinds(), e = ks.filter(isEasyKind); return e.length ? e : ks; }
 function syncProOn(){
   const on = (q, v) => { const el = $(q); if (el) el.classList.toggle("pro-on", !!v); };
-  { const c = mkPreviewCard(), tx = extraCostText(c).replace(/^【コスト】/, ""), el = $("#sumCost"); if (el){ el.textContent = tx || "なし"; el.classList.toggle("on", !!tx); } }
+  { const c = mkPreviewCard(), tx = [c.strig ? "S・トリガー" : "", extraCostText(c).replace(/^【コスト】/, "")].filter(Boolean).join("・"), el = $("#sumCost"); if (el){ el.textContent = tx || "なし"; el.classList.toggle("on", !!tx); } }
   on("#payRow", (+$("#mkPayLp").value || 0) || (+$("#mkPayDisc").value || 0) || $("#mkPayDiscAll").checked || (+$("#mkPayMax").value || 0) || (+$("#mkPayCtrN").value || 0) || (+$("#mkSbCost").value || 0) || $("#mkGz").checked || $("#mkDelve").checked || ($("#mkRevG") && $("#mkRevG").checked) || $("#mkRevo").checked || ($("#mkDmEvo") && $("#mkDmEvo").checked) || ($("#mkMug") && $("#mkMug").checked));
   on("#secAtk", (MK.atkConds || []).length);
   on("#secSs", (+$("#mkTrib").value || 0) || $("#ssOn").checked || $("#mkGl").checked);
@@ -5087,7 +5088,7 @@ const TRIG_HELP = { summon: "手札から召喚したとき（効果で出した
 const WHILE_NG_CONDS = ["used", "kicked"];
 const NO_LIM = ["summon", "ssummon", "enter", "destroyed", "evolve", "turnStart", "turnEnd", "use", "attach"];
 // フラッシュバック（魔法だけ）・S・トリガー・キッカー
-function mkSpOpts(){ const sp = MK.type === "magic" || MK.type === "trap", k = Math.max(0, Math.min(99, Math.round(+$("#mkKick").value || 0))); return { ...(sp && MK.type === "magic" && $("#mkFlash").checked ? { flashback: true } : {}), ...(sp && $("#mkStrig").checked ? { strig: true } : {}), ...(sp && k ? { kick: k } : {}) }; }
+function mkSpOpts(){ const sp = MK.type === "magic" || MK.type === "trap", k = Math.max(0, Math.min(99, Math.round(+$("#mkKick").value || 0))); return { ...(sp && MK.type === "magic" && $("#mkFlash").checked ? { flashback: true } : {}), ...(MK.kind !== "potion" && MK.kind !== "relic" && MK.type !== "equip" && $("#mkStrig").checked ? { strig: true } : {}), ...(sp && k ? { kick: k } : {}) }; }
 // 要求質量: モンスターは召喚のとき、フィールド魔法は発動のとき
 function mkMassVal(){ const v = id => Math.max(0, Math.min(40, Math.round(+$(id).value || 0))) || null; return MK.type === "monster" ? v("#mkMass") : MK.type === "magic" && $("#mkField").checked ? v("#mkFMass") : null; }
 function mkGlVal(){ if (MK.type !== "monster" || !$("#mkGl").checked) return null; const v = $("#mkGlSide").value; return { l: v !== "r", r: v !== "l", w: $("#mkGlW").value.trim().slice(0, 40) }; }
@@ -5457,7 +5458,7 @@ function syncSpOpt(){
   const rows = ["#quickRow", "#whenRow", "#fieldRow", "#fieldOpts", "#persistRow", "#exhaustRow", "#noUseRow", "#spOptRow"].map(q => $(q)).filter(Boolean);
   box.hidden = MK.kind === "potion" || MK.kind === "relic" || rows.every(r => r.hidden);
   const ck = q => { const e = $(q); return !!e && e.checked && !e.closest("[hidden]"); }, on = [];
-  [["#mkQuick", "速攻"], ["#mkField", "フィールド"], ["#mkPersist", "永続"], ["#mkExhaust", "廃棄"], ["#mkNoUse", "発動できない"], ["#mkFlash", "フラッシュバック"], ["#mkStrig", "S・トリガー"]].forEach(([q, l]) => { if (ck(q)) on.push(l); });
+  [["#mkQuick", "速攻"], ["#mkField", "フィールド"], ["#mkPersist", "永続"], ["#mkExhaust", "廃棄"], ["#mkNoUse", "発動できない"], ["#mkFlash", "フラッシュバック"]].forEach(([q, l]) => { if (ck(q)) on.push(l); });
   const k = +$("#mkKick").value || 0; if (k && !$("#spOptRow").hidden) on.push("キッカー" + k);
   const w = $("#mkWhen").value; if (w && !$("#whenRow").hidden && WHEN_LABEL[w]) on.push(WHEN_LABEL[w]);
   $("#secSpOptTitle").textContent = MK.type === "trap" ? "罠の細かい設定" : MK.type === "magic" ? "魔法の細かい設定" : "細かい設定";
@@ -8980,9 +8981,17 @@ function drain(st, s, i, y){ const m = P(st, s).mz[i]; if (!m || !(y > 0) || !is
 function sTrigger(st, s){
   const p = P(st, s), id = p.deck[0]; if (!id) return;
   const c = card(id), t = cardType(c);
-  if (!c || !c.strig || (t !== "magic" && t !== "trap") || c.noUse) return;
+  if (!c || !c.strig || (t !== "monster" && t !== "magic" && t !== "trap") || c.noUse) return;
   p.deck.shift(); log(st, s, `S・トリガー！ 山札の一番上の「${c.name}」をタダで発動！`);
-  if (useBlockedWhy(st, s, c)){ p.hand.push(id); log(st, s, `「${c.name}」はいま発動できないので手札に加えた`); return; }
+  if (t !== "monster" && useBlockedWhy(st, s, c)){ p.hand.push(id); log(st, s, `「${c.name}」はいま発動できないので手札に加えた`); return; }
+  if (t === "monster"){
+    const z = glZone(st, s, id);
+    if (z < 0){ p.hand.push(id); log(st, s, `モンスターゾーンがいっぱいなので「${c.name}」は手札に加えた`); return; }
+    countPlay(st, s, c);
+    // 通常の召喚回数やコストを使わず、召喚時の効果は共通のチェーン処理で解決する。
+    pushChain(st, s, id, { strig: true }, `S・トリガー「${c.name}」の召喚`, { summon: true, cast: false, z });
+    return;
+  }
   const keep = isPersist(c), pz = keep ? freeZone(p.sz) : -1;
   if (keep && pz < 0){ p.hand.push(id); log(st, s, `魔法・罠ゾーンがいっぱいなので「${c.name}」は手札に加えた`); return; }
   countPlay(st, s, c);
