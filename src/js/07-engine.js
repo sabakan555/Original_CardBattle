@@ -671,6 +671,7 @@ const jdOn = (st, s, i) => { const m = P(st, s).mz[i]; return !!m && hasAb(st, s
 function fxTargets(st, s, fx, ctx = {}){
   const opts = targetOptions(st, s, fx.kind, ctx); if (!opts || !opts.length || !mfOn(fx)) return opts;
   const TS = ctx.side === "me" ? s : O(s), t = (KINDS[fx.kind] || {}).target;
+  if (t === "grave") return opts.filter(id => mfCardOk(st, s, fx, id));
   return opts.filter(o => { const k = String(o); if (k === "p") return true; let side, i; const mm = k.match(/^(?:(a|b):)?(?:m:)?(\d+)$/); if (!mm) return true; side = mm[1] || (t === "mine" ? s : TS); i = +mm[2]; return mfOk(st, s, fx, P(st, side).mz[i]); });
 }
 function targetOptions(st, s, kind, ctx = {}){
@@ -1051,7 +1052,7 @@ function applyEffect(st, s, c, target, ctx = {}, fx = normFx(c)){
       const id = fx.ctr, d = fx.kind === "ctrDel" ? -n : n, cw = CTR_CW[fx.cw] ? fx.cw : "pick";
       if (!id || !n) break;
       if (cw === "self"){ const r = ctx.mon; if (r && monAt(st, r)) ctrMon(st, r.s, r.i, id, d, src, s); else log(st, s, `${src}：このモンスターが場にいない`); }
-      else if (cw === "pick"){ if (typeof target === "string" && target.startsWith("m:")) ctrMon(st, OS, +target.slice(2), id, d, src, s); }
+      else if (cw === "pick" || cw === "rand"){ if (typeof target === "string" && target.startsWith("m:")) ctrMon(st, OS, +target.slice(2), id, d, src, s); }
       else if (cw === "all"){ opT.mz.map(m => m && m.u).filter(u => u != null).forEach(u => { const i = opT.mz.findIndex(m => m && m.u === u); if (i >= 0) ctrMon(st, OS, i, id, d, src, s); }); }
       else ctrPl(st, OS, id, d, src, s);
       break;
@@ -1447,7 +1448,9 @@ function runEffect(st, s, c, ctx = {}, then, fx = normFx(c)){
   if (fx.kind === "giveAttr") ctx = { ...ctx, aw: GAT_W[fx.aw] ? fx.aw : "opp1" };
   if (fx.kind === "setCost") ctx = { ...ctx, sp: fx.sp === "pick" ? "pick" : "filter" };
   if (fx.kind === "removeBoard") ctx = { ...ctx, rside: RB_SIDE[fx.rside] ? fx.rside : "op" };
-  if (KINDS[fx.kind] && KINDS[fx.kind].ctr) ctx = { ...ctx, ctrPick: (CTR_CW[fx.cw] ? fx.cw : "pick") === "pick" };
+  if (KINDS[fx.kind] && KINDS[fx.kind].ctr){ const cw = CTR_CW[fx.cw] ? fx.cw : "pick"; ctx = { ...ctx, ctrPick: cw === "pick" || cw === "rand" };
+    // ランダムなモンスター: ○回くりかえして、そのたびにランダムに1体えらぶ
+    if (cw === "rand" && !fx.rand){ const one = { ...fx, rand: true }, go = (st2, r) => { if (r <= 0 || st2.winner){ then && then(st2); return; } runEffect(st2, s, c, ctx, st3 => go(st3, r - 1), one); }; go(st, Math.max(1, Math.min(10, Math.round(+fx.ctn || 1)))); return; } }
   if (KINDS[fx.kind] && KINDS[fx.kind].mod) ctx = { ...ctx, modPick: modT(fx).scope === "pick" };
   // 「○1つにつき、もう1回」: the hit is repeated (each one is a normal hit)
   if (fx.hits && fx.per){ const k = 1 + Math.max(0, perVal(st, s, c, fx, null, ctx)), one = { ...fx, per: null, hits: false }, go = (st2, r) => { if (r <= 0 || st2.winner){ then && then(st2); return; } runEffect(st2, s, c, ctx, st3 => go(st3, r - 1), one); }; go(st, Math.min(k, 30)); return; }

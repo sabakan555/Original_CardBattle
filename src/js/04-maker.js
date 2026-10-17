@@ -1195,6 +1195,7 @@ function bkEvent(e, rerenderOnInput){
   const sub = row.dataset.sub === "ge", x = sub ? (x0.ge = x0.ge || { kind: "draw", n: 1 }) : x0, put = o => { if (sub) x0.ge = o; else list[j] = o; };
   if (f === "g"){ const g = (MK.easy && kindGroups(easyKinds()).find(q => q.g === v)) || kindGroups(mkKinds()).find(q => q.g === v); if (g){ put(setG({ kind: g.v[0][0], n: defN(g.v[0][0]) }, g.g)); } return renderBlocksUI(); }
   if (f === "kind"){ put(setG({ kind: v, n: x.n != null && smallN(v) === smallN(x.kind) ? x.n : defN(v), to: x.to, ...(x.side ? { side: x.side } : {}), ...(x.tn ? { tn: x.tn } : {}), ...(x.times > 1 ? { times: x.times } : {}), ...(KINDS[v] && KINDS[v].name && x.into ? { into: x.into } : {}), ...(perOk(v) && x.per ? { per: x.per, pm: x.pm, hits: KINDS[v] && KINDS[v].n ? !!x.hits : true } : {}), ...(KINDS[v] && KINDS[v].mod && (x.ms || x.mt) ? { mt: x.mt, ms: x.ms, mpl: x.mpl, mc: x.mc, mn: x.mn, gk: x.gk, gn: x.gn, nm: x.nm, into: x.into, ge: x.ge } : {}) }, x._g)); return renderBlocksUI(); }
+  if (f === "ctn"){ x.ctn = Math.max(1, Math.min(10, Math.round(+v || 1))); return updateBkText(); }
   if (f === "ctr" || f === "cw" || f === "pctr" || f === "pcw" || f === "pattr" || f === "rside" || f === "rm"){ x[f] = v; return renderBlocksUI(); }
   if (f === "mfA"){ x.mfA = v; return updateBkText(); }
   if (f === "mfK" || f === "mfBy" || f === "mfOp"){ x[f] = v; if (f === "mfK" && v === "attr" && !x.mfA) x.mfA = "火"; if (f === "mfK" && !v){ delete x.mfBy; delete x.mfOp; delete x.mfN; } if (f === "mfBy") x.mfN = 0; return renderBlocksUI(); }

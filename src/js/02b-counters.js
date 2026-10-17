@@ -38,8 +38,8 @@ const ctrNm = id => { const d = ctrDef(id); return d ? d.name : "？"; };
 const ctrName = id => ctrNm(id) + "カウンター";
 const ctrDefault = () => ((S.counters || [])[0] || CTR_BUILTIN.dmg).id;
 // 効果「乗せる・取り除く」のどこに
-const CTR_CW = { self: "このモンスター", pick: "モンスター1体をえらぶ", all: "モンスターすべて", player: "プレイヤー" };
-function ctrWhereText(m){ const sd = m && m.side === "me" ? "自分" : "相手", cw = m && CTR_CW[m.cw] ? m.cw : "pick"; return cw === "self" ? "このモンスター" : cw === "pick" ? `${sd}のモンスター1体` : cw === "all" ? `${sd}のモンスターすべて` : sd; }
+const CTR_CW = { self: "このモンスター", pick: "モンスター1体をえらぶ", rand: "ランダムなモンスター", all: "モンスターすべて", player: "プレイヤー" };
+function ctrWhereText(m){ const sd = m && m.side === "me" ? "自分" : "相手", cw = m && CTR_CW[m.cw] ? m.cw : "pick"; const rn = Math.max(1, Math.min(10, Math.round(+(m && m.ctn) || 1))); return cw === "self" ? "このモンスター" : cw === "pick" ? `${sd}のモンスター1体` : cw === "rand" ? `${sd}のランダムなモンスター1体${rn > 1 ? `（${rn}回くりかえす）` : ""}` : cw === "all" ? `${sd}のモンスターすべて` : sd; }
 // もし・「1個につき」のどこの
 const CTR_AT = { self: "このモンスター", me: "自分", op: "相手", myAll: "自分のモンスター全部", opAll: "相手のモンスター全部" };
 const ctrAtText = w => CTR_AT[w] || CTR_AT.self;
@@ -361,6 +361,7 @@ function ctrEffUI(e, opt, wh){
   const mon = typeof MK !== "undefined" && (MK.type === "monster" || MK.type === "equip"); let cw = CTR_CW[e.cw] ? e.cw : wh ? "all" : "pick";
   if (wh && cw === "pick") cw = "all"; if (wh) e.cw = cw;
   return ctrSel("ctr", e.ctr) + `<select data-f="cw" aria-label="どこに">${Object.entries(CTR_CW).filter(([k]) => (k !== "self" || mon || cw === "self") && (!wh || k !== "pick")).map(([k, l]) => opt(k, l, cw)).join("")}</select>`
+    + (cw === "rand" ? `<input type="number" data-f="ctn" min="1" max="10" value="${esc(e.ctn || 1)}" aria-label="何回" style="width:60px"><span class="note">回</span>` : "")
     + (cw === "self" ? "" : `<select data-f="side" aria-label="自分か相手か">${opt("op", "相手", e.side === "me" ? "me" : "op")}${opt("me", "自分", e.side === "me" ? "me" : "op")}</select>`);
 }
 const ctrAtSel = (f, cur, opt) => `<select data-f="${f}" aria-label="どこの">${Object.entries(CTR_AT).map(([k, l]) => opt(k, l + "の", cur || "self")).join("")}</select>`;
