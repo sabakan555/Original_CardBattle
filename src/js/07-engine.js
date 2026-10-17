@@ -5,12 +5,14 @@ const card = id => S.cards.get(id) || modCardOf(id) || twCardOf(id) || { id, nam
 // ツインパクト: モンスターの c.tw = { name, cost, blocks } が魔法側。魔法側は「id~tw」の魔法カードとして扱う
 function twOf(c){ return c && c.tw && typeof c.tw === "object" && !c.twOf && cardType(c) === "monster" ? c.tw : null; }
 function twBase(id){ return String(id || "").endsWith("~tw") ? String(id).slice(0, -3) : id; }
+// 魔法側のカードを作る（作りかけのカードのプレビューでも使う）
+function twBuild(b, k){ const t = twOf(b); if (!t) return null; return { ...b, id: k, type: "magic", name: t.name || (b.name ? `${b.name}（魔法）` : "？"), nameRuby: null, cost: t.cost != null && t.cost !== "" ? t.cost : b.cost, blocks: Array.isArray(t.blocks) ? t.blocks : [], fx: null, combo: null, abs: [], atk: 0, atkInf: false, effect: t.effect || "", tw: null, twOf: b.id, sx: null, fusion: null, fusFree: null, ex: null, mass: 0, trib: 0, lvTrib: false, ss: null, cascade: b.cascade || null }; }
 function twCardOf(id){
   const TW_CACHE = twCardOf.cache || (twCardOf.cache = new Map());
   const k = String(id || ""); if (!k.endsWith("~tw")) return null;
   const b = S.cards.get(k.slice(0, -3)), t = b && twOf(b); if (!t) return null;
   const hit = TW_CACHE.get(k); if (hit && hit.b === b) return hit.v;
-  const v = { ...b, id: k, type: "magic", name: t.name || `${b.name}（魔法）`, nameRuby: null, cost: t.cost != null && t.cost !== "" ? t.cost : b.cost, blocks: Array.isArray(t.blocks) ? t.blocks : [], fx: null, combo: null, abs: [], atk: 0, atkInf: false, effect: t.effect || "", tw: null, twOf: b.id, sx: null, fusion: null, fusFree: null, ex: null, mass: 0, trib: 0, lvTrib: false, ss: null, cascade: b.cascade || null };
+  const v = twBuild(b, k);
   TW_CACHE.set(k, { b, v }); return v;
 }
 const hasCard = id => S.cards.has(id) || !!modCardOf(id);

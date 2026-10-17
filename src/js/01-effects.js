@@ -526,7 +526,7 @@ function sxMatText(y, t){
   if (y.m === "tag") return y.v === "チューナー" ? "《チューナー》" : `タグ「${y.v}」のモンスター`;
   return `「${y.v}」`;
 }
-function twText(c){ const t = twOf(c); if (!t) return ""; const v = card(c.id + "~tw"); return `【《ツインパクト》】魔法「${v.name}」${hasCost(v) ? `（コスト${costLabel(v)}）` : ""}：${fxTextB(v) || "効果なし"}（手札から、モンスターとして出すか魔法として使うか選べる。魔法として使ったあとは墓地へ）`; }
+function twText(c){ const t = twOf(c); if (!t) return ""; const v = (c.id && S.cards.get(c.id) === c ? card(c.id + "~tw") : twBuild(c, (c.id || "new") + "~tw")) || {}; return `【《ツインパクト》】魔法「${v.name}」${hasCost(v) ? `（コスト${costLabel(v)}）` : ""}：${fxTextB(v) || "効果なし"}（手札から、モンスターとして出すか魔法として使うか選べる。魔法として使ったあとは墓地へ）`; }
 function sxText(c){
   const x = sxOf(c); if (!x) return ""; const lv = lvOf(c) || "？";
   if (x.k === "syn") return `【《シンクロ》】${sxMatText(x.t)}＋${sxMatText(x.o, x.t)}1体以上（自分の場の素材を墓地へ送り、レベルの合計が${lv}ならEXデッキからシンクロ召喚できる）`;
