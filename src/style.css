@@ -1452,11 +1452,18 @@ div.f{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:13px}
 .card.dm .c-name{position:absolute;left:calc(var(--du)*128);top:calc(var(--du)*38);width:calc(var(--du)*472);height:calc(var(--du)*72);padding:0!important;border:none!important;background:none;display:flex;align-items:center;justify-content:center;line-height:1!important;font-weight:700;letter-spacing:-.02em;color:#000;z-index:3;white-space:nowrap;overflow:hidden}
 .card.dm .c-name{font-size:calc(var(--du)*44*var(--nk,1))}
 .card.dm .m-nm{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
-/* ルビの上側も名前欄の内側に確保する。タグ併用時は3段が72単位に収まる大きさにする。 */
-.card.dm .m-nm:has(ruby){padding-top:.8em;flex:none;font-size:min(calc(var(--du)*34*var(--nk,1)),calc(var(--du)*34));line-height:1.2}
-.card.dm .c-name.has-tr:has(ruby){padding-top:0!important}
-.card.dm .c-name.has-tr>.m-nm:has(ruby){font-size:min(calc(var(--du)*24*var(--nk,1)),calc(var(--du)*24));line-height:1.1}
-.card.dm .c-name.has-tr:has(ruby)>.c-tribe-n{flex:none;margin-top:0;font-size:min(calc(var(--du)*19),calc(var(--du)*455/var(--trn,1)));line-height:1.15}
+/* デュエマ風のルビ: 本物のカードみたいに文字の上にかぶせる。
+   ルビをふつうの段組みにすると、ルビが長いとき漢字の間が開いてしまうので、ルビだけ浮かせる。 */
+.card.dm .m-nm ruby{position:relative}
+.card.dm .m-nm rt{position:absolute;left:50%;bottom:100%;transform:translateX(-50%);margin-bottom:.06em;font-size:.4em;line-height:1;font-weight:500;letter-spacing:0;white-space:nowrap}
+/* ルビの分の上の余白だけ、名前欄の内側に取っておく */
+.card.dm .m-nm:has(ruby){padding-top:.42em;flex:none;font-size:min(calc(var(--du)*38*var(--nk,1)),calc(var(--du)*40));line-height:1.05}
+.card.dm .c-name.has-tr:has(ruby){justify-content:center;padding-top:0!important}
+/* ルビ＋種族の3段: ルビ(小)・名前(大)・種族(右寄せ)を72単位に収める。名前は縮めすぎない */
+.card.dm .c-name.has-tr>.m-nm:has(ruby){font-size:min(calc(var(--du)*32*var(--nk,1)),calc(var(--du)*34));line-height:1.05}
+/* 種族: 文字は小さくしすぎず、長いときは横につぶして1行に収める（本物のデュエマと同じやり方） */
+.card.dm .c-name.has-tr>.c-tribe-n{--trw:calc(var(--du)*17*var(--trn,1));flex:none;align-self:flex-end;width:var(--trw);max-width:none;margin-top:calc(var(--du)*3);padding-right:calc(var(--du)*4);box-sizing:content-box;font-size:calc(var(--du)*17);line-height:1.15;text-overflow:clip;transform:scaleX(min(1,calc(455/(17*var(--trn,1)))));transform-origin:right center}
+.card.dm .c-name.has-tr:has(ruby)>.c-tribe-n{margin-top:calc(var(--du)*1)}
 .card.dm .c-cost,.card.dm .c-atk{font-family:"DMNum",var(--en,var(--ui));font-weight:400;color:#fff;text-shadow:calc(var(--du)*2) calc(var(--du)*2) 0 #000;letter-spacing:calc(var(--du)*4);font-variant-numeric:normal}
 .card.dm .c-cost{position:absolute;left:calc(var(--du)*22);top:calc(var(--du)*30);right:auto;width:calc(var(--du)*78);height:calc(var(--du)*62);padding:0;border:none;border-radius:0;background:none;box-shadow:none;display:grid;place-items:center;font-size:calc(var(--du)*50);line-height:1;z-index:3}
 .card.dm .c-text{position:absolute;left:calc(var(--du)*70);top:calc(var(--du)*603);width:calc(var(--du)*490);height:calc(var(--du)*192);border:none;background:none;box-shadow:none;padding:0;font-family:var(--cf,"GenJyuuGothic","Zen Maru Gothic",var(--ui));font-weight:400;font-size:calc(var(--du)*21*var(--tk,1));line-height:1.38;color:#000;overflow:visible;min-height:0;z-index:3;display:block}
