@@ -208,7 +208,7 @@ function absNA(l){
   const i = l.querySelector("input[type=checkbox]"), id = i && i.id, t = MK.type;
   if (id === "mkCascade" || id === "mkHf") return t !== "monster" && t !== "magic";
   if (id === "mkSly") return t !== "magic" && t !== "trap";
-  if (id === "mkInnate" || id === "mkRetain" || id === "mkEthereal") return !mkSpireOn();
+  if (id === "mkRetain") return !mkSpireOn();
   return false;
 }
 function absFilter(){

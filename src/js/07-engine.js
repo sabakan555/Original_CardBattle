@@ -2180,6 +2180,27 @@ function revoSwap(st, s, i, hj, then){
   const L = monTrigList(st, s, i, "summon").filter(x => hasTrig(x.c, "summon") || hasTrig(x.c, "enter"));
   if (L.length) runList(st, L, then); else then && then(st);
 }
+// 侵略: 攻撃しているモンスターに合う、手札の侵略カード（その時点の一番上のカードで判定するので、侵略した上にさらに侵略できる）
+function invHit(st, s, i, v){ const m = P(st, s).mz[i]; if (!m || !v) return false; if (v.attr && !monAttrs(m).includes(v.attr)) return false; return v.match === "any" || revoHit(card(m.c), v); }
+function invCands(st, s, from){ const p = P(st, s), m = p.mz[from]; if (!m || m.cp || hiddenMon(st, s, from)) return []; return p.hand.map((id, j) => j).filter(j => { const v = invOf(card(p.hand[j])); return v && invHit(st, s, from, v); }); }
+function invPut(st, s, i, hj, then){
+  const p = P(st, s), m = p.mz[i], id = p.hand[hj]; if (!m || !id){ then && then(st); return; }
+  p.hand.splice(hj, 1); const was = card(m.c).name, nm = evoPut(st, s, i, id); if (!nm){ p.hand.push(id); then && then(st); return; }
+  nm.revealed = true;
+  log(st, s, `侵略！「${was}」の上に「${card(id).name}」を重ねた`); ev(st, { type: "summon", s, z: i });
+  const L = monTrigList(st, s, i, "summon").filter(x => hasTrig(x.c, "summon") || hasTrig(x.c, "enter"));
+  if (L.length) runList(st, L, then); else then && then(st);
+}
+// CPU: いまより強くなるなら侵略する
+function invAuto(st, s, from){ const p = P(st, s), m = p.mz[from], L = invCands(st, s, from).filter(j => cmpNum(baseAtk(card(p.hand[j])), atkOf(m)) > 0).sort((a, b) => cmpNum(baseAtk(card(p.hand[b])), baseAtk(card(p.hand[a])))); return L.length ? L[0] : -1; }
+// 攻撃するときの侵略（できるかぎり何回でも）。終わったら攻撃を続ける
+function invStep(st, s, from, cont){
+  if (st.winner || !st.pending || st.pending.type !== "attack" || st.pending.by !== s || st.pending.from !== from){ cont(st); return; }
+  const ic = invCands(st, s, from); if (!ic.length){ cont(st); return; }
+  const m = P(st, s).mz[from], again = st2 => invStep(st2, s, from, cont);
+  if (isHumanHere(s)){ const p = P(st, s); G.chooseQ.push({ ask: true, s, c: card(m.c), fx: { kind: "__block", ask: "侵略する？（手札のカードを攻撃中のモンスターの上に重ねて、そのまま攻撃する）" }, ctx: {}, then: null, pick1: [...ic.map(j => ({ name: card(p.hand[j]).name, text: `ATK ${fmtN(baseAtk(card(p.hand[j])))}・「${card(m.c).name}」の上に重ねる` })), { name: "しない", text: "このまま攻撃する" }], p1go: (st2, k) => { if (k < ic.length) invPut(st2, s, from, ic[k], again); else cont(st2); } }); return; }
+  const j = invAuto(st, s, from); if (j >= 0) invPut(st, s, from, j, again); else cont(st);
+}
 // CPU: いまより強いものに入れかえる
 function revoAuto(st, s, from){ const p = P(st, s), m = p.mz[from], L = revoCands(st, s, from).filter(j => cmpNum(baseAtk(card(p.hand[j])), atkOf(m)) > 0).sort((a, b) => cmpNum(baseAtk(card(p.hand[b])), baseAtk(card(p.hand[a])))); return L.length ? L[0] : -1; }
 
@@ -2218,10 +2239,11 @@ function declareAttack(st, s, from, to, noRevo){
   st.pending = { type: "attack", by: s, from, to, wait: false };
   // 革命チェンジ: 攻撃するモンスターと手札のカードを入れかえる（「攻撃するとき」より先）
   if (!noRevo){ const rc = revoCands(st, s, from); if (rc.length){
-    const cont = st2 => attackGo(st2, s, from);
+    const cont = st2 => invStep(st2, s, from, st3 => attackGo(st3, s, from));
     if (isHumanHere(s)){ const p = P(st, s); G.chooseQ.push({ ask: true, s, c: card(m.c), fx: { kind: "__block", ask: "革命チェンジする？（手札のカードと入れかえて、そのまま攻撃する）" }, ctx: {}, then: null, pick1: [...rc.map(j => ({ name: card(p.hand[j]).name, text: `ATK ${fmtN(baseAtk(card(p.hand[j])))}・「${card(m.c).name}」は手札にもどる` })), { name: "しない", text: "このまま攻撃する" }], p1go: (st2, k) => { if (k < rc.length) revoSwap(st2, s, from, rc[k], cont); else cont(st2); } }); return true; }
-    const j = revoAuto(st, s, from); if (j >= 0){ revoSwap(st, s, from, j, st2 => attackGo(st2, s, from)); return true; }
+    const j = revoAuto(st, s, from); if (j >= 0){ revoSwap(st, s, from, j, cont); return true; }
   } }
+  if (!noRevo && invCands(st, s, from).length){ invStep(st, s, from, st2 => attackGo(st2, s, from)); return true; }
   attackGo(st, s, from);
   return true;
 }
