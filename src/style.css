@@ -1590,3 +1590,10 @@ div.f{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:13px}
 .card.compact-head .c-bgart{top:calc(var(--w)*.19)}
 
 .tcol-row{gap:6px;align-items:center}.tcol-sw{width:26px;height:26px;padding:0;border-radius:50%;background:var(--sw);border:2px solid rgba(127,127,127,.55);cursor:pointer;flex:none}.tcol-sw:hover{transform:scale(1.1)}#mkTcolPick{width:36px;height:28px;padding:0;border:none;background:none}
+.tfoil{-webkit-background-clip:text;background-clip:text;color:transparent!important;-webkit-text-fill-color:transparent;-webkit-text-stroke:0;filter:drop-shadow(0 0 .5px rgba(0,0,0,.8))}
+.tfoil-gold{background-image:linear-gradient(100deg,#7a5410 0%,#e9c55a 22%,#fff3b8 34%,#c9952a 48%,#f6dc7a 62%,#8a6114 80%,#e9c55a 100%)}
+.tfoil-silver{background-image:linear-gradient(100deg,#5d6670 0%,#cfd6dd 22%,#ffffff 34%,#9aa4ae 48%,#e4e9ee 62%,#636c76 80%,#cfd6dd 100%)}
+.tfoil-bronze{background-image:linear-gradient(100deg,#5a2e12 0%,#c27a45 22%,#f2c39a 34%,#9a5528 48%,#d99a66 62%,#5f3416 80%,#c27a45 100%)}
+.tfoil-rainbow{background-image:linear-gradient(100deg,#e5367a,#f0a020,#3cc78a,#2f8de4,#9b4de0,#e5367a);background-size:200% 100%;animation:foilRun 5s linear infinite}
+.tcol-sw.tfoil-sw{-webkit-background-clip:border-box;background-clip:border-box;color:#1e2328!important;-webkit-text-fill-color:#1e2328;font:700 11px/1 var(--ui);filter:none;display:grid;place-items:center}
+@media (prefers-reduced-motion:reduce){.tfoil-rainbow{animation:none!important}}

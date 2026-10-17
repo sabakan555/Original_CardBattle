@@ -384,11 +384,15 @@ const fontCss = c => FONTS[c && c.font] ? FONTS[c.font].css : "";
 const SIZES_T = { s: { label: "小さめ", k: .82 }, m: { label: "ふつう", k: 1 }, l: { label: "大きめ", k: 1.2 } };
 const sizeK = v => (SIZES_T[v] || SIZES_T.m).k;
 // furigana: ｜漢字《かんじ》, or just 漢字《かんじ》 right after kanji
-// 文字の色: [#d8382b]赤い文字[/]（[/] がなければ文の最後まで）。改行はそのままカードでも改行になる
-const COLOR_RE = /\[#([0-9a-fA-F]{6}|[0-9a-fA-F]{3})\]/g;
+// 文字の色: [#d8382b]赤い文字[/]、箔は [金]…[/]・[銀]・[銅]・[虹]（[/] がなければ文の最後まで）。改行はそのままカードでも改行になる
+const TFOIL = { "金": "gold", "銀": "silver", "銅": "bronze", "虹": "rainbow" };
+const FOIL_TAG = { gold: "金", silver: "銀", bronze: "銅", rainbow: "虹" };
+const COLOR_RE = /\[(?:#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{3})|[金銀銅虹])\]/g;
+// 前の「名前の箔」（カード全体の foil）を、名前の文字の [金]…[/] に置きかえる
+const foilName = (nm, foil) => FOIL_TAG[foil] && !/\[(?:#[0-9a-fA-F]{3,6}|[金銀銅虹])\]/.test(nm) ? `[${FOIL_TAG[foil]}]${nm}[/]` : nm;
 function colorHTML(h){
   let open = 0;
-  h = h.replace(/\[#([0-9a-fA-F]{6}|[0-9a-fA-F]{3})\]|\[\/\]/g, (m, col) => { if (col){ open++; return `<span class="tcol" style="color:#${col}">`; } if (!open) return ""; open--; return "</span>"; });
+  h = h.replace(/\[#([0-9a-fA-F]{6}|[0-9a-fA-F]{3})\]|\[([金銀銅虹])\]|\[\/\]/g, (m, col, fo) => { if (col){ open++; return `<span class="tcol" style="color:#${col}">`; } if (fo){ open++; return `<span class="tfoil tfoil-${TFOIL[fo]}">`; } if (!open) return ""; open--; return "</span>"; });
   return h + "</span>".repeat(open);
 }
 function rubyHTML(t){

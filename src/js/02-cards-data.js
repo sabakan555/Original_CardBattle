@@ -204,7 +204,7 @@ function rebuildCards(){
   applyBuiltinEdits();
   // ポーション (カード以外) live in the cards collection too, but never act as cards
   const allU = S.userCards || []; S.userPotions = allU.filter(c => c && c.type === "potion"); S.userRelics = allU.filter(c => c && c.type === "relic"); S.userCards = allU.filter(c => !(c && (c.type === "potion" || c.type === "relic")));
-  S.userCards.forEach(c => { if (c && c.nameRuby == null && /《/.test(c.name || "")){ c.nameRuby = c.name; c.name = plainRuby(c.name); } });
+  S.userCards.forEach(c => { if (c && c.nameRuby == null && /《|\[(?:#[0-9a-fA-F]{3,6}|[金銀銅虹])\]|\[\/\]/.test(c.name || "")){ c.nameRuby = c.name; c.name = plainRuby(c.name); } });
   S.cards = new Map([...S.starters, ...(S.hiddenBase || []), ...S.userCards, ...skinVariants([...S.starters, ...S.userCards])].map(c => [c.id, c]));
   rebuildOwned();
   rebuildCtrEmb();
@@ -328,12 +328,12 @@ function cardHTML(c, cls = "", attrs = "", opts = {}){
   if (!fr && c && !c.potionView && !c.relicView && c.frame !== "spire" && c.frame !== "socra") {
     const name = rubyHTML(c.nameRuby || c.name || "");
     const units = text => [...text].reduce((n, ch) => n + (/^[\x00-\x7f]$/.test(ch) ? .6 : 1), 0);
-    let titleUnits = 0, end = 0;
-    for (const m of name.matchAll(/<ruby>(.*?)<rt>(.*?)<\/rt><\/ruby>/g)) {
-      titleUnits += units(name.slice(end, m.index)) + Math.max(units(m[1]), units(m[2]) * .4);
+    let titleUnits = 0, end = 0; const nameU = name.replace(/<\/?span[^>]*>|<br>/g, "").replace(/&(amp|lt|gt|quot|#39);/g, "_");
+    for (const m of nameU.matchAll(/<ruby>(.*?)<rt>(.*?)<\/rt><\/ruby>/g)) {
+      titleUnits += units(nameU.slice(end, m.index)) + Math.max(units(m[1]), units(m[2]) * .4);
       end = m.index + m[0].length;
     }
-    titleUnits += units(name.slice(end));
+    titleUnits += units(nameU.slice(end));
     h = h.replace(/^<div class="card /, '<div class="card compact-head ')
       .replace(/<div class="c-name( has-tr)?">([\s\S]*?)<\/div><div class="c-art">/, (_, tr, body) =>
         `<div class="c-name${tr || ""}" style="--title-units:${Math.max(1, titleUnits)}">${tr ? body : `<span class="c-nm1">${body}</span>`}</div><div class="c-art">`);
