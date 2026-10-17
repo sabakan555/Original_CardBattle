@@ -645,8 +645,8 @@ function renderDetail(info, anim){
   if (info.abs && info.abs.length) rows.push(["装備でついた能力", info.abs.join("／")]);
   if (info.gab && info.gab.length) rows.push(["効果でついた能力", info.gab.join("／")]);
   if (ft) rows.push([freeText(c) ? "本来の効果" : "自動の効果", ft]);
-  if (c.effect) rows.push([ft || monAbsText(c) || (t === "equip" && eqText(c)) ? "カードの文" : "効果", plainRuby(c.effect)]);
-  if (c.flavor) rows.push(["フレーバー", plainRuby(c.flavor)]);
+  if (c.effect) rows.push([ft || monAbsText(c) || (t === "equip" && eqText(c)) ? "カードの文" : "効果", plainRuby(c.effect), rubyHTML(c.effect)]);
+  if (c.flavor) rows.push(["フレーバー", plainRuby(c.flavor), rubyHTML(c.flavor)]);
   if (t === "monster" && monAbsText(c)) rows.push(["能力（もとから）", monAbsText(c)]);
   if (!ft && !c.effect && t !== "equip" && !absOf(c).length) rows.push(["効果", "なし"]);
   if (c.modded && c.modOf) rows.push(["書きかえ", `もとのカードは「${card(c.modOf).name}」`]);

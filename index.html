@@ -1600,6 +1600,8 @@ div.f{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:13px}
 .card.compact-head .c-name>.c-tribe-n{flex:none;max-width:100%;font-size:min(calc(var(--w)*.03),calc(var(--w)*.66/var(--trn,1)));line-height:1.15;text-align:center;margin-top:calc(var(--w)*.004);opacity:1}
 .card.compact-head .c-cost{box-sizing:border-box;width:calc(var(--w)*.183);height:calc(var(--w)*.19);padding:0;font-size:calc(var(--w)*.105)}
 .card.compact-head .c-bgart{top:calc(var(--w)*.19)}
+
+.tcol-row{gap:6px;align-items:center}.tcol-sw{width:26px;height:26px;padding:0;border-radius:50%;background:var(--sw);border:2px solid rgba(127,127,127,.55);cursor:pointer;flex:none}.tcol-sw:hover{transform:scale(1.1)}#mkTcolPick{width:36px;height:28px;padding:0;border:none;background:none}
 </style>
 <style>html,body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
 </head>
@@ -1762,6 +1764,7 @@ div.f{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:13px}
           <details class="f font-pick" id="fontPick"><summary>文字のフォント：<span id="fontCur" class="font-cur"></span><span class="note">（押して変える）</span></summary><select id="mkFont" aria-label="カードのフォント" hidden></select><div id="fontGrid" class="font-grid" role="radiogroup" aria-label="カードのフォント"></div></details>
           <div><h3>文字の大きさ</h3><div class="row"><label class="f" style="flex-direction:row;align-items:center;gap:6px">名前<select id="mkNameSize"></select></label><label class="f" style="flex-direction:row;align-items:center;gap:6px">効果・フレーバー<select id="mkTextSize"></select></label></div></div>
           <div><h3>ふりがな</h3><div class="row"><button class="small" id="mkRuby" type="button">ふりがなをつける</button><span class="note">漢字をえらんで押すと ｜漢字《》 になるので、《》の中に読みを入れてね</span></div><div class="ruby-prev" id="rubyPrev" hidden></div></div>
+          <div><h3>文字の色</h3><div class="row tcol-row" id="mkTcol"><button type="button" class="tcol-sw" data-tcol="#d8382b" style="--sw:#d8382b" aria-label="赤"></button><button type="button" class="tcol-sw" data-tcol="#2f7fd6" style="--sw:#2f7fd6" aria-label="青"></button><button type="button" class="tcol-sw" data-tcol="#3b9a43" style="--sw:#3b9a43" aria-label="緑"></button><button type="button" class="tcol-sw" data-tcol="#e8a317" style="--sw:#e8a317" aria-label="黄"></button><button type="button" class="tcol-sw" data-tcol="#8e44ad" style="--sw:#8e44ad" aria-label="紫"></button><button type="button" class="tcol-sw" data-tcol="#ffffff" style="--sw:#ffffff" aria-label="白"></button><button type="button" class="tcol-sw" data-tcol="#1e2328" style="--sw:#1e2328" aria-label="黒"></button><input type="color" id="mkTcolPick" value="#d8382b" aria-label="好きな色"><button type="button" class="small" id="mkTcolGo">この色にする</button><button type="button" class="small ghost" id="mkTcolOff">色を外す</button></div><p class="note" style="margin:4px 0 0">効果の文・フレーバーで、色を変えたい文字をえらんで色を押すと [#色]文字[/] になる。改行（Enter）もそのままカードに出るよ</p></div>
         </div>
 
         <div class="mk-pane" data-pane="fx" hidden>
@@ -2552,11 +2555,18 @@ const fontCss = c => FONTS[c && c.font] ? FONTS[c.font].css : "";
 const SIZES_T = { s: { label: "小さめ", k: .82 }, m: { label: "ふつう", k: 1 }, l: { label: "大きめ", k: 1.2 } };
 const sizeK = v => (SIZES_T[v] || SIZES_T.m).k;
 // furigana: ｜漢字《かんじ》, or just 漢字《かんじ》 right after kanji
-function rubyHTML(t){
-  return esc(t).replace(/[｜|]([^｜|《》\n]+?)《([^《》\n]*?)》/g, "<ruby>$1<rt>$2</rt></ruby>")
-    .replace(/([\u3400-\u9FFF\uF900-\uFAFF々〆ヵヶ]+)《([^《》\n]*?)》/g, "<ruby>$1<rt>$2</rt></ruby>");
+// 文字の色: [#d8382b]赤い文字[/]（[/] がなければ文の最後まで）。改行はそのままカードでも改行になる
+const COLOR_RE = /\[#([0-9a-fA-F]{6}|[0-9a-fA-F]{3})\]/g;
+function colorHTML(h){
+  let open = 0;
+  h = h.replace(/\[#([0-9a-fA-F]{6}|[0-9a-fA-F]{3})\]|\[\/\]/g, (m, col) => { if (col){ open++; return `<span class="tcol" style="color:#${col}">`; } if (!open) return ""; open--; return "</span>"; });
+  return h + "</span>".repeat(open);
 }
-const plainRuby = t => String(t || "").replace(/[｜|]([^｜|《》\n]+?)《[^《》\n]*?》/g, "$1").replace(/《[^《》\n]*?》/g, "");
+function rubyHTML(t){
+  return colorHTML(esc(t).replace(/[｜|]([^｜|《》\n]+?)《([^《》\n]*?)》/g, "<ruby>$1<rt>$2</rt></ruby>")
+    .replace(/([\u3400-\u9FFF\uF900-\uFAFF々〆ヵヶ]+)《([^《》\n]*?)》/g, "<ruby>$1<rt>$2</rt></ruby>")).replace(/\r?\n/g, "<br>");
+}
+const plainRuby = t => String(t || "").replace(/[｜|]([^｜|《》\n]+?)《[^《》\n]*?》/g, "$1").replace(/《[^《》\n]*?》/g, "").replace(COLOR_RE, "").replace(/\[\/\]/g, "");
 const cardType = c => (c && (c.type === "magic" || c.type === "trap" || c.type === "equip")) ? c.type : "monster";
 const MAX_MANA = 10;
 // cost is only what the card's creator set; no cost means 0
@@ -4651,7 +4661,7 @@ $("#mkNameSize").value = $("#mkTextSize").value = "m";
 function syncSizes(){ const ec = $("#editCard"); ec.style.setProperty("--nk", sizeK($("#mkNameSize").value)); ec.style.setProperty("--tk", sizeK($("#mkTextSize").value)); syncRubyPrev(); }
 $("#mkNameSize").addEventListener("change", syncSizes); $("#mkTextSize").addEventListener("change", syncSizes);
 function syncRubyPrev(){
-  const parts = [["名前", $("#mkName").value], ["効果", $("#mkEff").value], ["フレーバー", $("#mkFlv").value]].filter(([, v]) => /《/.test(v));
+  const parts = [["名前", $("#mkName").value], ["効果", $("#mkEff").value], ["フレーバー", $("#mkFlv").value]].filter(([, v]) => /《|\n|\[#[0-9a-fA-F]{3,6}\]/.test(v));
   const box = $("#rubyPrev"); box.hidden = !parts.length;
   box.innerHTML = parts.map(([k, v]) => `<div><span class="note">${k}：</span>${rubyHTML(v)}</div>`).join("");
 }
@@ -4664,6 +4674,23 @@ $("#mkRuby").addEventListener("click", () => {
   el.setRangeText(ins, a, b, "end");
   const caret = sel ? a + ins.length - 1 : a + 1; // inside 《》, or where the kanji goes
   el.focus(); el.setSelectionRange(caret, caret); syncRubyPrev();
+});
+// 文字の色: えらんだ文字を [#色]…[/] でかこむ（「色を外す」はえらんだところの色の印を消す）
+function tcolWrap(col){
+  const el = rubyField && rubyField !== $("#mkName") ? rubyField : $("#mkEff"); const a = el.selectionStart ?? el.value.length, b = el.selectionEnd ?? a;
+  const sel = el.value.slice(a, b), ins = `[${col}]${sel}[/]`;
+  el.setRangeText(ins, a, b, "end");
+  const caret = sel ? a + ins.length : a + col.length + 2;
+  el.focus(); el.setSelectionRange(caret, caret); el.dispatchEvent(new Event("input", { bubbles: true }));
+}
+$("#mkTcol").addEventListener("mousedown", e => { if (e.target.closest("button")) e.preventDefault(); }); // keep the text selection
+$("#mkTcol").addEventListener("click", e => {
+  const sw = e.target.closest("[data-tcol]"); if (sw) return tcolWrap(sw.dataset.tcol);
+  if (e.target.closest("#mkTcolGo")) return tcolWrap($("#mkTcolPick").value);
+  if (e.target.closest("#mkTcolOff")){
+    const el = rubyField && rubyField !== $("#mkName") ? rubyField : $("#mkEff"); let a = el.selectionStart ?? 0, b = el.selectionEnd ?? el.value.length; if (a === b){ a = 0; b = el.value.length; }
+    const out = el.value.slice(a, b).replace(COLOR_RE, "").replace(/\[\/\]/g, ""); el.setRangeText(out, a, b, "select"); el.focus(); el.dispatchEvent(new Event("input", { bubbles: true }));
+  }
 });
 $("#mkInf").addEventListener("click", () => { $("#mkAtk").value = $("#mkAtk").value.trim() === "∞" ? "300" : "∞"; });
 $("#fxCond").innerHTML = Object.entries(CONDS).map(([k, v]) => `<option value="${k}">${v.label}</option>`).join("");
@@ -9918,8 +9945,8 @@ function renderDetail(info, anim){
   if (info.abs && info.abs.length) rows.push(["装備でついた能力", info.abs.join("／")]);
   if (info.gab && info.gab.length) rows.push(["効果でついた能力", info.gab.join("／")]);
   if (ft) rows.push([freeText(c) ? "本来の効果" : "自動の効果", ft]);
-  if (c.effect) rows.push([ft || monAbsText(c) || (t === "equip" && eqText(c)) ? "カードの文" : "効果", plainRuby(c.effect)]);
-  if (c.flavor) rows.push(["フレーバー", plainRuby(c.flavor)]);
+  if (c.effect) rows.push([ft || monAbsText(c) || (t === "equip" && eqText(c)) ? "カードの文" : "効果", plainRuby(c.effect), rubyHTML(c.effect)]);
+  if (c.flavor) rows.push(["フレーバー", plainRuby(c.flavor), rubyHTML(c.flavor)]);
   if (t === "monster" && monAbsText(c)) rows.push(["能力（もとから）", monAbsText(c)]);
   if (!ft && !c.effect && t !== "equip" && !absOf(c).length) rows.push(["効果", "なし"]);
   if (c.modded && c.modOf) rows.push(["書きかえ", `もとのカードは「${card(c.modOf).name}」`]);

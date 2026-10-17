@@ -315,7 +315,7 @@ $("#mkNameSize").value = $("#mkTextSize").value = "m";
 function syncSizes(){ const ec = $("#editCard"); ec.style.setProperty("--nk", sizeK($("#mkNameSize").value)); ec.style.setProperty("--tk", sizeK($("#mkTextSize").value)); syncRubyPrev(); }
 $("#mkNameSize").addEventListener("change", syncSizes); $("#mkTextSize").addEventListener("change", syncSizes);
 function syncRubyPrev(){
-  const parts = [["名前", $("#mkName").value], ["効果", $("#mkEff").value], ["フレーバー", $("#mkFlv").value]].filter(([, v]) => /《/.test(v));
+  const parts = [["名前", $("#mkName").value], ["効果", $("#mkEff").value], ["フレーバー", $("#mkFlv").value]].filter(([, v]) => /《|\n|\[#[0-9a-fA-F]{3,6}\]/.test(v));
   const box = $("#rubyPrev"); box.hidden = !parts.length;
   box.innerHTML = parts.map(([k, v]) => `<div><span class="note">${k}：</span>${rubyHTML(v)}</div>`).join("");
 }
@@ -328,6 +328,23 @@ $("#mkRuby").addEventListener("click", () => {
   el.setRangeText(ins, a, b, "end");
   const caret = sel ? a + ins.length - 1 : a + 1; // inside 《》, or where the kanji goes
   el.focus(); el.setSelectionRange(caret, caret); syncRubyPrev();
+});
+// 文字の色: えらんだ文字を [#色]…[/] でかこむ（「色を外す」はえらんだところの色の印を消す）
+function tcolWrap(col){
+  const el = rubyField && rubyField !== $("#mkName") ? rubyField : $("#mkEff"); const a = el.selectionStart ?? el.value.length, b = el.selectionEnd ?? a;
+  const sel = el.value.slice(a, b), ins = `[${col}]${sel}[/]`;
+  el.setRangeText(ins, a, b, "end");
+  const caret = sel ? a + ins.length : a + col.length + 2;
+  el.focus(); el.setSelectionRange(caret, caret); el.dispatchEvent(new Event("input", { bubbles: true }));
+}
+$("#mkTcol").addEventListener("mousedown", e => { if (e.target.closest("button")) e.preventDefault(); }); // keep the text selection
+$("#mkTcol").addEventListener("click", e => {
+  const sw = e.target.closest("[data-tcol]"); if (sw) return tcolWrap(sw.dataset.tcol);
+  if (e.target.closest("#mkTcolGo")) return tcolWrap($("#mkTcolPick").value);
+  if (e.target.closest("#mkTcolOff")){
+    const el = rubyField && rubyField !== $("#mkName") ? rubyField : $("#mkEff"); let a = el.selectionStart ?? 0, b = el.selectionEnd ?? el.value.length; if (a === b){ a = 0; b = el.value.length; }
+    const out = el.value.slice(a, b).replace(COLOR_RE, "").replace(/\[\/\]/g, ""); el.setRangeText(out, a, b, "select"); el.focus(); el.dispatchEvent(new Event("input", { bubbles: true }));
+  }
 });
 $("#mkInf").addEventListener("click", () => { $("#mkAtk").value = $("#mkAtk").value.trim() === "∞" ? "300" : "∞"; });
 $("#fxCond").innerHTML = Object.entries(CONDS).map(([k, v]) => `<option value="${k}">${v.label}</option>`).join("");

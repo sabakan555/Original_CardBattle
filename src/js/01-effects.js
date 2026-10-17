@@ -384,11 +384,18 @@ const fontCss = c => FONTS[c && c.font] ? FONTS[c.font].css : "";
 const SIZES_T = { s: { label: "小さめ", k: .82 }, m: { label: "ふつう", k: 1 }, l: { label: "大きめ", k: 1.2 } };
 const sizeK = v => (SIZES_T[v] || SIZES_T.m).k;
 // furigana: ｜漢字《かんじ》, or just 漢字《かんじ》 right after kanji
-function rubyHTML(t){
-  return esc(t).replace(/[｜|]([^｜|《》\n]+?)《([^《》\n]*?)》/g, "<ruby>$1<rt>$2</rt></ruby>")
-    .replace(/([\u3400-\u9FFF\uF900-\uFAFF々〆ヵヶ]+)《([^《》\n]*?)》/g, "<ruby>$1<rt>$2</rt></ruby>");
+// 文字の色: [#d8382b]赤い文字[/]（[/] がなければ文の最後まで）。改行はそのままカードでも改行になる
+const COLOR_RE = /\[#([0-9a-fA-F]{6}|[0-9a-fA-F]{3})\]/g;
+function colorHTML(h){
+  let open = 0;
+  h = h.replace(/\[#([0-9a-fA-F]{6}|[0-9a-fA-F]{3})\]|\[\/\]/g, (m, col) => { if (col){ open++; return `<span class="tcol" style="color:#${col}">`; } if (!open) return ""; open--; return "</span>"; });
+  return h + "</span>".repeat(open);
 }
-const plainRuby = t => String(t || "").replace(/[｜|]([^｜|《》\n]+?)《[^《》\n]*?》/g, "$1").replace(/《[^《》\n]*?》/g, "");
+function rubyHTML(t){
+  return colorHTML(esc(t).replace(/[｜|]([^｜|《》\n]+?)《([^《》\n]*?)》/g, "<ruby>$1<rt>$2</rt></ruby>")
+    .replace(/([\u3400-\u9FFF\uF900-\uFAFF々〆ヵヶ]+)《([^《》\n]*?)》/g, "<ruby>$1<rt>$2</rt></ruby>")).replace(/\r?\n/g, "<br>");
+}
+const plainRuby = t => String(t || "").replace(/[｜|]([^｜|《》\n]+?)《[^《》\n]*?》/g, "$1").replace(/《[^《》\n]*?》/g, "").replace(COLOR_RE, "").replace(/\[\/\]/g, "");
 const cardType = c => (c && (c.type === "magic" || c.type === "trap" || c.type === "equip")) ? c.type : "monster";
 const MAX_MANA = 10;
 // cost is only what the card's creator set; no cost means 0

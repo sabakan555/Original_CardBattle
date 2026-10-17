@@ -1588,3 +1588,5 @@ div.f{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:13px}
 .card.compact-head .c-name>.c-tribe-n{flex:none;max-width:100%;font-size:min(calc(var(--w)*.03),calc(var(--w)*.66/var(--trn,1)));line-height:1.15;text-align:center;margin-top:calc(var(--w)*.004);opacity:1}
 .card.compact-head .c-cost{box-sizing:border-box;width:calc(var(--w)*.183);height:calc(var(--w)*.19);padding:0;font-size:calc(var(--w)*.105)}
 .card.compact-head .c-bgart{top:calc(var(--w)*.19)}
+
+.tcol-row{gap:6px;align-items:center}.tcol-sw{width:26px;height:26px;padding:0;border-radius:50%;background:var(--sw);border:2px solid rgba(127,127,127,.55);cursor:pointer;flex:none}.tcol-sw:hover{transform:scale(1.1)}#mkTcolPick{width:36px;height:28px;padding:0;border:none;background:none}
