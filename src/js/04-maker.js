@@ -199,7 +199,7 @@ function syncEqLine(){
 }
 // 能力のなかま分け（しぼりこみ用）
 const ABS_CAT = { twice: "atk", haste: "atk", direct: "atk", noAttack: "atk", topOnly: "atk", pierce: "atk", lifelink: "atk", flying: "atk", reach: "atk", bane: "atk",
-  guard: "def", noEffect: "def", taunt: "def", dmgCut: "def", reflect: "def", shield: "def", stealth: "def", reborn: "def", blocker: "def", justDiver: "def", ward: "def",
+  guard: "def", noEffect: "def", taunt: "def", dmgCut: "def", reflect: "def", shield: "def", stealth: "def", reborn: "def", blocker: "def", justDiver: "def", ward: "def", unaffected: "def", leaveMorph: "def",
   evoAtk: "grow", evoTurn: "grow", evolve: "grow", sbAtk: "grow", sympathy: "cost", substitute: "eq", negateOnce: "eq", double: "eq", eqBonus: "eq" };
 const ABS_CATS = [["all", "すべて"], ["card", "カード（天賦など）"], ["atk", "攻撃"], ["def", "守り・耐性"], ["grow", "成長・進化"], ["cost", "コスト"], ["eq", "装備"], ["other", "その他"]];
 const absCatOf = k => ABS_CAT[k] || "other";
