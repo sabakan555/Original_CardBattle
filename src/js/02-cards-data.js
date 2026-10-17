@@ -243,7 +243,7 @@ function colVars(c){
 }
 // 効果のブロック表示: 効果ごとに【名前】・アイコン・説明の行。「いつ」がある効果が2つ以上なら見出し行（「これより下の効果を発動する」）
 const FX_ICONS = { cards: "カード", trash: "ゴミ箱", heart: "十字（回復）", revive: "棺（蘇生）", split: "分裂", cocoon: "もくもく（増殖）", clash: "ふたり（反発）", box: "箱（生成）", lock: "鎖（不動）", void: "空集合", ikenie: "生贄（見出し用）", jumon: "呪文（見出し用）", jirai: "地雷（見出し用）", sword: "剣", teeth: "牙", bomb: "爆弾", synth: "合成", spark: "星", flag: "旗" };
-const FX_ROW_DEF = { draw: ["発見", "cards"], drawUntil: ["発見", "cards"], selfDisc: ["自己破壊", "trash"], selfDiscRand: ["自己破壊", "trash"], selfDiscAll: ["自己破壊", "trash"], selfAtk: ["攻撃力ＵＰ", "sword"], atkUp: ["攻撃力ＵＰ", "sword"], absorbKill: ["暴食の王", "teeth"], synth: ["合成", "synth"], heal: ["自己修復", "heart"], millBoth: ["反発", "clash"], graveHand: ["蘇生", "revive"], matCopy: ["分裂", "split"], matOut: ["増殖", "cocoon"], stealGrave: ["吸いこみ", "void"], fieldOut: ["増殖", "box"] };
+const FX_ROW_DEF = { draw: ["発見", "cards"], oppDeckDraw: ["強奪", "cards"], drawUntil: ["発見", "cards"], selfDisc: ["自己破壊", "trash"], selfDiscRand: ["自己破壊", "trash"], selfDiscAll: ["自己破壊", "trash"], selfAtk: ["攻撃力ＵＰ", "sword"], atkUp: ["攻撃力ＵＰ", "sword"], absorbKill: ["暴食の王", "teeth"], synth: ["合成", "synth"], heal: ["自己修復", "heart"], millBoth: ["反発", "clash"], graveHand: ["蘇生", "revive"], matCopy: ["分裂", "split"], matOut: ["増殖", "cocoon"], stealGrave: ["吸いこみ", "void"], fieldOut: ["増殖", "box"] };
 // ブロック表示: 名前つきの能力は行で出すので、上の行（要求質量のとなり）には名前のない能力だけ
 const fxAbsText = c => monAbsText({ ...c, abs: absOf(c).filter(a => !a.dn) });
 // 枠ごと絵になっているアイコン（Figma）: sq=四角 / tall=2行ぶん / shield=生贄の旗 / dia=ひし形

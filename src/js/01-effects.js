@@ -38,6 +38,7 @@ const KINDS = {
   heal:       { label: "自分のLPを回復", n: true, text: n => `自分のLPを${n}回復` },
   dmg:        { label: "相手にダメージ", n: true, text: n => `相手に${n}ダメージ` },
   draw:       { label: "カードを引く", n: true, text: n => `カードを${n}枚引く` },
+  oppDeckDraw:{ label: "相手の山札からカードを引く", n: true, text: n => `相手の山札の上からカードを${n}枚引く（引いたカードは自分のものになる）` },
   discard:    { label: "相手の手札を捨てさせる", n: true, text: n => `相手の手札をランダムに${n}枚捨てさせる` },
   discardPeek:{ label: "相手の手札を見て、えらんで捨てさせる（ピーピングハンデス）", n: true, target: "oppHand", each: true, text: n => `相手の手札を見て、その中から${n}枚えらんで捨てさせる` },
   destroy:    { label: "相手のモンスター1体を破壊", target: "opp", text: () => `相手のモンスター1体を破壊` },
@@ -719,7 +720,7 @@ const PER_DEFS = {
   heads:    { label: "コインの表", u: "1枚", val: (st, s, c, t, ctx) => ctx && ctx.roll && ctx.roll.kind === "coin" ? ctx.roll.v : 0 },
   tails:    { label: "コインの裏", u: "1枚", val: (st, s, c, t, ctx) => ctx && ctx.roll && ctx.roll.kind === "coin" ? (ctx.roll.n || 1) - ctx.roll.v : 0 }
 };
-const PER_OK = { dmg: true, block: true, manaNow: true, heal: true, draw: true, mill: true, discard: true, vuln: true, weak: true, loseLp: true, oppHeal: true, atkUp: true, selfAtk: true, atkAll: true, atkDown: true, str: true, oppDraw: true, exhaustRand: true, manaMax: true, plate: true };
+const PER_OK = { dmg: true, block: true, manaNow: true, heal: true, draw: true, oppDeckDraw: true, mill: true, discard: true, vuln: true, weak: true, loseLp: true, oppHeal: true, atkUp: true, selfAtk: true, atkAll: true, atkDown: true, str: true, oppDraw: true, exhaustRand: true, manaMax: true, plate: true };
 // 「ふえる」はほぼすべての効果で使える（数のない効果は「○1つにつき、もう1回」）
 const PER_NO = ["none", "win", "modAdd", "modRep", "modClear", "modName", "synthHand", "synthTo", "extraTurn", "lpSwap"];
 const perOk = k => !!KINDS[k] && !PER_NO.includes(k);

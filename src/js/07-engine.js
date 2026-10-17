@@ -521,12 +521,13 @@ function noLoseBy(st, s){
   }
   return "";
 }
-function drawN(st, s, n, why){
-  const p = P(st, s); let got = 0; p.lastDrawn = [];
+// from: どの人の山札から引くか（ふつうは自分。相手の山札から引く効果では相手）
+function drawN(st, s, n, why, from = s){
+  const p = P(st, s), d = P(st, from), opp = from !== s; let got = 0; p.lastDrawn = [];
   if (p.noDraw && n > 0){ log(st, s, `${why || ""}：このターンはもうカードを引けない`); return; }
-  for (let i = 0; i < n; i++){ if (!p.deck.length) refill(st, s); if (p.deck.length){ p.hand.push(p.deck.shift()); got++; } }
+  for (let i = 0; i < n; i++){ if (!d.deck.length) refill(st, from); if (d.deck.length){ p.hand.push(d.deck.shift()); got++; } }
   p.lastDrawn = got ? p.hand.slice(-got) : []; aceDrew(st, s, p.lastDrawn);
-  if (why) log(st, s, `${why}でカードを${got}枚引いた`);
+  if (why) log(st, s, `${why}で${opp ? `${d.name}の山札から` : ""}カードを${got}枚引いた`);
   // 「名前に○が入ったカードを引くたび自動で使う」
   if (got && (p.autoPlay || []).length && !st.winner){
     p.hand.slice(-got).forEach(id => {
@@ -535,7 +536,7 @@ function drawN(st, s, n, why){
       p.hand.splice(k, 1); autoPlayCard(st, s, id);
     });
   }
-  if (got < n) log(st, s, "山札がなくて引けなかった");
+  if (got < n) log(st, s, `${opp ? "相手の" : ""}山札がなくて引けなかった`);
 }
 // 切り札を引いたら演出（引いた人にだけ見える）
 function aceDrew(st, s, ids){ (ids || []).forEach(id => { if (aceOn(card(id), "draw")) ev(st, { type: "ace", s, c: id, draw: true }); }); }
@@ -1136,6 +1137,7 @@ function applyEffect(st, s, c, target, ctx = {}, fx = normFx(c)){
     case "vuln": addVuln(st, s, target, n, src, OS); break;
     case "bash": if (typeof target === "string" && target.startsWith("m:")){ const i = +target.slice(2), u = opT.mz[i] && opT.mz[i].u; monDmg(st, OS, i, n, src); if (opT.mz[i] && opT.mz[i].u === u) addVuln(st, s, target, 2, src, OS); } else { log(st, s, `${src}で${opT.name}に${n}ダメージ`); dealDmg(st, OS, n); addVuln(st, s, "p", 2, src, OS); } break;
     case "draw": drawN(st, s, n, src); break;
+    case "oppDeckDraw": drawN(st, s, n, src, O(s)); break;
     case "discardPeek": { const id = op.hand[target]; if (id == null) break; op.hand.splice(target, 1); op.grave.push(id); log(st, s, `${src}で${op.name}の手札を見て、「${card(id).name}」を捨てさせた`); slyFire(st, O(s), [id]); break; }
     case "discard": {
       let k = 0; const gone = []; for (let j = 0; j < n && op.hand.length; j++){ const x = op.hand.splice(Math.floor(Math.random() * op.hand.length), 1)[0]; op.grave.push(x); gone.push(x); k++; }
