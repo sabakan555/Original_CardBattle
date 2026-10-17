@@ -319,33 +319,125 @@ function syncRubyPrev(){
   const box = $("#rubyPrev"); box.hidden = !parts.length;
   box.innerHTML = parts.map(([k, v]) => `<div><span class="note">${k}：</span>${rubyHTML(v)}</div>`).join("");
 }
-let rubyField = null;
-["#mkName", "#mkEff", "#mkFlv"].forEach(s => { $(s).addEventListener("focus", e => { rubyField = e.target; }); $(s).addEventListener("input", syncRubyPrev); });
+/* ---- 名前・効果・フレーバーの欄: 色がそのまま見える入力欄（中身は今までどおり [#色]…[/] の文字で、もとの欄の value に入る） ---- */
+let rubyField = null, richCur = null;
+const RICH_TAG = /\[#([0-9a-fA-F]{6}|[0-9a-fA-F]{3})\]|\[([金銀銅虹])\]|\[\/\]/g;
+// 文字 → 入力欄のHTML（ふりがなの印はそのまま文字で見せる）
+function richHTML(v){
+  let open = 0;
+  let h = esc(v).replace(RICH_TAG, (m, col, fo) => { if (col){ open++; return `<span class="tcol" data-c="#${col}" style="color:#${col}">`; } if (fo){ open++; return `<span class="tfoil tfoil-${TFOIL[fo]}" data-f="${fo}">`; } if (!open) return ""; open--; return "</span>"; }) + "</span>".repeat(open);
+  h = h.replace(/\r?\n/g, "<br>");
+  return /\n$/.test(v) ? h + "<br>" : h; // 最後の改行を見せるための <br>
+}
+// 入力欄のHTML → 文字
+function richSer(root){
+  const walk = n => [...n.childNodes].map((x, i) => {
+    if (x.nodeType === 3) return x.nodeValue.replace(/​/g, "");
+    if (x.nodeType !== 1) return "";
+    if (x.tagName === "BR") return "\n";
+    const inner = walk(x), blk = /^(DIV|P)$/.test(x.tagName) && i > 0 ? "\n" : "";
+    const tag = x.dataset && x.dataset.f && TFOIL[x.dataset.f] ? x.dataset.f : x.dataset && /^#[0-9a-fA-F]{3,6}$/.test(x.dataset.c || "") ? x.dataset.c : "";
+    return blk + (tag && inner ? `[${tag}]${inner}[/]` : inner);
+  }).join("");
+  const v = walk(root);
+  return root.lastChild && root.lastChild.nodeName === "BR" ? v.replace(/\n$/, "") : v; // 最後の <br> は見せるためだけのもの
+}
+const RICH = {};
+function richMake(el){
+  const one = el.tagName === "INPUT", r = document.createElement("div");
+  r.id = el.id + "R"; r.className = "rich " + (one ? "rich-in" : "rich-ta"); r.contentEditable = "true"; r.spellcheck = false;
+  r.setAttribute("role", "textbox"); if (!one) r.setAttribute("aria-multiline", "true");
+  if (el.getAttribute("aria-label") || el.placeholder) r.setAttribute("aria-label", el.getAttribute("aria-label") || el.placeholder);
+  if (el.title) r.title = el.title;
+  el.after(r); el.hidden = true; el.style.setProperty("display", "none", "important");
+  const pd = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(el), "value"), ph = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(el), "placeholder");
+  let busy = false;
+  const render = () => { r.innerHTML = richHTML(pd.get.call(el)); };
+  Object.defineProperty(el, "value", { configurable: true, get(){ return pd.get.call(el); }, set(v){ pd.set.call(el, v); if (!busy) render(); } });
+  Object.defineProperty(el, "placeholder", { configurable: true, get(){ return ph.get.call(el); }, set(v){ ph.set.call(el, v); r.dataset.ph = v; } });
+  r.dataset.ph = el.placeholder;
+  el.focus = () => r.focus();
+  const push = () => { let v = richSer(r); if (one) v = v.replace(/\n/g, ""); if (!v) r.innerHTML = ""; busy = true; pd.set.call(el, v); busy = false; el.dispatchEvent(new Event("input", { bubbles: true })); };
+  r.addEventListener("input", push);
+  r.addEventListener("focus", () => { rubyField = el; richCur = r; el.dispatchEvent(new Event("focus")); });
+  r.addEventListener("keydown", e => { if (e.key === "Enter" && !e.isComposing){ e.preventDefault(); if (!one) document.execCommand("insertLineBreak"); } });
+  r.addEventListener("paste", e => { e.preventDefault(); let t = (e.clipboardData || window.clipboardData).getData("text/plain") || ""; if (one) t = t.replace(/\r?\n/g, " "); document.execCommand("insertText", false, t); });
+  r.addEventListener("drop", e => e.preventDefault());
+  render(); RICH[el.id] = { el, r, push };
+}
+["mkName", "mkEff", "mkFlv"].forEach(id => richMake($("#" + id)));
+["#mkName", "#mkEff", "#mkFlv"].forEach(s => $(s).addEventListener("input", syncRubyPrev));
+// えらんでいるところ（入力欄の中だけ）
+function richRange(){
+  const r = richCur || RICH.mkEff.r, sel = getSelection();
+  if (sel.rangeCount && r.contains(sel.getRangeAt(0).commonAncestorContainer)) return { r, sel, rg: sel.getRangeAt(0) };
+  const rg = document.createRange(); rg.selectNodeContents(r); rg.collapse(false); return { r, sel, rg, end: true };
+}
+const richSpanSel = "span[data-c],span[data-f]";
+const unwrapIn = node => node.querySelectorAll && [...node.querySelectorAll(richSpanSel)].forEach(x => x.replaceWith(...x.childNodes));
+// 色のついた文字の中なら、そこで色の外に出す（後ろの文字は同じ色のまま）
+function richOutside(r, rg){
+  let A = null; for (let n = rg.startContainer; n && n !== r; n = n.parentNode) if (n.nodeType === 1 && n.matches(richSpanSel)) A = n;
+  if (!A) return;
+  const t = document.createRange(); t.setStart(rg.startContainer, rg.startOffset); t.setEnd(A, A.childNodes.length);
+  const tail = t.extractContents(), A2 = A.cloneNode(false); A2.appendChild(tail);
+  A.after(A2); if (!A2.textContent) A2.remove(); if (!A.textContent) { rg.setStartBefore(A); rg.collapse(true); A.remove(); return; }
+  rg.setStartAfter(A); rg.collapse(true);
+}
+function tcolWrap(tag){
+  const { r, sel, rg } = richRange();
+  const sp = document.createElement("span");
+  if (TFOIL[tag]){ sp.className = `tfoil tfoil-${TFOIL[tag]}`; sp.dataset.f = tag; } else { sp.className = "tcol"; sp.dataset.c = tag; sp.style.color = tag; }
+  r.focus();
+  if (rg.collapsed){ sp.textContent = "​"; rg.insertNode(sp); const t = document.createRange(); t.setStart(sp.firstChild, 1); t.collapse(true); sel.removeAllRanges(); sel.addRange(t); return; } // ここから先に書く文字がこの色
+  const frag = rg.extractContents(); unwrapIn(frag); sp.appendChild(frag); rg.insertNode(sp);
+  r.querySelectorAll(richSpanSel).forEach(x => { if (!x.textContent) x.remove(); });
+  const t = document.createRange(); t.selectNodeContents(sp); sel.removeAllRanges(); sel.addRange(t);
+  RICH[(r.id || "").replace(/R$/, "")].push();
+}
+function tcolOff(){
+  const { r, sel, rg } = richRange(), k = (r.id || "").replace(/R$/, "");
+  r.focus();
+  if (rg.collapsed){ unwrapIn(r); r.normalize(); RICH[k].push(); return; } // なにもえらんでいなければ、この欄の色をぜんぶ外す
+  const frag = rg.extractContents(); unwrapIn(frag);
+  const a = document.createTextNode(""), b = document.createTextNode("");
+  richOutside(r, rg); rg.insertNode(b); rg.insertNode(frag); rg.insertNode(a);
+  r.querySelectorAll(richSpanSel).forEach(x => { if (!x.textContent.replace(/​/g, "")) x.remove(); });
+  const t = document.createRange(); t.setStartAfter(a); t.setEndBefore(b); sel.removeAllRanges(); sel.addRange(t);
+  RICH[k].push();
+}
 $("#mkRuby").addEventListener("mousedown", e => e.preventDefault()); // keep the text selection
 $("#mkRuby").addEventListener("click", () => {
-  const el = rubyField || $("#mkName"); const a = el.selectionStart ?? el.value.length, b = el.selectionEnd ?? a;
-  const sel = el.value.slice(a, b), ins = `｜${sel}《》`;
-  el.setRangeText(ins, a, b, "end");
-  const caret = sel ? a + ins.length - 1 : a + 1; // inside 《》, or where the kanji goes
-  el.focus(); el.setSelectionRange(caret, caret); syncRubyPrev();
+  const { r, sel, rg } = richRange(); r.focus(); sel.removeAllRanges(); sel.addRange(rg);
+  const s2 = rg.toString();
+  document.execCommand("insertText", false, `｜${s2}《》`);
+  sel.modify && sel.modify("move", "backward", "character"); // 《》の中へ
+  if (!s2) for (let i = 0; i < 2; i++) sel.modify && sel.modify("move", "backward", "character"); // 何もえらんでいなければ ｜ のうしろへ
 });
-// 文字の色: えらんだ文字を [#色]…[/] でかこむ（「色を外す」はえらんだところの色の印を消す）
-function tcolWrap(col){
-  const el = rubyField || $("#mkEff"); const a = el.selectionStart ?? el.value.length, b = el.selectionEnd ?? a;
-  const sel = el.value.slice(a, b), ins = `[${col}]${sel}[/]`;
-  el.setRangeText(ins, a, b, "end");
-  const caret = sel ? a + ins.length : a + col.length + 2;
-  el.focus(); el.setSelectionRange(caret, caret); el.dispatchEvent(new Event("input", { bubbles: true }));
-}
 $("#mkTcol").addEventListener("mousedown", e => { if (e.target.closest("button")) e.preventDefault(); }); // keep the text selection
 $("#mkTcol").addEventListener("click", e => {
   const sw = e.target.closest("[data-tcol]"); if (sw) return tcolWrap(sw.dataset.tcol);
   if (e.target.closest("#mkTcolGo")) return tcolWrap($("#mkTcolPick").value);
-  if (e.target.closest("#mkTcolOff")){
-    const el = rubyField || $("#mkEff"); let a = el.selectionStart ?? 0, b = el.selectionEnd ?? el.value.length; if (a === b){ a = 0; b = el.value.length; }
-    const out = el.value.slice(a, b).replace(COLOR_RE, "").replace(/\[\/\]/g, ""); el.setRangeText(out, a, b, "select"); el.focus(); el.dispatchEvent(new Event("input", { bubbles: true }));
-  }
+  if (e.target.closest("#mkTcolOff")) return tcolOff();
 });
+// 入力欄の見た目: もとの textarea / input のスタイルを、そのまま入力欄にもうつす
+(function richCss(){
+  const split = s => { const out = []; let d = 0, cur = ""; for (const ch of s){ if (ch === "(") d++; if (ch === ")") d--; if (ch === "," && !d){ out.push(cur); cur = ""; } else cur += ch; } out.push(cur); return out.map(x => x.trim()).filter(Boolean); };
+  const conv = sel => {
+    let t = sel.replace(/#mk(Name|Eff|Flv)\b/g, "#mk$1R").replace(/\btextarea\b/g, ".rich-ta").replace(/input\[type=text\]/g, ".rich-in").replace(/\binput(?![\w\[-])/g, ".rich-in").replace(/::placeholder/g, ":empty::before");
+    return t !== sel && !/\binput\[/.test(t) ? t : null;
+  };
+  const rules = list => [...list].map(x => {
+    if (x.type === 1){ const S2 = split(x.selectorText).map(conv).filter(Boolean); return S2.length ? `${S2.join(",")}{${x.style.cssText}}` : ""; }
+    if (x.type === 4){ const inner = rules(x.cssRules); return inner ? `@media ${x.conditionText || x.media.mediaText}{${inner}}` : ""; }
+    return "";
+  }).join("");
+  let css = "";
+  for (const sh of document.styleSheets){ try { css += rules(sh.cssRules); } catch (e) {} }
+  const st = document.createElement("style"); st.id = "richCss";
+  st.textContent = css + `.rich{outline:none;white-space:pre-wrap;word-break:break-all;overflow-wrap:anywhere;cursor:text;box-sizing:border-box}.rich-ta{overflow-y:auto}.rich-in{white-space:nowrap;overflow:hidden;min-height:1.2em}.rich-in br{display:none}.rich:empty::before{content:attr(data-ph);opacity:.55;pointer-events:none}.rich:focus{outline:2px solid rgba(47,127,214,.45);outline-offset:1px}`;
+  document.head.appendChild(st);
+})();
 $("#mkInf").addEventListener("click", () => { $("#mkAtk").value = $("#mkAtk").value.trim() === "∞" ? "300" : "∞"; });
 $("#fxCond").innerHTML = Object.entries(CONDS).map(([k, v]) => `<option value="${k}">${v.label}</option>`).join("");
 function setMkType(t){
