@@ -262,7 +262,7 @@ function fxRowsHTML(c, noMeta, noIc){
     const p1 = b.one && effs.length > 1, hdr = (timed && (effs.length >= 2 || b.bn)) || p1 || !!b.bn;
     // 「これより下の効果を発動」の印: ふつうは旗、破壊されたときの効果はドクロ
     const mk = b.trig === "destroyed" ? "skull" : "flag";
-    if (hdr) rows.push(row({ hdr: true, mk, name: b.bn || tl || "1つえらぶ", ic: b.bic || "bomb", small: b.bn ? tl : "", desc: cond + (b.bd || (p1 ? "これより下の効果から1つえらんで発動する。" : "これより下の効果を発動する。")) }));
+    if (hdr) rows.push(row({ hdr: true, mk, name: b.bn || tl || (b.oneN > 1 ? `${b.oneN}回えらぶ` : "1つえらぶ"), ic: b.bic || "bomb", small: b.bn ? tl : "", desc: cond + (b.bd || (p1 ? (b.oneN > 1 ? `これより下の効果から${b.oneN}回えらんで発動する（同じものをえらんでもよい）。` : "これより下の効果から1つえらんで発動する。") : "これより下の効果を発動する。")) }));
     effs.forEach((e, k) => rows.push(row({ ...one(e, k === 0 ? (!hdr && timed ? `${tl}、` : "") + (!hdr ? cond : "") : ""), ...(k === 0 && !hdr && b.trig === "destroyed" ? { mk: "skull" } : {}) })));
     (b.conds.length ? b.else || [] : []).forEach(e => rows.push(row(one(e, "そうでなければ、"))));
   });

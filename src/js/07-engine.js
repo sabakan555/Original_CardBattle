@@ -1570,7 +1570,7 @@ function runBlock(st, s, c, b, ctx, then){
   if (b.delay > 0 && !ctx.delayed){
     if (lk) limAdd(st, s, lk);
     st.un = (st.un || 0) + 1; const p = P(st, s);
-    (p.timers = p.timers || []).push({ u: st.un, c: c && !c.ctrCard && c.id || null, name: c && c.name || "？", b: { trig: b.trig, join: b.join, ...(b.one ? { one: true } : {}), conds: b.conds, then: b.then, else: b.else, roll: b.roll || "", faces: b.faces, coins: b.coins, dieBr: b.dieBr || [], grant: b.grant || null }, left: b.delay, ctx: { zone: ctx.zone ?? null, mon: ctx.mon || null } });
+    (p.timers = p.timers || []).push({ u: st.un, c: c && !c.ctrCard && c.id || null, name: c && c.name || "？", b: { trig: b.trig, join: b.join, ...(b.one ? { one: true, ...(b.oneN > 1 ? { oneN: b.oneN } : {}) } : {}), conds: b.conds, then: b.then, else: b.else, roll: b.roll || "", faces: b.faces, coins: b.coins, dieBr: b.dieBr || [], grant: b.grant || null }, left: b.delay, ctx: { zone: ctx.zone ?? null, mon: ctx.mon || null } });
     log(st, s, `「${c ? c.name : "？"}」：${b.delay === 1 ? "次の自分のターンのはじめ" : b.delay + "ターン後の自分のターンのはじめ"}に効果が出る（時計 ${b.delay}）`);
     then && then(st); return;
   }
@@ -1585,7 +1585,7 @@ function runBlock(st, s, c, b, ctx, then){
   if (b.grant && !ctx.granted){
     if (lk) limAdd(st, s, lk);
     st.un = (st.un || 0) + 1; const to = b.grant.to === "op" ? O(s) : s, p = P(st, to);
-    (p.boons = p.boons || []).push({ u: st.un, c: c && !c.ctrCard && c.id || null, name: c && c.name || "？", at: b.grant.at, dur: b.grant.dur || 0, left: b.grant.dur || 0, b: { trig: b.grant.at, join: b.join, ...(b.one ? { one: true } : {}), conds: b.conds, then: b.then, else: b.else, roll: b.roll || "", faces: b.faces, coins: b.coins, dieBr: b.dieBr || [] } });
+    (p.boons = p.boons || []).push({ u: st.un, c: c && !c.ctrCard && c.id || null, name: c && c.name || "？", at: b.grant.at, dur: b.grant.dur || 0, left: b.grant.dur || 0, b: { trig: b.grant.at, join: b.join, ...(b.one ? { one: true, ...(b.oneN > 1 ? { oneN: b.oneN } : {}) } : {}), conds: b.conds, then: b.then, else: b.else, roll: b.roll || "", faces: b.faces, coins: b.coins, dieBr: b.dieBr || [] } });
     log(st, s, `「${c ? c.name : "？"}」：${P(st, to).name}に効果を付与した（${P(st, to).name}のターンの${b.grant.at === "turnStart" ? "はじめ" : "おわり"}に出る${b.grant.dur ? `・${b.grant.dur}回` : "・ずっと"}）`);
     then && then(st); return;
   }
@@ -1600,7 +1600,7 @@ function runBlock(st, s, c, b, ctx, then){
     let br = ok && ctx.roll && ctx.roll.kind === "die" && b.dieBr && b.dieBr.length ? b.dieBr.find(x => ctx.roll.v >= x.lo && ctx.roll.v <= x.hi) : null;
     // 当たりの目を増やす: 場のカードの「○〜○も当たり」に入っていたら、当たりの行の効果
     if (ok && !br && ctx.roll && ctx.roll.kind === "die" && b.dieBr && b.dieBr.some(x => x.win)){ const w = dieWinBy(st2, s, c, ctx.roll.v); if (w){ br = b.dieBr.find(x => x.win); log(st2, s, `「${w}」の効果で、出た目${ctx.roll.v}も当たり！`); } }
-    if (ok && b.one && b.then.length > 1 && !br) return pickOne(st2, s, c, b.then, ctx, then);
+    if (ok && b.one && b.then.length > 1 && !br) return pickOne(st2, s, c, b.then, ctx, then, b.oneN > 1 ? b.oneN : 1);
     runEffects(st2, s, c, ok ? b.then.concat(br ? br.then : []) : b.else, ctx, then);
   };
   if (!ask || (!or && !base) || (or && base)) return go(st, b.conds.length ? base : true);
@@ -1618,9 +1618,11 @@ function runBlock(st, s, c, b, ctx, then){
   go(st, fin(yes));
 }
 // 「1つえらんで発動」: 人はボタンでえらぶ、CPUはランダム
-function pickOne(st, s, c, effs, ctx, then){
-  const go = (st2, k) => { log(st2, s, `「${c.name}」：「${fxOneName(effs[k])}」をえらんだ`); runEffects(st2, s, c, [effs[k]], ctx, then); };
-  if (isHumanHere(s)){ G.chooseQ.push({ ask: true, pick1: effs.map(e => ({ name: fxOneName(e), text: effsText(c, [e]) })), p1go: go, s, c, fx: { kind: "__block", ask: "どの効果を発動する？" }, ctx, then }); return; }
+// えらぶ: 一覧から1つ。times > 1 なら、その回数えらんで順に発動（同じものをえらんでもよい・パーフェクト呪文）
+function pickOne(st, s, c, effs, ctx, then, times = 1, nth = 1){
+  const next = st2 => { if (nth < times && !st2.winner) pickOne(st2, s, c, effs, ctx, then, times, nth + 1); else then && then(st2); };
+  const go = (st2, k) => { log(st2, s, `「${c.name}」：「${fxOneName(effs[k])}」をえらんだ${times > 1 ? `（${nth}/${times}回目）` : ""}`); runEffects(st2, s, c, [effs[k]], ctx, next); };
+  if (isHumanHere(s)){ G.chooseQ.push({ ask: true, pick1: effs.map(e => ({ name: fxOneName(e), text: effsText(c, [e]) })), p1go: go, s, c, fx: { kind: "__block", ask: times > 1 ? `どの効果を発動する？（${nth}/${times}回目）` : "どの効果を発動する？" }, ctx, then }); return; }
   go(st, Math.floor(Math.random() * effs.length));
 }
 const fxOneName = e => e.dn || (FX_ROW_DEF[e.kind] || [])[0] || String((KINDS[e.kind] || {}).label || "効果").replace(/（.*$/, "").slice(0, 12);
