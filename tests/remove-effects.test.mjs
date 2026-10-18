@@ -118,3 +118,15 @@ test('旧効果は remove に直り、保存してもパラメータが残る・
   assert.equal(txt({ zone: 'mon', how: 'deck', pos: 'top', side: 'me' }), '自分のモンスター1体を持ち主の山札の一番上に置く');
   assert.equal(txt({ to: 'attacker', how: 'destroy' }), '攻撃してきたモンスターを破壊する');
 });
+
+test('使えるかどうか: まとめた効果は中身で対象を見る', () => {
+  const t = setup(), U = (fx, s = 'a') => t.js('useTargets')(t.st, s, fx);
+  t.b.mz = [null, null, null, null, null];
+  assert.equal(U({ kind: 'destroy' }).length, 0);
+  assert.equal(U({ kind: 'atk', op: 'add', to: 'this' }), null);
+  assert.equal(U({ kind: 'atk', op: 'add', to: 'one', side: 'me' }).length, 3);
+  assert.equal(U({ kind: 'atkUp' }).length, 3);
+  assert.equal(U({ kind: 'remove', zone: 'mon', to: 'one', side: 'me' }).length, 3);
+  assert.equal(U({ kind: 'remove', zone: 'st' }).length, 2);
+  assert.equal(U({ kind: 'remove', zone: 'mon', to: 'all' }), null);
+});

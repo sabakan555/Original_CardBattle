@@ -1,0 +1,59 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import vm from 'node:vm';
+import test from 'node:test';
+const read = p => fs.readFileSync(new URL('../src/' + p, import.meta.url), 'utf8');
+// カード工房: 前の効果は新しい形（atk・remove）に直して出し、欄をかえると新しい形のまま保存される
+function setup(){
+  const ctx = {}; vm.createContext(ctx);
+  for (const f of ['00-helpers.js', '01-effects.js']) vm.runInContext(read('js/' + f), ctx, { filename: f });
+  const maker = read('js/04-maker.js');
+  vm.runInContext(maker.slice(maker.indexOf('/* ---- まとめた効果（atk・remove）の欄'), maker.indexOf('function atkUI(')), ctx);
+  const js = c => vm.runInContext(c, ctx);
+  const conv = (e, trig = 'summon') => ({ ...js('formFix')(js('fxNorm')(trig === 'while' && e.kind === 'atkUp' && e.to !== 'all' ? { ...e, kind: 'selfAtk' } : e), trig) });
+  const change = (e, f, v, trig = 'summon') => ({ ...js('formFix')(js('fxNorm')(js('FORM_F')[f](e, v)), trig) });
+  const save = e => ({ ...js('cleanEff')(e) });
+  return { js, conv, change, save };
+}
+test('前の効果を開くと新しい形になる', () => {
+  const { conv } = setup();
+  assert.deepEqual(conv({ kind: 'atkDownTmpAll', n: 200 }), { kind: 'atk', n: 200, op: 'sub', to: 'all', dur: 'turn', _g: 'atk' });
+  assert.deepEqual(conv({ kind: 'bounce' }), { kind: 'remove', zone: 'mon', to: 'one', how: 'hand', _g: 'destroy' });
+  assert.deepEqual(conv({ kind: 'killAtk' }), { kind: 'remove', zone: 'mon', to: 'attacker', how: 'destroy', _g: 'destroy' });
+  assert.deepEqual(conv({ kind: 'removeBoard', rm: 'banish', rside: 'me' }), { kind: 'remove', zone: 'any', to: 'one', how: 'exile', side: 'me', _g: 'destroy' });
+  assert.equal(conv({ kind: 'destroyStRand', n: 2 }).tn, 2);
+});
+test('場にいる間の ATK はこのモンスターか全体だけ（前のカードの意味のまま）', () => {
+  const { conv } = setup();
+  assert.equal(conv({ kind: 'atkUp', n: 100 }, 'while').to, 'this');
+  assert.equal(conv({ kind: 'atkAll', n: 100 }, 'while').to, 'all');
+  const d = conv({ kind: 'atkDown', n: 100, to: 'all', side: 'me' }, 'while'); assert.equal(d.to, 'all'); assert.equal(d.side, 'me'); assert.equal(d.op, 'sub');
+  assert.equal(conv({ kind: 'atkSet', n: 0 }, 'while').op, 'add');
+});
+test('欄をかえる: だれの・どうする・いつまで・数', () => {
+  const { conv, change } = setup();
+  let e = conv({ kind: 'selfAtk', n: 100 });
+  e = change(e, 'aWho', 'opAll'); assert.equal(e.to, 'all'); assert.equal(e.side, undefined);
+  e = change(e, 'aOp', 'sub'); e = change(e, 'aDur', 'turn'); assert.equal(e.dur, 'turn');
+  e = change(e, 'aWho', 'me1'); e = change(e, 'fTn', '3'); assert.equal(e.to, 'n'); assert.equal(e.tn, 3); assert.equal(e.side, 'me');
+  e = change(e, 'aOp', 'mul'); assert.equal(e.n, 2); assert.equal(e.dur, undefined);
+  e = change(e, 'aOp', 'set'); assert.equal(e.n, 100);
+  e = change(e, 'aWho', 'this'); assert.equal(e.to, 'this'); assert.equal(e.side, undefined); assert.equal(e.tn, undefined);
+});
+test('除去の欄: なにを・どれを・だれの・どうどかす・山札のどこ', () => {
+  const { conv, change } = setup();
+  let e = conv({ kind: 'destroy' });
+  e = change(e, 'rZone', 'st'); e = change(e, 'rWho', 'random'); e = change(e, 'fTn', '2'); assert.equal(e.to, 'random'); assert.equal(e.tn, 2);
+  e = change(e, 'rSide', 'both'); assert.equal(e.side, 'both');
+  e = change(e, 'rHow', 'deck'); assert.equal(e.pos, 'shuffle'); e = change(e, 'rPos', 'top'); assert.equal(e.pos, 'top');
+  e = change(e, 'rWho', 'attacker'); assert.equal(e.zone, 'mon'); assert.equal(e.side, undefined);
+  e = change(e, 'rZone', 'st'); assert.equal(e.to, 'one');
+  e = change(e, 'rZone', 'any'); e = change(e, 'rWho', 'others'); assert.equal(e.zone, 'any'); e = change(e, 'rZone', 'mon'); assert.equal(e.to, 'one');
+  e = change(e, 'rHow', 'hand'); assert.equal(e.pos, undefined);
+});
+test('保存すると新しい形のパラメータが残る', () => {
+  const { conv, change, save } = setup();
+  const a = save(change(conv({ kind: 'atkDown', n: 100 }), 'aDur', 'turn')); assert.equal(a.kind, 'atk'); assert.equal(a.op, 'sub'); assert.equal(a.dur, 'turn');
+  const r = save(change(change(conv({ kind: 'destroy' }), 'rHow', 'deck'), 'rSide', 'both')); assert.equal(r.kind, 'remove'); assert.equal(r.how, 'deck'); assert.equal(r.pos, 'shuffle'); assert.equal(r.side, 'both'); assert.equal(r.zone, 'mon');
+  const t = save(conv({ kind: 'killAtk' })); assert.equal(t.to, 'attacker');
+});

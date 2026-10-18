@@ -79,7 +79,7 @@ function cpuStep(st, s){
   // 1. magic from hand (only if it has a useful target / effect)
   for (let i = 0; i < p.hand.length; i++){
     const c = card(p.hand[i]); if (cardType(c) !== "magic" || !canPay(st, s, c) || useBlockedWhy(st, s, c)) continue;
-    const fx = normFx(c); const opts = fx ? targetOptions(st, s, fx.kind, { tagName: fx.into || "" }) : null;
+    const fx = normFx(c); const opts = useTargets(st, s, fx);
     if (fx && opts !== null && !opts.length) continue;
     if (fx && fx.kind === "atkUp" && !p.mz.some(Boolean)) continue;
     if (Math.random() < .7){ activate(st, s, "hand", i); return; }
@@ -182,7 +182,7 @@ function useWhyShort(st, s, c){
   const why = useBlockedWhy(st, s, c); if (why) return why.replace(/^このカードは|いまは/g, "").replace(/ません.*$/, "ない");
   const fx = normFx(c);
   if (isAtkReply(fx)) return "攻撃されたときに使える";
-  const opts = fx ? targetOptions(st, s, fx.kind, { tagName: fx.into || "" }) : null;
+  const opts = useTargets(st, s, fx);
   if (opts && !opts.length) return "効果の対象がいない";
   return "";
 }
@@ -1031,7 +1031,7 @@ $("#board").addEventListener("click", e => {
     const why = useBlockedWhy(st, me, card(id)); if (why){ toast(why); return; }
     const fx = normFx(card(id));
     if (isAtkReply(fx)){ toast("このカードは相手に攻撃されたときに使えます"); return; }
-    const opts = fx ? targetOptions(st, me, fx.kind, { tagName: fx.into || "" }) : null;
+    const opts = useTargets(st, me, fx);
     if (opts && !opts.length){ toast("効果の対象がいないので発動できません"); return; }
     G.sel = null; withDiscard(card(id), from === "hand" ? sel.i : -1, d => act(st => activate(st, me, from, sel.i, { ...(d.length ? { disc: d } : {}), kick })));
   }

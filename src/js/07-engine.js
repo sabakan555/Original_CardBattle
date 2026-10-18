@@ -123,7 +123,7 @@ function dieWinBy(st, s, c, v){
   }
   return "";
 }
-const STATIC_KINDS = ["dieWin", "giveAttr", "selfAtkDown", "myAtkDownAll", "selfAtk", "atkUp", "atkAll", "atkDown", "atkDownAll", "atkMul", "giveAb", "ctrAdd"];
+const STATIC_KINDS = ["atk", "dieWin", "giveAttr", "selfAtkDown", "myAtkDownAll", "selfAtk", "atkUp", "atkAll", "atkDown", "atkDownAll", "atkMul", "giveAb", "ctrAdd"];
 /* 「場にいる間、カウンターを乗せる」: 出ている間は乗せておいて、いなくなったり条件に合わなくなったら、その分を取り除く。
    乗せた数は乗っている側に m.ctrA / p.ctrA = { "出し手のu|カウンターid": 個数 } で覚えておく（ほかの効果で取り除かれた分は、もう一度は乗せない） */
 function ctrAuraSync(st){
@@ -679,6 +679,12 @@ function fxTargets(st, s, fx, ctx = {}){
   const TS = ctx.side === "me" ? s : O(s), t = fxTgt(fx);
   if (t === "grave") return opts.filter(id => mfCardOk(st, s, fx, id));
   return opts.filter(o => { const k = String(o); if (k === "p") return true; let side, i; const mm = k.match(/^(?:(a|b):)?(?:m:)?(\d+)$/); if (!mm) return true; side = mm[1] || (t === "mine" ? s : TS); i = +mm[2]; return mfOk(st, s, fx, P(st, side).mz[i]); });
+}
+// 使えるかどうかを見るとき（まだ発動していない）: まとめた効果は中身（だれの・どれを）で対象を見る
+function useTargets(st, s, fx){
+  if (!fx) return null; const f = fxNorm(fx), ctx = { tagName: fx.into || "" };
+  if (FX_FORMS[f.kind]) Object.assign(ctx, { form: f, side: f.side === "me" ? "me" : null });
+  return targetOptions(st, s, f.kind, ctx);
 }
 function targetOptions(st, s, kind, ctx = {}){
   // スパイア attack: the opponent ("p") or one of their monsters ("m:i"); only asks when there is a monster to hit
@@ -2185,7 +2191,7 @@ function usableIn(st, s, c, win){
   if (fx && fx.kind === "cancel" && win !== "chain" && win !== "chainAttack" && win !== "summon") return false;
   if (fx && fx.kind === "reflectFx"){ const top = st.chain && st.chain[st.chain.length - 1]; if ((win !== "chain" && win !== "chainAttack") || !top || top.summon || top.s === s || top.cancel) return false; }
   if (win === "summon" && (!fx || fx.kind !== "cancel")) return false;
-  const opts = fx ? targetOptions(st, s, fx.kind, { tagName: fx.into || "" }) : null;
+  const opts = useTargets(st, s, fx);
   return !(opts && !opts.length);
 }
 // equips with the "cancel once" ability that player s owns

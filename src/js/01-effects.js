@@ -119,7 +119,7 @@ const KINDS = {
   graveShuf:  { label: "自分の墓地をすべて山札に戻してシャッフル", text: () => `自分の墓地のカードをすべて山札に戻してシャッフルする` },
   graveShufOpp:  { label: "相手の墓地をすべて山札に戻してシャッフル", text: () => `相手の墓地のカードをすべて山札に戻してシャッフルする` },
   graveShufBoth: { label: "お互いの墓地をすべて山札に戻してシャッフル", text: () => `お互いの墓地のカードをすべて山札に戻してシャッフルする` },
-  atk:        { label: "ATKを変える", n: true, target: "opp", internal: true, text: (n, into, m) => atkText({ ...(m || {}), n }) },
+  atk:        { label: "ATKを変える", n: true, target: "opp", form: true, text: (n, into, m) => atkText({ ...(m || {}), n }) },
   pctDmg:     { label: "相手のLPを○%削る（割合ダメージ）", n: true, text: n => `相手に、相手のLPの${pctWord(n)}のダメージを与える` },
   loseAb:     { label: "モンスターの能力を消す", target: "any", text: (n, nm, m) => labText(m) },
   mill:       { label: "自分の山札の上から○枚を墓地へ", n: true, text: n => `自分の山札の上から${n}枚を墓地に送る` },
@@ -207,7 +207,7 @@ const KINDS = {
   manaGrave:  { label: "墓地のカードを○枚マナゾーンに置く", n: true, text: n => `自分の墓地のカードを${n}枚マナゾーンに置く（新しいものから）` },
   manaBreak:  { label: "相手のマナゾーンのカードを○枚墓地へ（マナ破壊）", n: true, text: n => `相手のマナゾーンのカードをランダムに${n}枚墓地へ置く` },
   manaBack:   { label: "自分のマナゾーンのカードを○枚手札に戻す（マナ回収）", n: true, text: n => `自分のマナゾーンのカードを${n}枚手札に戻す（コストが大きいものから）` },
-  remove:     { label: "場から除去する", target: "board", internal: true, text: (n, into, m) => removeText(m || {}) },
+  remove:     { label: "場から除去する", target: "board", form: true, text: (n, into, m) => removeText(m || {}) },
   removeBoard:{ label: "場のカードを1枚えらんで除去（モンスター・魔法・罠・フィールド）", target: "board", text: (n, _, m) => `${RB_SIDE[m && m.rside] || RB_SIDE.op}の場のカード1枚をえらんで${RB_MODE[m && m.rm] || RB_MODE.destroy}` },
   ctrAdd:     { label: "カウンターを乗せる", n: true, ctr: true, text: (n, _, m) => `${ctrWhereText(m)}に${ctrName(m && m.ctr)}を${n}個乗せる` },
   ctrDel:     { label: "カウンターを取り除く", n: true, ctr: true, text: (n, _, m) => `${ctrWhereText(m)}の${ctrName(m && m.ctr)}を${n}個取り除く` },
@@ -945,7 +945,7 @@ const MF_BY = {
   oppGrave: { label: "相手の墓地の枚数", val: (st, s) => P(st, O(s)).grave.length },
   oppMon:   { label: "相手のモンスターの数", val: (st, s) => P(st, O(s)).mz.filter(Boolean).length }
 };
-const mfAble = m => !!(m && (MF_KINDS.includes(m.kind) || (!!FX_FORMS[m.kind] && m.to === "all") || m.kind === "revive" || m.kind === "reborn" || (TO_ALL[m.kind] && (m.to === "all" || m.to === "mons")) || (m.kind === "giveAttr" && m.aw !== "self")
+const mfAble = m => !!(m && !(m.kind === "remove" && m.zone !== "mon" && m.zone !== "any") && (MF_KINDS.includes(m.kind) || (!!FX_FORMS[m.kind] && m.to === "all") || m.kind === "revive" || m.kind === "reborn" || (TO_ALL[m.kind] && (m.to === "all" || m.to === "mons")) || (m.kind === "giveAttr" && m.aw !== "self")
   || ((!m.to || m.to === "one" || m.to === "two" || m.to === "random") && !hitsPlayer(m.kind) && (TARGETABLE[m.kind] || ["opp", "mine"].includes((KINDS[m.kind] || {}).target)))));
 const pctWord = n => { n = Math.max(1, Math.min(100, Math.round(+n || 0))); return n % 10 ? `${n}%` : n === 100 ? "すべて" : `${n / 10}割`; };
 const labList = () => ["all", ...Object.keys(ABS).filter(k => ABS[k].only !== "eq")];
@@ -998,7 +998,7 @@ function effsText(c, effs, detail = false){
     const m = g.m;
     // base 0 + 「○1つにつき」 reads as 「○1つにつき100ダメージ」
     const pz = m.per && !m.hits && !m.n && PER_DEFS[m.per], nn = pz ? `${perLab(m)}につき${m.pm ?? 1}` : m.n;
-    let tx = ((m.to || m.side === "me") && TARGETABLE[m.kind] ? toText(m.kind, nn, m.to || "one", spire, m.tn, m.side) : KINDS[m.kind].text(nn, m.into, m)) + (pz ? "" : perText(m));
+    let tx = ((m.to || m.side === "me") && TARGETABLE[m.kind] && !FX_FORMS[m.kind] ? toText(m.kind, nn, m.to || "one", spire, m.tn, m.side) : KINDS[m.kind].text(nn, m.into, m)) + (pz ? "" : perText(m));
     if (mfOn(m)) tx = /(相手|自分)のモンスター/.test(tx) ? tx.replace(/(相手|自分)のモンスター/, (w, x) => m.mfK === "attr" ? x + "の" + mfPhrase(m) + "モンスター" : mfPhrase(m) + x + "のモンスター") : tx.replace("モンスター", mfPhrase(m) + "モンスター");
     if (spire && k > 0 && aim(m) && G2.slice(0, k).some(x => aim(x.m))) tx = tx.replace(/^相手(に|を)/, "同じ相手$1");
     if (g.cnt > 1) tx += /ダメージ$/.test(tx) ? `を${g.cnt}回` : `（${g.cnt}回）`;
