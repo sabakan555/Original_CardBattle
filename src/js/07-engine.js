@@ -1329,6 +1329,42 @@ function applyCleanse(st, s, c, target, ctx, f, n, src){
 }
 FX_FORMS.cleanse.run = applyCleanse;
 FX_FORMS.cleanse.opts = (st, s, f) => f.to === "one" ? undefined : null;
+/* ---- 行動をしばる（lock） ---- */
+function applyLock(st, s, c, target, ctx, f, n, src){
+  if (f.who === "this"){ const m = ctx.mon && monAt(st, ctx.mon); if (!m){ log(st, s, `${src}：そのモンスターはもう場にいない`); return; } m.noAtkTurn = Math.max(m.noAtkTurn || 0, st.turn === ctx.mon.s ? st.turnNo : st.turnNo + 1); log(st, s, `${src}：「${card(m.c).name}」はこのターン攻撃できない`); return; }
+  const o = f.who === "me" ? s : O(s), p = P(st, o), until = st.turn === o ? st.turnNo : st.turnNo + 1, when = o === s ? "このターン" : `${p.name}の次のターンの終わりまで`;
+  if (f.what === "draw"){ p.noDraw = true; log(st, s, `${src}：${when}、${p.name}はもうカードを引けない`); return; }
+  const k = f.what === "atk" ? "noAtkUntil" : "noUseUntil"; p[k] = Math.max(p[k] || 0, until);
+  log(st, s, `${src}：${when}、${p.name}は${f.what === "atk" ? "攻撃" : "魔法・罠を発動"}できない`);
+}
+FX_FORMS.lock.run = applyLock;
+
+/* ---- LP（lp） ---- */
+function applyLp(st, s, c, target, ctx, f, n, src){
+  if (!(n > 0) || !isFinite(n)) return;
+  for (const o of f.who === "both" ? [s, O(s)] : f.who === "op" ? [O(s)] : [s]){
+    const p = P(st, o), whose = o === s ? "" : `${p.name}の`;
+    if (f.op === "lose"){ p.lp -= n; ev(st, { type: "hit", s: o, d: n, blk: 0 }); log(st, s, `${src}で${whose}LPを${n}失った`); lostLp(st, o); }
+    else { p.lp += n; log(st, s, `${src}で${whose}LPを${n}回復`); }
+  }
+}
+FX_FORMS.lp.run = applyLp;
+
+/* ---- 墓地・山札をあやつる（deckGrave） ---- */
+function applyDeckGrave(st, s, c, target, ctx, f, n, src){
+  const sides = f.who === "both" ? [s, O(s)] : f.who === "op" ? [O(s)] : [s];
+  if (f.act === "steal"){ const op = P(st, O(s)), me = P(st, s); let k = 0; for (let r = 0; r < (n || 1) && op.grave.length; r++){ me.grave.push(op.grave.pop()); k++; } log(st, s, k ? `${src}で相手の墓地のカード${k}枚を自分の墓地に移した` : `${src}：相手の墓地にカードがない`); return; }
+  for (const o of sides){
+    const X = P(st, o);
+    if (f.act === "shuf"){ const k = X.grave.length; X.deck.push(...X.grave.splice(0)); shuffle(X.deck); log(st, s, `${src}で${X.name}の墓地${k}枚を山札に戻してシャッフルした`); continue; }
+    if (f.act === "mill"){ const got = X.deck.splice(0, Math.min(Math.max(0, Math.floor(n || 1)), X.deck.length)); X.grave.push(...got); log(st, s, got.length ? `${src}で${X.name}の山札の上から${got.length}枚を墓地へ送った` : `${src}：${X.name}の山札がない`); continue; }
+    if (f.pick === "all"){ const k = X.grave.length; (X.exile = X.exile || []).push(...X.grave.splice(0)); log(st, s, `${src}で${X.name}の墓地のカード${k}枚を除外した`); continue; }
+    const k = X.grave.lastIndexOf(target); if (k >= 0){ X.grave.splice(k, 1); (X.exile = X.exile || []).push(target); log(st, s, `${src}で${X.name}の墓地の「${card(target).name}」を除外した`); }
+  }
+}
+FX_FORMS.deckGrave.run = applyDeckGrave;
+FX_FORMS.deckGrave.opts = (st, s, f) => f.act === "banish" && f.pick === "one" ? [...new Set(P(st, f.who === "op" ? O(s) : s).grave)].filter(id => hasCard(id)) : null;
+FX_FORMS.deckGrave.auto = (st, s, opts) => FX_FORMS.fetch.auto(st, s, opts);
 // apply effect of card c for player s. target resolved already (or undefined for untargeted)
 // 護法: 相手の効果の対象になったモンスター（自分のモンスターを対象にする効果はそのまま）
 function wardMon(st, s, fx, target, ctx){
@@ -1372,9 +1408,7 @@ function applyEffect(st, s, c, target, ctx = {}, fx = normFx(c)){
       break;
     }
     // 場のカードを指定して除去（破壊・手札に戻す・除外）
-    case "heal": me.lp += n; log(st, s, `${src}でLPを${n}回復`); break;
     case "lpSwap": { const a = me.lp, b = op.lp; me.lp = b; op.lp = a; log(st, s, `${src}で${me.name}と${op.name}のLPを入れかえた（${me.name} ${fmtN(a)}→${fmtN(b)}・${op.name} ${fmtN(b)}→${fmtN(a)}）`); break; }
-    case "oppHeal": if (n > 0 && isFinite(n)){ op.lp += n; log(st, s, `${src}で${op.name}のLPが${n}回復した`); } break;
     case "dmgRand": { const L = ["p", ...opT.mz.map((m, i) => m && !fxImmune(st, s, m) ? "m:" + i : null).filter(Boolean)], t = L[Math.floor(Math.random() * L.length)]; if (t === "p"){ log(st, s, `${src}で${opT.name}に${n}ダメージ（ランダム）`); dealDmg(st, OS, n); } else monDmg(st, OS, +t.slice(2), n, src + "（ランダム）"); break; }
     case "dmgAll": { opT.mz.map((m, i) => mfOk(st, s, fx, m) ? i : -1).filter(i => i >= 0).forEach(i => monDmg(st, OS, i, n, src)); if (!fx.monOnly){ log(st, s, `${src}で${opT.name}に${n}ダメージ`); dealDmg(st, OS, n); } break; }
     case "freeAttack": case "freeSkill": case "freePower": { const k = fx.kind.slice(4).toLowerCase(); me.free = { ...(me.free || {}), [k]: ((me.free || {})[k] || 0) + 1 }; log(st, s, `${src}：次に使う${SPIRE_LABEL[k]}のコストが0になる`); break; }
@@ -1402,9 +1436,6 @@ function applyEffect(st, s, c, target, ctx = {}, fx = normFx(c)){
       mm.xb = (mm.xb || []).concat(bl.slice(0, k));
       const hi = me.hand.indexOf(id); if (hi >= 0){ me.hand.splice(hi, 1); me.grave.push(id); }
       log(st, s, `${src}：「${sc.name}」の効果${k}つを「${card(mm.c).name}」に合成した（墓地${k}枚を質量に）${k < bl.length ? `。墓地が足りず${bl.length - k}つは付かなかった` : ""}`); break; }
-    case "mill": { const got = me.deck.splice(0, Math.min(Math.max(0, Math.floor(n)), me.deck.length)); me.grave.push(...got); log(st, s, got.length ? `${src}で自分の山札の上から${got.length}枚を墓地へ送った` : `${src}：墓地に送るカードがない`); break; }
-    case "millBoth": { for (const o of [s, O(s)]){ const X = P(st, o), got = X.deck.splice(0, Math.min(n || 1, X.deck.length)); X.grave.push(...got); log(st, s, got.length ? `${src}で${X.name}の山札の上から${got.length}枚を墓地へ送った` : `${src}：${X.name}の山札がない`); } break; }
-    case "stealGrave": { let k = 0; for (let r = 0; r < (n || 1) && op.grave.length; r++){ me.grave.push(op.grave.pop()); k++; } log(st, s, k ? `${src}で相手の墓地のカード${k}枚を自分の墓地に移した` : `${src}：相手の墓地にカードがない`); break; }
     case "matCopy": { const [os, oi] = String(target).split(":"), mm = P(st, os) && P(st, os).mz[+oi];
       if (!mm || !(mm.mats || []).length){ log(st, s, `${src}：質量がない`); break; }
       const isM = id => cardType(card(id)) === "monster" ? 1 : 0, id = mm.mats.slice().sort((a, b) => isM(b) - isM(a) || cmpNum(baseAtk(card(b)) || 0, baseAtk(card(a)) || 0))[0];
@@ -1433,8 +1464,6 @@ function applyEffect(st, s, c, target, ctx = {}, fx = normFx(c)){
     case "oppDeckDraw": drawN(st, s, n, src, O(s)); break;
     // 「このターン」: 自分のターンならこのターン、相手のターンに出たら次の自分のターン
     case "thisTopOnly": { const m = ctx.mon && monAt(st, ctx.mon); if (!m){ log(st, s, `${src}：そのモンスターはもう場にいない`); break; } m.topOnly = true; log(st, s, `${src}：「${card(m.c).name}」は相手の一番ATKが高いモンスターにしか攻撃できなくなった`); break; }
-    case "thisNoAtk": { const m = ctx.mon && monAt(st, ctx.mon); if (!m){ log(st, s, `${src}：そのモンスターはもう場にいない`); break; } m.noAtkTurn = Math.max(m.noAtkTurn || 0, st.turn === ctx.mon.s ? st.turnNo : st.turnNo + 1); log(st, s, `${src}：「${card(m.c).name}」はこのターン攻撃できない`); break; }
-    case "selfNoAtk": me.noAtkUntil = Math.max(me.noAtkUntil || 0, st.turn === s ? st.turnNo : st.turnNo + 1); log(st, s, `${src}：このターン、${me.name}のモンスターは攻撃できない`); break;
     case "modAdd": case "modRep": case "modClear": case "modName": modApply(st, s, c, fx, target, src); break;
     case "moveEquips": {
       const srcM = ctx.mon && monAt(st, ctx.mon), [ts, ti] = String(target).split(":"), tm = (ts === "a" || ts === "b") ? P(st, ts).mz[+ti] : null;
@@ -1471,11 +1500,6 @@ function applyEffect(st, s, c, target, ctx = {}, fx = normFx(c)){
     case "seal": { const m = opT.mz[target]; if (!m) break; let k = 0;
       for (let r = 0; r < Math.max(1, n || 1); r++){ if (!me.deck.length) refill(st, s); const id = me.deck.shift(); if (id == null) break; (m.seals = m.seals || []).push({ c: id, o: s }); k++; }
       log(st, s, k ? `${src}で「${card(m.c).name}」に封印を${k}つつけた（ないものとして扱う）` : `${src}：山札がないので封印をつけられない`); break; }
-    case "graveShuf": case "graveShufOpp": case "graveShufBoth": {
-      const L = fx.kind === "graveShuf" ? [s] : fx.kind === "graveShufOpp" ? [O(s)] : [s, O(s)];
-      L.forEach(o => { const X = P(st, o), k = X.grave.length; X.deck.push(...X.grave.splice(0)); shuffle(X.deck); log(st, s, `${src}で${X.name}の墓地${k}枚を山札に戻してシャッフルした`); });
-      break;
-    }
     case "pctDmg": { const pc = Math.max(1, Math.min(100, Math.round(n || 0))), d = Math.ceil((P(st, O(s)).lp || 0) * pc / 100); log(st, s, `${src}で${P(st, O(s)).name}のLPの${pctWord(pc)}（${d}）のダメージ`); if (d > 0) dealDmg(st, O(s), d); break; }
     case "loseAb": {
       const k = labKey(fx), w = GAB_W[fx.gw] ? fx.gw : "self", until = fx.gd === "turn" ? st.turnNo : fx.gd === "next" ? st.turnNo + 2 : 0;
@@ -1513,13 +1537,9 @@ function applyEffect(st, s, c, target, ctx = {}, fx = normFx(c)){
     case "vulnAll": if (!fx.monOnly) addVuln(st, s, "p", n, src, OS); opT.mz.forEach((m, i) => { if (mfOk(st, s, fx, m)) addVuln(st, s, "m:" + i, n, src, OS); }); break;
     case "weak": addWeak(st, s, target, n, src, OS); break;
     case "weakAll": if (!fx.monOnly) addWeak(st, s, "p", n, src, OS); opT.mz.forEach((m, i) => { if (mfOk(st, s, fx, m)) addWeak(st, s, "m:" + i, n, src, OS); }); break;
-    case "loseLp": me.lp -= n; ev(st, { type: "hit", s, d: n, blk: 0 }); log(st, s, `${src}でLPを${n}失った`); lostLp(st, s); break;
     case "graveToTop": { const k = me.grave.indexOf(target); if (k >= 0){ me.grave.splice(k, 1); me.deck.unshift(target); log(st, s, `${src}で墓地の「${card(target).name}」を山札の一番上に置いた`); } break; }
-    case "noDraw": me.noDraw = true; log(st, s, `${src}：このターンはもうカードを引けない`); break;
     case "drawUntil": { let k = 0, last = null; while (k < 12 && !me.noDraw){ if (!me.deck.length) refill(st, s); if (!me.deck.length) break; last = me.deck.shift(); me.hand.push(last); k++; if (!isAttackCard(card(last))) break; } log(st, s, `${src}でカードを${k}枚引いた${last && !isAttackCard(card(last)) ? `（「${card(last).name}」で止まった）` : ""}`); break; }
     // このカード以外すべて: お互いの場のモンスター・魔法・罠・フィールドを破壊（このカード自身と、このカードが付いているモンスターはのこす）
-    case "banishGrave": { const k = op.grave.lastIndexOf(target); if (k >= 0){ op.grave.splice(k, 1); (op.exile = op.exile || []).push(target); log(st, s, `${src}で相手の墓地の「${card(target).name}」を除外した`); } break; }
-    case "banishGraveAll": { const k = op.grave.length; (op.exile = op.exile || []).push(...op.grave.splice(0)); log(st, s, `${src}で相手の墓地のカード${k}枚を除外した`); break; }
     case "stealMon": case "stealMonTmp": {
       const m = opT.mz[target], z = freeZone(me.mz); if (!m || OS === s) break;
       if (z < 0){ log(st, s, `${src}：場がいっぱいでうばえない`); break; }
@@ -1551,7 +1571,6 @@ function applyEffect(st, s, c, target, ctx = {}, fx = normFx(c)){
     case "transformAtk": { const L = me.hand.map((id, k) => isAttackCard(card(id)) ? k : -1).filter(k => k >= 0); if (!L.length) log(st, s, `${src}：手札にアタックがない`); L.forEach(k => transformAt(st, s, k, fx.into, src, c, fx)); break; }
     case "transformSelf": transformSelf(st, s, c, ctx, fx, src); break;
     case "transformAll": { if (!me.hand.length) log(st, s, `${src}：手札がない`); me.hand.forEach((_, k) => transformAt(st, s, k, fx.into, src, c, fx)); break; }
-    case "oppNoAtk": case "oppNoUse": { const until = st.turn === s ? st.turnNo + 1 : st.turnNo, k = fx.kind === "oppNoAtk" ? "noAtkUntil" : "noUseUntil"; op[k] = Math.max(op[k] || 0, until); log(st, s, `${src}：${op.name}は次のターンの終わりまで${fx.kind === "oppNoAtk" ? "攻撃" : "魔法・罠を発動"}できない`); break; }
     case "oppDraw": { let k = 0; for (let r = 0; r < (n || 1); r++){ if (!op.deck.length) refill(st, O(s)); if (!op.deck.length) break; op.hand.push(op.deck.shift()); k++; } log(st, s, `${src}で${op.name}はカードを${k}枚引いた${k < (n || 1) ? "（山札がなくてそれ以上引けなかった）" : ""}`); break; }
     case "autoPlay": if (fx.into){ me.autoPlay = [...new Set([...(me.autoPlay || []), fx.into])]; log(st, s, `${src}：これから名前に「${fx.into}」が入ったカードは引いたら自動で使う`); } break;
     // このターンだけ: m.tmp に入れて、このターンのおわりに0にもどす

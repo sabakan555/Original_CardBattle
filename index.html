@@ -2392,6 +2392,9 @@ const KINDS = {
   manaGrave:  { label: "墓地のカードを○枚マナゾーンに置く", n: true, text: n => `自分の墓地のカードを${n}枚マナゾーンに置く（新しいものから）` },
   manaBreak:  { label: "相手のマナゾーンのカードを○枚墓地へ（マナ破壊）", n: true, text: n => `相手のマナゾーンのカードをランダムに${n}枚墓地へ置く` },
   manaBack:   { label: "自分のマナゾーンのカードを○枚手札に戻す（マナ回収）", n: true, text: n => `自分のマナゾーンのカードを${n}枚手札に戻す（コストが大きいものから）` },
+  lock:       { label: "行動をしばる（攻撃・魔法罠の発動・ドロー）", form: true, text: (n, into, m) => lockText(m || {}) },
+  lp:         { label: "LPを回復する・失う", n: true, form: true, text: (n, into, m) => lpText({ ...(m || {}), n }) },
+  deckGrave:  { label: "墓地・山札をあやつる（山札に戻す・墓地へ送る・除外・うばう）", n: true, form: true, text: (n, into, m) => deckGraveText({ ...(m || {}), n }) },
   status:     { label: "状態を付ける（弱体・脱力・魅了・筋力・敏捷・霊体）", n: true, form: true, text: (n, into, m, spire) => statusText({ ...(m || {}), n }, spire) },
   cleanse:    { label: "状態を消す（デバフを取り除く・減らす）", n: true, form: true, text: (n, into, m) => cleanseText({ ...(m || {}), n }) },
   gen:        { label: "カードを生む（名前を指定・コピー・ランダム）", n: true, name: true, form: true, text: (n, into, m) => genText({ ...(m || {}), n, into }) },
@@ -2799,6 +2802,7 @@ function expandFx(f){
   const to = f.to, k = f.kind;
   // まとめた効果は、えらぶ（2体・ランダム・○体）ときだけここで分ける。全体・このカードなどはそのまま
   // 手札をえらんで n 枚: 1枚ずつえらぶ（前の「えらんで捨てる」と同じ）
+  if (k === "deckGrave" && f.act === "banish" && f.pick === "one" && f.n > 1) return Array.from({ length: Math.min(40, Math.round(f.n)) }, () => ({ ...f, n: 1 }));
   if (k === "fetch" && f.pick === "one" && f.what !== "self" && f.n > 1) return Array.from({ length: Math.min(40, Math.round(f.n)) }, () => ({ ...f, n: 1 }));
   if (k === "handOut" && to === "one" && f.n > 1) return Array.from({ length: Math.min(40, Math.round(f.n)) }, () => ({ ...f, n: 1 }));
   if (FX_FORMS[k] && to !== "two" && to !== "random" && to !== "n") return [f];
@@ -3132,6 +3136,59 @@ function cleanseText(f){
   const w = c.to === "this" ? "このモンスター" : c.to === "one" ? `${sd}のモンスター1体` : c.to === "mons" ? `${sd}のモンスターすべて` : c.to === "all" ? `${sd}と${sd}のモンスターすべて` : sd;
   const what = c.what === "debuff" ? "デバフ（弱体・脱力・魅了・マイナスの筋力と敏捷）" : ST_NAME[c.what];
   return c.how === "reduce" ? `${w}の${what}を${c.n}減らす` : `${w}の${what}をすべて取り除く`;
+}
+/* ---- 行動をしばる: 1つの効果「lock」= なにを（what: atk 攻撃 / use 魔法・罠の発動 / draw ドロー）× だれ（who: this このモンスター / me 自分 / op 相手） ----
+   いつまで: その人のターンの終わりまで（いまがその人のターンならこのターン、ちがえば次のその人のターン）。自分なら「このターン」、相手なら「相手の次のターンの終わりまで」 */
+const LOCK_WHAT = { atk: "攻撃", use: "魔法・罠の発動", draw: "ドロー" };
+fxForm("lock", {
+  // 前からある5種類
+  legacy: { thisNoAtk: { what: "atk", who: "this" }, selfNoAtk: { what: "atk", who: "me" }, oppNoAtk: { what: "atk", who: "op" }, oppNoUse: { what: "use", who: "op" }, noDraw: { what: "draw", who: "me" } },
+  fields: { what: v => LOCK_WHAT[v] ? v : "atk", who: v => v === "this" || v === "me" ? v : undefined },
+  norm(f, L){ L = L || {}; const what = LOCK_WHAT[L.what || f.what] ? L.what || f.what : "atk"; let who = L.who || f.who; if (who !== "this" && who !== "me") who = "op"; if (who === "this" && what !== "atk") who = "me";
+    const out = { ...f, what }; if (who === "op") delete out.who; else out.who = who; delete out.n; return out; },
+});
+function lockText(f){
+  const l = fxNorm({ ...f, kind: "lock" });
+  if (l.who === "this") return "このモンスターはこのターン攻撃できない";
+  const me = l.who === "me", w = me ? "自分" : "相手", when = me ? "このターン、" : "相手の次のターンの終わりまで、";
+  return when + (l.what === "atk" ? `${w}のモンスターは攻撃できない` : l.what === "use" ? `${w}は魔法・罠を発動できない` : `${w}はこれ以上カードを引けない`);
+}
+
+/* ---- LPを増やす・減らす: 1つの効果「lp」= だれの（who: me・op・both）× 回復する／失う（op: heal・lose） ----
+   失うはブロックでは防げない（ダメージではない）。失うと「LPを失うたび」などが起きる */
+fxForm("lp", {
+  legacy: { heal: {}, oppHeal: { who: "op" }, loseLp: { op: "lose" } },
+  fields: { who: v => v === "op" || v === "both" ? v : undefined, op: v => v === "lose" ? v : undefined },
+  norm(f, L){ L = L || {}; const out = { ...f }, who = L.who || f.who, op = L.op || f.op;
+    if (who === "op" || who === "both") out.who = who; else delete out.who; if (op === "lose") out.op = "lose"; else delete out.op;
+    if (!(out.n > 0) && !out.per) out.n = 100; return out; },
+});
+function lpText(f){ const l = fxNorm({ ...f, kind: "lp" }), w = GEN_WHO[l.who || "me"]; return l.op === "lose" ? `${w}のLPを${l.n}失う（ブロックでは防げない）` : `${w}のLPを${l.n}回復する`; }
+
+/* ---- 墓地・山札をあやつる: 1つの効果「deckGrave」= どうする（act）× だれの（who: me・op・both）× えらび方（pick）× 枚数（n） ----
+   act: shuf（墓地をすべて山札に戻してシャッフル）/ mill（山札の上から n 枚を墓地へ）/ banish（墓地のカードを除外。pick: one えらぶ・all すべて）/ steal（相手の墓地の一番上を自分の墓地へ） */
+const DG_ACT = { shuf: "墓地を山札に戻す", mill: "山札の上を墓地へ送る", banish: "墓地のカードを除外する", steal: "相手の墓地のカードをうばう" };
+fxForm("deckGrave", {
+  legacy: {
+    graveShuf: { act: "shuf" }, graveShufOpp: { act: "shuf", who: "op" }, graveShufBoth: { act: "shuf", who: "both" },
+    mill: { act: "mill" }, millBoth: { act: "mill", who: "both" },
+    banishGrave: { act: "banish", who: "op" }, banishGraveAll: { act: "banish", who: "op", pick: "all" }, stealGrave: { act: "steal" },
+  },
+  fields: { act: v => DG_ACT[v] ? v : "shuf", who: v => v === "op" || v === "both" ? v : undefined, pick: (v, e) => e.act === "banish" && v === "all" ? "all" : undefined },
+  norm(f, L){ L = L || {};
+    const act = DG_ACT[L.act || f.act] ? L.act || f.act : "shuf", pick = act === "banish" && (L.pick || f.pick) === "all" ? "all" : "one";
+    let who = L.who || f.who; if (who !== "op" && who !== "both") who = "me"; if (act === "steal") who = "op"; if (act === "banish" && pick === "one" && who === "both") who = "op";
+    const out = { ...f, act, pick }; if (who === "me") delete out.who; else out.who = who;
+    if (act === "shuf" || (act === "banish" && pick === "all")) delete out.n; else if (!(out.n > 0)) out.n = 1;
+    if (act !== "banish") delete out.pick; return out; },
+  tgt: f => f.act === "banish" && f.pick === "one" ? "tagPick" : undefined,
+});
+function deckGraveText(f){
+  const d = fxNorm({ ...f, kind: "deckGrave" }), w = GEN_WHO[d.who || "me"];
+  if (d.act === "shuf") return `${w}の墓地のカードをすべて山札に戻してシャッフルする`;
+  if (d.act === "mill") return `${w}の山札の上から${d.n}枚を墓地に送る`;
+  if (d.act === "steal") return `相手の墓地の一番上のカード${d.n}枚を自分の墓地に移す`;
+  return d.pick === "all" ? `${w}の墓地のカードをすべて除外する` : `${w}の墓地のカードを${d.n}枚えらんで除外する`;
 }
 // 追加コスト: LPを払う / 手札を捨てる / 最大マナを減らす（払えないと使えない）
 const USE_COND_WHERE = { field: "自分の場", grave: "自分の墓地", hand: "自分の手札", mana: "自分のマナゾーン" };
@@ -5282,10 +5339,10 @@ const KIND_GROUPS = [
   { g: "none",    label: "なし", v: [["none", "なし"]] },
   { g: "dmg",     label: "ダメージを与える", v: [["dmg", "ふつうのダメージ"], ["pctDmg", "割合ダメージ（相手のLPの○%）"]] },
   { g: "destroy", label: "破壊・除去する（モンスター・魔法・罠・フィールド）", v: [["remove", "場から除去する（破壊・手札に戻す・除外・山札・墓地）"], ["destroy", "相手のモンスターを破壊"], ["removeBoard", "場のカードを1枚えらんで除去（モンスター・魔法・罠・フィールド）"], ["killAtk", "攻撃してきたモンスターを破壊（罠・速攻魔法）"], ["destroySt", "相手の魔法・罠をえらんで破壊"], ["destroyStRand", "相手の魔法・罠をランダムに破壊"], ["destroyStAll", "相手の魔法・罠をすべて破壊"], ["destroyField", "フィールド魔法を破壊"], ["blast", "自爆して、装備の枚数×○以下のATKを全部破壊"]] },
-  { g: "debuff",  label: "相手を弱らせる（デバフ）", v: [["status", "状態を付ける（弱体・脱力・魅了・筋力・敏捷・霊体）"], ["atk", "ATKを変える（＋・−・○にする・○倍・元に戻す）"], ["vuln", "弱体（受けるダメージ1.5倍）"], ["weak", "脱力（与えるダメージが減る）"], ["atkDown", "ATKを下げる"], ["atkDownTmp", "ATKを下げる（このターンだけ）"], ["atkDownAtk", "攻撃してきたモンスターのATKを下げる（罠・速攻魔法）"], ["charm", "魅了（攻撃できなくする）"], ["oppStrDown", "筋力を失わせる（相手の次のターンの終わりまで）"], ["oppNoAtk", "攻撃できなくする（相手の次のターンまで）"], ["oppNoUse", "魔法・罠を発動できなくする（相手の次のターンまで）"]] },
+  { g: "debuff",  label: "相手を弱らせる（デバフ）", v: [["lock", "行動をしばる（攻撃・魔法罠の発動・ドローをできなくする）"], ["status", "状態を付ける（弱体・脱力・魅了・筋力・敏捷・霊体）"], ["atk", "ATKを変える（＋・−・○にする・○倍・元に戻す）"], ["vuln", "弱体（受けるダメージ1.5倍）"], ["weak", "脱力（与えるダメージが減る）"], ["atkDown", "ATKを下げる"], ["atkDownTmp", "ATKを下げる（このターンだけ）"], ["atkDownAtk", "攻撃してきたモンスターのATKを下げる（罠・速攻魔法）"], ["charm", "魅了（攻撃できなくする）"], ["oppStrDown", "筋力を失わせる（相手の次のターンの終わりまで）"], ["oppNoAtk", "攻撃できなくする（相手の次のターンまで）"], ["oppNoUse", "魔法・罠を発動できなくする（相手の次のターンまで）"]] },
   { g: "hand",    label: "手札を捨てる・捨てさせる（ハンデス）", v: [["handOut", "手札をどかす（捨てる・捨てさせる・廃棄・山札に戻す）"], ["discard", "ランダムに捨てさせる"], ["discardPeek", "手札を見て、えらんで捨てさせる（ピーピングハンデス）"]] },
   { g: "buff",    label: "自分を強くする（バフ）", v: [["status", "状態を付ける（弱体・脱力・魅了・筋力・敏捷・霊体）"], ["atk", "ATKを変える（＋・−・○にする・○倍・元に戻す）"], ["str", "筋力を得る（与えるダメージ+○）"], ["strTemp", "筋力を得る（このターンだけ）"], ["dex", "敏捷を得る（得るブロック+○）"], ["dexTemp", "敏捷を得る（このターンだけ）"], ["intang", "霊体（受けるダメージが1・○ターン）"], ["selfAtk", "このモンスターのATKを上げる"], ["atkMul", "このモンスターのATKを○倍"], ["atkUp", "自分のモンスターのATKを上げる（えらぶ・全体・ランダム）"], ["vulnBonus", "弱体の相手へのダメージ+○%（ずっと）"]] },
-  { g: "guard",   label: "守る・回復する（デバフを消す）", v: [["cleanse", "状態を消す（デバフを取り除く・減らす）"], ["block", "ブロックを得る"], ["heal", "LPを回復する"], ["lpSwap", "自分と相手のLPを入れかえる"], ["plate", "プレート（ターンのおわりにブロック）"], ["barricade", "ブロックが消えなくなる（ずっと）"], ["firstBlock2", "毎ターン最初のブロックが2倍（ずっと）"], ["rageNow", "このターン、アタックを使うたびブロック"], ["thornsNow", "攻撃されたら反撃（次の自分のターンまで）"]] },
+  { g: "guard",   label: "守る・回復する（デバフを消す）", v: [["lp", "LPを回復する・失う"], ["cleanse", "状態を消す（デバフを取り除く・減らす）"], ["block", "ブロックを得る"], ["heal", "LPを回復する"], ["lpSwap", "自分と相手のLPを入れかえる"], ["plate", "プレート（ターンのおわりにブロック）"], ["barricade", "ブロックが消えなくなる（ずっと）"], ["firstBlock2", "毎ターン最初のブロックが2倍（ずっと）"], ["rageNow", "このターン、アタックを使うたびブロック"], ["thornsNow", "攻撃されたら反撃（次の自分のターンまで）"]] },
   { g: "draw",    label: "カードを引く", v: [["draw", "○枚引く"], ["oppDeckDraw", "相手の山札から○枚引く"], ["drawTo", "手札が○枚になるまで引く"], ["drawUntil", "アタック以外を引くまで引く"]] },
   { g: "fetch",   label: "カードを手札に持ってくる", v: [["fetch", "カードを持ってくる・出す（山札・墓地・手札・EX・マナから）"], ["searchMon", "山札からモンスターを（えらぶ）"], ["searchMagic", "山札から魔法を（えらぶ）"], ["searchTrap", "山札から罠を（えらぶ）"], ["tagSearch", "タグのカードを山札から（えらぶ）"], ["tagGraveHand", "タグのカードを墓地から（えらぶ）"], ["revive", "墓地のモンスターを手札に"], ["graveHand", "墓地のカードを手札に（どのカードでも・えらぶ）"], ["graveAtkToHand", "墓地のランダムなアタックを手札に"]] },
   { g: "make",    label: "カードを生み出す・コピーする", v: [["gen", "カードを生む（名前を指定・このカードのコピー・ランダム）"], ["copyHand", "このカードのコピーを手札に"], ["copyDeck", "このカードのコピーを山札に"], ["copyGrave", "このカードのコピーを墓地に"], ["copyLastAtk", "直前に使ったアタックのコピーを手札に"], ["genAttack", "ランダムなアタックを手札に"], ["genAttack0", "ランダムなアタックを手札に（このターンコスト0）"], ["genSkill", "ランダムなスキルを手札に"], ["genPower", "ランダムなパワーを手札に"], ["genNamed", "名前を指定したカード（トークンなど）を手札に"], ["tagGen", "タグのカードをランダムに生み出して手札に"], ["draft", "スパイア風カードを○枚から1枚えらんで墓地に"]] },
@@ -5298,14 +5355,14 @@ const KIND_GROUPS = [
   { g: "ability", label: "能力を付与する・消す（成長・2回攻撃・ブロッカーなど）", v: [["giveAttr", "属性を付与する・変える（相手・自分のモンスター）"], ["dieWin", "サイコロの当たりの目を増やす（場にいる間）"], ["giveAb", "モンスターに能力を付与する"], ["loseAb", "モンスターの能力を消す"]] },
   { g: "turn",    label: "ターンを追加する", v: [["extraTurn", "追加ターン（このターンのあと、もう一度自分のターン）"]] },
   { g: "mana",    label: "マナ", v: [["manaNow", "マナを回復（このターン）"], ["manaMax", "最大マナを増やす"], ["manaDrain", "相手のマナを減らす"], ["selfMana", "このカードをマナゾーンに置く"], ["manaSummon", "マナゾーンからモンスターを場に出す"], ["manaBoost", "山札の上をマナゾーンに置く（マナ加速）"], ["manaHand", "手札をマナゾーンに置く"], ["manaGrave", "墓地のカードをマナゾーンに置く"], ["manaBreak", "相手のマナゾーンのカードを墓地へ（マナ破壊）"], ["manaBack", "マナゾーンのカードを手札に戻す（マナ回収）"]] },
-  { g: "deck",    label: "山札・墓地をあやつる", v: [["mill", "山札の上から○枚を墓地に送る"], ["millBoth", "お互いの山札の上を墓地へ"], ["graveShuf", "墓地をすべて山札に戻してシャッフル"], ["graveShufOpp", "相手の墓地をすべて山札に戻してシャッフル"], ["graveShufBoth", "お互いの墓地をすべて山札に戻してシャッフル"], ["stealGrave", "相手の墓地のカードを自分の墓地へ移す"], ["scry", "山札の上を見て、1枚を上に・のこりを下に"], ["graveToTop", "墓地のカードを山札の一番上に"]] },
+  { g: "deck",    label: "山札・墓地をあやつる", v: [["deckGrave", "墓地・山札をあやつる（山札に戻す・墓地へ送る・除外・うばう）"], ["mill", "山札の上から○枚を墓地に送る"], ["millBoth", "お互いの山札の上を墓地へ"], ["graveShuf", "墓地をすべて山札に戻してシャッフル"], ["graveShufOpp", "相手の墓地をすべて山札に戻してシャッフル"], ["graveShufBoth", "お互いの墓地をすべて山札に戻してシャッフル"], ["stealGrave", "相手の墓地のカードを自分の墓地へ移す"], ["scry", "山札の上を見て、1枚を上に・のこりを下に"], ["graveToTop", "墓地のカードを山札の一番上に"]] },
   { g: "exhaust", label: "カードを廃棄する", v: [["handOut", "手札をどかす（捨てる・捨てさせる・廃棄・山札に戻す）"], ["exhaustHand", "手札から○枚えらんで"], ["exhaustRand", "手札からランダムに○枚"], ["exhaustAll", "手札をすべて"], ["exhaustNonAtk", "手札のアタック以外をすべて"]] },
   { g: "rewrite", label: "カードを書きかえる（効果の追加・上書き・名前）", v: [["modAdd", "効果を追加する"], ["modRep", "効果を上書きする"], ["modClear", "効果をなくす"], ["modName", "名前を変える"]] },
   { g: "transform", label: "カードを変化させる", v: [["transformHand", "手札から○枚えらんで"], ["transformRand", "手札からランダムに○枚"], ["transformAtk", "手札のアタックすべて"], ["transformAll", "手札すべて"], ["transformSelf", "このカード自身"]] },
   { g: "give",    label: "相手にカードを送りこむ", v: [["gen", "カードを生む（名前を指定・このカードのコピー・ランダム）"], ["oppGenHand", "名前を指定したカードを相手の手札に"], ["oppGenDeck", "名前を指定したカードを相手の山札に混ぜる"], ["oppSummon", "名前を指定したモンスターを相手の場に出す"], ["oppSetNamed", "名前を指定した魔法・罠を相手の場にセット"]] },
   { g: "negate",  label: "打ち消す・無効にする", v: [["cancel", "魔法・罠の発動かモンスターの召喚を打ち消す"], ["reflectFx", "相手の魔法・罠を打ち消して、その効果を自分が使う（跳ね返す）"], ["negate", "相手の攻撃を無効にする（罠・速攻魔法）"], ["dmgAtkAtk", "攻撃してきたモンスターのATKぶんのダメージを相手に与える（罠・速攻魔法）"], ["reflectDmg", "このターン、自分が受けるダメージを相手に跳ね返す"]] },
   { g: "equip",   label: "装備を動かす", v: [["moveEquips", "別のモンスターに付けかえる"], ["equipsToHand", "ほかの装備を手札に戻す"]] },
-  { g: "minus",   label: "デメリット（自分が損する・しばり）", v: [["handOut", "手札をどかす（捨てる・捨てさせる・廃棄・山札に戻す）"], ["loseLp", "LPを失う（ブロックでは防げない）"], ["oppHeal", "相手のLPを回復する"], ["oppDraw", "相手にカードを○枚引かせる"], ["selfDisc", "手札をえらんで捨てる"], ["selfDiscRand", "手札をランダムに捨てる"], ["selfDiscAll", "手札をすべて捨てる"], ["thisNoAtk", "このモンスターは攻撃できない（このターン）"], ["thisTopOnly", "一番ATKが高い相手にしか攻撃できない"], ["selfNoAtk", "自分のモンスターは攻撃できない（このターン）"], ["destroyOwn", "自分のモンスター1体を破壊"], ["destroyThis", "このモンスターを破壊"], ["destroyOwnAll", "自分のモンスターをすべて破壊"], ["selfAtkDown", "このモンスターのATKダウン"], ["myAtkDown", "自分のモンスター1体のATKダウン"], ["myAtkDownAll", "自分のモンスターすべてのATKダウン"], ["oppStr", "相手が筋力を得る"], ["noDraw", "このターンもう引けない"]] },
+  { g: "minus",   label: "デメリット（自分が損する・しばり）", v: [["lock", "行動をしばる（攻撃・魔法罠の発動・ドローをできなくする）"], ["lp", "LPを回復する・失う"], ["handOut", "手札をどかす（捨てる・捨てさせる・廃棄・山札に戻す）"], ["loseLp", "LPを失う（ブロックでは防げない）"], ["oppHeal", "相手のLPを回復する"], ["oppDraw", "相手にカードを○枚引かせる"], ["selfDisc", "手札をえらんで捨てる"], ["selfDiscRand", "手札をランダムに捨てる"], ["selfDiscAll", "手札をすべて捨てる"], ["thisNoAtk", "このモンスターは攻撃できない（このターン）"], ["thisTopOnly", "一番ATKが高い相手にしか攻撃できない"], ["selfNoAtk", "自分のモンスターは攻撃できない（このターン）"], ["destroyOwn", "自分のモンスター1体を破壊"], ["destroyThis", "このモンスターを破壊"], ["destroyOwnAll", "自分のモンスターをすべて破壊"], ["selfAtkDown", "このモンスターのATKダウン"], ["myAtkDown", "自分のモンスター1体のATKダウン"], ["myAtkDownAll", "自分のモンスターすべてのATKダウン"], ["oppStr", "相手が筋力を得る"], ["noDraw", "このターンもう引けない"]] },
   { g: "ctr",     label: "カウンター（乗せる・取り除く）", v: [["ctrAdd", "カウンターを乗せる"], ["ctrDel", "カウンターを取り除く"]] },
   { g: "win",     label: "勝ち負け（勝利する・敗北回避）", v: [["win", "勝利する"], ["noLoseTurn", "このターン、自分は負けない（敗北回避）"], ["noLoseWhile", "このカードが場にいる限り、自分は負けない（敗北回避）"]] }
 ];
@@ -5469,7 +5526,7 @@ function syncTypeNames(){ const sp = $("#mkFrame").value === "spire"; document.q
 $("#mkType").addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return; if ($("#mkFrame").value === "spire"){ const k = { monster: "attack", magic: "skill", power: "power" }[b.dataset.t]; if (!k) return; MK.sk = k; $("#mkPersist").checked = k === "power"; setMkType("magic"); return; } if (b.dataset.t !== "twin") $("#mkTw").checked = false; setMkType(b.dataset.t); syncTwUI(); updateBkText(); });
 // sensible default numbers when the effect kind changes (cards to draw vs. points)
 // 数の入れ方: ダメージ・ATK・LP・ブロックのような「量」は100くらい、それ以外（枚数・回数・ターン数）は1から
-const BIG_N = ["atk", "selfAtkDown", "myAtkDown", "myAtkDownAll", "dex", "dexTemp", "dmg", "heal", "oppHeal", "block", "selfAtk", "atkUp", "atkAll", "atkDown", "atkDownTmp", "loseLp", "plate", "thornsNow", "rageNow", "blast", "str", "strTemp", "oppStr", "oppStrDown", "vulnBonus", "bash", "dmgRand", "dmgAll", "atkDownAll", "atkSet", "atkSetAll"];
+const BIG_N = ["lp", "atk", "selfAtkDown", "myAtkDown", "myAtkDownAll", "dex", "dexTemp", "dmg", "heal", "oppHeal", "block", "selfAtk", "atkUp", "atkAll", "atkDown", "atkDownTmp", "loseLp", "plate", "thornsNow", "rageNow", "blast", "str", "strTemp", "oppStr", "oppStrDown", "vulnBonus", "bash", "dmgRand", "dmgAll", "atkDownAll", "atkSet", "atkSetAll"];
 // 0 を入れてよい「数」（コストを○に・ATKを○に）
 const ZERO_N = (k, e) => k === "setCost" || k === "atkSet" || k === "atkSetAll" || (k === "atk" && !!e && e.op === "set");
 const smallN = k => !BIG_N.includes(k);
@@ -5521,7 +5578,7 @@ function loadFxForm(c){
 /* ---- the block builder in the card maker ---- */
 MK.blocks = [];
 // 効果の作り方: かんたん (よく使う効果だけ) / こだわり (ぜんぶ). Things already set on a card always stay visible.
-function isEasyKind(k){ return ["status", "cleanse", "atk", "remove", "handOut", "gen", "fetch", "fusion", "destroySt", "destroyStAll", "dmg", "destroy", "killAtk", "atkDownAtk", "vuln", "charm", "atkDown", "selfAtk", "atkUp", "atkAll", "heal", "block", "draw", "mill", "discard", "revive", "reborn", "cancel", "negate", "manaNow", "manaMax"].includes(k); }
+function isEasyKind(k){ return ["lock", "lp", "deckGrave", "status", "cleanse", "atk", "remove", "handOut", "gen", "fetch", "fusion", "destroySt", "destroyStAll", "dmg", "destroy", "killAtk", "atkDownAtk", "vuln", "charm", "atkDown", "selfAtk", "atkUp", "atkAll", "heal", "block", "draw", "mill", "discard", "revive", "reborn", "cancel", "negate", "manaNow", "manaMax"].includes(k); }
 MK.easy = ls.get("cb_fxmode") !== "pro";
 function easyKinds(){ const ks = mkKinds(), e = ks.filter(isEasyKind); return e.length ? e : ks; }
 function syncProOn(){
@@ -5723,6 +5780,9 @@ function renderBlocksUI(){
       + (e.kind === "handOut" ? handOutUI(e, opt) : "")
       + (e.kind === "gen" ? genUI(e, opt) : "")
       + (e.kind === "status" ? statusUI(e, opt) : "")
+      + (e.kind === "lock" ? lockUI(e, opt) : "")
+      + (e.kind === "lp" ? lpUI(e, opt) : "")
+      + (e.kind === "deckGrave" ? deckGraveUI(e, opt) : "")
       + (e.kind === "cleanse" ? cleanseUI(e, opt) : "")
       + (e.kind === "fetch" ? fetchUI(e, opt) : "")
       + (KINDS[e.kind] && KINDS[e.kind].ctr ? ctrEffUI(e, opt, (MK.blocks[bi] || {}).trig === "while") : "")
@@ -5735,7 +5795,7 @@ function renderBlocksUI(){
       + (e.kind === "loseAb" ? `<select data-f="gw" aria-label="だれの">${Object.entries(GAB_W).map(([v, l]) => opt(v, l, GAB_W[e.gw] ? e.gw : "self")).join("")}</select><select data-f="ab" aria-label="どの能力">${labList().map(v => opt(v, v === "all" ? "すべての能力" : ABS[v].label, labKey(e))).join("")}</select><select data-f="gd" aria-label="いつまで">${Object.entries(GAB_D).map(([v, l]) => opt(v, l, e.gd || "")).join("")}</select>` : "")
       + (mfAble(e) ? `<span class="bk-mf"><select data-f="mfK" aria-label="しぼる">${opt("", "しぼらない", e.mfK || "")}${opt("cost", "コストが", e.mfK || "")}${opt("atk", "ATKが", e.mfK || "")}${opt("lv", "レベルが", e.mfK || "")}${opt("attr", "属性が", e.mfK || "")}</select>${e.mfK === "attr" ? `<select data-f="mfA" aria-label="属性">${attrList().map(a => opt(a, a, e.mfA || "火")).join("")}</select><span class="note">のモンスターだけ</span>` : MF_K[e.mfK] ? `<select data-f="mfBy" aria-label="くらべるもの">${Object.entries(MF_BY).map(([k, d]) => opt(k, d.label, MF_BY[e.mfBy] ? e.mfBy : "n")).join("")}</select>${(MF_BY[e.mfBy] ? e.mfBy : "n") === "n" ? `<input type="number" data-f="mfN" min="0" max="9999" value="${esc(e.mfN ?? 0)}" style="width:64px" aria-label="数">` : `<label class="note">＋<input type="number" data-f="mfN" min="-99" max="99" value="${esc(e.mfN ?? 0)}" style="width:52px" aria-label="たす数"></label>`}<select data-f="mfOp" aria-label="以下・以上">${opt("le", "以下", e.mfOp === "ge" ? "ge" : "le")}${opt("ge", "以上", e.mfOp === "ge" ? "ge" : "le")}</select><span class="note">のモンスターだけ</span>` : ""}</span>` : "")
       + (e.kind === "removeBoard" ? `<select data-f="rside" aria-label="どちらの場">${Object.entries(RB_SIDE).map(([k, l]) => opt(k, l + "の場", e.rside || "op")).join("")}</select><select data-f="rm" aria-label="どうする">${Object.entries(RB_MODE).map(([k, l]) => opt(k, l, e.rm || "destroy")).join("")}</select>` : "")
-      + (KINDS[e.kind] && KINDS[e.kind].n && !(e.kind === "atk" && e.op === "reset") && !["handOut", "gen", "fetch", "status", "cleanse"].includes(e.kind) ? `<span class="bk-n"><input type="number" data-f="n" min="${e.per || ZERO_N(e.kind, e) ? 0 : 1}" max="9999" value="${esc(e.n ?? defN(e.kind))}" aria-label="${esc(nUnit(e.kind) || "数")}">${nUnit(e.kind) ? `<span class="note">${esc(nUnit(e.kind))}</span>` : ""}</span>` : "")
+      + (KINDS[e.kind] && KINDS[e.kind].n && !(e.kind === "atk" && e.op === "reset") && !["handOut", "gen", "fetch", "status", "cleanse", "lp", "deckGrave"].includes(e.kind) ? `<span class="bk-n"><input type="number" data-f="n" min="${e.per || ZERO_N(e.kind, e) ? 0 : 1}" max="9999" value="${esc(e.n ?? defN(e.kind))}" aria-label="${esc(nUnit(e.kind) || "数")}">${nUnit(e.kind) ? `<span class="note">${esc(nUnit(e.kind))}</span>` : ""}</span>` : "")
       + (KINDS[e.kind] && KINDS[e.kind].name && !FX_FORMS[e.kind] ? `<input type="text" data-f="into" list="${KINDS[e.kind] && KINDS[e.kind].tag ? "tagNames" : "cardNames"}" maxlength="40" value="${esc(e.into || "")}" placeholder="${KINDS[e.kind].tag ? "タグ（例: アイアンクラッド）" : KINDS[e.kind].need ? (e.kind === "autoPlay" ? "名前に入る文字（例: ストライク）" : "カード名") : "カード名（空ならランダム）"}" aria-label="カード名">` + pickHTML(e) : "") + modRowHTML(e) + ((e.kind === "modAdd" || e.kind === "modRep") && !sub ? effRow(bi, part, e.ge || (e.ge = { kind: e.gk && KINDS[e.gk] && !KINDS[e.gk].mod ? e.gk : "draw", n: e.gn || 1 }), j, e.kind === "modRep" ? "rep" : "add") : "")
       + (perOk(e.kind) && ((KINDS[e.kind] && KINDS[e.kind].n) || (MK.blocks[bi] || {}).trig !== "while") && (!easy || e.per) ? `<select data-f="per" aria-label="ふえる">${opt("", "ふえない", e.per || "")}${Object.entries(PER_DEFS).filter(([k, d]) => (!d.old || e.per === k) && (!d.hf || e.per === k || mkHfVal()) && (e.per === k || perShow(k, bi))).map(([k, d]) => opt(k, d.label + d.u + "につき", e.per || "")).join("")}</select>` + (e.per === "usedNow" || e.per === "handF" ? usedPfUI(e, opt) : "") + `` + (e.per === "ctr" ? ctrPerUI(e, opt) : "") + (e.per === "attrMon" ? `<select data-f="pattr" aria-label="属性">${attrList().map(a => opt(a, a + "属性", e.pattr || "火")).join("")}</select>` : "") + (e.per ? (!KINDS[e.kind].n ? `<span class="note">もう1回（くり返す）</span>` : ((MK.blocks[bi] || {}).trig !== "while" ? `<select data-f="hits" aria-label="ふえかた">${opt("", "数が＋", e.hits ? "1" : "")}${opt("1", "もう1回（くり返す）", e.hits ? "1" : "")}</select>` : "") + (e.hits ? "" : `<input type="number" data-f="pm" min="1" max="9999" value="${esc(e.pm ?? 1)}" aria-label="1つにつき増える数">`)) : "") : "")
       + ((MK.blocks[bi] || {}).roll === "coin" ? `<select data-f="timesCoin" aria-label="くり返し">${opt("", "1回", e.timesCoin || "")}${opt("h", "×コインの表の枚数", e.timesCoin || "")}${opt("t", "×コインの裏の枚数", e.timesCoin || "")}</select>` : "")
@@ -5854,6 +5914,9 @@ function formFix(e, trig){
   if (e.kind === "gen" && e.who && e.when) delete e.when;
   if (e.kind === "status" && !e._g) e._g = (e.st === "str" || e.st === "dex" || e.st === "intang") && e.side === "me" && e.op !== "sub" ? "buff" : "debuff";
   if (e.kind === "cleanse" && !e._g) e._g = "guard";
+  if (e.kind === "lock" && !e._g) e._g = e.who ? "minus" : "debuff";
+  if (e.kind === "lp" && !e._g) e._g = !e.who && e.op !== "lose" ? "guard" : "minus";
+  if (e.kind === "deckGrave" && !e._g) e._g = "deck";
   if (e.kind === "gen" && !e._g) e._g = e.dest === "field" ? "summon" : e.who === "op" ? "give" : "make";
   if (e.kind === "fetch" && !e._g) e._g = e.dest === "field" ? "summon" : "fetch";
   if (!e._g) e._g = e.kind === "atk" ? "atk" : e.kind === "handOut" ? (e.how === "exhaust" ? "exhaust" : e.side === "me" ? "minus" : "hand") : "destroy";
@@ -5869,6 +5932,13 @@ const FORM_F = {
   rSide: (x, v) => ({ ...x, side: v === "me" || v === "both" ? v : undefined }),
   rHow: (x, v) => ({ ...x, how: v }),
   rPos: (x, v) => ({ ...x, pos: v }),
+  lWho: (x, v) => ({ ...x, who: v || undefined, ...(v === "this" ? { what: "atk" } : {}) }),
+  lWhat: (x, v) => ({ ...x, what: v }),
+  pWho: (x, v) => ({ ...x, who: v || undefined }),
+  pOp: (x, v) => ({ ...x, op: v === "lose" ? "lose" : undefined }),
+  dAct: (x, v) => ({ ...x, act: v }),
+  dWho: (x, v) => ({ ...x, who: v || undefined }),
+  dPick: (x, v) => ({ ...x, pick: v }),
   sSide: (x, v) => ({ ...x, side: v === "me" ? "me" : undefined }),
   sSt: (x, v) => ({ ...x, st: v, n: (v === "str" || v === "dex") !== (x.st === "str" || x.st === "dex") ? undefined : x.n }),
   sTo: (x, v) => ({ ...x, to: v }),
@@ -5901,6 +5971,26 @@ function atkUI(e, opt, trig){
     + (e.to === "one" || e.to === "n" || e.to === "random" ? fCount(e, opt, e.to === "random" ? "回" : "体") : "")
     + `<select data-f="aOp" aria-label="どうする">${ops.map(k => opt(k, { add: "ATKを＋", sub: "ATKを−", set: "ATKを○にする", mul: "ATKを○倍", reset: "ATKを元の数字に戻す" }[k], e.op)).join("")}</select>`
     + (!wh && (e.op === "add" || e.op === "sub") ? `<select data-f="aDur" aria-label="いつまで">${opt("", "ずっと", e.dur || "")}${opt("turn", "このターンだけ", e.dur || "")}</select>` : "");
+}
+// 読む順: 相手は → 攻撃 → できない（いつまでかは決まっている）
+function lockUI(e, opt){
+  const mon = MK.type === "monster", who = e.who || "", whos = [["", "相手は（次のターンの終わりまで）"], ["me", "自分は（このターン）"], ...(mon || who === "this" ? [["this", "このモンスターは（このターン）"]] : [])];
+  return `<select data-f="lWho" aria-label="だれが">${whos.map(([k, l]) => opt(k, l, who)).join("")}</select>`
+    + (who === "this" ? `<span class="note">攻撃できない</span>` : `<select data-f="lWhat" aria-label="なにを">${Object.keys(LOCK_WHAT).map(k => opt(k, { atk: "攻撃できない", use: "魔法・罠を発動できない", draw: "カードを引けない" }[k], e.what)).join("")}</select>`);
+}
+// 読む順: 自分の → LPを → 100 → 回復する／失う
+function lpUI(e, opt){
+  return `<select data-f="pWho" aria-label="だれの">${opt("", "自分の", e.who || "")}${opt("op", "相手の", e.who || "")}${opt("both", "お互いの", e.who || "")}</select><span class="note">LPを</span>`
+    + `<span class="bk-n"><input type="number" data-f="n" min="1" max="99999" value="${esc(e.n || 100)}" aria-label="数"></span>`
+    + `<select data-f="pOp" aria-label="どうする">${opt("", "回復する", e.op || "")}${opt("lose", "失う（ブロックでは防げない）", e.op || "")}</select>`;
+}
+// 読む順: どうする → だれの → えらぶ／すべて → 枚数
+function deckGraveUI(e, opt){
+  const n = e.act === "mill" || e.act === "steal" || (e.act === "banish" && e.pick !== "all");
+  return `<select data-f="dAct" aria-label="どうする">${Object.keys(DG_ACT).map(k => opt(k, DG_ACT[k], e.act)).join("")}</select>`
+    + (e.act === "steal" ? "" : `<select data-f="dWho" aria-label="だれの">${opt("", "自分の", e.who || "")}${opt("op", "相手の", e.who || "")}${e.act === "banish" && e.pick !== "all" ? "" : opt("both", "お互いの", e.who || "")}</select>`)
+    + (e.act === "banish" ? `<select data-f="dPick" aria-label="どれを">${opt("one", "えらんで", e.pick)}${opt("all", "すべて", e.pick)}</select>` : "")
+    + (n ? `<span class="bk-n"><input type="number" data-f="n" min="1" max="40" value="${esc(e.n || 1)}" aria-label="枚数"><span class="note">枚</span></span>` : "");
 }
 // 読む順: 相手の → 弱体を → プレイヤーに（○体・○回）→ 得る/失う → 数 → いつまで
 function statusUI(e, opt){
@@ -8819,6 +8909,42 @@ function applyCleanse(st, s, c, target, ctx, f, n, src){
 }
 FX_FORMS.cleanse.run = applyCleanse;
 FX_FORMS.cleanse.opts = (st, s, f) => f.to === "one" ? undefined : null;
+/* ---- 行動をしばる（lock） ---- */
+function applyLock(st, s, c, target, ctx, f, n, src){
+  if (f.who === "this"){ const m = ctx.mon && monAt(st, ctx.mon); if (!m){ log(st, s, `${src}：そのモンスターはもう場にいない`); return; } m.noAtkTurn = Math.max(m.noAtkTurn || 0, st.turn === ctx.mon.s ? st.turnNo : st.turnNo + 1); log(st, s, `${src}：「${card(m.c).name}」はこのターン攻撃できない`); return; }
+  const o = f.who === "me" ? s : O(s), p = P(st, o), until = st.turn === o ? st.turnNo : st.turnNo + 1, when = o === s ? "このターン" : `${p.name}の次のターンの終わりまで`;
+  if (f.what === "draw"){ p.noDraw = true; log(st, s, `${src}：${when}、${p.name}はもうカードを引けない`); return; }
+  const k = f.what === "atk" ? "noAtkUntil" : "noUseUntil"; p[k] = Math.max(p[k] || 0, until);
+  log(st, s, `${src}：${when}、${p.name}は${f.what === "atk" ? "攻撃" : "魔法・罠を発動"}できない`);
+}
+FX_FORMS.lock.run = applyLock;
+
+/* ---- LP（lp） ---- */
+function applyLp(st, s, c, target, ctx, f, n, src){
+  if (!(n > 0) || !isFinite(n)) return;
+  for (const o of f.who === "both" ? [s, O(s)] : f.who === "op" ? [O(s)] : [s]){
+    const p = P(st, o), whose = o === s ? "" : `${p.name}の`;
+    if (f.op === "lose"){ p.lp -= n; ev(st, { type: "hit", s: o, d: n, blk: 0 }); log(st, s, `${src}で${whose}LPを${n}失った`); lostLp(st, o); }
+    else { p.lp += n; log(st, s, `${src}で${whose}LPを${n}回復`); }
+  }
+}
+FX_FORMS.lp.run = applyLp;
+
+/* ---- 墓地・山札をあやつる（deckGrave） ---- */
+function applyDeckGrave(st, s, c, target, ctx, f, n, src){
+  const sides = f.who === "both" ? [s, O(s)] : f.who === "op" ? [O(s)] : [s];
+  if (f.act === "steal"){ const op = P(st, O(s)), me = P(st, s); let k = 0; for (let r = 0; r < (n || 1) && op.grave.length; r++){ me.grave.push(op.grave.pop()); k++; } log(st, s, k ? `${src}で相手の墓地のカード${k}枚を自分の墓地に移した` : `${src}：相手の墓地にカードがない`); return; }
+  for (const o of sides){
+    const X = P(st, o);
+    if (f.act === "shuf"){ const k = X.grave.length; X.deck.push(...X.grave.splice(0)); shuffle(X.deck); log(st, s, `${src}で${X.name}の墓地${k}枚を山札に戻してシャッフルした`); continue; }
+    if (f.act === "mill"){ const got = X.deck.splice(0, Math.min(Math.max(0, Math.floor(n || 1)), X.deck.length)); X.grave.push(...got); log(st, s, got.length ? `${src}で${X.name}の山札の上から${got.length}枚を墓地へ送った` : `${src}：${X.name}の山札がない`); continue; }
+    if (f.pick === "all"){ const k = X.grave.length; (X.exile = X.exile || []).push(...X.grave.splice(0)); log(st, s, `${src}で${X.name}の墓地のカード${k}枚を除外した`); continue; }
+    const k = X.grave.lastIndexOf(target); if (k >= 0){ X.grave.splice(k, 1); (X.exile = X.exile || []).push(target); log(st, s, `${src}で${X.name}の墓地の「${card(target).name}」を除外した`); }
+  }
+}
+FX_FORMS.deckGrave.run = applyDeckGrave;
+FX_FORMS.deckGrave.opts = (st, s, f) => f.act === "banish" && f.pick === "one" ? [...new Set(P(st, f.who === "op" ? O(s) : s).grave)].filter(id => hasCard(id)) : null;
+FX_FORMS.deckGrave.auto = (st, s, opts) => FX_FORMS.fetch.auto(st, s, opts);
 // apply effect of card c for player s. target resolved already (or undefined for untargeted)
 // 護法: 相手の効果の対象になったモンスター（自分のモンスターを対象にする効果はそのまま）
 function wardMon(st, s, fx, target, ctx){
@@ -8862,9 +8988,7 @@ function applyEffect(st, s, c, target, ctx = {}, fx = normFx(c)){
       break;
     }
     // 場のカードを指定して除去（破壊・手札に戻す・除外）
-    case "heal": me.lp += n; log(st, s, `${src}でLPを${n}回復`); break;
     case "lpSwap": { const a = me.lp, b = op.lp; me.lp = b; op.lp = a; log(st, s, `${src}で${me.name}と${op.name}のLPを入れかえた（${me.name} ${fmtN(a)}→${fmtN(b)}・${op.name} ${fmtN(b)}→${fmtN(a)}）`); break; }
-    case "oppHeal": if (n > 0 && isFinite(n)){ op.lp += n; log(st, s, `${src}で${op.name}のLPが${n}回復した`); } break;
     case "dmgRand": { const L = ["p", ...opT.mz.map((m, i) => m && !fxImmune(st, s, m) ? "m:" + i : null).filter(Boolean)], t = L[Math.floor(Math.random() * L.length)]; if (t === "p"){ log(st, s, `${src}で${opT.name}に${n}ダメージ（ランダム）`); dealDmg(st, OS, n); } else monDmg(st, OS, +t.slice(2), n, src + "（ランダム）"); break; }
     case "dmgAll": { opT.mz.map((m, i) => mfOk(st, s, fx, m) ? i : -1).filter(i => i >= 0).forEach(i => monDmg(st, OS, i, n, src)); if (!fx.monOnly){ log(st, s, `${src}で${opT.name}に${n}ダメージ`); dealDmg(st, OS, n); } break; }
     case "freeAttack": case "freeSkill": case "freePower": { const k = fx.kind.slice(4).toLowerCase(); me.free = { ...(me.free || {}), [k]: ((me.free || {})[k] || 0) + 1 }; log(st, s, `${src}：次に使う${SPIRE_LABEL[k]}のコストが0になる`); break; }
@@ -8892,9 +9016,6 @@ function applyEffect(st, s, c, target, ctx = {}, fx = normFx(c)){
       mm.xb = (mm.xb || []).concat(bl.slice(0, k));
       const hi = me.hand.indexOf(id); if (hi >= 0){ me.hand.splice(hi, 1); me.grave.push(id); }
       log(st, s, `${src}：「${sc.name}」の効果${k}つを「${card(mm.c).name}」に合成した（墓地${k}枚を質量に）${k < bl.length ? `。墓地が足りず${bl.length - k}つは付かなかった` : ""}`); break; }
-    case "mill": { const got = me.deck.splice(0, Math.min(Math.max(0, Math.floor(n)), me.deck.length)); me.grave.push(...got); log(st, s, got.length ? `${src}で自分の山札の上から${got.length}枚を墓地へ送った` : `${src}：墓地に送るカードがない`); break; }
-    case "millBoth": { for (const o of [s, O(s)]){ const X = P(st, o), got = X.deck.splice(0, Math.min(n || 1, X.deck.length)); X.grave.push(...got); log(st, s, got.length ? `${src}で${X.name}の山札の上から${got.length}枚を墓地へ送った` : `${src}：${X.name}の山札がない`); } break; }
-    case "stealGrave": { let k = 0; for (let r = 0; r < (n || 1) && op.grave.length; r++){ me.grave.push(op.grave.pop()); k++; } log(st, s, k ? `${src}で相手の墓地のカード${k}枚を自分の墓地に移した` : `${src}：相手の墓地にカードがない`); break; }
     case "matCopy": { const [os, oi] = String(target).split(":"), mm = P(st, os) && P(st, os).mz[+oi];
       if (!mm || !(mm.mats || []).length){ log(st, s, `${src}：質量がない`); break; }
       const isM = id => cardType(card(id)) === "monster" ? 1 : 0, id = mm.mats.slice().sort((a, b) => isM(b) - isM(a) || cmpNum(baseAtk(card(b)) || 0, baseAtk(card(a)) || 0))[0];
@@ -8923,8 +9044,6 @@ function applyEffect(st, s, c, target, ctx = {}, fx = normFx(c)){
     case "oppDeckDraw": drawN(st, s, n, src, O(s)); break;
     // 「このターン」: 自分のターンならこのターン、相手のターンに出たら次の自分のターン
     case "thisTopOnly": { const m = ctx.mon && monAt(st, ctx.mon); if (!m){ log(st, s, `${src}：そのモンスターはもう場にいない`); break; } m.topOnly = true; log(st, s, `${src}：「${card(m.c).name}」は相手の一番ATKが高いモンスターにしか攻撃できなくなった`); break; }
-    case "thisNoAtk": { const m = ctx.mon && monAt(st, ctx.mon); if (!m){ log(st, s, `${src}：そのモンスターはもう場にいない`); break; } m.noAtkTurn = Math.max(m.noAtkTurn || 0, st.turn === ctx.mon.s ? st.turnNo : st.turnNo + 1); log(st, s, `${src}：「${card(m.c).name}」はこのターン攻撃できない`); break; }
-    case "selfNoAtk": me.noAtkUntil = Math.max(me.noAtkUntil || 0, st.turn === s ? st.turnNo : st.turnNo + 1); log(st, s, `${src}：このターン、${me.name}のモンスターは攻撃できない`); break;
     case "modAdd": case "modRep": case "modClear": case "modName": modApply(st, s, c, fx, target, src); break;
     case "moveEquips": {
       const srcM = ctx.mon && monAt(st, ctx.mon), [ts, ti] = String(target).split(":"), tm = (ts === "a" || ts === "b") ? P(st, ts).mz[+ti] : null;
@@ -8961,11 +9080,6 @@ function applyEffect(st, s, c, target, ctx = {}, fx = normFx(c)){
     case "seal": { const m = opT.mz[target]; if (!m) break; let k = 0;
       for (let r = 0; r < Math.max(1, n || 1); r++){ if (!me.deck.length) refill(st, s); const id = me.deck.shift(); if (id == null) break; (m.seals = m.seals || []).push({ c: id, o: s }); k++; }
       log(st, s, k ? `${src}で「${card(m.c).name}」に封印を${k}つつけた（ないものとして扱う）` : `${src}：山札がないので封印をつけられない`); break; }
-    case "graveShuf": case "graveShufOpp": case "graveShufBoth": {
-      const L = fx.kind === "graveShuf" ? [s] : fx.kind === "graveShufOpp" ? [O(s)] : [s, O(s)];
-      L.forEach(o => { const X = P(st, o), k = X.grave.length; X.deck.push(...X.grave.splice(0)); shuffle(X.deck); log(st, s, `${src}で${X.name}の墓地${k}枚を山札に戻してシャッフルした`); });
-      break;
-    }
     case "pctDmg": { const pc = Math.max(1, Math.min(100, Math.round(n || 0))), d = Math.ceil((P(st, O(s)).lp || 0) * pc / 100); log(st, s, `${src}で${P(st, O(s)).name}のLPの${pctWord(pc)}（${d}）のダメージ`); if (d > 0) dealDmg(st, O(s), d); break; }
     case "loseAb": {
       const k = labKey(fx), w = GAB_W[fx.gw] ? fx.gw : "self", until = fx.gd === "turn" ? st.turnNo : fx.gd === "next" ? st.turnNo + 2 : 0;
@@ -9003,13 +9117,9 @@ function applyEffect(st, s, c, target, ctx = {}, fx = normFx(c)){
     case "vulnAll": if (!fx.monOnly) addVuln(st, s, "p", n, src, OS); opT.mz.forEach((m, i) => { if (mfOk(st, s, fx, m)) addVuln(st, s, "m:" + i, n, src, OS); }); break;
     case "weak": addWeak(st, s, target, n, src, OS); break;
     case "weakAll": if (!fx.monOnly) addWeak(st, s, "p", n, src, OS); opT.mz.forEach((m, i) => { if (mfOk(st, s, fx, m)) addWeak(st, s, "m:" + i, n, src, OS); }); break;
-    case "loseLp": me.lp -= n; ev(st, { type: "hit", s, d: n, blk: 0 }); log(st, s, `${src}でLPを${n}失った`); lostLp(st, s); break;
     case "graveToTop": { const k = me.grave.indexOf(target); if (k >= 0){ me.grave.splice(k, 1); me.deck.unshift(target); log(st, s, `${src}で墓地の「${card(target).name}」を山札の一番上に置いた`); } break; }
-    case "noDraw": me.noDraw = true; log(st, s, `${src}：このターンはもうカードを引けない`); break;
     case "drawUntil": { let k = 0, last = null; while (k < 12 && !me.noDraw){ if (!me.deck.length) refill(st, s); if (!me.deck.length) break; last = me.deck.shift(); me.hand.push(last); k++; if (!isAttackCard(card(last))) break; } log(st, s, `${src}でカードを${k}枚引いた${last && !isAttackCard(card(last)) ? `（「${card(last).name}」で止まった）` : ""}`); break; }
     // このカード以外すべて: お互いの場のモンスター・魔法・罠・フィールドを破壊（このカード自身と、このカードが付いているモンスターはのこす）
-    case "banishGrave": { const k = op.grave.lastIndexOf(target); if (k >= 0){ op.grave.splice(k, 1); (op.exile = op.exile || []).push(target); log(st, s, `${src}で相手の墓地の「${card(target).name}」を除外した`); } break; }
-    case "banishGraveAll": { const k = op.grave.length; (op.exile = op.exile || []).push(...op.grave.splice(0)); log(st, s, `${src}で相手の墓地のカード${k}枚を除外した`); break; }
     case "stealMon": case "stealMonTmp": {
       const m = opT.mz[target], z = freeZone(me.mz); if (!m || OS === s) break;
       if (z < 0){ log(st, s, `${src}：場がいっぱいでうばえない`); break; }
@@ -9041,7 +9151,6 @@ function applyEffect(st, s, c, target, ctx = {}, fx = normFx(c)){
     case "transformAtk": { const L = me.hand.map((id, k) => isAttackCard(card(id)) ? k : -1).filter(k => k >= 0); if (!L.length) log(st, s, `${src}：手札にアタックがない`); L.forEach(k => transformAt(st, s, k, fx.into, src, c, fx)); break; }
     case "transformSelf": transformSelf(st, s, c, ctx, fx, src); break;
     case "transformAll": { if (!me.hand.length) log(st, s, `${src}：手札がない`); me.hand.forEach((_, k) => transformAt(st, s, k, fx.into, src, c, fx)); break; }
-    case "oppNoAtk": case "oppNoUse": { const until = st.turn === s ? st.turnNo + 1 : st.turnNo, k = fx.kind === "oppNoAtk" ? "noAtkUntil" : "noUseUntil"; op[k] = Math.max(op[k] || 0, until); log(st, s, `${src}：${op.name}は次のターンの終わりまで${fx.kind === "oppNoAtk" ? "攻撃" : "魔法・罠を発動"}できない`); break; }
     case "oppDraw": { let k = 0; for (let r = 0; r < (n || 1); r++){ if (!op.deck.length) refill(st, O(s)); if (!op.deck.length) break; op.hand.push(op.deck.shift()); k++; } log(st, s, `${src}で${op.name}はカードを${k}枚引いた${k < (n || 1) ? "（山札がなくてそれ以上引けなかった）" : ""}`); break; }
     case "autoPlay": if (fx.into){ me.autoPlay = [...new Set([...(me.autoPlay || []), fx.into])]; log(st, s, `${src}：これから名前に「${fx.into}」が入ったカードは引いたら自動で使う`); } break;
     // このターンだけ: m.tmp に入れて、このターンのおわりに0にもどす

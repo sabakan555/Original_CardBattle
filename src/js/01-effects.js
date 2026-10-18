@@ -207,6 +207,9 @@ const KINDS = {
   manaGrave:  { label: "墓地のカードを○枚マナゾーンに置く", n: true, text: n => `自分の墓地のカードを${n}枚マナゾーンに置く（新しいものから）` },
   manaBreak:  { label: "相手のマナゾーンのカードを○枚墓地へ（マナ破壊）", n: true, text: n => `相手のマナゾーンのカードをランダムに${n}枚墓地へ置く` },
   manaBack:   { label: "自分のマナゾーンのカードを○枚手札に戻す（マナ回収）", n: true, text: n => `自分のマナゾーンのカードを${n}枚手札に戻す（コストが大きいものから）` },
+  lock:       { label: "行動をしばる（攻撃・魔法罠の発動・ドロー）", form: true, text: (n, into, m) => lockText(m || {}) },
+  lp:         { label: "LPを回復する・失う", n: true, form: true, text: (n, into, m) => lpText({ ...(m || {}), n }) },
+  deckGrave:  { label: "墓地・山札をあやつる（山札に戻す・墓地へ送る・除外・うばう）", n: true, form: true, text: (n, into, m) => deckGraveText({ ...(m || {}), n }) },
   status:     { label: "状態を付ける（弱体・脱力・魅了・筋力・敏捷・霊体）", n: true, form: true, text: (n, into, m, spire) => statusText({ ...(m || {}), n }, spire) },
   cleanse:    { label: "状態を消す（デバフを取り除く・減らす）", n: true, form: true, text: (n, into, m) => cleanseText({ ...(m || {}), n }) },
   gen:        { label: "カードを生む（名前を指定・コピー・ランダム）", n: true, name: true, form: true, text: (n, into, m) => genText({ ...(m || {}), n, into }) },
@@ -614,6 +617,7 @@ function expandFx(f){
   const to = f.to, k = f.kind;
   // まとめた効果は、えらぶ（2体・ランダム・○体）ときだけここで分ける。全体・このカードなどはそのまま
   // 手札をえらんで n 枚: 1枚ずつえらぶ（前の「えらんで捨てる」と同じ）
+  if (k === "deckGrave" && f.act === "banish" && f.pick === "one" && f.n > 1) return Array.from({ length: Math.min(40, Math.round(f.n)) }, () => ({ ...f, n: 1 }));
   if (k === "fetch" && f.pick === "one" && f.what !== "self" && f.n > 1) return Array.from({ length: Math.min(40, Math.round(f.n)) }, () => ({ ...f, n: 1 }));
   if (k === "handOut" && to === "one" && f.n > 1) return Array.from({ length: Math.min(40, Math.round(f.n)) }, () => ({ ...f, n: 1 }));
   if (FX_FORMS[k] && to !== "two" && to !== "random" && to !== "n") return [f];
@@ -947,6 +951,59 @@ function cleanseText(f){
   const w = c.to === "this" ? "このモンスター" : c.to === "one" ? `${sd}のモンスター1体` : c.to === "mons" ? `${sd}のモンスターすべて` : c.to === "all" ? `${sd}と${sd}のモンスターすべて` : sd;
   const what = c.what === "debuff" ? "デバフ（弱体・脱力・魅了・マイナスの筋力と敏捷）" : ST_NAME[c.what];
   return c.how === "reduce" ? `${w}の${what}を${c.n}減らす` : `${w}の${what}をすべて取り除く`;
+}
+/* ---- 行動をしばる: 1つの効果「lock」= なにを（what: atk 攻撃 / use 魔法・罠の発動 / draw ドロー）× だれ（who: this このモンスター / me 自分 / op 相手） ----
+   いつまで: その人のターンの終わりまで（いまがその人のターンならこのターン、ちがえば次のその人のターン）。自分なら「このターン」、相手なら「相手の次のターンの終わりまで」 */
+const LOCK_WHAT = { atk: "攻撃", use: "魔法・罠の発動", draw: "ドロー" };
+fxForm("lock", {
+  // 前からある5種類
+  legacy: { thisNoAtk: { what: "atk", who: "this" }, selfNoAtk: { what: "atk", who: "me" }, oppNoAtk: { what: "atk", who: "op" }, oppNoUse: { what: "use", who: "op" }, noDraw: { what: "draw", who: "me" } },
+  fields: { what: v => LOCK_WHAT[v] ? v : "atk", who: v => v === "this" || v === "me" ? v : undefined },
+  norm(f, L){ L = L || {}; const what = LOCK_WHAT[L.what || f.what] ? L.what || f.what : "atk"; let who = L.who || f.who; if (who !== "this" && who !== "me") who = "op"; if (who === "this" && what !== "atk") who = "me";
+    const out = { ...f, what }; if (who === "op") delete out.who; else out.who = who; delete out.n; return out; },
+});
+function lockText(f){
+  const l = fxNorm({ ...f, kind: "lock" });
+  if (l.who === "this") return "このモンスターはこのターン攻撃できない";
+  const me = l.who === "me", w = me ? "自分" : "相手", when = me ? "このターン、" : "相手の次のターンの終わりまで、";
+  return when + (l.what === "atk" ? `${w}のモンスターは攻撃できない` : l.what === "use" ? `${w}は魔法・罠を発動できない` : `${w}はこれ以上カードを引けない`);
+}
+
+/* ---- LPを増やす・減らす: 1つの効果「lp」= だれの（who: me・op・both）× 回復する／失う（op: heal・lose） ----
+   失うはブロックでは防げない（ダメージではない）。失うと「LPを失うたび」などが起きる */
+fxForm("lp", {
+  legacy: { heal: {}, oppHeal: { who: "op" }, loseLp: { op: "lose" } },
+  fields: { who: v => v === "op" || v === "both" ? v : undefined, op: v => v === "lose" ? v : undefined },
+  norm(f, L){ L = L || {}; const out = { ...f }, who = L.who || f.who, op = L.op || f.op;
+    if (who === "op" || who === "both") out.who = who; else delete out.who; if (op === "lose") out.op = "lose"; else delete out.op;
+    if (!(out.n > 0) && !out.per) out.n = 100; return out; },
+});
+function lpText(f){ const l = fxNorm({ ...f, kind: "lp" }), w = GEN_WHO[l.who || "me"]; return l.op === "lose" ? `${w}のLPを${l.n}失う（ブロックでは防げない）` : `${w}のLPを${l.n}回復する`; }
+
+/* ---- 墓地・山札をあやつる: 1つの効果「deckGrave」= どうする（act）× だれの（who: me・op・both）× えらび方（pick）× 枚数（n） ----
+   act: shuf（墓地をすべて山札に戻してシャッフル）/ mill（山札の上から n 枚を墓地へ）/ banish（墓地のカードを除外。pick: one えらぶ・all すべて）/ steal（相手の墓地の一番上を自分の墓地へ） */
+const DG_ACT = { shuf: "墓地を山札に戻す", mill: "山札の上を墓地へ送る", banish: "墓地のカードを除外する", steal: "相手の墓地のカードをうばう" };
+fxForm("deckGrave", {
+  legacy: {
+    graveShuf: { act: "shuf" }, graveShufOpp: { act: "shuf", who: "op" }, graveShufBoth: { act: "shuf", who: "both" },
+    mill: { act: "mill" }, millBoth: { act: "mill", who: "both" },
+    banishGrave: { act: "banish", who: "op" }, banishGraveAll: { act: "banish", who: "op", pick: "all" }, stealGrave: { act: "steal" },
+  },
+  fields: { act: v => DG_ACT[v] ? v : "shuf", who: v => v === "op" || v === "both" ? v : undefined, pick: (v, e) => e.act === "banish" && v === "all" ? "all" : undefined },
+  norm(f, L){ L = L || {};
+    const act = DG_ACT[L.act || f.act] ? L.act || f.act : "shuf", pick = act === "banish" && (L.pick || f.pick) === "all" ? "all" : "one";
+    let who = L.who || f.who; if (who !== "op" && who !== "both") who = "me"; if (act === "steal") who = "op"; if (act === "banish" && pick === "one" && who === "both") who = "op";
+    const out = { ...f, act, pick }; if (who === "me") delete out.who; else out.who = who;
+    if (act === "shuf" || (act === "banish" && pick === "all")) delete out.n; else if (!(out.n > 0)) out.n = 1;
+    if (act !== "banish") delete out.pick; return out; },
+  tgt: f => f.act === "banish" && f.pick === "one" ? "tagPick" : undefined,
+});
+function deckGraveText(f){
+  const d = fxNorm({ ...f, kind: "deckGrave" }), w = GEN_WHO[d.who || "me"];
+  if (d.act === "shuf") return `${w}の墓地のカードをすべて山札に戻してシャッフルする`;
+  if (d.act === "mill") return `${w}の山札の上から${d.n}枚を墓地に送る`;
+  if (d.act === "steal") return `相手の墓地の一番上のカード${d.n}枚を自分の墓地に移す`;
+  return d.pick === "all" ? `${w}の墓地のカードをすべて除外する` : `${w}の墓地のカードを${d.n}枚えらんで除外する`;
 }
 // 追加コスト: LPを払う / 手札を捨てる / 最大マナを減らす（払えないと使えない）
 const USE_COND_WHERE = { field: "自分の場", grave: "自分の墓地", hand: "自分の手札", mana: "自分のマナゾーン" };

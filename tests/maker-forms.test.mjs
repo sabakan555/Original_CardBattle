@@ -97,3 +97,12 @@ test('状態を付ける・消す: 前の効果を開く・欄をかえる・保
   k = change(k, 'cWhat', 'vuln'); k = change(k, 'cHow', 'reduce'); assert.equal(k.n, 1); k = change(k, 'cWhat', 'debuff'); assert.equal(k.how, 'clear');
   k = change(k, 'cWho', 'op'); k = change(k, 'cTo', 'mons'); c = save(k); assert.equal(c.who, 'op'); assert.equal(c.to, 'mons'); assert.equal(c.what, 'debuff');
 });
+test('行動しばり・LP・墓地: 前の効果を開く・欄をかえる・保存', () => {
+  const { conv, change, save } = setup();
+  let l = conv({ kind: 'oppNoAtk' }); assert.equal(l._g, 'debuff'); l = change(l, 'lWhat', 'draw'); l = change(l, 'lWho', 'me'); let c = save(l); assert.equal(c.kind, 'lock'); assert.equal(c.what, 'draw'); assert.equal(c.who, 'me');
+  l = change(l, 'lWho', 'this'); assert.equal(l.what, 'atk'); assert.equal(l.who, 'this');
+  let p = conv({ kind: 'heal', n: 300 }); assert.equal(p._g, 'guard'); p = change(p, 'pWho', 'op'); p = change(p, 'pOp', 'lose'); c = save(p); assert.equal(c.who, 'op'); assert.equal(c.op, 'lose'); assert.equal(c.n, 300);
+  let d = conv({ kind: 'millBoth', n: 2 }); assert.equal(d._g, 'deck'); d = change(d, 'dAct', 'banish'); assert.equal(d.pick, 'one'); assert.equal(d.who, 'op');
+  d = change(d, 'dPick', 'all'); d = change(d, 'dWho', 'both'); c = save(d); assert.equal(c.act, 'banish'); assert.equal(c.pick, 'all'); assert.equal(c.who, 'both');
+  d = change(d, 'dAct', 'steal'); assert.equal(d.who, 'op'); assert.equal(d.pick, undefined);
+});
