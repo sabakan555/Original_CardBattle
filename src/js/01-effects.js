@@ -7,7 +7,7 @@ const RARITY = { common: "コモン", uncommon: "アンコモン", rare: "レア
 const rarityOf = c => c && RARITY[c.rarity] ? c.rarity : "common";
 const spireKind = c => { const t = cardType(c); if (c && c.sk && t === "magic") return c.persist ? "power" : c.sk === "attack" ? "attack" : "skill"; return t === "monster" ? "attack" : t === "trap" || (t === "magic" && c.persist) ? "power" : "skill"; };
 const typeLabel = c => { if (c && c.potionView) return "ポーション"; const t = cardType(c); if (t === "monster" && c && c.token) return "トークン"; if (t === "monster" && c && c.ex) return "EXモンスター"; return isQuick(c) ? "速攻魔法" : isField(c) ? "フィールド魔法" : isPersist(c) ? "永続" + TYPE_LABEL[t] : TYPE_LABEL[t]; };
-const TRIGS = { evolve: "エボルヴしたとき", ctrReach: "カウンターが○個以上になったとき", summon: "召喚したとき", ssummon: "特殊召喚したとき", attack: "攻撃するとき", kill: "戦闘で相手を破壊したとき", destroyed: "破壊されたとき", battleLose: "バトルに負けたとき", turnStart: "自分のターンのはじめ", turnEnd: "自分のターンの終わり", enter: "場に出たとき", while: "場にいる間", anyUse: "魔法・罠が発動したとき", cardUse: "カードが使われたとき", attach: "装備したとき", use: "発動したとき", act: "起動（ボタンで使う）", oppAttack: "相手が攻撃してきたとき" };
+const TRIGS = { evolve: "エボルヴしたとき", ctrReach: "カウンターが○個以上になったとき", summon: "召喚したとき", ssummon: "出されたとき（特殊召喚）", attack: "攻撃するとき", kill: "戦闘で相手を破壊したとき", destroyed: "破壊されたとき", battleLose: "バトルに負けたとき", turnStart: "自分のターンのはじめ", turnEnd: "自分のターンの終わり", enter: "場に出たとき", while: "場にいる間", anyUse: "魔法・罠が発動したとき", cardUse: "カードが使われたとき", attach: "装備したとき", use: "発動したとき", act: "起動（ボタンで使う）", oppAttack: "相手が攻撃してきたとき" };
 const MON_TRIGS = ["summon", "ssummon", "enter", "while", "act", "evolve", "ctrReach", "anyUse", "cardUse", "attack", "oppAttack", "kill", "destroyed", "battleLose", "turnStart", "turnEnd"];
 // 攻撃に答える効果（攻撃を無効・攻撃モンスターを破壊など）: 罠のほか、「相手が攻撃してきたとき」の効果でも使える
 const ATK_REPLY = ["negate", "atkDownAtk", "dmgAtkAtk", "killAtk"];
@@ -15,7 +15,7 @@ const ATK_REPLY = ["negate", "atkDownAtk", "dmgAtkAtk", "killAtk"];
 const isAtkReply = fx => !!fx && (ATK_REPLY.includes(fx.kind) || (fx.kind === "remove" && fx.to === "attacker"));
 const EQ_TRIGS = ["attach", "attack", "turnStart", "turnEnd", "destroyed", "battleLose"];
 // 永続魔法・永続罠 (スパイア風 のパワー): stay face-up in the magic/trap zone; their effect fires on one of these
-const PERSIST_TRIG_LABEL = { use: "発動したとき", while: "場にある間", anyUse: "魔法・罠が発動したとき", oppAttack: "相手が攻撃してきたとき", turnStart: "自分のターンのはじめ", turnEnd: "自分のターンのおわり", mySummon: "自分がモンスターを召喚するたび", exhaust: "自分のカードが廃棄されるたび", monDestroyed: "モンスターが破壊されるたび", myLoseLp: "自分のターンにLPを失うたび", blockGain: "自分がブロックを得るたび", vulnApply: "相手に弱体を付与するたび", atkPlay: "自分がアタックを使うたび" };
+const PERSIST_TRIG_LABEL = { use: "発動したとき", while: "場にある間", anyUse: "魔法・罠が発動したとき", oppAttack: "相手が攻撃してきたとき", turnStart: "自分のターンのはじめ", turnEnd: "自分のターンのおわり", mySummon: "自分がモンスターを召喚するたび", oppSummonT: "相手がモンスターを召喚するたび", anySummonT: "どちらかがモンスターを召喚するたび", myPut: "自分の場にモンスターが出されるたび（特殊召喚）", oppPut: "相手の場にモンスターが出されるたび（特殊召喚）", anyPut: "どちらかの場にモンスターが出されるたび（特殊召喚）", exhaust: "自分のカードが廃棄されるたび", monDestroyed: "モンスターが破壊されるたび", myLoseLp: "自分のターンにLPを失うたび", blockGain: "自分がブロックを得るたび", vulnApply: "相手に弱体を付与するたび", atkPlay: "自分がアタックを使うたび" };
 const PERSIST_TRIGS = Object.keys(PERSIST_TRIG_LABEL);
 // レリック (カード以外): always on; 「手に入れたとき」 + the same timings as 永続 cards
 const RELIC_TRIG_LABEL = { gain: "手に入れたとき", ...Object.fromEntries(Object.entries(PERSIST_TRIG_LABEL).filter(([k]) => k !== "use" && k !== "while")) };
@@ -207,6 +207,8 @@ const KINDS = {
   manaGrave:  { label: "墓地のカードを○枚マナゾーンに置く", n: true, text: n => `自分の墓地のカードを${n}枚マナゾーンに置く（新しいものから）` },
   manaBreak:  { label: "相手のマナゾーンのカードを○枚墓地へ（マナ破壊）", n: true, text: n => `相手のマナゾーンのカードをランダムに${n}枚墓地へ置く` },
   manaBack:   { label: "自分のマナゾーンのカードを○枚手札に戻す（マナ回収）", n: true, text: n => `自分のマナゾーンのカードを${n}枚手札に戻す（コストが大きいものから）` },
+  gen:        { label: "カードを生む（名前を指定・コピー・ランダム）", n: true, name: true, form: true, text: (n, into, m) => genText({ ...(m || {}), n, into }) },
+  fetch:      { label: "カードを持ってくる・出す（山札・墓地・手札・EX・マナから）", n: true, name: true, tag: true, form: true, text: (n, into, m) => fetchText({ ...(m || {}), n, into }) },
   handOut:    { label: "手札をどかす（捨てる・廃棄・山札に戻す）", n: true, form: true, text: (n, into, m) => handOutText({ ...(m || {}), n }) },
   remove:     { label: "場から除去する", target: "board", form: true, text: (n, into, m) => removeText(m || {}) },
   removeBoard:{ label: "場のカードを1枚えらんで除去（モンスター・魔法・罠・フィールド）", target: "board", text: (n, _, m) => `${RB_SIDE[m && m.rside] || RB_SIDE.op}の場のカード1枚をえらんで${RB_MODE[m && m.rm] || RB_MODE.destroy}` },
@@ -610,6 +612,7 @@ function expandFx(f){
   const to = f.to, k = f.kind;
   // まとめた効果は、えらぶ（2体・ランダム・○体）ときだけここで分ける。全体・このカードなどはそのまま
   // 手札をえらんで n 枚: 1枚ずつえらぶ（前の「えらんで捨てる」と同じ）
+  if (k === "fetch" && f.pick === "one" && f.what !== "self" && f.n > 1) return Array.from({ length: Math.min(40, Math.round(f.n)) }, () => ({ ...f, n: 1 }));
   if (k === "handOut" && to === "one" && f.n > 1) return Array.from({ length: Math.min(40, Math.round(f.n)) }, () => ({ ...f, n: 1 }));
   if (FX_FORMS[k] && to !== "two" && to !== "random" && to !== "n") return [f];
   if (!to || to === "one" || !TARGETABLE[k]) return [f];
@@ -770,6 +773,97 @@ function handOutText(f){
   // 手札のカードは、その手札の持ち主の山札へ（「持ち主の」はいらない）
   const v = h.how === "exhaust" ? "廃棄する" : h.how === "deck" ? (h.pos === "top" ? "山札の一番上に置く" : h.pos === "bottom" ? "山札の一番下に置く" : "山札に戻してシャッフルする") : me ? "捨てる" : "捨てさせる";
   return w + which + v;
+}
+/* ---- カードを生む: 1つの効果「gen」= なにを（what）× だれの（who）× どこへ（dest）× 枚数（n） ----
+   what: named（名前を指定 into）/ self（このカードのコピー）/ lastAtk（直前に使ったアタックのコピー）/ pick（手札を1枚えらんでコピー）/ random（ランダムなスパイア風カード。sk: attack・skill・power）
+   who: me（自分）/ op（相手）/ both（お互い）
+   dest: hand（手札）/ deck（山札。pos: top・bottom・shuffle）/ grave（墓地）/ field（場。モンスターは出す〔特殊召喚〕、魔法・罠は伏せてセット）
+   free: このターンはコスト0（手札に加えるとき）。when: "next" なら次の自分のターンのはじめに手札へ */
+const GEN_WHAT = { named: "名前を指定したカード", self: "このカードのコピー", lastAtk: "直前に使ったアタックのコピー", pick: "手札1枚のコピー", random: "ランダムなスパイア風カード" };
+const GEN_DEST = { hand: "手札", deck: "山札", grave: "墓地", field: "場" };
+const GEN_WHO = { me: "自分", op: "相手", both: "お互い" };
+fxForm("gen", {
+  // 前からある15種類
+  legacy: {
+    genNamed: { what: "named" }, oppGenHand: { what: "named", who: "op" }, oppGenDeck: { what: "named", who: "op", dest: "deck", pos: "shuffle" },
+    summonNamed: { what: "named", dest: "field" }, oppSummon: { what: "named", who: "op", dest: "field" }, oppSetNamed: { what: "named", who: "op", dest: "field" },
+    copyHand: { what: "self" }, copyDeck: { what: "self", dest: "deck", pos: "shuffle" }, copyGrave: { what: "self", dest: "grave" },
+    copyLastAtk: { what: "lastAtk" }, copyPick: { what: "pick", fromCpw: true },
+    genAttack: { what: "random", sk: "attack" }, genAttack0: { what: "random", sk: "attack", free: true }, genSkill: { what: "random", sk: "skill" }, genPower: { what: "random", sk: "power" },
+  },
+  fields: {
+    what: v => GEN_WHAT[v] ? v : "named", who: v => v === "op" || v === "both" ? v : undefined, dest: v => GEN_DEST[v] && v !== "hand" ? v : undefined,
+    pos: (v, e) => e.dest === "deck" ? (RM_POS[v] ? v : "shuffle") : undefined,
+    sk: (v, e) => e.what === "random" ? (["attack", "skill", "power"].includes(v) ? v : "attack") : undefined,
+    free: (v, e) => v && (e.dest || "hand") === "hand" ? true : undefined, when: (v, e) => v === "next" && (e.dest || "hand") === "hand" ? "next" : undefined,
+  },
+  norm(f, L){
+    L = L || {};
+    const what = GEN_WHAT[L.what || f.what] ? L.what || f.what : "named", dest = GEN_DEST[L.dest || f.dest] ? L.dest || f.dest : "hand", who = L.who || f.who;
+    const out = { ...f, what, dest, n: Math.max(1, Math.round(+f.n || 1)) };
+    if (who === "op" || who === "both") out.who = who; else delete out.who;
+    if (dest === "deck") out.pos = RM_POS[L.pos || f.pos] ? L.pos || f.pos : "shuffle"; else delete out.pos;
+    if (what === "random") out.sk = ["attack", "skill", "power"].includes(L.sk || f.sk) ? L.sk || f.sk : "attack"; else delete out.sk;
+    if ((L.free || f.free) && dest === "hand") out.free = true; else delete out.free;
+    const when = L.fromCpw ? f.cpw : f.when; if (when === "next" && dest === "hand") out.when = "next"; else delete out.when;
+    if (what !== "named"){ delete out.into; delete out.intoId; }
+    delete out.cpw; delete out.to;
+    return out;
+  },
+  // 手札をえらんでコピーするときだけ、手札をえらぶ
+  tgt: f => f.what === "pick" ? "hand" : undefined,
+});
+function genText(f){
+  const g = fxNorm({ ...f, kind: "gen" }), n = g.n || 1, who = GEN_WHO[g.who || "me"];
+  const what = g.what === "named" ? `「${g.into || "？"}」` : g.what === "random" ? `ランダムな${SPIRE_LABEL[g.sk] || "アタック"}` : g.what === "pick" ? "そのコピー" : GEN_WHAT[g.what];
+  // 場に出すときは、名前のカードがモンスターなら「体・出す」、魔法・罠なら「枚・セットする」（わからなければ両方書く）
+  const nc = g.dest === "field" && g.what === "named" && g.into && typeof S !== "undefined" && S.cards ? [...S.cards.values()].find(x => x && x.name === g.into) : null, nt = nc ? cardType(nc) : g.what === "random" ? "magic" : "";
+  const cnt = n > 1 ? `を${n}${g.dest === "field" && nt === "monster" ? "体" : "枚"}` : "を";
+  const where = g.dest === "hand" ? `${who}の手札に加える` : g.dest === "grave" ? `${who}の墓地に加える` : g.dest === "field" ? (nt === "monster" ? `${who}の場に出す（特殊召喚）` : nt === "magic" || nt === "trap" ? `${who}の場にセットする` : `${who}の場に出す（魔法・罠はセットする）`)
+    : g.pos === "top" ? `${who}の山札の一番上に置く` : g.pos === "bottom" ? `${who}の山札の一番下に置く` : `${who}の山札に混ぜる`;
+  return (g.what === "pick" ? "手札を1枚えらび、" : "") + (g.when === "next" ? "次の自分のターンのはじめに、" : "") + what + cnt + where + (g.free ? "（このターンはコスト0）" : "");
+}
+
+/* ---- カードを持ってくる・出す: 1つの効果「fetch」= どこから（from）× なにを（what）× えらび方（pick）× どこへ（dest） ----
+   from: deck（山札。取ったあとシャッフル）/ grave（墓地）/ hand（手札）/ ex（EXデッキ）/ mana（マナゾーン）
+   what: mon（モンスター）/ magic（魔法）/ trap（罠）/ atk（アタック）/ tag（タグ into のカード）/ any（どれでも）/ self（このカード）
+   pick: one（えらぶ）/ random（ランダム）。dest: hand（手札に加える）/ field（場に出す〔特殊召喚〕） */
+const FE_FROM = { deck: "山札", grave: "墓地", hand: "手札", ex: "EXデッキ", mana: "マナゾーン" };
+const FE_WHAT = { mon: "モンスター", magic: "魔法", trap: "罠", atk: "アタック", tag: "タグのカード", any: "カード", self: "このカード" };
+fxForm("fetch", {
+  // 前からある17種類
+  legacy: {
+    searchMon: { from: "deck", what: "mon" }, searchMagic: { from: "deck", what: "magic" }, searchTrap: { from: "deck", what: "trap" },
+    tagSearch: { from: "deck", what: "tag" }, tagGraveHand: { from: "grave", what: "tag" },
+    revive: { from: "grave", what: "mon" }, graveHand: { from: "grave", what: "any" }, graveAtkToHand: { from: "grave", what: "atk", pick: "random" },
+    reborn: { from: "grave", what: "mon", dest: "field" },
+    tagSummonHand: { from: "hand", what: "tag", dest: "field" }, tagSummonDeck: { from: "deck", what: "tag", dest: "field" }, tagSummonGrave: { from: "grave", what: "tag", dest: "field" },
+    tagSummonEx: { from: "ex", what: "tag", dest: "field" }, exSummon: { from: "ex", what: "any", dest: "field" },
+    manaSummon: { from: "mana", what: "manaTag", dest: "field" }, summonSelf: { from: "hand", what: "self", dest: "field" },
+  },
+  fields: {
+    from: v => FE_FROM[v] ? v : "deck", what: v => FE_WHAT[v] ? v : "any", pick: v => v === "random" ? v : undefined, dest: v => v === "field" ? v : undefined,
+  },
+  norm(f, L){
+    L = L || {};
+    let what = L.what || f.what; if (what === "manaTag") what = f.into ? "tag" : "mon";
+    const from = FE_FROM[L.from || f.from] ? L.from || f.from : "deck", dest = (L.dest || f.dest) === "field" ? "field" : "hand", pick = (L.pick || f.pick) === "random" ? "random" : "one";
+    const out = { ...f, from, what: FE_WHAT[what] ? what : "any", pick, dest, n: Math.max(1, Math.round(+f.n || 1)) };
+    if (out.what === "self"){ out.from = "hand"; out.dest = "field"; out.pick = "one"; out.n = 1; }
+    if (out.from === "hand" && out.dest === "hand") out.dest = "field";
+    if (out.dest === "field" && ["magic", "trap", "atk"].includes(out.what)) out.what = "mon";
+    if (out.what !== "tag"){ delete out.into; } delete out.intoId; delete out.to;
+    return out;
+  },
+  // えらぶときはカードの一覧（前の「タグのカードをえらぶ」と同じ見た目）。このカード・ランダムはえらばない
+  tgt: f => f.pick === "one" && f.what !== "self" ? "tagPick" : undefined,
+});
+function fetchText(f){
+  const r = fxNorm({ ...f, kind: "fetch" }), n = r.n || 1;
+  if (r.what === "self") return "このカードを手札から場に出す（特殊召喚）";
+  const what = r.what === "tag" ? `「${r.into || "？"}」タグの${r.dest === "field" ? "モンスター" : "カード"}` : r.what === "any" ? (r.dest === "field" ? "モンスター" : "カード") : FE_WHAT[r.what];
+  const how = r.pick === "random" ? `ランダムに${n}枚` : `${n}枚えらんで`;
+  return `自分の${FE_FROM[r.from]}から${what}を${how}${r.dest === "field" ? "場に出す（特殊召喚）" : "手札に加える"}${r.from === "deck" ? "（山札はシャッフル）" : ""}`;
 }
 // 追加コスト: LPを払う / 手札を捨てる / 最大マナを減らす（払えないと使えない）
 const USE_COND_WHERE = { field: "自分の場", grave: "自分の墓地", hand: "自分の手札", mana: "自分のマナゾーン" };

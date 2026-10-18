@@ -26,7 +26,7 @@ test('monster S-trigger queues a free summon without spending a normal summon or
   const ctx = { P:()=>p, card:()=>({id:'trigger',name:'トリガー'}), log:()=>{},
     mkMon:(_,id)=>({c:id,u:1}), ev:()=>{}, afterChain:()=>{},
     runCard:(st,s,c,trig,context,done)=>{triggers.push(trig);done(st);},
-    persistFire:(st,s,trig,context,done)=>done(st), onCardUsed:(st,s,c,done)=>done(st) };
+    persistFire:(st,s,trig,context,done)=>done(st), enterFire:(st,o,kind,done)=>done&&done(st), onCardUsed:(st,s,c,done)=>done(st) };
   vm.createContext(ctx);
   vm.runInContext(engine.slice(engine.indexOf('function resolveChain('),engine.indexOf('function afterChain('))+';this.resolve=resolveChain;',ctx);
   ctx.resolve({chain:[{s:'b',c:'trigger',...calls[1][5]}]},null);

@@ -68,3 +68,19 @@ test('手札をどかす: 前の効果を開く・欄をかえる・保存', () 
   const c = save(e); assert.equal(c.kind, 'handOut'); assert.equal(c.how, 'deck'); assert.equal(c.pos, 'top'); assert.equal(c.n, 2); assert.equal(c.to, undefined);
   const d = save(change(conv({ kind: 'exhaustNonAtk' }), 'hHow', 'grave')); assert.equal(d.to, 'all'); assert.equal(d.only, 'nonAtk'); assert.equal(d.how, 'grave');
 });
+test('生む・持ってくる: 前の効果を開く・欄をかえる・保存', () => {
+  const { conv, change, save } = setup();
+  let g = conv({ kind: 'oppSummon', into: 'ボム', n: 1 }); assert.equal(g.kind, 'gen'); assert.equal(g.dest, 'field'); assert.equal(g.who, 'op'); assert.equal(g._g, 'summon');
+  assert.equal(conv({ kind: 'oppGenHand', into: 'x' })._g, 'give'); assert.equal(conv({ kind: 'copyHand' })._g, 'make');
+  g = change(g, 'gWho', 'both'); g = change(g, 'gDest', 'deck'); assert.equal(g.pos, 'shuffle'); g = change(g, 'rPos', 'top');
+  g = change(g, 'gDest', 'hand'); g = change(g, 'gWho', ''); g = change(g, 'gOpt', 'next'); assert.equal(g.when, 'next');
+  g = change(g, 'gWho', 'op'); assert.equal(g.when, undefined);
+  g = change(g, 'gWhat', 'random'); assert.equal(g.sk, 'attack'); assert.equal(g.into, undefined);
+  let c = save(g); assert.equal(c.kind, 'gen'); assert.equal(c.what, 'random'); assert.equal(c.who, 'op'); assert.equal(c.dest, undefined);
+  let f = conv({ kind: 'reborn' }); assert.equal(f.kind, 'fetch'); assert.equal(f._g, 'summon');
+  f = change(f, 'fFrom', 'deck'); f = change(f, 'fWhat', 'tag'); f = change(f, 'fDest', 'hand'); assert.equal(f.dest, 'hand');
+  f = change(f, 'fFrom', 'hand'); assert.equal(f.dest, 'field');
+  f = change(f, 'fWhat', 'magic'); assert.equal(f.what, 'mon');
+  f = change(f, 'fWhat', 'self'); assert.equal(f.from, 'hand'); f = change(f, 'fFrom', 'grave'); assert.equal(f.what, 'mon');
+  f = change(f, 'fPick', 'random'); c = save(f); assert.equal(c.kind, 'fetch'); assert.equal(c.from, 'grave'); assert.equal(c.pick, 'random'); assert.equal(c.dest, 'field');
+});
