@@ -57,3 +57,14 @@ test('保存すると新しい形のパラメータが残る', () => {
   const r = save(change(change(conv({ kind: 'destroy' }), 'rHow', 'deck'), 'rSide', 'both')); assert.equal(r.kind, 'remove'); assert.equal(r.how, 'deck'); assert.equal(r.pos, 'shuffle'); assert.equal(r.side, 'both'); assert.equal(r.zone, 'mon');
   const t = save(conv({ kind: 'killAtk' })); assert.equal(t.to, 'attacker');
 });
+test('手札をどかす: 前の効果を開く・欄をかえる・保存', () => {
+  const { conv, change, save } = setup();
+  let e = conv({ kind: 'selfDiscRand', n: 2 }); assert.equal(e.side, 'me'); assert.equal(e.to, 'random'); assert.equal(e._g, 'minus');
+  assert.equal(conv({ kind: 'exhaustAll' })._g, 'exhaust'); assert.equal(conv({ kind: 'discard', n: 1 })._g, 'hand');
+  e = change(e, 'hOnly', 'nonAtk'); assert.equal(e.only, 'nonAtk');
+  e = change(e, 'hWho', 'one'); assert.equal(e.only, undefined); assert.equal(e.n, 2);
+  e = change(e, 'hHow', 'deck'); assert.equal(e.pos, 'shuffle'); e = change(e, 'rPos', 'top');
+  e = change(e, 'hSide', ''); assert.equal(e.side, undefined);
+  const c = save(e); assert.equal(c.kind, 'handOut'); assert.equal(c.how, 'deck'); assert.equal(c.pos, 'top'); assert.equal(c.n, 2); assert.equal(c.to, undefined);
+  const d = save(change(conv({ kind: 'exhaustNonAtk' }), 'hHow', 'grave')); assert.equal(d.to, 'all'); assert.equal(d.only, 'nonAtk'); assert.equal(d.how, 'grave');
+});

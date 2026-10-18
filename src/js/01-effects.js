@@ -207,6 +207,7 @@ const KINDS = {
   manaGrave:  { label: "墓地のカードを○枚マナゾーンに置く", n: true, text: n => `自分の墓地のカードを${n}枚マナゾーンに置く（新しいものから）` },
   manaBreak:  { label: "相手のマナゾーンのカードを○枚墓地へ（マナ破壊）", n: true, text: n => `相手のマナゾーンのカードをランダムに${n}枚墓地へ置く` },
   manaBack:   { label: "自分のマナゾーンのカードを○枚手札に戻す（マナ回収）", n: true, text: n => `自分のマナゾーンのカードを${n}枚手札に戻す（コストが大きいものから）` },
+  handOut:    { label: "手札をどかす（捨てる・廃棄・山札に戻す）", n: true, form: true, text: (n, into, m) => handOutText({ ...(m || {}), n }) },
   remove:     { label: "場から除去する", target: "board", form: true, text: (n, into, m) => removeText(m || {}) },
   removeBoard:{ label: "場のカードを1枚えらんで除去（モンスター・魔法・罠・フィールド）", target: "board", text: (n, _, m) => `${RB_SIDE[m && m.rside] || RB_SIDE.op}の場のカード1枚をえらんで${RB_MODE[m && m.rm] || RB_MODE.destroy}` },
   ctrAdd:     { label: "カウンターを乗せる", n: true, ctr: true, text: (n, _, m) => `${ctrWhereText(m)}に${ctrName(m && m.ctr)}を${n}個乗せる` },
@@ -608,6 +609,8 @@ function expandFx(f){
   f = fxNorm(f);
   const to = f.to, k = f.kind;
   // まとめた効果は、えらぶ（2体・ランダム・○体）ときだけここで分ける。全体・このカードなどはそのまま
+  // 手札をえらんで n 枚: 1枚ずつえらぶ（前の「えらんで捨てる」と同じ）
+  if (k === "handOut" && to === "one" && f.n > 1) return Array.from({ length: Math.min(40, Math.round(f.n)) }, () => ({ ...f, n: 1 }));
   if (FX_FORMS[k] && to !== "two" && to !== "random" && to !== "n") return [f];
   if (!to || to === "one" || !TARGETABLE[k]) return [f];
   if (to === "all") return [{ ...f, kind: TO_ALL[k], to: null }];
@@ -724,6 +727,49 @@ function removeText(f){
     : r.to === "all" ? `${sd}${pl}すべて` : r.to === "random" ? `ランダムな${sd}${pl}${tn > 1 ? tn + unit : "1" + unit}` : r.to === "two" ? `${sd}${pl}ちがう2${unit}` : r.to === "n" && tn > 1 ? `${sd}${pl}${tn}${unit}` : `${sd}${pl}1${unit}`;
   const v = r.how === "hand" ? "持ち主の手札に戻す" : r.how === "exile" ? "除外する" : r.how === "grave" ? "墓地へ送る" : r.how === "deck" ? (r.pos === "top" ? "持ち主の山札の一番上に置く" : r.pos === "bottom" ? "持ち主の山札の一番下に置く" : "持ち主の山札に戻してシャッフルする") : "破壊する";
   return `${w}を${v}`;
+}
+/* ---- 手札をどかす: 1つの効果「handOut」= だれの手札（side）× どれを（to・n・only）× どこへ（how） ----
+   side: なし＝相手 / "me" 自分
+   to: one（えらぶ。相手の手札は見てえらぶ）/ random（ランダムに n 枚）/ all（すべて）
+   only: "nonAtk" ならアタック以外だけ
+   how: grave（捨てる）/ exhaust（廃棄）/ deck（持ち主の山札。pos: top・bottom・shuffle）
+   捨てるだけが「捨てた枚数」や《スライ》を起こし、廃棄だけが「廃棄されるたび」を起こすのは前と同じ */
+const HO_HOW = { grave: "捨てる", exhaust: "廃棄する", deck: "山札に戻す" };
+const HO_TO = new Set(["one", "random", "all"]);
+fxForm("handOut", {
+  // 前からある9種類
+  legacy: {
+    selfDisc: { side: "me" }, selfDiscRand: { side: "me", to: "random" }, selfDiscAll: { side: "me", to: "all" },
+    exhaustHand: { side: "me", how: "exhaust" }, exhaustRand: { side: "me", to: "random", how: "exhaust" }, exhaustAll: { side: "me", to: "all", how: "exhaust" },
+    exhaustNonAtk: { side: "me", to: "all", how: "exhaust", only: "nonAtk" },
+    discard: { to: "random" }, discardPeek: {},
+  },
+  fields: {
+    how: v => HO_HOW[v] ? v : "grave", pos: (v, e) => e.how === "deck" ? (RM_POS[v] ? v : "shuffle") : undefined,
+    only: v => v === "nonAtk" ? v : undefined, side: v => v === "me" ? v : undefined,
+    to: v => v === "random" || v === "all" ? v : undefined,
+  },
+  norm(f, L){
+    L = L || {};
+    const to = L.to || (HO_TO.has(f.to) ? f.to : "one"), how = L.how || f.how, side = L.side || f.side, only = L.only || f.only;
+    const out = { ...f, to, how: HO_HOW[how] ? how : "grave" };
+    if (side === "me") out.side = "me"; else delete out.side;
+    if (only === "nonAtk" && to !== "one") out.only = "nonAtk"; else delete out.only;
+    if (out.how === "deck") out.pos = RM_POS[f.pos] ? f.pos : "shuffle"; else delete out.pos;
+    if (to !== "all" && !(out.n > 0)) out.n = 1;
+    delete out.tn;
+    return out;
+  },
+  // えらぶときは前と同じ: 自分の手札（hand）・相手の手札を見て（oppHand）
+  tgt: f => f.to === "one" ? (f.side === "me" ? "hand" : "oppHand") : undefined,
+});
+function handOutText(f){
+  const h = fxNorm({ ...f, kind: "handOut" }), me = h.side === "me", n = Math.max(1, +h.n || 1);
+  const w = `${me ? "自分" : "相手"}の手札${h.only === "nonAtk" ? "のアタック以外" : ""}`;
+  const which = h.to === "all" ? "をすべて" : h.to === "random" ? `をランダムに${n}枚` : me ? `を${n}枚えらんで` : `を見て、その中から${n}枚えらんで`;
+  // 手札のカードは、その手札の持ち主の山札へ（「持ち主の」はいらない）
+  const v = h.how === "exhaust" ? "廃棄する" : h.how === "deck" ? (h.pos === "top" ? "山札の一番上に置く" : h.pos === "bottom" ? "山札の一番下に置く" : "山札に戻してシャッフルする") : me ? "捨てる" : "捨てさせる";
+  return w + which + v;
 }
 // 追加コスト: LPを払う / 手札を捨てる / 最大マナを減らす（払えないと使えない）
 const USE_COND_WHERE = { field: "自分の場", grave: "自分の墓地", hand: "自分の手札", mana: "自分のマナゾーン" };

@@ -1169,6 +1169,29 @@ function applyRemove(st, s, c, target, ctx, f, n, src){
   for (const o of ["a", "b"]){ const X = P(st, o); if (X.standingEq) X.standingEq = X.standingEq.filter(Boolean); }
 }
 FX_FORMS.remove.run = applyRemove;
+/* ---- 手札をどかす（handOut） ---- */
+// CPU: 相手の手札を見てえらぶときは一番強そうなカード（ATK・コストが高いもの）。自分の手札は KINDS の hand どおり安いもの
+FX_FORMS.handOut.auto = (st, s, opts, f) => {
+  // 自分の手札: 安いもの（基本カードを先に）から
+  if (f.to === "one" && f.side === "me"){ const h = P(st, s).hand, v = i => (SPIRE_BASIC.some(b => b.id === h[i]) ? 0 : 10) + costOf(card(h[i])); return opts.slice().sort((a, b) => v(a) - v(b))[0]; }
+  if (f.to === "one" && f.side !== "me"){ const H = P(st, O(s)).hand, v = j => { const c = card(H[j]); return (cardType(c) === "monster" ? baseAtk(c) || 0 : 300) + (costOf(c) || 0) * 100; }; return opts.slice().sort((a, b) => v(b) - v(a))[0]; }
+};
+function applyHandOut(st, s, c, target, ctx, f, n, src){
+  const o = f.side === "me" ? s : O(s), p = P(st, o), who = o === s ? "" : `${p.name}の`;
+  let idx;
+  if (f.to === "one") idx = p.hand[target] != null ? [target] : [];
+  else { let all = p.hand.map((_, k) => k); if (f.only === "nonAtk") all = all.filter(k => !isAttackCard(card(p.hand[k]))); idx = f.to === "all" ? all : shuffle(all).slice(0, n || 1); }
+  const gone = idx.sort((a, b) => b - a).map(k => p.hand.splice(k, 1)[0]).reverse();
+  if (!gone.length){ log(st, s, `${src}：${f.how === "exhaust" ? "廃棄する" : f.how === "deck" ? "山札に戻す" : "捨てる"}${f.only === "nonAtk" ? "アタック以外の" : ""}手札がない`); if (f.how === "exhaust" && f.to !== "one") ctx.exN = 0; return; }
+  if (f.how === "exhaust"){ gone.forEach(id => exileCard(st, o, id, src)); if (f.to !== "one") ctx.exN = gone.length; return; }
+  if (f.how === "deck"){ gone.forEach(id => deckPut(p, id, f.pos)); log(st, s, `${src}で${who}手札の${gone.length}枚を山札に${f.pos === "top" ? "一番上に置いた" : f.pos === "bottom" ? "一番下に置いた" : "戻してシャッフルした"}`); return; }
+  p.grave.push(...gone);
+  // 捨てた枚数は「直前の効果で捨てた手札1枚につき」で使う（この効果の中で足していく）
+  if (o === s){ const h = ctx.hit || ctx; h.discN = (h.discN || 0) + gone.length; ctx.discN = h.discN; log(st, s, `${src}：手札の${gone.map(id => `「${card(id).name}」`).join("")}を捨てた`); }
+  else log(st, s, f.to === "one" ? `${src}で${p.name}の手札を見て、「${card(gone[0]).name}」を捨てさせた` : `${src}で${p.name}の手札を${gone.length}枚捨てさせた`);
+  slyFire(st, o, gone);
+}
+FX_FORMS.handOut.run = applyHandOut;
 // apply effect of card c for player s. target resolved already (or undefined for untargeted)
 // 護法: 相手の効果の対象になったモンスター（自分のモンスターを対象にする効果はそのまま）
 function wardMon(st, s, fx, target, ctx){
@@ -1275,11 +1298,6 @@ function applyEffect(st, s, c, target, ctx = {}, fx = normFx(c)){
     case "bash": if (typeof target === "string" && target.startsWith("m:")){ const i = +target.slice(2), u = opT.mz[i] && opT.mz[i].u; monDmg(st, OS, i, n, src); if (opT.mz[i] && opT.mz[i].u === u) addVuln(st, s, target, 2, src, OS); } else { log(st, s, `${src}で${opT.name}に${n}ダメージ`); dealDmg(st, OS, n); addVuln(st, s, "p", 2, src, OS); } break;
     case "draw": drawN(st, s, n, src); break;
     case "oppDeckDraw": drawN(st, s, n, src, O(s)); break;
-    case "discardPeek": { const id = op.hand[target]; if (id == null) break; op.hand.splice(target, 1); op.grave.push(id); log(st, s, `${src}で${op.name}の手札を見て、「${card(id).name}」を捨てさせた`); slyFire(st, O(s), [id]); break; }
-    case "discard": {
-      let k = 0; const gone = []; for (let j = 0; j < n && op.hand.length; j++){ const x = op.hand.splice(Math.floor(Math.random() * op.hand.length), 1)[0]; op.grave.push(x); gone.push(x); k++; }
-      log(st, s, `${src}で${op.name}の手札を${k}枚捨てさせた`); slyFire(st, O(s), gone); break;
-    }
     // 「このターン」: 自分のターンならこのターン、相手のターンに出たら次の自分のターン
     case "summonSelf": {
       const id = ctx.inHand || c.id, k = me.hand.indexOf(id), z = freeZone(me.mz);
@@ -1382,18 +1400,6 @@ function applyEffect(st, s, c, target, ctx = {}, fx = normFx(c)){
     case "loseLp": me.lp -= n; ev(st, { type: "hit", s, d: n, blk: 0 }); log(st, s, `${src}でLPを${n}失った`); lostLp(st, s); break;
     case "copyHand": if (c && hasCard(c.id)){ me.hand.push(c.id); log(st, s, `${src}のコピーを手札に加えた`); } break;
     case "copyDeck": if (c && hasCard(c.id)){ me.deck.splice(Math.floor(Math.random() * (me.deck.length + 1)), 0, c.id); log(st, s, `${src}のコピーを山札に混ぜた`); } break;
-    case "selfDisc": case "selfDiscRand": case "selfDiscAll": {
-      // 捨てた枚数は「直前の効果で捨てた手札1枚につき」で使う（この効果の中で足していく）
-      const L = fx.kind === "selfDisc" ? (me.hand[target] != null ? [target] : []) : fx.kind === "selfDiscAll" ? me.hand.map((_, k) => k) : shuffle(me.hand.map((_, k) => k)).slice(0, n || 1);
-      const gone = L.sort((a, b) => b - a).map(k => me.hand.splice(k, 1)[0]); me.grave.push(...gone);
-      const h = ctx.hit || ctx; h.discN = (h.discN || 0) + gone.length; ctx.discN = h.discN;
-      log(st, s, gone.length ? `${src}：手札の${gone.map(id => `「${card(id).name}」`).join("")}を捨てた` : `${src}：捨てる手札がない`); slyFire(st, s, gone);
-      break;
-    }
-    case "exhaustHand": if (me.hand[target] != null) exileCard(st, s, me.hand.splice(target, 1)[0], src); break;
-    case "exhaustRand": { let k = 0; for (let r = 0; r < (n || 1) && me.hand.length; r++){ exileCard(st, s, me.hand.splice(Math.floor(Math.random() * me.hand.length), 1)[0], src); k++; } if (!k) log(st, s, `${src}：廃棄する手札がない`); ctx.exN = k; break; }
-    case "exhaustAll": { const L = me.hand.splice(0); L.forEach(id => exileCard(st, s, id, src)); ctx.exN = L.length; if (!L.length) log(st, s, `${src}：廃棄する手札がない`); break; }
-    case "exhaustNonAtk": { const L = me.hand.filter(id => !isAttackCard(card(id))); me.hand = me.hand.filter(id => isAttackCard(card(id))); L.forEach(id => exileCard(st, s, id, src)); ctx.exN = L.length; if (!L.length) log(st, s, `${src}：アタック以外の手札がない`); break; }
     case "graveToTop": { const k = me.grave.indexOf(target); if (k >= 0){ me.grave.splice(k, 1); me.deck.unshift(target); log(st, s, `${src}で墓地の「${card(target).name}」を山札の一番上に置いた`); } break; }
     case "noDraw": me.noDraw = true; log(st, s, `${src}：このターンはもうカードを引けない`); break;
     case "drawUntil": { let k = 0, last = null; while (k < 12 && !me.noDraw){ if (!me.deck.length) refill(st, s); if (!me.deck.length) break; last = me.deck.shift(); me.hand.push(last); k++; if (!isAttackCard(card(last))) break; } log(st, s, `${src}でカードを${k}枚引いた${last && !isAttackCard(card(last)) ? `（「${card(last).name}」で止まった）` : ""}`); break; }
