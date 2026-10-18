@@ -267,10 +267,12 @@ const ABS = {
     sel: [["where", "どこの", [["field", "自分の場"], ["grave", "自分の墓地"], ["hand", "自分の手札"], ["oppField", "相手の場"], ["both", "お互いの場"]]], ["what", "なにを", [["monster", "モンスター"], ["magic", "魔法"], ["trap", "罠"], ["equip", "装備"], ["any", "カード（なんでも）"]]]],
     kwx: (n, nm, a) => `（${symWhat(a, nm)}${n > 1 ? `・1${symUnit(a)}につき${n}` : ""}）` },
   unaffected: { label: "相手の効果を受けない（相手のカードの効果の対象にならず、全体への効果も受けない）", kw: "効果を受けない" },
+  noNegSummon:{ label: "召喚を打ち消されない（このカードの召喚・特殊召喚は無効にされない）", only: "mon", kw: "召喚を打ち消されない" },
   leaveMorph: { label: "変身：場を離れるとき、かわりに指定したカードに変身して場に残る", only: "mon", name: true, ph: "変身先のカード名", kw: "変身", kwx: (n, nm) => `（→「${nm || "？"}」）` },
   eqBonus:    { label: "特定の名前の装備を付けているとATKアップ", only: "mon", self: true, n: 300, name: true, text: (n, nm) => `名前に「${nm || "？"}」が入った装備を付けているとき、ATK+${n}` }
 };
 const KW_DESC = {
+  "召喚を打ち消されない": "このカードの召喚・特殊召喚は、相手の打ち消し（罠・速攻・装備の打ち消し）で無効にされない。相手には召喚に答えるチャンスも出ない",
   "ゲーム開始時に場へ置く": "最初の手札とは別に、デッキから空いている場へコストなしで置く。召喚・発動時の効果は出ない。装備は待機状態、通常魔法・罠はセット状態で置く",
   "場から離れない": "破壊・手札戻し・除外・マナ送りでも場に残り、生贄や召喚素材には使えない。装備先が場を離れた装備は待機状態で場に残る",
   "ツインパクト": "モンスターと魔法の2つの面をもつカード。手札から、モンスターとして出すか、魔法として使うかを選べる。魔法として使ったあとはカードごと墓地へ",
@@ -666,7 +668,7 @@ const ATK_WHILE_OPS = ["add", "sub", "mul"];
 fxForm("atk", {
   label: "ATKを変える", menu: "ATKを変える（＋・−・○にする・○倍・元に戻す）", n: true, target: "opp", text: f => atkText(f),
   targetable: ["one", "two", "random", "all"], sided: true, groups: ["atk", "debuff", "buff"], group: () => "atk", bigN: true, staticOk: true,
-  genericN: e => e.op !== "reset", zeroN: e => e.op === "set", preset: { buff: { side: "me" }, debuff: { op: "sub" } },
+  genericN: e => e.op !== "reset", zeroN: e => e.op === "set" || !!e.per, preset: { buff: { side: "me" }, debuff: { op: "sub" } },
   // 場にいる間の ATK は「このモンスター・自分全体・相手全体」×「＋・−・×」だけ（1体えらぶ形は全体にする）
   fix(e, trig){ if (trig === "while"){ if (!ATK_WHILE_OPS.includes(e.op)) e.op = "add"; if (e.to !== "this" && e.to !== "all"){ e.to = "all"; delete e.tn; } delete e.dur; } if (e.op === "mul" && !(e.n > 0)) e.n = 2; fixPickN(e); },
   // 前からある15種類
@@ -691,7 +693,7 @@ fxForm("atk", {
   tgt: f => f.to === "any" ? "any" : undefined,
 });
 function atkText(f){
-  const a = fxNorm({ ...f, kind: "atk" }), n = fmtN(+a.n || 0);
+  const a = fxNorm({ ...f, kind: "atk" }), n = typeof f.n === "string" && isNaN(+f.n) ? f.n : fmtN(+a.n || 0);
   const w = a.to === "this" ? "このモンスター" : a.to === "any" ? "場のモンスター1体" : toPhrase("atk", a.to, false, a.tn, a.side);
   const body = a.op === "add" ? `${w}のATK+${n}` : a.op === "sub" ? `${w}のATK−${n}` : a.op === "set" ? `${w}のATKを${n}にする` : a.op === "mul" ? `${w}のATKを${a.n || 1}倍にする` : `${w}のATKを、カードに書いてある数字に戻す（効果でのアップ・ダウンをなくす）`;
   return (a.dur === "turn" ? "このターンの間、" : "") + body;
@@ -1004,14 +1006,14 @@ function lockText(f){
    失うはブロックでは防げない（ダメージではない）。失うと「LPを失うたび」などが起きる */
 fxForm("lp", {
   label: "LPを回復する・失う", menu: "LPを回復する・失う", n: true, text: f => lpText(f), bigN: true,
-  groups: ["guard", "minus"], group: e => !e.who && e.op !== "lose" ? "guard" : "minus", preset: { minus: { op: "lose" } }, first: ["minus"],
+  groups: ["guard", "minus"], group: e => !e.who && !e.op ? "guard" : "minus", preset: { minus: { op: "lose" } }, first: ["minus"],
   legacy: { heal: {}, oppHeal: { who: "op" }, loseLp: { op: "lose" } },
-  fields: { who: v => v === "op" || v === "both" ? v : undefined, op: v => v === "lose" ? v : undefined },
+  fields: { who: v => v === "op" || v === "both" ? v : undefined, op: v => v === "lose" || v === "leave" ? v : undefined },
   norm(f, L){ L = L || {}; const out = { ...f }, who = L.who || f.who, op = L.op || f.op;
-    if (who === "op" || who === "both") out.who = who; else delete out.who; if (op === "lose") out.op = "lose"; else delete out.op;
+    if (who === "op" || who === "both") out.who = who; else delete out.who; if (op === "lose" || op === "leave") out.op = op; else delete out.op;
     if (!(out.n > 0) && !out.per) out.n = 100; return out; },
 });
-function lpText(f){ const l = fxNorm({ ...f, kind: "lp" }), w = GEN_WHO[l.who || "me"]; return l.op === "lose" ? `${w}のLPを${l.n}失う（ブロックでは防げない）` : `${w}のLPを${l.n}回復する`; }
+function lpText(f){ const l = fxNorm({ ...f, kind: "lp" }), w = GEN_WHO[l.who || "me"]; return l.op === "leave" ? `${w}のLPを${l.n}だけ残して払う` : l.op === "lose" ? `${w}のLPを${l.n}失う（ブロックでは防げない）` : `${w}のLPを${l.n}回復する`; }
 
 /* ---- 墓地・山札をあやつる: 1つの効果「deckGrave」= どうする（act）× だれの（who: me・op・both）× えらび方（pick）× 枚数（n） ----
    act: shuf（墓地をすべて山札に戻してシャッフル）/ mill（山札の上から n 枚を墓地へ）/ banish（墓地のカードを除外。pick: one えらぶ・all すべて）/ steal（相手の墓地の一番上を自分の墓地へ） */
@@ -1147,6 +1149,8 @@ const PER_DEFS = {
   tgtVuln:  { label: "対象の弱体", u: "1", val: (st, s, c, t) => { const op = P(st, O(s)); if (typeof t === "string" && t.startsWith("m:")){ const m = op.mz[+t.slice(2)]; return m ? m.vuln || 0 : 0; } return op.vuln || 0; } },
   exile:    { label: "廃棄札のカード", u: "1枚", val: (st, s) => (P(st, s).exile || []).length },
   exN:      { label: "直前の効果で廃棄したカード", u: "1枚", val: (st, s, c, t, ctx) => (ctx && ctx.exN) || 0 },
+  tribAtk:  { label: "生贄にしたモンスターのATKの合計", u: "", amt: true, val: (st, s, c, t, ctx) => { const m = ctx && ctx.mon && monAt(st, ctx.mon); return m ? m.tribAtk || 0 : 0; } },
+  lpPaid:   { label: "直前に払ったLP", u: "", amt: true, val: (st, s, c, t, ctx) => (ctx && ctx.hit && ctx.hit.lpPaid) || 0 },
   discN:    { label: "直前の効果で捨てた手札", u: "1枚", val: (st, s, c, t, ctx) => (ctx && ((ctx.hit && ctx.hit.discN) || ctx.discN)) || 0 },
   used:     { label: "この試合でこのカードを使った回数（今回をのぞく）", u: "1回", val: (st, s, c) => Math.max(0, ((P(st, s).usedCount || {})[c && c.id] || 0) - 1) },
   lostTotal:{ label: "この試合でLPを失った回数", u: "1回", val: (st, s) => P(st, s).lostTotal || 0 },
@@ -1167,7 +1171,9 @@ const PER_OK = { dmg: true, block: true, manaNow: true, heal: true, draw: true, 
 const PER_NO = ["none", "win", "modAdd", "modRep", "modClear", "modName", "synthHand", "synthTo", "extraTurn", "lpSwap"];
 const perOk = k => !!KINDS[k] && !PER_NO.includes(k);
 const perVal = (st, s, c, fx, t, ctx) => PER_DEFS[fx.per] ? PER_DEFS[fx.per].val(st, s, c, t, ctx, fx) : 0;
-const perText = m => !m.per || !PER_DEFS[m.per] ? "" : m.hits ? `（${perLab(m)}につき、もう1回）` : `（${perLab(m)}につき+${m.pm ?? 1}）`;
+// amt: 数そのもの（「○の合計」「払ったLP」）。「○につき」ではなく「＋○」と読む
+const perAmt = m => PER_DEFS[m.per].label + ((m.pm ?? 1) !== 1 ? `×${m.pm}` : "");
+const perText = m => !m.per || !PER_DEFS[m.per] ? "" : PER_DEFS[m.per].amt && !m.hits ? `（＋${perAmt(m)}）` : m.hits ? `（${perLab(m)}につき、もう1回）` : `（${perLab(m)}につき+${m.pm ?? 1}）`;
 const isNumCond = k => !!(COND_DEFS[k] && COND_DEFS[k].val);
 const usedWhat = x => x.match === "magic" ? "魔法" : x.match === "trap" ? "罠" : x.match === "monster" ? "モンスター" : x.match === "equip" ? "装備" : x.match === "tag" ? `タグ「${x.name || "？"}」のカード` : x.match === "part" ? `名前に「${x.name || "？"}」が入ったカード` : x.match === "name" ? `「${x.name || "？"}」` : "なんでも";
 function condPhrase(x){
@@ -1282,7 +1288,7 @@ function blocksOf(c){
     ...(+b.lim > 0 && b.trig !== "act" && b.trig !== "while" ? { lim: Math.min(9, Math.round(+b.lim)) } : {}),
     ...(b.trig === "ctrReach" ? { rc: String(b.rc || ctrDefault()), rn: Math.max(1, Math.min(99, Math.round(+b.rn || 1))), rw: b.rw === "me" ? "me" : "self" } : {}),
     ...(b.trig === "act" && b.cost && b.cost.id && +b.cost.n > 0 ? { cost: { id: String(b.cost.id), n: Math.min(99, Math.round(+b.cost.n)), w: b.cost.w === "me" || b.cost.w === "field" ? b.cost.w : "self" } } : {}),
-    ...(+b.necro > 0 ? { necro: Math.min(40, Math.round(+b.necro)) } : {}), ...(b.trig === "act" && +b.xc > 0 ? { xc: Math.min(9, Math.round(+b.xc)) } : {}), ...(b.trig === "act" && +b.mcost > 0 ? { mcost: Math.min(99, Math.round(+b.mcost)) } : {}),
+    ...(+b.necro > 0 ? { necro: Math.min(40, Math.round(+b.necro)) } : {}), ...(b.trig === "act" && +b.xc > 0 ? { xc: Math.min(9, Math.round(+b.xc)) } : {}), ...(b.trig === "act" && +b.mcost > 0 ? { mcost: Math.min(99, Math.round(+b.mcost)) } : {}), ...(b.trig === "act" && +b.lpc > 0 ? { lpc: Math.min(99999, Math.round(+b.lpc)) } : {}),
     ...(b.cont ? { cont: true } : {}), ...(b.alt ? { alt: true } : {}), ...(b.bn ? { bn: String(b.bn).slice(0, 20) } : {}), ...(b.bic ? { bic: String(b.bic).slice(0, 12) } : {}), ...(b.bd ? { bd: String(b.bd).slice(0, 40) } : {}), ...(b.one ? { one: true, ...(b.oneN > 1 ? { oneN: Math.min(5, Math.round(+b.oneN)) } : {}) } : {}),
     // プレイヤーに付与: { to: me|op, at: turnStart|turnEnd, dur: 0=ずっと / ○回 }
     grant: b.grant && ["me", "op", "pick"].includes(b.grant.to) ? { to: b.grant.to, at: b.grant.at === "turnStart" ? "turnStart" : "turnEnd", dur: Math.max(0, Math.min(9, Math.round(+b.grant.dur || 0))) } : null,
@@ -1312,7 +1318,7 @@ function effsText(c, effs, detail = false){
   let out = G2.map((g, k) => {
     const m = g.m;
     // base 0 + 「○1つにつき」 reads as 「○1つにつき100ダメージ」
-    const pz = m.per && !m.hits && !m.n && PER_DEFS[m.per], nn = pz ? `${perLab(m)}につき${m.pm ?? 1}` : m.n;
+    const pz = m.per && !m.hits && !m.n && PER_DEFS[m.per], nn = pz ? (pz.amt ? perAmt(m) : `${perLab(m)}につき${m.pm ?? 1}`) : m.n;
     let tx = ((m.to || m.side === "me") && TARGETABLE[m.kind] && !FX_FORMS[m.kind] ? toText(m.kind, nn, m.to || "one", spire, m.tn, m.side) : KINDS[m.kind].text(nn, m.into, m, spire)) + (pz ? "" : perText(m));
     if (mfOn(m)) tx = /(相手|自分)のモンスター/.test(tx) ? tx.replace(/(相手|自分)のモンスター/, (w, x) => m.mfK === "attr" ? x + "の" + mfPhrase(m) + "モンスター" : mfPhrase(m) + x + "のモンスター") : tx.replace("モンスター", mfPhrase(m) + "モンスター");
     if (spire && k > 0 && aim(m) && G2.slice(0, k).some(x => aim(x.m))) tx = tx.replace(/^相手(に|を)/, "同じ相手$1");
@@ -1337,7 +1343,7 @@ const limHead = (h, b) => !(b && b.lim > 0) ? h : h.endsWith("】") ? h.slice(0,
 const actLimText = b => { const L = actLim(b); return L.per === "free" ? "・何回でも" : L.per === "game" ? `・ゲーム中に${L.n}回` : `・1ターンに${L.n}回`; };
 function blockText(c, b, detail = false){
   const t = cardType(c), isMon = t === "monster" || t === "equip";
-  const head = c && c.ctrCard ? `【${CTR_TRIG_LABEL[b.trig] || ""}】` : c && c.relicView ? `【${RELIC_TRIG_LABEL[b.trig] || ""}】` : isMon ? (b.trig === "act" ? `【起動${actLimText(b)}】` + ((L => L.length ? L.join("、") + "：" : "")([b.xc > 0 ? `このカードのエクシーズ素材を${b.xc}つ取り除く` : "", b.mcost > 0 ? `マナを${b.mcost}払う` : "", b.cost ? ctrCostText(b.cost) : ""].filter(Boolean))) : b.trig === "ctrReach" ? `【${ctrReachHead(b)}】` : `【${trigLabel(t, b.trig)}】`) : isField(c) && b.trig !== "use" ? `【${fieldTrigLabel(c, b.trig)}】` : isPersist(c) && b.trig !== "use" ? `【${PERSIST_TRIG_LABEL[b.trig]}】` : "";
+  const head = c && c.ctrCard ? `【${CTR_TRIG_LABEL[b.trig] || ""}】` : c && c.relicView ? `【${RELIC_TRIG_LABEL[b.trig] || ""}】` : isMon ? (b.trig === "act" ? `【起動${actLimText(b)}】` + ((L => L.length ? L.join("、") + "：" : "")([b.xc > 0 ? `このカードのエクシーズ素材を${b.xc}つ取り除く` : "", b.mcost > 0 ? `マナを${b.mcost}払う` : "", b.lpc > 0 ? `LPを${fmtN(b.lpc)}払う` : "", b.cost ? ctrCostText(b.cost) : ""].filter(Boolean))) : b.trig === "ctrReach" ? `【${ctrReachHead(b)}】` : `【${trigLabel(t, b.trig)}】`) : isField(c) && b.trig !== "use" ? `【${fieldTrigLabel(c, b.trig)}】` : isPersist(c) && b.trig !== "use" ? `【${PERSIST_TRIG_LABEL[b.trig]}】` : "";
   const br = b.roll === "die" && b.dieBr && b.dieBr.length ? b.dieBr : null;
   const brText = br ? br.map(x => `${x.lo === x.hi ? x.lo : `${x.lo}〜${x.hi}`}が出たら${x.win ? "（当たり）" : ""}、${effsText(c, x.then, detail)}`).join(detail ? "。\n" : "。") : "";
   let s = (b.cont ? "さらに、" : limHead(head, b)) + (b.necro > 0 ? `【ネクロマンス${b.necro}】` : "") + (b.delayDie ? "" : delayText(b.delay)) + (b.roll === "die" ? `サイコロ${b.faces && b.faces !== 6 ? `（${b.faces}面）` : ""}を振る。` : b.roll === "coin" ? (b.coins > 1 ? `コインを${b.coins}回投げる。` : "コインを投げる。") : b.roll === "gj" ? "ガチンコ・ジャッジする。" : b.roll === "pgj" ? "パワーガチンコ・ジャッジする。" : "") + (b.delayDie ? `出た目の数のターン後の、${c && c.ctrCard ? "乗っている側" : "自分"}のターンのはじめに：` : "") + condsText(b) + (b.then.length ? (b.one && b.then.length > 1 ? (b.oneN > 1 ? `次の中から${b.oneN}回えらぶ（同じものをえらんでもよい）：` : "次の効果から1つえらんで発動する：") + (detail ? "\n" : "") + b.then.map(e => effsText(c, [e])).join(detail ? "\nまたは、" : "、または、") : effsText(c, b.then, detail)) + (br ? (detail ? "。\n" : "。") : "") : br ? "" : "なにもしない") + brText;

@@ -414,7 +414,7 @@ function sxSummon(st, s, id, picks){
   else L.forEach(i => sendToGrave(st, s, i));
   ev(st, { type: "fusion", s, mats: matIds, c: id, lbl: how + "！" });
   const z = freeZone(p.mz), paid = `${names}を${x.k === "xyz" ? "重ねて" : "墓地へ送って"}`;
-  if (responseOptions(st, O(s), "summon").length){
+  if (sumWin(st, s, id)){
     st.chain = [{ s, c: id, summon: true, special: true, z, ctx: { zone: z }, mats }];
     log(st, s, `${paid}、「${c.name}」（ATK ${fmtN(baseAtk(c))}）を${how}しようとしている…`);
     st.pending = { type: "chain", by: s, wait: true, resume: null };
@@ -897,6 +897,8 @@ function actFree(st, s, m, c, bi, b){
 const actBlocks = (st, s, m) => { const c = monCard(m); return blocksOf(c).map((b, bi) => [b, bi]).filter(([b]) => b.trig === "act"); };
 // 起動効果のマナコスト（マナのないふつうのデッキではタダ）
 const xcOk = (m, b) => !(b && b.xc > 0) || (m && m.mats || []).length >= b.xc;
+// LPのコスト: 払ったあとにLPが残る（LPがコストより多い）ときだけ払える
+const actLpOk = (st, s, b) => !(b && b.lpc > 0) || P(st, s).lp > b.lpc;
 const actManaOk = (st, s, b) => !(b && b.mcost > 0) || !P(st, s).mana || P(st, s).mana.cur >= b.mcost;
 function actWhy(st, s, i){
   const m = P(st, s).mz[i]; if (!m || !hasTrig(monCard(m), "act")) return "起動効果がない";
@@ -907,6 +909,7 @@ function actWhy(st, s, i){
   if (!L.some(([b, bi]) => actFree(st, s, m, c, bi, b) && !ctrPayWhy(st, s, b.cost, { mon: { s, i, u: m.u } }))) return "コストのカウンターが足りない";
   if (!L.some(([b, bi]) => actFree(st, s, m, c, bi, b) && xcOk(m, b))) return "エクシーズ素材が足りない";
   if (!L.some(([b, bi]) => actFree(st, s, m, c, bi, b) && actManaOk(st, s, b))) return "マナが足りない";
+  if (!L.some(([b, bi]) => actFree(st, s, m, c, bi, b) && actLpOk(st, s, b))) return "コストのLPが足りない";
   if (!canAct(st, s)) return "いまは使えない";
   return "";
 }
@@ -914,14 +917,16 @@ function actWhy(st, s, i){
 function activateMon(st, s, i, bi){
   if (actWhy(st, s, i)) return false;
   const m = P(st, s).mz[i], c = monCard(m), p = P(st, s);
-  const L = actBlocks(st, s, m).filter(([b, k]) => actFree(st, s, m, c, k, b) && !ctrPayWhy(st, s, b.cost, { mon: { s, i, u: m.u } }) && actManaOk(st, s, b) && xcOk(m, b) && (bi == null || k === +bi)).slice(0, 1);
+  const L = actBlocks(st, s, m).filter(([b, k]) => actFree(st, s, m, c, k, b) && !ctrPayWhy(st, s, b.cost, { mon: { s, i, u: m.u } }) && actManaOk(st, s, b) && actLpOk(st, s, b) && xcOk(m, b) && (bi == null || k === +bi)).slice(0, 1);
   if (!L.length) return false;
   if (!m.actT || m.actT.no !== st.turnNo) m.actT = { no: st.turnNo, c: {} };
   L.forEach(([b, bi]) => { const per = actLim(b).per; if (per === "turn") m.actT.c[bi] = (m.actT.c[bi] || 0) + 1; if (per === "game"){ p.actG = p.actG || {}; p.actG[c.id + ":" + bi] = (p.actG[c.id + ":" + bi] || 0) + 1; } });
   log(st, s, `「${c.name}」の起動効果を発動！`); ev(st, { type: "spell", s, c: m.c });
   L.forEach(([b]) => { if (b.xc > 0){ const out = (m.mats || []).splice(0, b.xc); p.grave.push(...out); log(st, s, `「${c.name}」のエクシーズ素材${out.map(x => `「${card(x).name}」`).join("")}を取り除いた`); } });
   L.forEach(([b]) => { ctrPay(st, s, b.cost, `「${c.name}」`, { mon: { s, i, u: m.u } }); if (b.mcost > 0 && p.mana){ p.mana.cur -= b.mcost; log(st, s, `「${c.name}」のコストでマナを${b.mcost}払った（${p.mana.cur}/${p.mana.max}）`); } });
-  const ctx = { zone: i, mon: { s, i, u: m.u }, hit: {} };
+  let lpPaid = 0;
+  L.forEach(([b]) => { if (b.lpc > 0){ p.lp -= b.lpc; lpPaid += b.lpc; ev(st, { type: "hit", s, d: b.lpc, blk: 0 }); log(st, s, `「${c.name}」のコストでLPを${fmtN(b.lpc)}払った`); } });
+  const ctx = { zone: i, mon: { s, i, u: m.u }, hit: lpPaid ? { lpPaid } : {} };
   const step = (st2, k) => { if (k >= L.length){ checkEnd(st2); return; } runBlock(st2, s, c, L[k][0], ctx, st3 => step(st3, k + 1)); };
   step(st, 0);
   return true;
@@ -1342,9 +1347,11 @@ FX_FORMS.lock.run = applyLock;
 /* ---- LP（lp） ---- */
 function applyLp(st, s, c, target, ctx, f, n, src){
   if (!(n > 0) || !isFinite(n)) return;
+  if (f.op === "leave" && ctx && ctx.hit) ctx.hit.lpPaid = 0;
   for (const o of f.who === "both" ? [s, O(s)] : f.who === "op" ? [O(s)] : [s]){
     const p = P(st, o), whose = o === s ? "" : `${p.name}の`;
-    if (f.op === "lose"){ p.lp -= n; ev(st, { type: "hit", s: o, d: n, blk: 0 }); log(st, s, `${src}で${whose}LPを${n}失った`); lostLp(st, o); }
+    if (f.op === "leave"){ const d = Math.max(0, p.lp - n); if (!d){ log(st, s, `${src}：${whose}LPが${n}以下なので払わない`); continue; } p.lp -= d; if (o === s && ctx && ctx.hit) ctx.hit.lpPaid = (ctx.hit.lpPaid || 0) + d; ev(st, { type: "hit", s: o, d, blk: 0 }); log(st, s, `${src}で${whose}LPを${d}払った（残り${p.lp}）`); }
+    else if (f.op === "lose"){ p.lp -= n; ev(st, { type: "hit", s: o, d: n, blk: 0 }); log(st, s, `${src}で${whose}LPを${n}失った`); lostLp(st, o); }
     else { p.lp += n; log(st, s, `${src}で${whose}LPを${n}回復`); }
   }
 }
@@ -2038,17 +2045,19 @@ function summon(st, s, hi, zi, disc, trib, mats){
   if (ms){ matIds = mats.slice().sort((a, b) => b - a).map(j => p.grave.splice(j, 1)[0]).reverse(); log(st, s, `墓地の${matIds.map(x => `「${card(x).name}」`).join("")}を質量にした`); }
   p.hand.splice(hi, 1); if (!p.mana) st.summoned = true; const hfN = hfTake(p, id);
   discardCost(st, s, card(id), shiftPicks(disc, hi));
-  if (need){ log(st, s, `${trib.map(i => `「${card(p.mz[i].c).name}」`).join("")}を生贄にした`); trib.forEach(i => sendToGrave(st, s, i)); z = (zi != null && !p.mz[zi]) ? zi : trib.includes(z) || z < 0 ? trib[0] : z; }
+  let tribAtk = 0;
+  if (need){ tribAtk = trib.reduce((a, i) => a + Math.max(0, atkOf(p.mz[i]) || 0), 0); log(st, s, `${trib.map(i => `「${card(p.mz[i].c).name}」`).join("")}を生贄にした`); trib.forEach(i => sendToGrave(st, s, i)); z = (zi != null && !p.mz[zi]) ? zi : trib.includes(z) || z < 0 ? trib[0] : z; }
   const label = `「${card(id).name}」（ATK ${fmtN(baseAtk(card(id)))}）を${evo ? `「${card(p.mz[z].c).name}」から進化` : "召喚"}${p.mana ? `（コスト${costLabel(card(id))}）` : ""}`;
   // the opponent gets a window only if they hold something that can counter it
-  if (responseOptions(st, O(s), "summon").length){
-    st.chain = [{ s, c: id, summon: true, cast: true, hfN, z, ctx: { zone: z }, mats: matIds, ...(evo ? { evo: true, bu: p.mz[z].u } : {}) }];
+  if (sumWin(st, s, id)){
+    st.chain = [{ s, c: id, summon: true, cast: true, hfN, tribAtk, z, ctx: { zone: z }, mats: matIds, ...(evo ? { evo: true, bu: p.mz[z].u } : {}) }];
     log(st, s, `${label}しようとしている…`);
     st.pending = { type: "chain", by: s, wait: true, resume: null };
     return true;
   }
   if (evo) evoPut(st, s, z, id); else { p.mz[z] = mkMon(st, id); if (matIds.length) p.mz[z].mats = matIds; }
   if (hfN && p.mz[z]) p.mz[z].hfN = hfN;
+  if (tribAtk && p.mz[z]) p.mz[z].tribAtk = tribAtk;
   log(st, s, label); ev(st, { type: "summon", s, z });
   trigger(st, s, card(id), "summon", { zone: z, mon: { s, i: z, u: p.mz[z].u }, cast: true });
   enterFire(st, s, "summon");
@@ -2104,7 +2113,7 @@ function specialSummon(st, s, hi, picks = []){
   const z = freeZone(p.mz);
   if (z < 0){ p.grave.push(id); log(st, s, `場がいっぱいで「${c.name}」は出られなかった`); return true; }
   // the opponent may answer with a cancel, just like a normal summon (the cost stays paid)
-  if (responseOptions(st, O(s), "summon").length){
+  if (sumWin(st, s, id)){
     st.chain = [{ s, c: id, summon: true, special: true, z, ctx: { zone: z } }];
     log(st, s, `${paid ? paid + "、" : ""}「${c.name}」（ATK ${fmtN(baseAtk(c))}）を特殊召喚しようとしている…`);
     st.pending = { type: "chain", by: s, wait: true, resume: null };
@@ -2229,7 +2238,7 @@ function resolveChain(st, resume){
         runCard(st2, link.s, c, "summon", { zone: link.z, mon: { s: link.s, i: link.z, u: p.mz[link.z].u }, cast: !!link.cast }, st3 => enterFire(st3, link.s, "summon", st4 => onCardUsed(st4, link.s, c, step, (P(st4, link.s).mz[link.z] || {}).u))); return; }
       let z = p.mz[link.z] ? glZone(st2, link.s, link.c) : link.z;
       if (z < 0){ p.grave.push(link.c); log(st2, link.s, `場がいっぱいで「${c.name}」は出られなかった`); step(st2); return; }
-      p.mz[z] = mkMon(st2, link.c); if ((link.mats || []).length) p.mz[z].mats = link.mats.slice(); if (link.hfN) p.mz[z].hfN = link.hfN;
+      p.mz[z] = mkMon(st2, link.c); if ((link.mats || []).length) p.mz[z].mats = link.mats.slice(); if (link.hfN) p.mz[z].hfN = link.hfN; if (link.tribAtk) p.mz[z].tribAtk = link.tribAtk;
       log(st2, link.s, `「${c.name}」の${link.special ? "特殊召喚" : "召喚"}に成功！`); ev(st2, { type: "summon", s: link.s, z });
       runCard(st2, link.s, c, link.special ? "ssummon" : "summon", { zone: z, mon: { s: link.s, i: z, u: p.mz[z].u }, cast: !!link.cast && !link.special }, st3 => enterFire(st3, link.s, link.special ? "put" : "summon", st4 => onCardUsed(st4, link.s, c, step, (P(st4, link.s).mz[z] || {}).u)));
       return;
@@ -2250,7 +2259,8 @@ function resolveChain(st, resume){
     }
     if (link.cancel || (normFx(c) || {}).kind === "cancel"){
       const t = chain[link.target];
-      if (t){ t.negated = true; ev(st2, { type: "counter", s: link.s }); log(st2, link.s, `「${c.name}」で「${card(t.c).name}」の${t.summon ? (t.special ? "特殊召喚" : "召喚") : "発動"}を打ち消す！`); }
+      if (t && t.summon && noNegSum(t.c)) log(st2, link.s, `「${card(t.c).name}」の召喚は打ち消されない！`);
+      else if (t){ t.negated = true; ev(st2, { type: "counter", s: link.s }); log(st2, link.s, `「${c.name}」で「${card(t.c).name}」の${t.summon ? (t.special ? "特殊召喚" : "召喚") : "発動"}を打ち消す！`); }
       else log(st2, link.s, `「${c.name}」：無効にするカードがない`);
       step(st2); return;
     }
@@ -2274,6 +2284,9 @@ function afterChain(st){
   else if (pd.type === "end") finishEndTurn(st);
   else if (pd.type === "summoned") st.pending = null;
 }
+// 「召喚を打ち消されない」モンスター: 相手は召喚に答えられない（打ち消しのチャンスを出さない）
+const noNegSum = id => absOf(card(id)).some(a => a.k === "noNegSummon");
+const sumWin = (st, s, id) => !noNegSum(id) && responseOptions(st, O(s), "summon").length > 0;
 // after a summon succeeds, the opponent may answer with cards whose timing is 「相手がモンスターを召喚・特殊召喚したとき」
 function summonedWindow(st, s, z, special){
   if (st.pending || st.winner || !responseOptions(st, O(s), "summoned").length) return;
@@ -2287,6 +2300,7 @@ function usableIn(st, s, c, win){
   if (win === "summoned" && whenOf(c) !== "oppSummon") return false;
   if (isAtkReply(fx) && win !== "attack" && win !== "chainAttack") return false;
   if (fx && fx.kind === "cancel" && win !== "chain" && win !== "chainAttack" && win !== "summon") return false;
+  if (fx && fx.kind === "cancel"){ const top = st.chain && st.chain[st.chain.length - 1]; if (top && top.summon && noNegSum(top.c)) return false; }
   if (fx && fx.kind === "reflectFx"){ const top = st.chain && st.chain[st.chain.length - 1]; if ((win !== "chain" && win !== "chainAttack") || !top || top.summon || top.s === s || top.cancel) return false; }
   if (win === "summon" && (!fx || fx.kind !== "cancel")) return false;
   const opts = useTargets(st, s, fx);
@@ -2295,6 +2309,7 @@ function usableIn(st, s, c, win){
 // equips with the "cancel once" ability that player s owns
 function eqCancelOptions(st, s, win){
   if (win !== "chain" && win !== "chainAttack" && win !== "summon") return [];
+  { const top = st.chain && st.chain[st.chain.length - 1]; if (top && top.summon && noNegSum(top.c)) return []; }
   const out = [];
   for (const o of ["a", "b"]) P(st, o).mz.forEach(m => eqsOf(m).forEach(e => { if (e.o === s && !e.used && absOf(card(e.c)).some(a => a.k === "negateOnce")) out.push({ from: "eq", i: e.u, c: card(e.c) }); }));
   return out;
