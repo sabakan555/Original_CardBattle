@@ -123,7 +123,7 @@ function dieWinBy(st, s, c, v){
   }
   return "";
 }
-const STATIC_KINDS = ["atk", "dieWin", "giveAttr", "selfAtkDown", "myAtkDownAll", "selfAtk", "atkUp", "atkAll", "atkDown", "atkDownAll", "atkMul", "giveAb", "ctrAdd"];
+const STATIC_KINDS = [...Object.keys(FX_FORMS).filter(k => FX_FORMS[k].staticOk), "dieWin", "giveAttr", "selfAtkDown", "myAtkDownAll", "selfAtk", "atkUp", "atkAll", "atkDown", "atkDownAll", "atkMul", "giveAb", "ctrAdd"];
 /* 「場にいる間、カウンターを乗せる」: 出ている間は乗せておいて、いなくなったり条件に合わなくなったら、その分を取り除く。
    乗せた数は乗っている側に m.ctrA / p.ctrA = { "出し手のu|カウンターid": 個数 } で覚えておく（ほかの効果で取り除かれた分は、もう一度は乗せない） */
 function ctrAuraSync(st){

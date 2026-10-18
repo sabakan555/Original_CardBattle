@@ -9,7 +9,7 @@ function setup(){
  const player=()=>({deck:[],hand:[],grave:[],mana:null,manaZ:[],mz:[null,null],sz:[null,null],lp:1000});
  const st={players:{a:player(),b:player()},turn:'a',turnNo:2,log:[],pending:null};
  const ctx={S:{cards},G:null,cardType:c=>c.type,attrsOf:c=>c.attrs||[],monAttrs:m=>cards.get(m.c).attrs||[],eqsOf:m=>m?.eqs||[],
-   payLpOf:()=>0,payDiscOf:()=>0,payMaxOf:()=>0,payCtrOf:()=>null,ctrPayWhy:()=>'',whenOf:()=>'',isField:c=>!!c.field};
+   payLpOf:()=>0,payDiscOf:()=>0,payMaxOf:()=>0,payCtrOf:()=>null,ctrPayWhy:()=>'',whenOf:()=>'',isField:c=>!!c.field,KINDS:{},TARGETABLE:{},SIDED_KINDS:new Set()};
  vm.createContext(ctx);vm.runInContext(effects.slice(effects.indexOf('const USE_COND_WHERE ='),effects.indexOf('const payLpOf =')),ctx);
  vm.runInContext(effects.slice(effects.indexOf('/* ---- まとめた効果'), effects.indexOf('// 追加コスト')),ctx);vm.runInContext(engine,ctx);vm.runInContext('manaCivWhy=()=>"";',ctx);
  return {ctx,st,cards,a:st.players.a,b:st.players.b};

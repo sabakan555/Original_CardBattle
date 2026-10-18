@@ -12,7 +12,7 @@ const MON_TRIGS = ["summon", "ssummon", "enter", "while", "act", "evolve", "ctrR
 // 攻撃に答える効果（攻撃を無効・攻撃モンスターを破壊など）: 罠のほか、「相手が攻撃してきたとき」の効果でも使える
 const ATK_REPLY = ["negate", "atkDownAtk", "dmgAtkAtk", "killAtk"];
 // 攻撃に答える効果か（「攻撃してきたモンスターを除去」もふくむ）
-const isAtkReply = fx => !!fx && (ATK_REPLY.includes(fx.kind) || (fx.kind === "remove" && fx.to === "attacker"));
+const isAtkReply = fx => !!fx && (ATK_REPLY.includes(fx.kind) || !!(FX_FORMS[fx.kind] && FX_FORMS[fx.kind].atkReply && FX_FORMS[fx.kind].atkReply(fx)));
 const EQ_TRIGS = ["attach", "attack", "turnStart", "turnEnd", "destroyed", "battleLose"];
 // 永続魔法・永続罠 (スパイア風 のパワー): stay face-up in the magic/trap zone; their effect fires on one of these
 const PERSIST_TRIG_LABEL = { use: "発動したとき", while: "場にある間", anyUse: "魔法・罠が発動したとき", oppAttack: "相手が攻撃してきたとき", turnStart: "自分のターンのはじめ", turnEnd: "自分のターンのおわり", mySummon: "自分がモンスターを召喚するたび", oppSummonT: "相手がモンスターを召喚するたび", anySummonT: "どちらかがモンスターを召喚するたび", myPut: "自分の場にモンスターが出されるたび（特殊召喚）", oppPut: "相手の場にモンスターが出されるたび（特殊召喚）", anyPut: "どちらかの場にモンスターが出されるたび（特殊召喚）", exhaust: "自分のカードが廃棄されるたび", monDestroyed: "モンスターが破壊されるたび", myLoseLp: "自分のターンにLPを失うたび", blockGain: "自分がブロックを得るたび", vulnApply: "相手に弱体を付与するたび", atkPlay: "自分がアタックを使うたび" };
@@ -119,7 +119,6 @@ const KINDS = {
   graveShuf:  { label: "自分の墓地をすべて山札に戻してシャッフル", text: () => `自分の墓地のカードをすべて山札に戻してシャッフルする` },
   graveShufOpp:  { label: "相手の墓地をすべて山札に戻してシャッフル", text: () => `相手の墓地のカードをすべて山札に戻してシャッフルする` },
   graveShufBoth: { label: "お互いの墓地をすべて山札に戻してシャッフル", text: () => `お互いの墓地のカードをすべて山札に戻してシャッフルする` },
-  atk:        { label: "ATKを変える", n: true, target: "opp", form: true, text: (n, into, m) => atkText({ ...(m || {}), n }) },
   pctDmg:     { label: "相手のLPを○%削る（割合ダメージ）", n: true, text: n => `相手に、相手のLPの${pctWord(n)}のダメージを与える` },
   loseAb:     { label: "モンスターの能力を消す", target: "any", text: (n, nm, m) => labText(m) },
   mill:       { label: "自分の山札の上から○枚を墓地へ", n: true, text: n => `自分の山札の上から${n}枚を墓地に送る` },
@@ -207,15 +206,6 @@ const KINDS = {
   manaGrave:  { label: "墓地のカードを○枚マナゾーンに置く", n: true, text: n => `自分の墓地のカードを${n}枚マナゾーンに置く（新しいものから）` },
   manaBreak:  { label: "相手のマナゾーンのカードを○枚墓地へ（マナ破壊）", n: true, text: n => `相手のマナゾーンのカードをランダムに${n}枚墓地へ置く` },
   manaBack:   { label: "自分のマナゾーンのカードを○枚手札に戻す（マナ回収）", n: true, text: n => `自分のマナゾーンのカードを${n}枚手札に戻す（コストが大きいものから）` },
-  lock:       { label: "行動をしばる（攻撃・魔法罠の発動・ドロー）", form: true, text: (n, into, m) => lockText(m || {}) },
-  lp:         { label: "LPを回復する・失う", n: true, form: true, text: (n, into, m) => lpText({ ...(m || {}), n }) },
-  deckGrave:  { label: "墓地・山札をあやつる（山札に戻す・墓地へ送る・除外・うばう）", n: true, form: true, text: (n, into, m) => deckGraveText({ ...(m || {}), n }) },
-  status:     { label: "状態を付ける（弱体・脱力・魅了・筋力・敏捷・霊体）", n: true, form: true, text: (n, into, m, spire) => statusText({ ...(m || {}), n }, spire) },
-  cleanse:    { label: "状態を消す（デバフを取り除く・減らす）", n: true, form: true, text: (n, into, m) => cleanseText({ ...(m || {}), n }) },
-  gen:        { label: "カードを生む（名前を指定・コピー・ランダム）", n: true, name: true, form: true, text: (n, into, m) => genText({ ...(m || {}), n, into }) },
-  fetch:      { label: "カードを持ってくる・出す（山札・墓地・手札・EX・マナから）", n: true, name: true, tag: true, form: true, text: (n, into, m) => fetchText({ ...(m || {}), n, into }) },
-  handOut:    { label: "手札をどかす（捨てる・廃棄・山札に戻す）", n: true, form: true, text: (n, into, m) => handOutText({ ...(m || {}), n }) },
-  remove:     { label: "場から除去する", target: "board", form: true, text: (n, into, m) => removeText(m || {}) },
   removeBoard:{ label: "場のカードを1枚えらんで除去（モンスター・魔法・罠・フィールド）", target: "board", text: (n, _, m) => `${RB_SIDE[m && m.rside] || RB_SIDE.op}の場のカード1枚をえらんで${RB_MODE[m && m.rm] || RB_MODE.destroy}` },
   ctrAdd:     { label: "カウンターを乗せる", n: true, ctr: true, text: (n, _, m) => `${ctrWhereText(m)}に${ctrName(m && m.ctr)}を${n}個乗せる` },
   ctrDel:     { label: "カウンターを取り除く", n: true, ctr: true, text: (n, _, m) => `${ctrWhereText(m)}の${ctrName(m && m.ctr)}を${n}個取り除く` },
@@ -569,13 +559,13 @@ const moreFx = fx => (fx && Array.isArray(fx.more) ? fx.more : []).filter(m => m
 const costLabel = c => c && c.costX ? "X" : c && c.costInf && hasCost(c) ? "∞" : costOf(c);
 
 /* ---- 「だれに」: one base effect (ダメージ / 弱体 / 魅了 / ATKダウン / 破壊) + who it goes to ---- */
-const TARGETABLE = { status: ["one", "two", "random", "all"], atk: ["one", "two", "random", "all"], remove: ["one", "two", "random", "all"], atkUp: ["one", "two", "random", "all"], dmg: ["one", "two", "random", "all"], vuln: ["one", "two", "random", "all"], weak: ["one", "two", "random", "all"], atkDown: ["one", "two", "random", "all"], atkDownTmp: ["one", "two", "random", "all"], charm: ["one", "two", "random", "all"], destroy: ["one", "two", "random", "all", "others"], bounce: ["one", "two", "random", "all"], atkSet: ["one", "two", "random", "all"] };
+const TARGETABLE = { atkUp: ["one", "two", "random", "all"], dmg: ["one", "two", "random", "all"], vuln: ["one", "two", "random", "all"], weak: ["one", "two", "random", "all"], atkDown: ["one", "two", "random", "all"], atkDownTmp: ["one", "two", "random", "all"], charm: ["one", "two", "random", "all"], destroy: ["one", "two", "random", "all", "others"], bounce: ["one", "two", "random", "all"], atkSet: ["one", "two", "random", "all"] };
 const TO_LABEL = { one: "1体をえらぶ", two: "ちがう2体をえらぶ", random: "ランダムに1体", all: "全体", others: "このカード以外すべて（お互いの場のモンスター・魔法・罠）" };
 const TO_ALL = { atkUp: "atkAll", dmg: "dmgAll", vuln: "vulnAll", weak: "weakAll", atkDown: "atkDownAll", atkDownTmp: "atkDownTmpAll", charm: "charmAll", destroy: "destroyAll", bounce: "bounceAll", atkSet: "atkSetAll" };
 const TO_LEGACY = { atkAll: ["atkUp", "all"], dmgRand: ["dmg", "random"], dmgAll: ["dmg", "all"], vulnAll: ["vuln", "all"], weakAll: ["weak", "all"], atkDownAll: ["atkDown", "all"], atkDownTmpAll: ["atkDownTmp", "all"], charmAll: ["charm", "all"], destroyAll: ["destroy", "all"], bounceAll: ["bounce", "all"], destroyOthers: ["destroy", "others"], atkSetAll: ["atkSet", "all"] };
 const hitsPlayer = k => k === "dmg" || k === "vuln" || k === "weak";
 // the words for who gets it: 相手 / 相手のモンスター …
-const SIDED_KINDS = new Set(["status", "cleanse", "atk", "remove", "ctrAdd", "ctrDel", "dmg", "dmgAll", "dmgRand", "bash", "vuln", "vulnAll", "weak", "weakAll", "atkDown", "atkDownAll", "atkDownTmp", "atkDownTmpAll", "charm", "charmAll", "destroy", "destroyAll", "bounce", "bounceAll", "stealMon", "stealMonTmp", "atkZero", "atkSet", "atkSetAll", "banishMon"]);
+const SIDED_KINDS = new Set(["ctrAdd", "ctrDel", "dmg", "dmgAll", "dmgRand", "bash", "vuln", "vulnAll", "weak", "weakAll", "atkDown", "atkDownAll", "atkDownTmp", "atkDownTmpAll", "charm", "charmAll", "destroy", "destroyAll", "bounce", "bounceAll", "stealMon", "stealMonTmp", "atkZero", "atkSet", "atkSetAll", "banishMon"]);
 // 「自分／相手」の「○体・全体・ランダムに○回」
 const SELF_ONLY = new Set(["atkUp"]);
 function toPhrase(kind, to, spire, tn, side){
@@ -616,10 +606,8 @@ function expandFx(f){
   f = fxExec(f);
   const to = f.to, k = f.kind;
   // まとめた効果は、えらぶ（2体・ランダム・○体）ときだけここで分ける。全体・このカードなどはそのまま
-  // 手札をえらんで n 枚: 1枚ずつえらぶ（前の「えらんで捨てる」と同じ）
-  if (k === "deckGrave" && f.act === "banish" && f.pick === "one" && f.n > 1) return Array.from({ length: Math.min(40, Math.round(f.n)) }, () => ({ ...f, n: 1 }));
-  if (k === "fetch" && f.pick === "one" && f.what !== "self" && f.n > 1) return Array.from({ length: Math.min(40, Math.round(f.n)) }, () => ({ ...f, n: 1 }));
-  if (k === "handOut" && to === "one" && f.n > 1) return Array.from({ length: Math.min(40, Math.round(f.n)) }, () => ({ ...f, n: 1 }));
+  // えらんで n 枚（手札・墓地など）: 1枚ずつえらぶ（split はそれぞれのまとめた効果が決める）
+  if (FX_FORMS[k] && FX_FORMS[k].split && FX_FORMS[k].split(f) && f.n > 1) return Array.from({ length: Math.min(40, Math.round(f.n)) }, () => ({ ...f, n: 1 }));
   if (FX_FORMS[k] && to !== "two" && to !== "random" && to !== "n") return [f];
   if (!to || to === "one" || !TARGETABLE[k]) return [f];
   if (to === "all") return [{ ...f, kind: TO_ALL[k], to: null }];
@@ -640,7 +628,23 @@ function expandFx(f){
    tgt(f): 対象のえらび方（KINDS の target のかわり。undefined なら KINDS のまま）
    エンジン側（07-engine.js）で run（処理）・opts（えらべる対象）・auto（CPUのえらび方）を足す */
 const FX_FORMS = {}, FX_FROM = {};
-function fxForm(kind, def){ FX_FORMS[kind] = { legacy: {}, fields: {}, ...def }; Object.keys(def.legacy || {}).forEach(k => { FX_FROM[k] = kind; }); }
+/* 1つのまとめた効果は、この fxForm の中に全部書く:
+   label（一覧の名前）・menu（工房のグループの中の名前）・text(f, spire)（効果の文）・n / name / tag / target（KINDS の印）
+   targetable（えらび方 one・two・random・all）・sided（自分／相手）・split(f)（えらんで n 枚を1枚ずつ）・noMf(e)（しぼりこみを出さない）・atkReply(f)（攻撃に答える効果）
+   groups（工房のどのグループに出すか）・group(e)（えらんでいないときのグループ）・easy（かんたんに出すか、ふつうは出す）・bigN（数のはじめが100）・zeroN(e)（0も入れられる）
+   genericN(e)（工房のふつうの数の欄を使う。ないときは、その効果の欄で数を出す）・fix(e, trig)（工房で欄をかえたあとにそろえる）・staticOk（場にいる間に使える）
+   preset（グループからえらんだときのはじめの形。例: デメリットなら自分に）・first（本来のグループでなくても先頭に出すグループ）
+   エンジン（07-engine.js）は run・opts・auto、工房（04-maker.js）は ui をこれに足す */
+function fxForm(kind, def){
+  const F = FX_FORMS[kind] = { legacy: {}, fields: {}, ...def };
+  Object.keys(F.legacy).forEach(k => { FX_FROM[k] = kind; });
+  KINDS[kind] = { label: F.label, form: true, ...(F.n ? { n: true } : {}), ...(F.name ? { name: true } : {}), ...(F.tag ? { tag: true } : {}), ...(F.target ? { target: F.target } : {}),
+    text: (n, into, m, spire) => F.text({ ...(m || {}), ...(n != null ? { n } : {}), ...(into ? { into } : {}) }, spire) };
+  if (F.targetable) TARGETABLE[kind] = F.targetable;
+  if (F.sided) SIDED_KINDS.add(kind);
+}
+// えらぶ数（1体・○体）の書き方をそろえる: tn が 2 以上なら n、1 なら one
+function fixPickN(e){ if (e.to === "one" || e.to === "two" || e.to === "n"){ const tn = Math.max(1, e.tn || (e.to === "two" ? 2 : 1)); e.to = tn > 1 ? "n" : "one"; if (tn > 1) e.tn = tn; else delete e.tn; } }
 const fxFormOf = f => f && FX_FORMS[FX_FROM[f.kind] || f.kind];
 // 前の効果・新しい形のどちらでも、新しい形にして返す（まとめていない効果はそのまま）
 function fxNorm(f){ const F = fxFormOf(f); if (!F) return f; const k = FX_FROM[f.kind] || f.kind; return { ...F.norm({ ...f }, F.legacy[f.kind] || null), kind: k }; }
@@ -658,7 +662,13 @@ const fxKindText = fx => KINDS[fx.kind].text(fx.n, fx.into, fx);
    dur: "turn" ならこのターンだけ（+ と − だけ） */
 const ATK_OPS = { add: "アップ", sub: "ダウン", set: "○にする", mul: "○倍", reset: "元に戻す" };
 const ATK_TO = new Set(["this", "one", "two", "random", "n", "all", "any"]);
+const ATK_WHILE_OPS = ["add", "sub", "mul"];
 fxForm("atk", {
+  label: "ATKを変える", menu: "ATKを変える（＋・−・○にする・○倍・元に戻す）", n: true, target: "opp", text: f => atkText(f),
+  targetable: ["one", "two", "random", "all"], sided: true, groups: ["atk", "debuff", "buff"], group: () => "atk", bigN: true, staticOk: true,
+  genericN: e => e.op !== "reset", zeroN: e => e.op === "set", preset: { buff: { side: "me" }, debuff: { op: "sub" } },
+  // 場にいる間の ATK は「このモンスター・自分全体・相手全体」×「＋・−・×」だけ（1体えらぶ形は全体にする）
+  fix(e, trig){ if (trig === "while"){ if (!ATK_WHILE_OPS.includes(e.op)) e.op = "add"; if (e.to !== "this" && e.to !== "all"){ e.to = "all"; delete e.tn; } delete e.dur; } if (e.op === "mul" && !(e.n > 0)) e.n = 2; fixPickN(e); },
   // 前からある15種類
   legacy: {
     selfAtk: { op: "add", to: "this" }, selfAtkDown: { op: "sub", to: "this" }, atkMul: { op: "mul", to: "this" },
@@ -697,6 +707,10 @@ const RM_HOW = { destroy: "破壊", hand: "手札に戻す", exile: "除外", de
 const RM_POS = { top: "一番上", bottom: "一番下", shuffle: "シャッフル" };
 const RM_TO = new Set(["one", "two", "random", "n", "all", "this", "others", "attacker"]);
 fxForm("remove", {
+  label: "場から除去する", menu: "場から除去する（破壊・手札に戻す・除外・山札・墓地）", target: "board", text: f => removeText(f),
+  targetable: ["one", "two", "random", "all"], sided: true, groups: ["destroy", "remove"], group: () => "destroy",
+  atkReply: f => f.to === "attacker", noMf: e => e.zone !== "mon" && e.zone !== "any",
+  fix(e){ if (e.to === "attacker" && e.zone !== "mon") e.zone = "mon"; if (e.to === "others") e.zone = "any"; fixPickN(e); },
   // 前からある14種類（removeBoard の rside・rm もこの形に直す）
   legacy: {
     destroy: { zone: "mon" }, destroyAll: { zone: "mon", to: "all" },
@@ -746,6 +760,10 @@ function removeText(f){
 const HO_HOW = { grave: "捨てる", exhaust: "廃棄する", deck: "山札に戻す" };
 const HO_TO = new Set(["one", "random", "all"]);
 fxForm("handOut", {
+  label: "手札をどかす（捨てる・廃棄・山札に戻す）", menu: "手札をどかす（捨てる・捨てさせる・廃棄・山札に戻す）", n: true, text: f => handOutText(f),
+  groups: ["hand", "exhaust", "minus"], group: e => e.how === "exhaust" ? "exhaust" : e.side === "me" ? "minus" : "hand",
+  preset: { minus: { side: "me" }, exhaust: { side: "me", how: "exhaust" } },
+  split: f => f.to === "one", fix(e){ if (e.to === "one") delete e.only; if (e.to !== "all" && !(e.n > 0)) e.n = 1; },
   // 前からある9種類
   legacy: {
     selfDisc: { side: "me" }, selfDiscRand: { side: "me", to: "random" }, selfDiscAll: { side: "me", to: "all" },
@@ -789,6 +807,10 @@ const GEN_WHAT = { named: "名前を指定したカード", self: "このカー�
 const GEN_DEST = { hand: "手札", deck: "山札", grave: "墓地", field: "場" };
 const GEN_WHO = { me: "自分", op: "相手", both: "お互い" };
 fxForm("gen", {
+  label: "カードを生む（名前を指定・コピー・ランダム）", menu: "カードを生む（名前を指定・このカードのコピー・ランダム）", n: true, name: true, text: f => genText(f),
+  groups: ["make", "summon", "give"], group: e => e.dest === "field" ? "summon" : e.who === "op" ? "give" : "make", preset: { summon: { dest: "field" }, give: { who: "op" } },
+  // 次のターンのはじめに加えるのは自分の手札だけ
+  fix(e){ if (e.who && e.when) delete e.when; },
   // 前からある15種類
   legacy: {
     genNamed: { what: "named" }, oppGenHand: { what: "named", who: "op" }, oppGenDeck: { what: "named", who: "op", dest: "deck", pos: "shuffle" },
@@ -837,6 +859,8 @@ function genText(f){
 const FE_FROM = { deck: "山札", grave: "墓地", hand: "手札", ex: "EXデッキ", mana: "マナゾーン" };
 const FE_WHAT = { mon: "モンスター", magic: "魔法", trap: "罠", atk: "アタック", tag: "タグのカード", any: "カード", self: "このカード" };
 fxForm("fetch", {
+  label: "カードを持ってくる・出す（山札・墓地・手札・EX・マナから）", menu: "カードを持ってくる・出す（山札・墓地・手札・EX・マナから）", n: true, name: true, tag: true, text: f => fetchText(f),
+  groups: ["fetch", "summon"], group: e => e.dest === "field" ? "summon" : "fetch", preset: { summon: { dest: "field" } }, split: f => f.pick === "one" && f.what !== "self",
   // 前からある17種類
   legacy: {
     searchMon: { from: "deck", what: "mon" }, searchMagic: { from: "deck", what: "magic" }, searchTrap: { from: "deck", what: "trap" },
@@ -880,6 +904,9 @@ function fetchText(f){
 const ST_NAME = { vuln: "弱体", weak: "脱力", charm: "魅了", str: "筋力", dex: "敏捷", intang: "霊体" };
 const ST_TO = { vuln: ["one", "two", "n", "random", "all", "mons"], weak: ["one", "two", "n", "random", "all", "mons"], charm: ["one", "two", "n", "random", "all"], str: ["p", "one", "two", "n", "random", "mons", "all", "this"], dex: ["p"], intang: ["p"] };
 fxForm("status", {
+  label: "状態を付ける（弱体・脱力・魅了・筋力・敏捷・霊体）", menu: "状態を付ける（弱体・脱力・魅了・筋力・敏捷・霊体）", n: true, text: (f, spire) => statusText(f, spire),
+  targetable: ["one", "two", "random", "all"], sided: true, groups: ["debuff", "buff"], noMf: e => e.to === "p" || e.to === "this", preset: { buff: { side: "me", st: "str" } },
+  group: e => (e.st === "str" || e.st === "dex" || e.st === "intang") && e.side === "me" && e.op !== "sub" ? "buff" : "debuff",
   // 前からある13種類
   legacy: {
     vuln: { st: "vuln" }, vulnAll: { st: "vuln", to: "all" }, weak: { st: "weak" }, weakAll: { st: "weak", to: "all" },
@@ -932,6 +959,8 @@ function statusText(f, spire){
    how: clear（取り除く）/ reduce（n 減らす。筋力・敏捷は 0 に近づける） */
 const CL_TO = ["p", "this", "one", "mons", "all"];
 fxForm("cleanse", {
+  label: "状態を消す（デバフを取り除く・減らす）", menu: "状態を消す（デバフを取り除く・減らす）", n: true, text: f => cleanseText(f),
+  sided: true, groups: ["guard"], group: () => "guard", noMf: () => true,
   fields: {
     who: v => v === "op" ? v : undefined, to: v => CL_TO.includes(v) && v !== "p" ? v : undefined,
     what: v => v === "debuff" || ST_NAME[v] ? v : "debuff", how: v => v === "reduce" ? v : undefined,
@@ -956,6 +985,8 @@ function cleanseText(f){
    いつまで: その人のターンの終わりまで（いまがその人のターンならこのターン、ちがえば次のその人のターン）。自分なら「このターン」、相手なら「相手の次のターンの終わりまで」 */
 const LOCK_WHAT = { atk: "攻撃", use: "魔法・罠の発動", draw: "ドロー" };
 fxForm("lock", {
+  label: "行動をしばる（攻撃・魔法罠の発動・ドロー）", menu: "行動をしばる（攻撃・魔法罠の発動・ドローをできなくする）", text: f => lockText(f),
+  groups: ["debuff", "minus"], group: e => e.who ? "minus" : "debuff", preset: { minus: { who: "me" } },
   // 前からある5種類
   legacy: { thisNoAtk: { what: "atk", who: "this" }, selfNoAtk: { what: "atk", who: "me" }, oppNoAtk: { what: "atk", who: "op" }, oppNoUse: { what: "use", who: "op" }, noDraw: { what: "draw", who: "me" } },
   fields: { what: v => LOCK_WHAT[v] ? v : "atk", who: v => v === "this" || v === "me" ? v : undefined },
@@ -972,6 +1003,8 @@ function lockText(f){
 /* ---- LPを増やす・減らす: 1つの効果「lp」= だれの（who: me・op・both）× 回復する／失う（op: heal・lose） ----
    失うはブロックでは防げない（ダメージではない）。失うと「LPを失うたび」などが起きる */
 fxForm("lp", {
+  label: "LPを回復する・失う", menu: "LPを回復する・失う", n: true, text: f => lpText(f), bigN: true,
+  groups: ["guard", "minus"], group: e => !e.who && e.op !== "lose" ? "guard" : "minus", preset: { minus: { op: "lose" } }, first: ["minus"],
   legacy: { heal: {}, oppHeal: { who: "op" }, loseLp: { op: "lose" } },
   fields: { who: v => v === "op" || v === "both" ? v : undefined, op: v => v === "lose" ? v : undefined },
   norm(f, L){ L = L || {}; const out = { ...f }, who = L.who || f.who, op = L.op || f.op;
@@ -984,6 +1017,8 @@ function lpText(f){ const l = fxNorm({ ...f, kind: "lp" }), w = GEN_WHO[l.who ||
    act: shuf（墓地をすべて山札に戻してシャッフル）/ mill（山札の上から n 枚を墓地へ）/ banish（墓地のカードを除外。pick: one えらぶ・all すべて）/ steal（相手の墓地の一番上を自分の墓地へ） */
 const DG_ACT = { shuf: "墓地を山札に戻す", mill: "山札の上を墓地へ送る", banish: "墓地のカードを除外する", steal: "相手の墓地のカードをうばう" };
 fxForm("deckGrave", {
+  label: "墓地・山札をあやつる（山札に戻す・墓地へ送る・除外・うばう）", menu: "墓地・山札をあやつる（山札に戻す・墓地へ送る・除外・うばう）", n: true, text: f => deckGraveText(f),
+  groups: ["deck"], group: () => "deck", split: f => f.act === "banish" && f.pick === "one",
   legacy: {
     graveShuf: { act: "shuf" }, graveShufOpp: { act: "shuf", who: "op" }, graveShufBoth: { act: "shuf", who: "both" },
     mill: { act: "mill" }, millBoth: { act: "mill", who: "both" },
@@ -1225,7 +1260,7 @@ const MF_BY = {
   oppGrave: { label: "相手の墓地の枚数", val: (st, s) => P(st, O(s)).grave.length },
   oppMon:   { label: "相手のモンスターの数", val: (st, s) => P(st, O(s)).mz.filter(Boolean).length }
 };
-const mfAble = m => !!(m && !(m.kind === "remove" && m.zone !== "mon" && m.zone !== "any") && m.kind !== "cleanse" && !(m.kind === "status" && (m.to === "p" || m.to === "this")) && (MF_KINDS.includes(m.kind) || (!!FX_FORMS[m.kind] && m.to === "all") || m.kind === "revive" || m.kind === "reborn" || (TO_ALL[m.kind] && (m.to === "all" || m.to === "mons")) || (m.kind === "giveAttr" && m.aw !== "self")
+const mfAble = m => !!(m && !(FX_FORMS[m.kind] && FX_FORMS[m.kind].noMf && FX_FORMS[m.kind].noMf(m)) && (MF_KINDS.includes(m.kind) || (!!FX_FORMS[m.kind] && m.to === "all") || m.kind === "revive" || m.kind === "reborn" || (TO_ALL[m.kind] && (m.to === "all" || m.to === "mons")) || (m.kind === "giveAttr" && m.aw !== "self")
   || ((!m.to || m.to === "one" || m.to === "two" || m.to === "random") && !hitsPlayer(m.kind) && (TARGETABLE[m.kind] || ["opp", "mine"].includes((KINDS[m.kind] || {}).target)))));
 const pctWord = n => { n = Math.max(1, Math.min(100, Math.round(+n || 0))); return n % 10 ? `${n}%` : n === 100 ? "すべて" : `${n / 10}割`; };
 const labList = () => ["all", ...Object.keys(ABS).filter(k => ABS[k].only !== "eq")];

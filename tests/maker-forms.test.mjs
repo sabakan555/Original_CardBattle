@@ -106,3 +106,18 @@ test('行動しばり・LP・墓地: 前の効果を開く・欄をかえる・�
   d = change(d, 'dPick', 'all'); d = change(d, 'dWho', 'both'); c = save(d); assert.equal(c.act, 'banish'); assert.equal(c.pick, 'all'); assert.equal(c.who, 'both');
   d = change(d, 'dAct', 'steal'); assert.equal(d.who, 'op'); assert.equal(d.pick, undefined);
 });
+test('まとめた効果は1つの定義にそろっている（名前・文・グループ・工房の欄・エンジン）', () => {
+  const ctx = {}; vm.createContext(ctx);
+  for (const f of ['00-helpers.js', '01-effects.js']) vm.runInContext(read('js/' + f), ctx, { filename: f });
+  const maker = read('js/04-maker.js');
+  vm.runInContext(maker.slice(maker.indexOf('const KIND_GROUPS = ['), maker.indexOf('// kinds shown only when an older card already uses them')), ctx);
+  const forms = vm.runInContext('FX_FORMS', ctx), K = vm.runInContext('KINDS', ctx), G = vm.runInContext('KIND_GROUPS', ctx);
+  const engine = read('js/07-engine.js');
+  for (const [k, F] of Object.entries(forms)){
+    assert.ok(F.label && K[k] && K[k].form, k + ': KINDS');
+    assert.equal(typeof K[k].text(F.n ? 1 : undefined, undefined, { kind: k }), 'string', k + ': text');
+    assert.ok(F.groups && F.groups.length && F.groups.every(g => G.some(x => x.g === g && x.v.some(([kk]) => kk === k))), k + ': groups');
+    assert.ok(new RegExp(`FX_FORMS\\.${k}\\.run =`).test(engine), k + ': engine run');
+    assert.ok(new RegExp(`FX_FORMS\\.${k}, \\{ ui:`).test(maker), k + ': maker ui');
+  }
+});

@@ -9,7 +9,7 @@ function setup(){
   for (const [id,type,extra] of [['anchor','monster',{cannotLeave:true}],['ordinary','monster',{}],['equip','equip',{cannotLeave:true}],['spell','magic',{cannotLeave:true}],['field','magic',{field:true,cannotLeave:true}],['newfield','magic',{field:true}],['start','monster',{startOnField:true}],['startEq','equip',{startOnField:true}],['trap','trap',{startOnField:true}],['startField','magic',{field:true,startOnField:true}]]) cards.set(id,{id,name:id,type,...extra});
   const player=()=>({name:'test',deck:[],deckIds:[],hand:[],ex:[],grave:[],mz:[null,null],sz:[null,null],lp:1000});
   const st={players:{a:player(),b:player()},first:'a',turn:'a',turnNo:1,log:[],ev:[]};
-  const ctx={S:{cards},G:null,cardType:c=>c.type,eqsOf:m=>m?.eqs||[],KINDS:{},RB_MODE:{destroy:"破壊する",bounce:"戻す",banish:"除外する"},SIDED_KINDS:new Set(),
+  const ctx={S:{cards},G:null,cardType:c=>c.type,eqsOf:m=>m?.eqs||[],KINDS:{},RB_MODE:{destroy:"破壊する",bounce:"戻す",banish:"除外する"},SIDED_KINDS:new Set(),TARGETABLE:{},
     isField:c=>!!c.field,whenOf:()=>'',sealedM:()=>false,eqCostOf:()=>0,eqUsed:()=>0,eqCapOf:()=>99};
   vm.createContext(ctx);vm.runInContext(effects.slice(effects.indexOf('/* ---- まとめた効果'), effects.indexOf('// 追加コスト')),ctx);vm.runInContext(engine,ctx);
   vm.runInContext(effects.split('\n').filter(l=>/^const (cannotLeave|monCannotLeave|isPersist) =/.test(l)).join('\n'),ctx);
