@@ -476,7 +476,7 @@ function setMkType(t){
   if (typeof syncTypePressed === "function") syncTypePressed();
   if (typeof bkSync === "function") bkSync();
   const curK = $("#fxKind").value, curCb = $("#cbKind").value;
-  const kinds = Object.entries(KINDS).filter(([, v]) => (!v.trap || mkTrapOk(t)) && (!v.mon || t === "monster" || t === "equip") && (!v.chain || t === "trap" || t === "magic"));
+  const kinds = Object.entries(KINDS).filter(([, v]) => !v.internal && (!v.trap || mkTrapOk(t)) && (!v.mon || t === "monster" || t === "equip") && (!v.chain || t === "trap" || t === "magic"));
   const opts = kinds.map(([k, v]) => `<option value="${k}">${v.label}</option>`).join("");
   $("#fxKind").innerHTML = opts; $("#cbKind").innerHTML = opts;
   if (typeof refreshMoreFx === "function") refreshMoreFx();
@@ -842,7 +842,7 @@ function setFxMode(m){ MK.easy = m !== "pro"; ls.set("cb_fxmode", MK.easy ? "eas
 function mkKinds(){
   const t = MK.type;
   const pers = (t === "magic" || t === "trap") && $("#mkPersist").checked && !$("#mkField").checked;
-  return Object.entries(KINDS).filter(([k, v]) => k !== "none" && (!v.trap || mkTrapOk(t) || (ATK_REPLY.includes(k) && (t === "monster" || pers))) && (!v.mon || t === "monster" || t === "equip") && (!v.chain || t === "trap" || t === "magic")).map(([k]) => k);
+  return Object.entries(KINDS).filter(([k, v]) => k !== "none" && !v.internal && (!v.trap || mkTrapOk(t) || (ATK_REPLY.includes(k) && (t === "monster" || pers))) && (!v.mon || t === "monster" || t === "equip") && (!v.chain || t === "trap" || t === "magic")).map(([k]) => k);
 }
 function mkTrigs(){ if (MK.ctrBk) return CTR_TRIGS; if (MK.kind === "relic") return RELIC_TRIGS; if (MK.type === "magic" && $("#mkField").checked) return FIELD_TRIGS; const t = MK.type, pers = (t === "magic" || t === "trap") && $("#mkPersist").checked; return t === "monster" ? MON_TRIGS : t === "equip" ? EQ_TRIGS : pers ? PERSIST_TRIGS : ["use"]; }
 const mkTrigLabel = k => { if (MK.ctrBk) return CTR_TRIG_LABEL[k]; if (MK.kind === "relic") return RELIC_TRIG_LABEL[k]; if (MK.type === "magic" && $("#mkField").checked) return ($("#mkFieldMine").checked ? FIELD_MINE_LABEL : FIELD_TRIG_LABEL)[k]; const t = MK.type, pers = (t === "magic" || t === "trap") && $("#mkPersist").checked; return pers ? PERSIST_TRIG_LABEL[k] : trigLabel(t, k); };

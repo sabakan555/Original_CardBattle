@@ -156,7 +156,7 @@ function sortCards(list, how){
 // 効果でさがす: カードが持っている効果を、メーカーと同じグループ分けで一覧にする（使われているものだけ・枚数つき）
 // 「全体」「ランダム」などの版は、元の効果にまとめる（例: 相手モンスターを全部破壊 → 破壊）
 const fxBaseKind = k => (TO_LEGACY[k] || [k])[0];
-const FX_HIDE = new Set(["none", "synthHand", "synthTo"]);
+const FX_HIDE = new Set(["none", "synthHand", "synthTo", "atk"]);
 function cardFxKeys(c){
   if (!c) return new Set();
   if (c.__fxk && c.__fxk.v === c.updatedAt) return c.__fxk.s;

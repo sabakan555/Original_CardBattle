@@ -117,6 +117,7 @@ const KINDS = {
   graveShuf:  { label: "自分の墓地をすべて山札に戻してシャッフル", text: () => `自分の墓地のカードをすべて山札に戻してシャッフルする` },
   graveShufOpp:  { label: "相手の墓地をすべて山札に戻してシャッフル", text: () => `相手の墓地のカードをすべて山札に戻してシャッフルする` },
   graveShufBoth: { label: "お互いの墓地をすべて山札に戻してシャッフル", text: () => `お互いの墓地のカードをすべて山札に戻してシャッフルする` },
+  atk:        { label: "ATKを変える", n: true, target: "opp", internal: true, text: (n, into, m) => atkText({ ...(m || {}), n }) },
   pctDmg:     { label: "相手のLPを○%削る（割合ダメージ）", n: true, text: n => `相手に、相手のLPの${pctWord(n)}のダメージを与える` },
   loseAb:     { label: "モンスターの能力を消す", target: "any", text: (n, nm, m) => labText(m) },
   mill:       { label: "自分の山札の上から○枚を墓地へ", n: true, text: n => `自分の山札の上から${n}枚を墓地に送る` },
@@ -557,13 +558,13 @@ const moreFx = fx => (fx && Array.isArray(fx.more) ? fx.more : []).filter(m => m
 const costLabel = c => c && c.costX ? "X" : c && c.costInf && hasCost(c) ? "∞" : costOf(c);
 
 /* ---- 「だれに」: one base effect (ダメージ / 弱体 / 魅了 / ATKダウン / 破壊) + who it goes to ---- */
-const TARGETABLE = { atkUp: ["one", "two", "random", "all"], dmg: ["one", "two", "random", "all"], vuln: ["one", "two", "random", "all"], weak: ["one", "two", "random", "all"], atkDown: ["one", "two", "random", "all"], atkDownTmp: ["one", "two", "random", "all"], charm: ["one", "two", "random", "all"], destroy: ["one", "two", "random", "all", "others"], bounce: ["one", "two", "random", "all"], atkSet: ["one", "two", "random", "all"] };
+const TARGETABLE = { atk: ["one", "two", "random", "all"], atkUp: ["one", "two", "random", "all"], dmg: ["one", "two", "random", "all"], vuln: ["one", "two", "random", "all"], weak: ["one", "two", "random", "all"], atkDown: ["one", "two", "random", "all"], atkDownTmp: ["one", "two", "random", "all"], charm: ["one", "two", "random", "all"], destroy: ["one", "two", "random", "all", "others"], bounce: ["one", "two", "random", "all"], atkSet: ["one", "two", "random", "all"] };
 const TO_LABEL = { one: "1体をえらぶ", two: "ちがう2体をえらぶ", random: "ランダムに1体", all: "全体", others: "このカード以外すべて（お互いの場のモンスター・魔法・罠）" };
 const TO_ALL = { atkUp: "atkAll", dmg: "dmgAll", vuln: "vulnAll", weak: "weakAll", atkDown: "atkDownAll", atkDownTmp: "atkDownTmpAll", charm: "charmAll", destroy: "destroyAll", bounce: "bounceAll", atkSet: "atkSetAll" };
 const TO_LEGACY = { atkAll: ["atkUp", "all"], dmgRand: ["dmg", "random"], dmgAll: ["dmg", "all"], vulnAll: ["vuln", "all"], weakAll: ["weak", "all"], atkDownAll: ["atkDown", "all"], atkDownTmpAll: ["atkDownTmp", "all"], charmAll: ["charm", "all"], destroyAll: ["destroy", "all"], bounceAll: ["bounce", "all"], destroyOthers: ["destroy", "others"], atkSetAll: ["atkSet", "all"] };
 const hitsPlayer = k => k === "dmg" || k === "vuln" || k === "weak";
 // the words for who gets it: 相手 / 相手のモンスター …
-const SIDED_KINDS = new Set(["ctrAdd", "ctrDel", "dmg", "dmgAll", "dmgRand", "bash", "vuln", "vulnAll", "weak", "weakAll", "atkDown", "atkDownAll", "atkDownTmp", "atkDownTmpAll", "charm", "charmAll", "destroy", "destroyAll", "bounce", "bounceAll", "stealMon", "stealMonTmp", "atkZero", "atkSet", "atkSetAll", "banishMon"]);
+const SIDED_KINDS = new Set(["atk", "ctrAdd", "ctrDel", "dmg", "dmgAll", "dmgRand", "bash", "vuln", "vulnAll", "weak", "weakAll", "atkDown", "atkDownAll", "atkDownTmp", "atkDownTmpAll", "charm", "charmAll", "destroy", "destroyAll", "bounce", "bounceAll", "stealMon", "stealMonTmp", "atkZero", "atkSet", "atkSetAll", "banishMon"]);
 // 「自分／相手」の「○体・全体・ランダムに○回」
 const SELF_ONLY = new Set(["atkUp"]);
 function toPhrase(kind, to, spire, tn, side){
@@ -602,6 +603,7 @@ function toText0(kind, n, to, spire, tn, side){
 // one effect → what the engine runs (全体 → the old 全体 kinds, 2体 → twice with different targets, ランダム → a random pick)
 function expandFx(f){
   const to = f.to, k = f.kind;
+  if (k === "atk" && (to === "all" || to === "this" || to === "any")) return [f];
   if (!to || to === "one" || !TARGETABLE[k]) return [f];
   if (to === "all") return [{ ...f, kind: TO_ALL[k], to: null }];
   // 相手のモンスター全員だけ（プレイヤーには当たらない）: ダメージ・弱体・脱力
@@ -612,6 +614,43 @@ function expandFx(f){
   if (to === "two") return [{ ...f, distinct: true }, { ...f, distinct: true, ask: "" }];
   if (to === "n") return tn > 1 ? Array.from({ length: tn }, (_, i) => ({ ...f, distinct: true, ...(i ? { ask: "" } : {}) })) : [{ ...f, to: "one" }];
   return [f];
+}
+/* ---- ATKを変える: 1つの効果「atk」= だれの（to・side）× どうする（op）× いつまで（dur） ----
+   to: this（このモンスター）/ one・two・random・n（えらぶ）/ all（全体）/ any（場の1体・お互い）
+   side: "me" なら自分のモンスター（ないときは相手）
+   op: add（+）/ sub（−）/ set（○にする）/ mul（○倍）/ reset（元の数字に戻す）
+   dur: "turn" ならこのターンだけ（+ と − だけ） */
+const ATK_OPS = { add: "アップ", sub: "ダウン", set: "○にする", mul: "○倍", reset: "元に戻す" };
+// 前からある16種類 → atk（カードのデータはそのまま。動かすときにこの形に直す）
+const ATK_LEGACY = {
+  selfAtk: { op: "add", to: "this" }, selfAtkDown: { op: "sub", to: "this" }, atkMul: { op: "mul", to: "this" },
+  atkUp: { op: "add", side: "me" }, atkAll: { op: "add", to: "all", side: "me" },
+  myAtkDown: { op: "sub", side: "me" }, myAtkDownAll: { op: "sub", to: "all", side: "me" },
+  atkDown: { op: "sub" }, atkDownAll: { op: "sub", to: "all" },
+  atkDownTmp: { op: "sub", dur: "turn" }, atkDownTmpAll: { op: "sub", to: "all", dur: "turn" },
+  atkSet: { op: "set" }, atkSetAll: { op: "set", to: "all" }, atkZero: { op: "set", n: 0 },
+  atkReset: { op: "reset", to: "any" },
+};
+const ATK_TO = new Set(["this", "one", "two", "random", "n", "all", "any"]);
+function atkNorm(f){
+  if (!f || (f.kind !== "atk" && !ATK_LEGACY[f.kind])) return f;
+  const L = ATK_LEGACY[f.kind] || {}, op = ATK_OPS[L.op || f.op] ? L.op || f.op : "add";
+  const to = L.to || (ATK_TO.has(f.to) ? f.to : "one"), side = L.side || (f.side === "me" ? "me" : undefined);
+  const out = { ...f, kind: "atk", op, to, n: L.n != null ? L.n : f.n };
+  if (side) out.side = side; else delete out.side;
+  if ((L.dur || f.dur) === "turn" && (op === "add" || op === "sub")) out.dur = "turn"; else delete out.dur;
+  if (to === "this" || to === "any") delete out.side;
+  return out;
+}
+// 対象のえらび方（KINDS の target。atk は「場の1体」のときだけ any）
+const fxTgt = fx => fx && fx.kind === "atk" && fx.to === "any" ? "any" : (KINDS[fx && fx.kind] || {}).target;
+// 効果の文（atk は中身から作る）
+const fxKindText = fx => KINDS[fx.kind].text(fx.n, fx.into, fx);
+function atkText(f){
+  const a = atkNorm({ kind: "atk", ...f }), n = fmtN(+a.n || 0);
+  const w = a.to === "this" ? "このモンスター" : a.to === "any" ? "場のモンスター1体" : toPhrase("atk", a.to, false, a.tn, a.side);
+  const body = a.op === "add" ? `${w}のATK+${n}` : a.op === "sub" ? `${w}のATK−${n}` : a.op === "set" ? `${w}のATKを${n}にする` : a.op === "mul" ? `${w}のATKを${a.n || 1}倍にする` : `${w}のATKを、カードに書いてある数字に戻す（効果でのアップ・ダウンをなくす）`;
+  return (a.dur === "turn" ? "このターンの間、" : "") + body;
 }
 // 追加コスト: LPを払う / 手札を捨てる / 最大マナを減らす（払えないと使えない）
 const USE_COND_WHERE = { field: "自分の場", grave: "自分の墓地", hand: "自分の手札", mana: "自分のマナゾーン" };
@@ -833,7 +872,7 @@ const MF_BY = {
   oppGrave: { label: "相手の墓地の枚数", val: (st, s) => P(st, O(s)).grave.length },
   oppMon:   { label: "相手のモンスターの数", val: (st, s) => P(st, O(s)).mz.filter(Boolean).length }
 };
-const mfAble = m => !!(m && (MF_KINDS.includes(m.kind) || m.kind === "revive" || m.kind === "reborn" || (TO_ALL[m.kind] && (m.to === "all" || m.to === "mons")) || (m.kind === "giveAttr" && m.aw !== "self")
+const mfAble = m => !!(m && (MF_KINDS.includes(m.kind) || (m.kind === "atk" && m.to === "all") || m.kind === "revive" || m.kind === "reborn" || (TO_ALL[m.kind] && (m.to === "all" || m.to === "mons")) || (m.kind === "giveAttr" && m.aw !== "self")
   || ((!m.to || m.to === "one" || m.to === "two" || m.to === "random") && !hitsPlayer(m.kind) && (TARGETABLE[m.kind] || ["opp", "mine"].includes((KINDS[m.kind] || {}).target)))));
 const pctWord = n => { n = Math.max(1, Math.min(100, Math.round(+n || 0))); return n % 10 ? `${n}%` : n === 100 ? "すべて" : `${n / 10}割`; };
 const labList = () => ["all", ...Object.keys(ABS).filter(k => ABS[k].only !== "eq")];
@@ -845,7 +884,7 @@ const mfLimit = (st, s, fx) => { const by = MF_BY[fx.mfBy] ? fx.mfBy : "n"; retu
 // 墓地のカード（場にいないので、カードに書いてある元の数字・属性でしぼる）
 function mfCardOk(st, s, fx, id){ const c = card(id); if (!c || !mfOn(fx)) return !!c; if (fx.mfK === "attr") return attrsOf(c).includes(fx.mfA); const lim = mfLimit(st, s, fx), v = fx.mfK === "atk" ? baseAtk(c) : fx.mfK === "lv" ? lvOf(c) : costOf(c); return fx.mfOp === "ge" ? cmpNum(v, lim) >= 0 : cmpNum(v, lim) <= 0; }
 function mfOk(st, s, fx, m){ if (m && fxImmune(st, s, m)) return false; if (!m || !mfOn(fx)) return !!m; if (fx.mfK === "attr") return monAttrs(m).includes(fx.mfA); const lim = mfLimit(st, s, fx), v = fx.mfK === "atk" ? atkOf(m) : fx.mfK === "lv" ? lvOf(card(m.c)) : costOf(card(m.c)); return fx.mfOp === "ge" ? cmpNum(v, lim) >= 0 : cmpNum(v, lim) <= 0; }
-const cleanEff = e => e && KINDS[e.kind] && e.kind !== "none" ? { kind: e.kind, ...(e.dn ? { dn: String(e.dn).slice(0, 20) } : {}), ...(e.di ? { di: String(e.di).slice(0, 12) } : {}), ...(e.dd ? { dd: String(e.dd).slice(0, 80) } : {}), ...(e.n != null ? { n: e.n } : {}), ...(e.to && e.to !== "one" && TARGETABLE[e.kind] ? { to: e.to } : {}), ...(TARGETABLE[e.kind] && e.side === "me" ? { side: "me" } : {}), ...(TARGETABLE[e.kind] && (e.to === "n" || e.to === "random") && e.tn > 1 ? { tn: Math.min(10, Math.round(+e.tn)) } : {}), ...(KINDS[e.kind].name && e.into ? { into: String(e.into).slice(0, 40) } : {}), ...(KINDS[e.kind].name && e.into && e.intoId && pickCardKind(e.kind) ? { intoId: String(e.intoId).slice(0, 80) } : {}), ...(e.times > 1 ? { times: Math.min(20, Math.round(e.times)) } : {}), ...(e.timesDie ? { timesDie: true } : {}), ...(e.timesCoin === "h" || e.timesCoin === "t" ? { timesCoin: e.timesCoin } : {}), ...(KINDS[e.kind].mod && (e.kind === "modAdd" || e.kind === "modRep") && e.ge && KINDS[e.ge.kind] && !KINDS[e.ge.kind].mod ? { ge: cleanEff(e.ge) } : {}), ...(KINDS[e.kind].mod ? { ms: modT(e).side, mpl: modT(e).place, mc: modT(e).scope, ...(e.mn > 1 ? { mn: Math.min(40, Math.round(+e.mn)) } : {}), ...(e.gk && KINDS[e.gk] && !KINDS[e.gk].mod ? { gk: e.gk, gn: Math.max(1, Math.round(+e.gn || 1)) } : {}), ...(e.nm ? { nm: String(e.nm).slice(0, 20) } : {}), ...(modT(e).scope === "named" && e.into ? { into: String(e.into).slice(0, 40) } : {}) } : {}), ...(e.per && PER_DEFS[e.per] && perOk(e.kind) ? { per: e.per, pm: e.pm ?? 1, ...(e.hits || !KINDS[e.kind].n ? { hits: true } : {}), ...(e.per === "ctr" ? { pctr: String(e.pctr || ctrDefault()), pcw: CTR_AT[e.pcw] ? e.pcw : "self" } : {}), ...(e.per === "attrMon" ? { pattr: String(e.pattr || "火").slice(0, 20) } : {}), ...(e.per === "usedNow" || e.per === "handF" ? { pf: USED_PF[e.pf] ? e.pf : "any", ...(["name", "part", "tag"].includes(e.pf) && e.pfn ? { pfn: String(e.pfn).slice(0, 40) } : {}) } : {}) } : {}), ...(["dblNext", "freeNext", "setCost"].includes(e.kind) ? { pf: USED_PF[e.pf] ? e.pf : "any", ...(["name", "part", "tag"].includes(e.pf) && e.pfn ? { pfn: String(e.pfn).slice(0, 40) } : {}) } : {}), ...(e.kind === "copyPick" && e.cpw === "next" ? { cpw: "next" } : {}), ...(e.kind === "setCost" ? { sp: e.sp === "pick" ? "pick" : "filter", sd: e.sd === "used" ? "used" : "turn" } : {}), ...(e.kind === "dieWin" ? (lo => ({ wl: lo, wh: Math.max(lo, Math.min(100, Math.round(+e.wh || lo))) }))(Math.max(1, Math.min(100, Math.round(+e.wl || 1)))) : {}), ...(e.kind === "giveAttr" ? { aw: GAT_W[e.aw] ? e.aw : "opp1", ga: String(e.ga || "火").slice(0, 20), gm: e.gm === "set" ? "set" : "add" } : {}), ...(e.kind === "loseAb" ? { ab: labKey(e), gw: GAB_W[e.gw] ? e.gw : "self", ...(GAB_D[e.gd] != null && e.gd ? { gd: e.gd } : {}) } : {}), ...(e.kind === "giveAb" ? { ab: gabKey(e), gw: GAB_W[e.gw] ? e.gw : "self", ...(GAB_D[e.gd] != null && e.gd ? { gd: e.gd } : {}), ...(ABS[gabKey(e)].name && e.into ? { into: String(e.into).slice(0, 40) } : {}) } : {}), ...(e.kind === "removeBoard" ? { rside: RB_SIDE[e.rside] ? e.rside : "op", rm: RB_MODE[e.rm] ? e.rm : "destroy" } : {}), ...(mfOn(e) ? { mfK: e.mfK, mfOp: e.mfOp === "ge" ? "ge" : "le", mfBy: MF_BY[e.mfBy] ? e.mfBy : "n", mfN: Math.max(-99, Math.min(9999, Math.round(+e.mfN || 0))), ...(e.mfK === "attr" ? { mfA: String(e.mfA || "火").slice(0, 20) } : {}) } : {}), ...(KINDS[e.kind].ctr ? { ctr: String(e.ctr || ctrDefault()), cw: CTR_CW[e.cw] ? e.cw : "pick", ...(e.cw === "rand" && e.ctn > 1 ? { ctn: Math.min(10, Math.round(+e.ctn)) } : {}), ...(e.side === "me" ? { side: "me" } : {}) } : {}) } : null;
+const cleanEff = e => e && KINDS[e.kind] && e.kind !== "none" ? { kind: e.kind, ...(e.dn ? { dn: String(e.dn).slice(0, 20) } : {}), ...(e.di ? { di: String(e.di).slice(0, 12) } : {}), ...(e.dd ? { dd: String(e.dd).slice(0, 80) } : {}), ...(e.n != null ? { n: e.n } : {}), ...(e.to && e.to !== "one" && TARGETABLE[e.kind] ? { to: e.to } : {}), ...(e.kind === "atk" ? { op: ATK_OPS[e.op] ? e.op : "add", ...(e.dur === "turn" ? { dur: "turn" } : {}) } : {}), ...(TARGETABLE[e.kind] && e.side === "me" ? { side: "me" } : {}), ...(TARGETABLE[e.kind] && (e.to === "n" || e.to === "random") && e.tn > 1 ? { tn: Math.min(10, Math.round(+e.tn)) } : {}), ...(KINDS[e.kind].name && e.into ? { into: String(e.into).slice(0, 40) } : {}), ...(KINDS[e.kind].name && e.into && e.intoId && pickCardKind(e.kind) ? { intoId: String(e.intoId).slice(0, 80) } : {}), ...(e.times > 1 ? { times: Math.min(20, Math.round(e.times)) } : {}), ...(e.timesDie ? { timesDie: true } : {}), ...(e.timesCoin === "h" || e.timesCoin === "t" ? { timesCoin: e.timesCoin } : {}), ...(KINDS[e.kind].mod && (e.kind === "modAdd" || e.kind === "modRep") && e.ge && KINDS[e.ge.kind] && !KINDS[e.ge.kind].mod ? { ge: cleanEff(e.ge) } : {}), ...(KINDS[e.kind].mod ? { ms: modT(e).side, mpl: modT(e).place, mc: modT(e).scope, ...(e.mn > 1 ? { mn: Math.min(40, Math.round(+e.mn)) } : {}), ...(e.gk && KINDS[e.gk] && !KINDS[e.gk].mod ? { gk: e.gk, gn: Math.max(1, Math.round(+e.gn || 1)) } : {}), ...(e.nm ? { nm: String(e.nm).slice(0, 20) } : {}), ...(modT(e).scope === "named" && e.into ? { into: String(e.into).slice(0, 40) } : {}) } : {}), ...(e.per && PER_DEFS[e.per] && perOk(e.kind) ? { per: e.per, pm: e.pm ?? 1, ...(e.hits || !KINDS[e.kind].n ? { hits: true } : {}), ...(e.per === "ctr" ? { pctr: String(e.pctr || ctrDefault()), pcw: CTR_AT[e.pcw] ? e.pcw : "self" } : {}), ...(e.per === "attrMon" ? { pattr: String(e.pattr || "火").slice(0, 20) } : {}), ...(e.per === "usedNow" || e.per === "handF" ? { pf: USED_PF[e.pf] ? e.pf : "any", ...(["name", "part", "tag"].includes(e.pf) && e.pfn ? { pfn: String(e.pfn).slice(0, 40) } : {}) } : {}) } : {}), ...(["dblNext", "freeNext", "setCost"].includes(e.kind) ? { pf: USED_PF[e.pf] ? e.pf : "any", ...(["name", "part", "tag"].includes(e.pf) && e.pfn ? { pfn: String(e.pfn).slice(0, 40) } : {}) } : {}), ...(e.kind === "copyPick" && e.cpw === "next" ? { cpw: "next" } : {}), ...(e.kind === "setCost" ? { sp: e.sp === "pick" ? "pick" : "filter", sd: e.sd === "used" ? "used" : "turn" } : {}), ...(e.kind === "dieWin" ? (lo => ({ wl: lo, wh: Math.max(lo, Math.min(100, Math.round(+e.wh || lo))) }))(Math.max(1, Math.min(100, Math.round(+e.wl || 1)))) : {}), ...(e.kind === "giveAttr" ? { aw: GAT_W[e.aw] ? e.aw : "opp1", ga: String(e.ga || "火").slice(0, 20), gm: e.gm === "set" ? "set" : "add" } : {}), ...(e.kind === "loseAb" ? { ab: labKey(e), gw: GAB_W[e.gw] ? e.gw : "self", ...(GAB_D[e.gd] != null && e.gd ? { gd: e.gd } : {}) } : {}), ...(e.kind === "giveAb" ? { ab: gabKey(e), gw: GAB_W[e.gw] ? e.gw : "self", ...(GAB_D[e.gd] != null && e.gd ? { gd: e.gd } : {}), ...(ABS[gabKey(e)].name && e.into ? { into: String(e.into).slice(0, 40) } : {}) } : {}), ...(e.kind === "removeBoard" ? { rside: RB_SIDE[e.rside] ? e.rside : "op", rm: RB_MODE[e.rm] ? e.rm : "destroy" } : {}), ...(mfOn(e) ? { mfK: e.mfK, mfOp: e.mfOp === "ge" ? "ge" : "le", mfBy: MF_BY[e.mfBy] ? e.mfBy : "n", mfN: Math.max(-99, Math.min(9999, Math.round(+e.mfN || 0))), ...(e.mfK === "attr" ? { mfA: String(e.mfA || "火").slice(0, 20) } : {}) } : {}), ...(KINDS[e.kind].ctr ? { ctr: String(e.ctr || ctrDefault()), cw: CTR_CW[e.cw] ? e.cw : "pick", ...(e.cw === "rand" && e.ctn > 1 ? { ctn: Math.min(10, Math.round(+e.ctn)) } : {}), ...(e.side === "me" ? { side: "me" } : {}) } : {}) } : null;
 const LEGACY_COND = { lp: { k: "lp", op: "le" }, grave: { k: "grave", op: "ge" }, hand: { k: "sameHand", op: "ge" } };
 function blocksOf(c){
   if (!c) return [];
