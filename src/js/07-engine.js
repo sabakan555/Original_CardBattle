@@ -556,12 +556,14 @@ function attachStanding(st, s, k, ts, ti){
   log(st, s, `待機していた「${card(e.c).name}」を「${card(m.c).name}」に装備した`);
   ev(st, { type: "equip", s: ts, z: ti }); return true;
 }
+// 山札に置く: top 一番上（次に引く）/ bottom 一番下 / shuffle 混ぜる
+function deckPut(p, id, pos){ if (pos === "top") p.deck.unshift(id); else { p.deck.push(id); if (pos !== "bottom") shuffle(p.deck); } }
 function moveMonOut(st, o, i, to, opt = {}){
   const p = P(st, o), m = p.mz[i]; if (!m || monCannotLeave(m)) return null;
   if (!opt.noMorph && leaveMorph(st, o, i)) return null;
   leaveEquips(st, m); p.grave.push(...(m.mats || [])); sealsOut(st, m);
   p.mz[i] = null; ev(st, { type: "destroy", s: o, z: i });
-  if (!m.cp){ const w = P(st, m.owner || o); if (to === "exile") (w.exile = w.exile || []).push(m.c); else if (to === "mana"){ if (w.manaZ){ manaSync(w); manaPut(st, m.owner || o, m.c); } else w.grave.push(m.c); } else w.hand.push(m.c); }
+  if (!m.cp){ const w = P(st, m.owner || o); if (to === "exile") (w.exile = w.exile || []).push(m.c); else if (to === "mana"){ if (w.manaZ){ manaSync(w); manaPut(st, m.owner || o, m.c); } else w.grave.push(m.c); } else if (to === "deck") deckPut(w, m.c, opt.pos); else w.hand.push(m.c); }
   return m;
 }
 // 質量を場に出す: モンスターはモンスターゾーンへ、魔法・罠は魔法・罠ゾーンに伏せて。copy = コピー（やられても本体は墓地に行かない）
@@ -746,7 +748,7 @@ function autoTarget(st, s, kind, opts, fx){
     return kill.length ? kill[0] : opts.slice().sort((x, y) => left(x) - left(y))[0];
   }
   if (opts[0] === "p"){ const ms = opts.slice(1).sort((x, y) => atkOf(P(st, O(s)).mz[+y.slice(2)]) - atkOf(P(st, O(s)).mz[+x.slice(2)])); return ms.length && P(st, O(s)).lp > 300 ? ms[0] : "p"; }
-  const t = KINDS[kind].target;
+  const t = fx ? fxTgt(fx) : KINDS[kind].target;
   if (t === "opp") return opts.slice().sort((a, b) => atkOf(P(st, O(s)).mz[b]) - atkOf(P(st, O(s)).mz[a]))[0];
   if (t === "mine") return opts.slice().sort((a, b) => (kind === "destroyOwn" ? -1 : 1) * (atkOf(P(st, s).mz[b]) - atkOf(P(st, s).mz[a])))[0];
   if (t === "grave") return opts.slice().sort((a, b) => cmpNum(baseAtk(card(b)), baseAtk(card(a))))[0];
@@ -1078,13 +1080,96 @@ FX_FORMS.atk.auto = (st, s, opts, fx) => {
   if (fx.op === "set") { const T = P(st, fx.side === "me" ? s : O(s)), sg = fx.side === "me" ? 1 : -1, v = o => { const m = T.mz[+o]; const a = m ? atkOf(m) : 0; return sg * ((+fx.n || 0) - (isFinite(a) ? a : 1e9)); }; return opts.slice().sort((a, b) => v(b) - v(a))[0]; }
   if (fx.side === "me" && (fx.op === "add" || fx.op === "mul")) { const own = P(st, s); return opts.slice().sort((a, b) => cmpNum(atkOf(own.mz[+b]), atkOf(own.mz[+a])))[0]; }
 };
+/* ---- 場から除去する（remove） ---- */
+// えらべる対象: このカード・全部・このカード以外・攻撃してきたモンスター・フィールドはえらばない
+FX_FORMS.remove.opts = (st, s, f, ctx) => {
+  if (f.to === "this" || f.to === "all" || f.to === "others" || f.to === "attacker" || f.zone === "field") return null;
+  if (fxTgt(f) === "opp") return undefined; // 前と同じ（相手のモンスター → 挑発・裏向きを見る / 自分のモンスター）
+  const sides = f.side === "me" ? [s] : f.side === "both" ? [s, O(s)] : [O(s)], out = [];
+  sides.forEach(o => { const X = P(st, o);
+    if (f.zone === "mon" || f.zone === "any") X.mz.forEach((m, i) => { if (m && (o === s || !fxHidden(st, o, i))) out.push(`${o}:mz:${i}`); });
+    if (f.zone === "st" || f.zone === "any") X.sz.forEach((z, i) => { if (z && !(o === s && ctx.pz === i)) out.push(`${o}:sz:${i}`); });
+    if (f.zone === "any") (X.standingEq || []).forEach((e, i) => out.push(`${o}:eq:${i}`)); });
+  if (f.zone === "any" && st.field && sides.includes(st.field.o) && !ctx.field) out.push("field");
+  return out;
+};
+// CPUのえらび方: 場のカードは、相手の一番強いモンスター → 相手の魔法・罠 → フィールド（自分のカードはなるべく選ばない）。
+// 魔法・罠だけのときはランダム、自分のモンスターは一番弱いもの（ほかは「opp」どおり相手の一番強いもの）
+FX_FORMS.remove.auto = (st, s, opts, f) => {
+  if (fxTgt(f) === "board"){
+    if (f.zone === "st") return opts[Math.floor(Math.random() * opts.length)];
+    const v = o => { if (o === "field") return st.field && st.field.o !== s ? 250 : -500; const [os, k, i] = o.split(":"), X = P(st, os), sg = os === s ? -1 : 1; if (k === "mz"){ const m = X.mz[+i]; return sg * (100 + (m ? atkOf(m) : 0)); } return sg * 300; };
+    return opts.slice().sort((a, b) => v(b) - v(a))[0];
+  }
+  if (f.side === "me"){ const own = P(st, s); return opts.slice().sort((a, b) => cmpNum(atkOf(own.mz[+a]), atkOf(own.mz[+b])))[0]; }
+};
+// どかすもの = { k: "mz" | "sz" | "eq" | "field", o: 場の持ち主, i: 場所, u: モンスターの印 }
+function removeThings(st, s, c, target, ctx, f){
+  const me = P(st, s), TS = f.side === "me" ? s : O(s), out = [];
+  const mz = (o, i) => { const m = P(st, o).mz[i]; if (m) out.push({ k: "mz", o, i, u: m.u }); };
+  if (f.to === "this"){ const m = ctx.mon ? monAt(st, ctx.mon) : null; if (m) mz(ctx.mon.s, ctx.mon.i); else if (ctx.pz != null && me.sz[ctx.pz]) out.push({ k: "sz", o: s, i: ctx.pz }); return out; }
+  if (f.to === "attacker"){ const a = ctx.attack; if (a && P(st, a.by).mz[a.from]) mz(a.by, a.from); return out; }
+  if (f.zone === "field"){ if (st.field) out.push({ k: "field" }); return out; }
+  if (f.to === "others"){
+    const selfMon = ctx.mon ? monAt(st, ctx.mon) : null, host = ctx.eqU ? (findEq(st, ctx.eqU) || {}) : {}, hostM = host.s ? P(st, host.s).mz[host.i] : null;
+    for (const o of [s, O(s)]){ const X = P(st, o);
+      (X.standingEq || []).forEach((e, i) => out.push({ k: "eq", o, i }));
+      X.sz.forEach((z, i) => { if (z && !(o === s && ctx.pz === i)) out.push({ k: "sz", o, i }); });
+      X.mz.forEach((m, i) => { if (m && m !== selfMon && m !== hostM && !fxImmune(st, s, m)) mz(o, i); }); }
+    if (st.field && !ctx.field) out.push({ k: "field" });
+    return out;
+  }
+  if (f.to === "all"){
+    const sides = f.side === "both" ? [s, O(s)] : [TS];
+    for (const o of sides){ const X = P(st, o);
+      if (f.zone === "mon" || f.zone === "any") X.mz.forEach((m, i) => { if (m && mfOk(st, s, f, m)) mz(o, i); });
+      if (f.zone === "st" || f.zone === "any") X.sz.forEach((z, i) => { if (z && !(o === s && ctx.pz === i)) out.push({ k: "sz", o, i }); });
+      if (f.zone === "any") (X.standingEq || []).forEach((e, i) => out.push({ k: "eq", o, i })); }
+    if (f.zone === "any" && st.field && sides.includes(st.field.o) && !ctx.field) out.push({ k: "field" });
+    return out;
+  }
+  if (target == null) return out;
+  if (typeof target === "number"){ mz(TS, target); return out; }
+  const t = String(target); if (t === "field"){ if (st.field) out.push({ k: "field" }); return out; }
+  const mm = t.match(/^([ab]):(mz|sz|eq):(\d+)$/); if (!mm) return out;
+  if (mm[2] === "mz") mz(mm[1], +mm[3]); else out.push({ k: mm[2], o: mm[1], i: +mm[3] });
+  return out;
+}
+// 魔法・罠・待機中の装備・フィールドを、どかし方どおりの場所へ（コピーは質量だけ墓地へ）
+function removeCardTo(st, owner, id, how, pos, mats, copy){
+  const w = P(st, owner); w.grave.push(...(mats || [])); if (copy) return;
+  if (how === "hand") w.hand.push(id); else if (how === "exile") (w.exile = w.exile || []).push(id); else if (how === "deck") deckPut(w, id, pos); else w.grave.push(id);
+}
+function applyRemove(st, s, c, target, ctx, f, n, src){
+  const L = removeThings(st, s, c, target, ctx, f), verb = { destroy: "破壊した", hand: "持ち主の手札に戻した", exile: "除外した", deck: "持ち主の山札に戻した", grave: "墓地へ送った" }[f.how];
+  if (!L.length){ log(st, s, `${src}：${f.to === "attacker" ? "攻撃してきたモンスターがいない" : f.zone === "field" ? "場を離れられるフィールド魔法がない" : "どかすカードがない"}`); return; }
+  if (f.to === "attacker" && L[0].o !== s && fxImmune(st, s, P(st, L[0].o).mz[L[0].i])){ log(st, s, `「${card(P(st, L[0].o).mz[L[0].i].c).name}」は相手の効果を受けない！`); return; }
+  if (f.to === "others") log(st, s, `${src}で、このカード以外の場のカードをすべて${verb}！`);
+  else if (f.to === "all") log(st, s, `${src}で${f.side === "me" ? "自分" : f.side === "both" ? "お互い" : "相手"}の${RM_ZONE[f.zone]}をすべて${verb}`);
+  for (const x of L){
+    if (x.k === "mz"){
+      const X = P(st, x.o), m = X.mz[x.i]; if (!m || m.u !== x.u) continue; const nm = card(m.c).name;
+      if (f.how === "destroy") destroyMonster(st, x.o, x.i, src);
+      else if (f.how === "grave"){ if (sendToGrave(st, x.o, x.i) !== false && f.to !== "all" && f.to !== "others") log(st, s, `${src}で「${nm}」を${verb}`); }
+      else { const out = moveMonOut(st, x.o, x.i, f.how === "exile" ? "exile" : f.how === "deck" ? "deck" : "hand", { pos: f.pos }); if (out && f.to !== "all" && f.to !== "others") log(st, s, `${src}で「${nm}」を${verb}`); }
+      continue;
+    }
+    if (x.k === "field"){ const fl = st.field; if (!fl || cannotLeave(fl.c)) continue; st.field = null; removeCardTo(st, fl.o, fl.c, f.how, f.pos, fl.mats); if (f.to !== "others") log(st, s, `${src}でフィールド魔法「${card(fl.c).name}」を${verb}`); else log(st, s, `フィールド「${card(fl.c).name}」も${verb}`); continue; }
+    if (x.k === "eq"){ const X = P(st, x.o), e = (X.standingEq || [])[x.i]; if (!e || cannotLeave(e.c)) continue; X.standingEq[x.i] = null; removeCardTo(st, e.o, e.c, f.how, f.pos); if (f.to !== "all" && f.to !== "others") log(st, s, `${src}で待機中の「${card(e.c).name}」を${verb}`); continue; }
+    const X = P(st, x.o), z = X.sz[x.i]; if (!z || cannotLeave(z.c)) continue; X.sz[x.i] = null;
+    removeCardTo(st, x.o, z.c, f.how, f.pos, z.fcp || z.cp ? z.mats : [], z.fcp || z.cp); ev(st, { type: "destroy", s: x.o, z: x.i, k: "sz" });
+    if (f.to !== "all" && f.to !== "others") log(st, s, `${src}で${z.face ? `「${card(z.c).name}」` : `セットされていたカード（「${card(z.c).name}」）`}を${verb}`);
+  }
+  for (const o of ["a", "b"]){ const X = P(st, o); if (X.standingEq) X.standingEq = X.standingEq.filter(Boolean); }
+}
+FX_FORMS.remove.run = applyRemove;
 // apply effect of card c for player s. target resolved already (or undefined for untargeted)
 // 護法: 相手の効果の対象になったモンスター（自分のモンスターを対象にする効果はそのまま）
 function wardMon(st, s, fx, target, ctx){
   const k = fx && KINDS[fx.kind]; if (!k || target == null) return null;
   const TS = ctx && ctx.side === "me" ? s : O(s);
   if (typeof target === "string"){ let m = target.match(/^m:(\d+)$/); if (m) return [TS, +m[1]]; m = target.match(/^([ab]):(?:mz:)?(\d+)$/); if (m) return [m[1], +m[2]]; return null; }
-  if (k.target === "opp" && typeof target === "number") return [TS, target];
+  if (fxTgt(fx) === "opp" && typeof target === "number") return [TS, target];
   return null;
 }
 function wardStop(st, s, c, fx, target, ctx){
@@ -1121,23 +1206,6 @@ function applyEffect(st, s, c, target, ctx = {}, fx = normFx(c)){
       break;
     }
     // 場のカードを指定して除去（破壊・手札に戻す・除外）
-    case "removeBoard": {
-      const mode = fx.rm === "bounce" || fx.rm === "banish" ? fx.rm : "destroy", t = String(target == null ? "" : target), verb = RB_MODE[mode].replace(/する$/, "した").replace(/戻す$/, "戻した");
-      if (t === "field"){ const f = st.field; if (!f || cannotLeave(f.c)) break; st.field = null; const F = P(st, f.o); if (mode === "bounce") F.hand.push(f.c); else if (mode === "banish") (F.exile = F.exile || []).push(f.c); else F.grave.push(f.c); F.grave.push(...(f.mats || [])); log(st, s, `${src}でフィールド「${card(f.c).name}」を${verb}`); break; }
-      const mm = t.match(/^([ab]):(mz|sz|eq):(\d+)$/); if (!mm) break;
-      const o = mm[1], i = +mm[3], X = P(st, o);
-      if (mm[2] === "mz"){ if (!X.mz[i]) break; if (mode === "destroy") destroyMonster(st, o, i, src); else { const m = moveMonOut(st, o, i, mode === "banish" ? "exile" : "hand"); if (m) log(st, s, `${src}で「${card(m.c).name}」を${verb}`); } break; }
-      if (mm[2] === "eq"){
-        const e = (X.standingEq || [])[i]; if (!e || cannotLeave(e.c)) break;
-        X.standingEq.splice(i, 1); const w = P(st, e.o);
-        if (mode === "bounce") w.hand.push(e.c); else if (mode === "banish") (w.exile || (w.exile = [])).push(e.c); else w.grave.push(e.c);
-        log(st, s, `${src}で待機中の「${card(e.c).name}」を${verb}`); break;
-      }
-      const z = X.sz[i]; if (!z || cannotLeave(z.c)) break; X.sz[i] = null;
-      if (z.fcp || z.cp) X.grave.push(...(z.mats || [])); else if (mode === "bounce") X.hand.push(z.c); else if (mode === "banish") (X.exile = X.exile || []).push(z.c); else X.grave.push(z.c);
-      ev(st, { type: "destroy", s: o, z: i, k: "sz" }); log(st, s, `${src}で${z.face ? `「${card(z.c).name}」` : `セットされていたカード（「${card(z.c).name}」）`}を${verb}`);
-      break;
-    }
     case "heal": me.lp += n; log(st, s, `${src}でLPを${n}回復`); break;
     case "lpSwap": { const a = me.lp, b = op.lp; me.lp = b; op.lp = a; log(st, s, `${src}で${me.name}と${op.name}のLPを入れかえた（${me.name} ${fmtN(a)}→${fmtN(b)}・${op.name} ${fmtN(b)}→${fmtN(a)}）`); break; }
     case "oppHeal": if (n > 0 && isFinite(n)){ op.lp += n; log(st, s, `${src}で${op.name}のLPが${n}回復した`); } break;
@@ -1206,8 +1274,6 @@ function applyEffect(st, s, c, target, ctx = {}, fx = normFx(c)){
       let k = 0; const gone = []; for (let j = 0; j < n && op.hand.length; j++){ const x = op.hand.splice(Math.floor(Math.random() * op.hand.length), 1)[0]; op.grave.push(x); gone.push(x); k++; }
       log(st, s, `${src}で${op.name}の手札を${k}枚捨てさせた`); slyFire(st, O(s), gone); break;
     }
-    case "destroy": if (opT.mz[target]) destroyMonster(st, OS, target, src); break;
-    case "destroyOwn": if (me.mz[target]) destroyMonster(st, s, target, src); break;
     // 「このターン」: 自分のターンならこのターン、相手のターンに出たら次の自分のターン
     case "summonSelf": {
       const id = ctx.inHand || c.id, k = me.hand.indexOf(id), z = freeZone(me.mz);
@@ -1220,9 +1286,6 @@ function applyEffect(st, s, c, target, ctx = {}, fx = normFx(c)){
     case "thisNoAtk": { const m = ctx.mon && monAt(st, ctx.mon); if (!m){ log(st, s, `${src}：そのモンスターはもう場にいない`); break; } m.noAtkTurn = Math.max(m.noAtkTurn || 0, st.turn === ctx.mon.s ? st.turnNo : st.turnNo + 1); log(st, s, `${src}：「${card(m.c).name}」はこのターン攻撃できない`); break; }
     case "selfNoAtk": me.noAtkUntil = Math.max(me.noAtkUntil || 0, st.turn === s ? st.turnNo : st.turnNo + 1); log(st, s, `${src}：このターン、${me.name}のモンスターは攻撃できない`); break;
     case "modAdd": case "modRep": case "modClear": case "modName": modApply(st, s, c, fx, target, src); break;
-    case "destroyThis": { const m = ctx.mon && monAt(st, ctx.mon); if (m) destroyMonster(st, ctx.mon.s, ctx.mon.i, src); else log(st, s, `${src}：破壊するモンスターがもう場にいない`); break; }
-    case "destroyOwnAll": { const L = me.mz.map((m, i) => mfOk(st, s, fx, m) ? i : -1).filter(i => i >= 0); if (!L.length) log(st, s, `${src}：自分のモンスターがいない`); L.forEach(i => { if (me.mz[i]) destroyMonster(st, s, i, src); }); break; }
-    case "destroyAll": { const idx = opT.mz.map((m, i) => mfOk(st, s, fx, m) ? i : -1).filter(i => i >= 0); log(st, s, `${src}で${OS === s ? "自分" : "相手"}のモンスターをすべて破壊！`); idx.forEach(i => destroyMonster(st, OS, i, src)); break; }
     case "moveEquips": {
       const srcM = ctx.mon && monAt(st, ctx.mon), [ts, ti] = String(target).split(":"), tm = (ts === "a" || ts === "b") ? P(st, ts).mz[+ti] : null;
       if (!srcM || !tm){ log(st, s, `${src}：付けかえる先がいない`); break; }
@@ -1330,9 +1393,6 @@ function applyEffect(st, s, c, target, ctx = {}, fx = normFx(c)){
     case "drawUntil": { let k = 0, last = null; while (k < 12 && !me.noDraw){ if (!me.deck.length) refill(st, s); if (!me.deck.length) break; last = me.deck.shift(); me.hand.push(last); k++; if (!isAttackCard(card(last))) break; } log(st, s, `${src}でカードを${k}枚引いた${last && !isAttackCard(card(last)) ? `（「${card(last).name}」で止まった）` : ""}`); break; }
     case "tagSearch": case "tagGraveHand": { const src = fx.kind === "tagSearch" ? me.deck : me.grave, k = src.indexOf(target); if (k >= 0){ src.splice(k, 1); me.hand.push(target); log(st, s, `${src === me.deck ? "山札" : "墓地"}から「${card(target).name}」を手札に加えた`); if (fx.kind === "tagSearch") me.deck = shuffle(me.deck); } break; }
     // このカード以外すべて: お互いの場のモンスター・魔法・罠・フィールドを破壊（このカード自身と、このカードが付いているモンスターはのこす）
-    case "bounce": { const m = moveMonOut(st, OS, target, "hand"); if (m) log(st, s, `${src}で「${card(m.c).name}」を手札に戻した`); break; }
-    case "bounceAll": { const L = opT.mz.map((m, i) => mfOk(st, s, fx, m) ? i : -1).filter(i => i >= 0); L.forEach(i => moveMonOut(st, OS, i, "hand")); log(st, s, `${src}で${OS === s ? "自分" : "相手"}のモンスター${L.length}体を手札に戻した`); break; }
-    case "banishMon": { const m = moveMonOut(st, OS, target, "exile"); if (m) log(st, s, `${src}で「${card(m.c).name}」を除外した`); break; }
     case "banishGrave": { const k = op.grave.lastIndexOf(target); if (k >= 0){ op.grave.splice(k, 1); (op.exile = op.exile || []).push(target); log(st, s, `${src}で相手の墓地の「${card(target).name}」を除外した`); } break; }
     case "banishGraveAll": { const k = op.grave.length; (op.exile = op.exile || []).push(...op.grave.splice(0)); log(st, s, `${src}で相手の墓地のカード${k}枚を除外した`); break; }
     case "stealMon": case "stealMonTmp": {
@@ -1353,32 +1413,6 @@ function applyEffect(st, s, c, target, ctx = {}, fx = normFx(c)){
     case "atkSwap": { const me2 = ctx.mon && monAt(st, ctx.mon), t2 = opT.mz[target]; if (!me2 || !t2) { log(st, s, `${src}：入れかえる相手がいない`); break; }
       const a = atkOf(me2), b = atkOf(t2); if (!isFinite(a) || !isFinite(b)) break; me2.zero = t2.zero = false; me2.fix = t2.fix = null;
       me2.mod = (me2.mod || 0) + (b - atkOf(me2)); t2.mod = (t2.mod || 0) + (a - atkOf(t2)); log(st, s, `${src}：「${card(me2.c).name}」と「${card(t2.c).name}」のATKを入れかえた（${fmtN(a)} ⇔ ${fmtN(b)}）`); break; }
-    case "destroyOthers": {
-      const selfMon = ctx.mon ? monAt(st, ctx.mon) : null, host = ctx.eqU ? (findEq(st, ctx.eqU) || {}) : {}, hostM = host.s ? P(st, host.s).mz[host.i] : null;
-      log(st, s, `${src}で、このカード以外の場のカードをすべて破壊！`);
-      for (const o of [s, O(s)]){
-        const X = P(st, o);
-        X.standingEq = (X.standingEq || []).filter(e => { if (cannotLeave(e.c)) return true; P(st, e.o).grave.push(e.c); return false; });
-        X.sz.forEach((z, i) => { if (!z || cannotLeave(z.c) || (o === s && ctx.pz === i)) return; X.sz[i] = null; X.grave.push(...(z.fcp || z.cp ? z.mats || [] : [z.c])); ev(st, { type: "destroy", s: o, z: i, k: "sz" }); });
-        const L = X.mz.map((m, i) => m && m !== selfMon && m !== hostM && !fxImmune(st, s, m) ? [i, m.u] : null).filter(Boolean);
-        L.forEach(([i, u]) => { if (X.mz[i] && X.mz[i].u === u) destroyMonster(st, o, i, src); });
-      }
-      if (st.field && !ctx.field && !cannotLeave(st.field.c)){ const f = st.field; st.field = null; P(st, f.o).grave.push(f.c, ...(f.mats || [])); log(st, s, `フィールド「${card(f.c).name}」も破壊した`); }
-      break;
-    }
-    case "destroySt": case "destroyStRand": case "destroyStAll": {
-      // 魔法・罠ゾーンのカードを持ち主の墓地へ（永続ならその効果も終わる）
-      const D = O(s), dp = P(st, D), all = dp.sz.map((z, i) => z ? i : -1).filter(i => i >= 0);
-      const L = fx.kind === "destroySt" ? (dp.sz[target] ? [target] : []) : fx.kind === "destroyStAll" ? all : shuffle(all).slice(0, n || 1);
-      if (!L.length){ log(st, s, `${src}：破壊する魔法・罠がない`); break; }
-      L.forEach(i => { const z = dp.sz[i]; if (cannotLeave(z.c)) return; dp.sz[i] = null; dp.grave.push(...(z.fcp || z.cp ? z.mats || [] : [z.c])); ev(st, { type: "destroy", s: D, z: i, k: "sz" }); log(st, s, `${src}で${z.face ? `「${card(z.c).name}」` : "セットされていたカード" + `（「${card(z.c).name}」）`}を破壊した`); });
-      break;
-    }
-    case "destroyField": {
-      if (!st.field || cannotLeave(st.field.c)){ log(st, s, `${src}：場を離れられるフィールド魔法がない`); break; }
-      const f = st.field; st.field = null; P(st, f.o).grave.push(f.c, ...(f.mats || [])); log(st, s, `${src}でフィールド魔法「${card(f.c).name}」を破壊した`);
-      break;
-    }
     case "fusion": {
       const fc = card(target), ex = (me.ex = me.ex || []), k = ex.indexOf(target), plan = k >= 0 && isFusion(fc) ? (ctx.fusMats && fusionPlanFrom(st, s, fc, ctx.fusMats)) || fusionPlan(st, s, fc) : null;
       if (!plan){ log(st, s, `${src}：融合できない（素材が足りない）`); break; }
@@ -1455,7 +1489,6 @@ function applyEffect(st, s, c, target, ctx = {}, fx = normFx(c)){
     case "negate": if (ctx.attack){ st.pending.negated = true; log(st, s, `${src}で攻撃を無効にした`); } else log(st, s, `${src}：無効にする攻撃がない`); break;
     case "atkDownAtk": { const am = ctx.attack && P(st, ctx.attack.by).mz[ctx.attack.from]; if (am && fxImmune(st, s, am)) log(st, s, `「${card(am.c).name}」は相手の効果を受けない！`); else if (am){ am.mod = (am.mod || 0) - n; log(st, s, `${src}で攻撃してきた「${card(am.c).name}」のATK−${n}`); } else log(st, s, `${src}：攻撃してきたモンスターがいない`); break; }
     case "dmgAtkAtk": { const am = ctx.attack && P(st, ctx.attack.by).mz[ctx.attack.from], d = am ? Math.max(0, +atkOf(am) || 0) : 0; if (am && d > 0 && isFinite(d)){ log(st, s, `${src}：攻撃してきた「${card(am.c).name}」のATK ${fmtN(d)}ぶんのダメージを${P(st, ctx.attack.by).name}に与えた`); dealDmg(st, ctx.attack.by, d); } else log(st, s, `${src}：攻撃してきたモンスターがいない`); break; }
-    case "killAtk": if (ctx.attack && ctx.attack.by !== s && fxImmune(st, s, P(st, ctx.attack.by).mz[ctx.attack.from])) log(st, s, `「${card(P(st, ctx.attack.by).mz[ctx.attack.from].c).name}」は相手の効果を受けない！`); else if (ctx.attack){ destroyMonster(st, ctx.attack.by, ctx.attack.from, src); } else log(st, s, `${src}：攻撃してきたモンスターがいない`); break;
     case "noLoseTurn": me.noLoseT = st.turnNo; me.noLoseSrc = c.name; log(st, s, `${src}：このターン、${me.name}はゲームに負けない！`); break;
     case "noLoseWhile": log(st, s, `${src}：このカードが場にいる限り、${me.name}はゲームに負けない`); break;
     case "win": {
@@ -1493,7 +1526,6 @@ function runEffect(st, s, c, ctx = {}, then, fx = normFx(c)){
   if (fx.kind === "giveAb" || fx.kind === "loseAb") ctx = { ...ctx, gw: GAB_W[fx.gw] ? fx.gw : "self" };
   if (fx.kind === "giveAttr") ctx = { ...ctx, aw: GAT_W[fx.aw] ? fx.aw : "opp1" };
   if (fx.kind === "setCost") ctx = { ...ctx, sp: fx.sp === "pick" ? "pick" : "filter" };
-  if (fx.kind === "removeBoard") ctx = { ...ctx, rside: RB_SIDE[fx.rside] ? fx.rside : "op" };
   if (KINDS[fx.kind] && KINDS[fx.kind].ctr){ const cw = CTR_CW[fx.cw] ? fx.cw : "pick"; ctx = { ...ctx, ctrPick: cw === "pick" || cw === "rand" };
     // ランダムなモンスター: ○回くりかえして、そのたびにランダムに1体えらぶ
     if (cw === "rand" && !fx.rand){ const one = { ...fx, rand: true }, go = (st2, r) => { if (r <= 0 || st2.winner){ then && then(st2); return; } runEffect(st2, s, c, ctx, st3 => go(st3, r - 1), one); }; go(st, Math.max(1, Math.min(10, Math.round(+fx.ctn || 1)))); return; } }
@@ -2149,7 +2181,7 @@ function usableIn(st, s, c, win){
   if (useBlockedWhy(st, s, c, win)) return false;
   const fx = normFx(c);
   if (win === "summoned" && whenOf(c) !== "oppSummon") return false;
-  if (fx && (fx.kind === "negate" || fx.kind === "killAtk" || fx.kind === "atkDownAtk" || fx.kind === "dmgAtkAtk") && win !== "attack" && win !== "chainAttack") return false;
+  if (isAtkReply(fx) && win !== "attack" && win !== "chainAttack") return false;
   if (fx && fx.kind === "cancel" && win !== "chain" && win !== "chainAttack" && win !== "summon") return false;
   if (fx && fx.kind === "reflectFx"){ const top = st.chain && st.chain[st.chain.length - 1]; if ((win !== "chain" && win !== "chainAttack") || !top || top.summon || top.s === s || top.cancel) return false; }
   if (win === "summon" && (!fx || fx.kind !== "cancel")) return false;

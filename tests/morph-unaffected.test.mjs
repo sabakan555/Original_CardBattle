@@ -16,7 +16,7 @@ function setup(){
   ]) cards.set(id, { id, name: id, type: 'monster', atk: 500, ...extra });
   const player = () => ({ name: 'test', deck: [], hand: [], grave: [], exile: [], mz: [null, null, null], sz: [null, null], lp: 1000 });
   const st = { players: { a: player(), b: player() }, turn: 'a', turnNo: 1, log: [], ev: [] };
-  const ctx = { S: { cards }, G: null, cardType: c => c.type, eqsOf: m => m?.eqs || [], KINDS: { destroy: { target: 'opp' }, bounce: { target: 'opp' }, removeBoard: { target: 'board' } },
+  const ctx = { S: { cards }, G: null, cardType: c => c.type, eqsOf: m => m?.eqs || [], KINDS: { destroy: { target: 'opp' }, bounce: { target: 'opp' }, removeBoard: { target: 'board' }, remove: { target: 'board' } },
     RB_MODE: { destroy: '破壊する', bounce: '戻す', banish: '除外する' }, SIDED_KINDS: new Set(), isField: () => false, sealedM: () => false, mfOn: () => false };
   vm.createContext(ctx); vm.runInContext(effects.slice(effects.indexOf('/* ---- まとめた効果'), effects.indexOf('// 追加コスト')), ctx); vm.runInContext(engine, ctx);
   vm.runInContext(effects.split('\n').filter(l => /^const (cannotLeave|monCannotLeave) =/.test(l)).join('\n'), ctx);
