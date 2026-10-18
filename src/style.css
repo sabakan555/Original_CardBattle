@@ -1604,3 +1604,14 @@ div.f{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:13px}
 .tfoil-rainbow{background-image:linear-gradient(100deg,#e5367a,#f0a020,#3cc78a,#2f8de4,#9b4de0,#e5367a);background-size:200% 100%;animation:foilRun 5s linear infinite}
 .tcol-sw.tfoil-sw{-webkit-background-clip:border-box;background-clip:border-box;color:#1e2328!important;-webkit-text-fill-color:#1e2328;font:700 11px/1 var(--ui);filter:none;display:grid;place-items:center}
 @media (prefers-reduced-motion:reduce){.tfoil-rainbow{animation:none!important}}
+/* LPの増減の履歴 */
+[data-lp]{cursor:pointer}
+.lph{list-style:none;margin:0;padding:0;max-height:min(56vh,460px);overflow:auto;display:flex;flex-direction:column;gap:4px}
+.lph-row{display:grid;grid-template-columns:36px 72px 76px 1fr;gap:8px;align-items:baseline;padding:6px 8px;border-radius:8px;background:rgba(255,255,255,.04);font-size:14px}
+.lph-t{color:var(--muted);font-size:12px}
+.lph-d{font-family:var(--en,var(--ui));font-variant-numeric:tabular-nums;font-size:16px}
+.lph-d.neg{color:var(--hit)}
+.lph-d.pos{color:var(--accent)}
+.lph-lp{color:var(--muted);font-variant-numeric:tabular-nums}
+.lph-w{min-width:0;overflow-wrap:anywhere}
+@media (max-width:560px){.lph-row{grid-template-columns:30px 64px 1fr}.lph-w{grid-column:1/-1}}

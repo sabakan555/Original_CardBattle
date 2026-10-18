@@ -46,6 +46,7 @@ const KINDS = {
   destroy:    { label: "相手のモンスター1体を破壊", target: "opp", text: () => `相手のモンスター1体を破壊` },
   destroyOwn: { label: "自分のモンスター1体を破壊（デメリット）", target: "mine", text: () => `自分のモンスター1体を破壊` },
   destroyThis: { label: "このモンスターを破壊（デメリット）", mon: true, text: () => `このモンスターを破壊` },
+  giveThis: { label: "このモンスターを相手の場に移す（デメリット）", mon: true, text: () => `このモンスターを相手の場に移す（相手の場がいっぱいなら破壊）` },
   destroyOwnAll: { label: "自分のモンスターをすべて破壊（デメリット）", text: () => `自分のモンスターをすべて破壊` },
   destroySt:  { label: "相手の魔法・罠を1枚えらんで破壊", target: "szOpp", n: true, each: true, text: n => `相手の魔法・罠を${n}枚えらんで破壊` },
   destroyStRand: { label: "相手の魔法・罠をランダムに破壊", n: true, text: n => `相手の魔法・罠をランダムに${n}枚破壊` },

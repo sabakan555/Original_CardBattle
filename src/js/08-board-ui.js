@@ -372,7 +372,7 @@ function renderBoard0(){
   if (!st.winner && manualOn() && sel && (sel.z === "mz" || sel.z === "sz")){
     const X = sel.s === "me" ? pm : po, z = X[sel.z][sel.i];
     if (z && (sel.s === "me" || sel.z === "mz" || z.face)){
-      manual = `<div class="row" style="justify-content:center;gap:6px"><span class="note">手動：「${esc(card(z.c).name)}」</span>${sel.z === "mz" ? `<button class="small" data-man="atk" data-d="-50">ATK−50</button><button class="small" data-man="atk" data-d="50">ATK+50</button>${eqsOf(z).map((e, k) => `<button class="small" data-man="uneq" data-k="${k}">「${esc(card(e.c).name)}」を外す</button>`).join("")}` : ""}<button class="small danger" data-man="grave">墓地へ送る</button>${sel.s === "me" ? `<button class="small" data-man="hand">手札に戻す</button>` : ""}</div>`;
+      manual = `<div class="row" style="justify-content:center;gap:6px"><span class="note">手動：「${esc(card(z.c).name)}」</span>${sel.z === "mz" ? `<button class="small" data-man="atk" data-d="-50">ATK−50</button><button class="small" data-man="atk" data-d="50">ATK+50</button>${eqsOf(z).map((e, k) => `<button class="small" data-man="uneq" data-k="${k}">「${esc(card(e.c).name)}」を外す</button>`).join("")}` : ""}<button class="small danger" data-man="grave">墓地へ送る</button>${sel.s === "me" ? `<button class="small" data-man="hand">手札に戻す</button>` : ""}${sel.s === "me" && sel.z === "mz" ? `<button class="small" data-man="give" ${po.mz.some(x => !x) ? "" : "disabled title=\"相手の場がいっぱい\""}>相手の場に送る</button>` : ""}</div>`;
     }
   }
   if (G.spectate && !st.winner){ hint = `観戦中：${esc(pm.name)} vs ${esc(po.name)}`; acts = `<button class="ghost" data-act="leave">観戦をやめる</button>`; manual = ""; }
@@ -843,6 +843,13 @@ function renderOverlay(){
     const tabs = `<div class="seg pile-tabs">${piles.map(k => `<button type="button" data-grave="${who}:${k}" aria-pressed="${k === pile}">${LBL[k]} ${k === "deck" ? X.deck.length : k === "exile" ? (X.exile || []).length : X.grave.length}</button>`).join("")}</div>`;
     const note = pile === "deck" ? "並び順はひみつ（コスト順に並べ替えて表示）" : pile === "exile" ? "廃棄されたカード（このゲームではもう使えない）" : "上から古い順";
     html = `<div class="box"><div class="row" style="justify-content:space-between"><h2 style="margin:0">${esc(X.name)} の${LBL[pile]}（${list.length}枚）</h2>${tabs}</div><p class="note" style="margin:0">${note}</p><div class="gallery">${list.map(id => cardHTML(card(id), "sm pick", `data-cid="${esc(id)}" tabindex="0" role="button"`, { mana: !!X.mana })).join("") || '<p class="muted">まだ空っぽ</p>'}</div><div class="row"><button data-close="view">とじる</button></div></div>`;
+  } else if (G.lpView){
+    // LPの増減の履歴（自分・相手）
+    const who = G.lpView === "op" ? "op" : "me", X = who === "me" ? P(st, me) : P(st, O(me)), L = (X.lpLog || []).slice().reverse();
+    const tabs = `<div class="seg pile-tabs">${["me", "op"].map(k => `<button type="button" data-lpv="${k}" aria-pressed="${k === who}">${esc((k === "me" ? P(st, me) : P(st, O(me))).name)}</button>`).join("")}</div>`;
+    const sum = (X.lpLog || []).reduce((a, e) => { const d = +e.d; if (isFinite(d)){ if (d < 0) a.dn += -d; else a.up += d; } return a; }, { up: 0, dn: 0 });
+    const rows = L.map(e => { const d = typeof e.d === "number" ? e.d : String(e.d), neg = typeof d === "number" ? d < 0 : d.startsWith("-"); return `<li class="lph-row"><span class="lph-t">${e.n}T</span><b class="lph-d ${neg ? "neg" : "pos"}">${neg ? "−" : "+"}${esc(typeof d === "number" ? fmtN(Math.abs(d)) : d.replace("-", ""))}</b><span class="lph-lp">→ ${esc(typeof e.lp === "number" ? fmtN(e.lp) : String(e.lp))}</span><span class="lph-w">${e.w ? esc(e.w) : "<span class='muted'>（理由不明）</span>"}</span></li>`; }).join("");
+    html = `<div class="box"><div class="row" style="justify-content:space-between"><h2 style="margin:0">${esc(X.name)} のLPの増減</h2>${tabs}</div><p class="note" style="margin:0">いまのLP ${esc(fmtN(X.lp))}・合計 −${fmtN(sum.dn)} / +${fmtN(sum.up)}（新しい順、最大40件）</p><ul class="lph">${rows || '<li class="muted">まだLPは変わっていない</li>'}</ul><div class="row"><button class="ghost" data-close="lpv">とじる</button></div></div>`;
   } else if (G.graveHand){
     const ids = [...new Set(P(st, me).grave)];
     html = `<div class="box"><h2 style="margin:0">墓地から手札に戻すカードをえらぶ（手動）</h2><div class="gallery">${ids.map(id => cardHTML(card(id), "sm pick", `data-gh="${esc(id)}" tabindex="0" role="button"`, mOpt(me))).join("") || '<p class="muted">墓地は空っぽ</p>'}</div><div class="row"><button class="ghost" data-close="gh">やめる</button></div></div>`;
@@ -854,6 +861,7 @@ function renderOverlay(){
 }
 $("#overlay").addEventListener("click", e => {
   { const gv = e.target.closest("[data-grave]"); if (gv && G){ G.view = gv.dataset.grave; renderAll(); return; } }
+  { const lv = e.target.closest("[data-lpv]"); if (lv && G){ G.lpView = lv.dataset.lpv; renderAll(); return; } }
   { const xu = e.target.closest("[data-exuse]"); if (xu && G && !G.spectate){ const k = +xu.dataset.exuse, me = G.slot; let hi = -1, id = null; { const xid = P(G.st, me).ex[k], xc = card(xid); if (sxK(xc)){ const why = sxWhy(G.st, me, xc); if (why){ toast(why); return; } G.exView = false; G.sxPick = { id: xid, picked: [] }; renderAll(); return; } } if (isFusion(card(P(G.st, me).ex[k]))){ toast("融合モンスターは「融合召喚」の効果でだけ出せます"); return; } G.exView = false; act(st => { const p = P(st, me); if (!canAct(st, me) || p.ex[k] == null) return false; exReturnP(st, me); id = p.ex.splice(k, 1)[0]; p.hand.push(id); hi = p.hand.length - 1; p.exTemp = { id, i: hi }; G.sel = { z: "hand", s: "me", i: hi }; G.atkFrom = null; }); if (hi < 0) renderAll(); return; } }
   if (!G) return;
   { const aq = e.target.closest("[data-askq]"); if (aq){ const yes = aq.dataset.askq === "yes"; act(st => { if (!st.askQ || st.askQ.to !== G.slot || st.askQ.ans != null) return false; st.askQ.ans = yes; log(st, G.slot, `「${st.askQ.name}」の質問「${st.askQ.text}」に「${yes ? "はい" : "いいえ"}」と答えた`); }); return; } }
@@ -920,6 +928,7 @@ $("#overlay").addEventListener("click", e => {
   if (k === "choose"){ const q = G.chooseQ.shift(); act(st => { if (q.ctx && q.ctx.potion && potionCard(q.ctx.potion)){ const p = P(st, q.s); (p.potions = p.potions || []).push(q.ctx.potion); log(st, q.s, `「${q.c.name}」を使うのをやめた`); } else log(st, q.s, `「${q.c.name}」：効果を使わなかった`); q.then && q.then(st); }); }
   if (k === "notrap") act(st => respond(st, G.slot, null));
   if (k === "view"){ G.view = null; renderAll(); }
+  if (k === "lpv"){ G.lpView = null; renderAll(); }
   if (k === "exview"){ G.exView = false; renderAll(); }
   if (k === "gh"){ G.graveHand = false; renderAll(); }
   if (k === "eqplace"){ G.eqPlace = null; renderAll(); }
@@ -968,6 +977,7 @@ $("#board").addEventListener("click", e => {
   if (e.target.closest("[data-exopen]")){ G.exView = true; renderAll(); return; }
   const gv = e.target.closest("[data-grave]");
   if (gv){ G.view = gv.dataset.grave; renderAll(); return; }
+  { const lpE = e.target.closest("[data-lp]"); if (lpE && !e.target.closest("[data-adj]")){ G.lpView = lpE.dataset.lp === "op" ? "op" : "me"; renderAll(); return; } }
   const adj = e.target.closest("[data-adj]");
   if (adj){ const d = +adj.dataset.d, who = adj.dataset.adj === "me" ? me : O(me); act(st => { P(st, who).lp += d; log(st, me, `（手動）${nm(st, who)}のLPを${d > 0 ? "+" : ""}${d}`); }); return; }
   const ready = e.target.closest("[data-standing-eq]");
@@ -982,6 +992,7 @@ $("#board").addEventListener("click", e => {
       if ((kind === "grave" || kind === "hand") && (sel.z === "mz" ? monCannotLeave(z) : cannotLeave(z.c))) return false;
       if (kind === "grave"){ if (sel.z === "mz") destroyMonster(st, owner, sel.i, "手動", { force: true }); else { X.sz[sel.i] = null; X.grave.push(z.c); log(st, me, `（手動）「${card(z.c).name}」を墓地へ`); } }
       if (kind === "hand"){ if (sel.z === "mz") detachEquips(st, owner, sel.i); X[sel.z][sel.i] = null; X.hand.push(z.c); log(st, me, `（手動）「${card(z.c).name}」を手札に戻した`); }
+      if (kind === "give"){ if (sel.s !== "me" || sel.z !== "mz" || monCannotLeave(z)) return false; if (!giveMon(st, me, sel.i, "（手動）")) return false; }
       if (kind === "uneq"){ const k = +man.dataset.k, e = eqsOf(z)[k]; if (!e || cannotLeave(e.c)) return false; z.eqs.splice(k, 1); P(st, e.o).grave.push(e.c); log(st, me, `（手動）「${card(e.c).name}」を外して墓地へ`); G.sel = sel; }
     });
     return;

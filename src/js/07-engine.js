@@ -495,11 +495,30 @@ function dealDmg(st, s, n){
   if (n > 0 || blk) ev(st, { type: "hit", s, d: n, blk });
   if (n > 0) lostLp(st, s);
 }
-function log(st, s, m){ st.log.push({ t: Date.now(), s: s || "", m }); if (st.log.length > 80) st.log.splice(0, st.log.length - 80); }
+function log(st, s, m){ st.log.push({ t: Date.now(), s: s || "", m }); if (st.log.length > 80) st.log.splice(0, st.log.length - 80); lpTrack(st); }
+/* ---- LPの増減の記録（lpLog）----
+   LPを変える処理はあちこちにあるので、ログを書くたび・勝ち負けを見るたびに「前に見たLP」とくらべて記録する
+   理由は、そのとき・その前のログからLPやダメージの話をしているものを使う */
+const LP_WHY = /LP|ダメージ|回復|吸収|払/, LP_WHY_NO = /^(ブロックで|弱体で|霊体で)/;
+function lpTrack(st){
+  if (!st || !st.players) return;
+  for (const k of ["a", "b"]){
+    const p = st.players[k]; if (!p || typeof p.lp !== "number") continue;
+    if (p.lpSeen == null || p.lpSeen !== p.lpSeen){ p.lpSeen = p.lp; continue; }
+    if (p.lp === p.lpSeen) continue;
+    const d = p.lp - p.lpSeen; let why = "";
+    for (let j = st.log.length - 1; j >= 0 && j >= st.log.length - 6; j--){ const m = st.log[j].m || ""; if (LP_WHY.test(m) && !LP_WHY_NO.test(m)){ why = m; break; } }
+    const L = p.lpLog = p.lpLog || [];
+    L.push({ n: st.turnNo || 0, d: isFinite(d) ? d : (d > 0 ? "∞" : "-∞"), lp: isFinite(p.lp) ? p.lp : String(p.lp), w: why.slice(0, 80) });
+    if (L.length > 40) L.splice(0, L.length - 40);
+    p.lpSeen = p.lp;
+  }
+}
 const nm = (st, s) => P(st, s).name;
 const isHumanHere = s => G && s === G.slot;
 
 function checkEnd(st){
+  lpTrack(st);
   if (st.winner) return;
   ctrAuraSync(st);
   const la = st.players.a.lp, lb = st.players.b.lp, na = la <= 0 ? noLoseBy(st, "a") : "", nb = lb <= 0 ? noLoseBy(st, "b") : "", xa = la <= 0 && !na, xb = lb <= 0 && !nb;
@@ -1045,6 +1064,22 @@ function leaveMorph(st, s, i){
   return true;
 }
 // returns true if the monster actually left the field. opt.battle: destroyed by battle; opt.force: manual (no protection)
+/* ---- 相手の場に移す（状態はそのまま: ATKの増減・装備・カウンター・付いた能力など）----
+   移ったモンスターは召喚酔い（移ったターンは攻撃できない）。持ち主はおぼえておく（墓地は持ち主の墓地へ）
+   相手の場がいっぱいなら移せない。orDestroy のとき（デメリット効果）はかわりに破壊する */
+function giveMon(st, s, i, src, opt = {}){
+  const me = P(st, s), op = P(st, O(s)), m = me.mz[i]; if (!m) return false;
+  const nm2 = card(m.c).name, z = freeZone(op.mz);
+  if (z < 0){
+    if (opt.orDestroy){ log(st, s, `${src}：相手の場がいっぱいなので、「${nm2}」は移せずに破壊される`); destroyMonster(st, s, i, src); return true; }
+    log(st, s, `${src}：相手の場がいっぱいで「${nm2}」を送れない`); return false;
+  }
+  me.mz[i] = null; op.mz[z] = m;
+  if (m.owner === O(s)) delete m.owner; else m.owner = m.owner || s;
+  delete m.retBy; m.born = st.turnNo;
+  ev(st, { type: "summon", s: O(s), z }); log(st, s, `${src}で「${nm2}」を${op.name}の場に移した`);
+  return true;
+}
 function destroyMonster(st, s, i, why, opt = {}){
   const p = P(st, s), m = p.mz[i]; if (!m || monCannotLeave(m)) return false;
   if (!opt.glOne){ const L = glGroup(st, s, i); if (L.length > 1){ const solo = j => { atkOf.gl = true; try{ return atkOf(p.mz[j]); } finally{ atkOf.gl = false; } }; const v = L.slice().sort((a, b) => cmpNum(solo(a), solo(b)))[0]; log(st, s, `ゴッドリンク：${L.map(j => `「${card(p.mz[j].c).name}」`).join("")}のうち「${card(p.mz[v].c).name}」だけが場を離れる`); return destroyMonster(st, s, v, why, { ...opt, glOne: true }); } }
@@ -1470,6 +1505,7 @@ function applyEffect(st, s, c, target, ctx = {}, fx = normFx(c)){
     case "draw": drawN(st, s, n, src); break;
     case "oppDeckDraw": drawN(st, s, n, src, O(s)); break;
     // 「このターン」: 自分のターンならこのターン、相手のターンに出たら次の自分のターン
+    case "giveThis": { const r = ctx.mon, m = r && monAt(st, r); if (!m){ log(st, s, `${src}：そのモンスターはもう場にいない`); break; } giveMon(st, r.s, r.i, src, { orDestroy: true }); break; }
     case "thisTopOnly": { const m = ctx.mon && monAt(st, ctx.mon); if (!m){ log(st, s, `${src}：そのモンスターはもう場にいない`); break; } m.topOnly = true; log(st, s, `${src}：「${card(m.c).name}」は相手の一番ATKが高いモンスターにしか攻撃できなくなった`); break; }
     case "modAdd": case "modRep": case "modClear": case "modName": modApply(st, s, c, fx, target, src); break;
     case "moveEquips": {
