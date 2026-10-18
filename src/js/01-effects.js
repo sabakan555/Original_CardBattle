@@ -207,6 +207,8 @@ const KINDS = {
   manaGrave:  { label: "墓地のカードを○枚マナゾーンに置く", n: true, text: n => `自分の墓地のカードを${n}枚マナゾーンに置く（新しいものから）` },
   manaBreak:  { label: "相手のマナゾーンのカードを○枚墓地へ（マナ破壊）", n: true, text: n => `相手のマナゾーンのカードをランダムに${n}枚墓地へ置く` },
   manaBack:   { label: "自分のマナゾーンのカードを○枚手札に戻す（マナ回収）", n: true, text: n => `自分のマナゾーンのカードを${n}枚手札に戻す（コストが大きいものから）` },
+  status:     { label: "状態を付ける（弱体・脱力・魅了・筋力・敏捷・霊体）", n: true, form: true, text: (n, into, m, spire) => statusText({ ...(m || {}), n }, spire) },
+  cleanse:    { label: "状態を消す（デバフを取り除く・減らす）", n: true, form: true, text: (n, into, m) => cleanseText({ ...(m || {}), n }) },
   gen:        { label: "カードを生む（名前を指定・コピー・ランダム）", n: true, name: true, form: true, text: (n, into, m) => genText({ ...(m || {}), n, into }) },
   fetch:      { label: "カードを持ってくる・出す（山札・墓地・手札・EX・マナから）", n: true, name: true, tag: true, form: true, text: (n, into, m) => fetchText({ ...(m || {}), n, into }) },
   handOut:    { label: "手札をどかす（捨てる・廃棄・山札に戻す）", n: true, form: true, text: (n, into, m) => handOutText({ ...(m || {}), n }) },
@@ -564,13 +566,13 @@ const moreFx = fx => (fx && Array.isArray(fx.more) ? fx.more : []).filter(m => m
 const costLabel = c => c && c.costX ? "X" : c && c.costInf && hasCost(c) ? "∞" : costOf(c);
 
 /* ---- 「だれに」: one base effect (ダメージ / 弱体 / 魅了 / ATKダウン / 破壊) + who it goes to ---- */
-const TARGETABLE = { atk: ["one", "two", "random", "all"], remove: ["one", "two", "random", "all"], atkUp: ["one", "two", "random", "all"], dmg: ["one", "two", "random", "all"], vuln: ["one", "two", "random", "all"], weak: ["one", "two", "random", "all"], atkDown: ["one", "two", "random", "all"], atkDownTmp: ["one", "two", "random", "all"], charm: ["one", "two", "random", "all"], destroy: ["one", "two", "random", "all", "others"], bounce: ["one", "two", "random", "all"], atkSet: ["one", "two", "random", "all"] };
+const TARGETABLE = { status: ["one", "two", "random", "all"], atk: ["one", "two", "random", "all"], remove: ["one", "two", "random", "all"], atkUp: ["one", "two", "random", "all"], dmg: ["one", "two", "random", "all"], vuln: ["one", "two", "random", "all"], weak: ["one", "two", "random", "all"], atkDown: ["one", "two", "random", "all"], atkDownTmp: ["one", "two", "random", "all"], charm: ["one", "two", "random", "all"], destroy: ["one", "two", "random", "all", "others"], bounce: ["one", "two", "random", "all"], atkSet: ["one", "two", "random", "all"] };
 const TO_LABEL = { one: "1体をえらぶ", two: "ちがう2体をえらぶ", random: "ランダムに1体", all: "全体", others: "このカード以外すべて（お互いの場のモンスター・魔法・罠）" };
 const TO_ALL = { atkUp: "atkAll", dmg: "dmgAll", vuln: "vulnAll", weak: "weakAll", atkDown: "atkDownAll", atkDownTmp: "atkDownTmpAll", charm: "charmAll", destroy: "destroyAll", bounce: "bounceAll", atkSet: "atkSetAll" };
 const TO_LEGACY = { atkAll: ["atkUp", "all"], dmgRand: ["dmg", "random"], dmgAll: ["dmg", "all"], vulnAll: ["vuln", "all"], weakAll: ["weak", "all"], atkDownAll: ["atkDown", "all"], atkDownTmpAll: ["atkDownTmp", "all"], charmAll: ["charm", "all"], destroyAll: ["destroy", "all"], bounceAll: ["bounce", "all"], destroyOthers: ["destroy", "others"], atkSetAll: ["atkSet", "all"] };
 const hitsPlayer = k => k === "dmg" || k === "vuln" || k === "weak";
 // the words for who gets it: 相手 / 相手のモンスター …
-const SIDED_KINDS = new Set(["atk", "remove", "ctrAdd", "ctrDel", "dmg", "dmgAll", "dmgRand", "bash", "vuln", "vulnAll", "weak", "weakAll", "atkDown", "atkDownAll", "atkDownTmp", "atkDownTmpAll", "charm", "charmAll", "destroy", "destroyAll", "bounce", "bounceAll", "stealMon", "stealMonTmp", "atkZero", "atkSet", "atkSetAll", "banishMon"]);
+const SIDED_KINDS = new Set(["status", "cleanse", "atk", "remove", "ctrAdd", "ctrDel", "dmg", "dmgAll", "dmgRand", "bash", "vuln", "vulnAll", "weak", "weakAll", "atkDown", "atkDownAll", "atkDownTmp", "atkDownTmpAll", "charm", "charmAll", "destroy", "destroyAll", "bounce", "bounceAll", "stealMon", "stealMonTmp", "atkZero", "atkSet", "atkSetAll", "banishMon"]);
 // 「自分／相手」の「○体・全体・ランダムに○回」
 const SELF_ONLY = new Set(["atkUp"]);
 function toPhrase(kind, to, spire, tn, side){
@@ -608,7 +610,7 @@ function toText0(kind, n, to, spire, tn, side){
 }
 // one effect → what the engine runs (全体 → the old 全体 kinds, 2体 → twice with different targets, ランダム → a random pick)
 function expandFx(f){
-  f = fxNorm(f);
+  f = fxExec(f);
   const to = f.to, k = f.kind;
   // まとめた効果は、えらぶ（2体・ランダム・○体）ときだけここで分ける。全体・このカードなどはそのまま
   // 手札をえらんで n 枚: 1枚ずつえらぶ（前の「えらんで捨てる」と同じ）
@@ -865,6 +867,87 @@ function fetchText(f){
   const how = r.pick === "random" ? `ランダムに${n}枚` : `${n}枚えらんで`;
   return `自分の${FE_FROM[r.from]}から${what}を${how}${r.dest === "field" ? "場に出す（特殊召喚）" : "手札に加える"}${r.from === "deck" ? "（山札はシャッフル）" : ""}`;
 }
+/* ---- 状態を付ける: 1つの効果「status」= どの状態（st）× だれに（side・to・tn）× 得る/失う（op）× いつまで（dur） ----
+   st: vuln（弱体）/ weak（脱力）/ charm（魅了）/ str（筋力）/ dex（敏捷）/ intang（霊体）
+   弱体・脱力・魅了は、前からある効果（vuln・weak・charm）として動かす（lower）。だれに は前と同じ to（one・n・random・all・mons）
+   筋力: p（プレイヤー）/ one・n（モンスターをえらぶ）/ random（ランダムなモンスター）/ mons（モンスター全員）/ all（プレイヤーとモンスター全員）/ this（このモンスター）
+         モンスターの筋力は、そのぶん ATK が上がる。dur "turn" は、プレイヤーならそのプレイヤーのターンの終わりまで、モンスターならこのターンの終わりまで
+   敏捷・霊体はプレイヤーだけ */
+const ST_NAME = { vuln: "弱体", weak: "脱力", charm: "魅了", str: "筋力", dex: "敏捷", intang: "霊体" };
+const ST_TO = { vuln: ["one", "two", "n", "random", "all", "mons"], weak: ["one", "two", "n", "random", "all", "mons"], charm: ["one", "two", "n", "random", "all"], str: ["p", "one", "two", "n", "random", "mons", "all", "this"], dex: ["p"], intang: ["p"] };
+fxForm("status", {
+  // 前からある13種類
+  legacy: {
+    vuln: { st: "vuln" }, vulnAll: { st: "vuln", to: "all" }, weak: { st: "weak" }, weakAll: { st: "weak", to: "all" },
+    charm: { st: "charm" }, charmAll: { st: "charm", to: "all" },
+    str: { st: "str", side: "me", to: "p" }, strTemp: { st: "str", side: "me", to: "p", dur: "turn" }, oppStr: { st: "str", to: "p" }, oppStrDown: { st: "str", to: "p", op: "sub", dur: "turn" },
+    dex: { st: "dex", side: "me", to: "p" }, dexTemp: { st: "dex", side: "me", to: "p", dur: "turn" }, intang: { st: "intang", side: "me", to: "p" },
+  },
+  fields: {
+    st: v => ST_NAME[v] ? v : "vuln", op: (v, e) => v === "sub" && (e.st === "str" || e.st === "dex") ? "sub" : undefined,
+    dur: (v, e) => v === "turn" && (e.st === "str" || e.st === "dex") ? "turn" : undefined,
+    // 決まりの「だれに」（弱体・脱力・魅了は one、筋力などは p）のときは書かない
+    to: (v, e) => (ST_TO[e.st] || []).includes(v) && v !== (ST_TO[e.st] || [])[0] ? v : undefined,
+  },
+  norm(f, L){
+    L = L || {};
+    const st = ST_NAME[L.st || f.st] ? L.st || f.st : "vuln", okTo = ST_TO[st];
+    let to = L.to || f.to; if (L.to === "all" && f.monOnly) to = "mons"; if (to === "mons" && st === "charm") to = "all";
+    if (!okTo.includes(to)) to = okTo[0];
+    const out = { ...f, st, to }, side = L.side || f.side; delete out.monOnly;
+    if (side === "me" && to !== "this") out.side = "me"; else delete out.side;
+    if ((L.op || f.op) === "sub" && (st === "str" || st === "dex")) out.op = "sub"; else delete out.op;
+    if ((L.dur || f.dur) === "turn" && (st === "str" || st === "dex")) out.dur = "turn"; else delete out.dur;
+    if (!["n", "random", "two"].includes(to)) delete out.tn;
+    if (st === "charm") delete out.n; else if (!(out.n > 0)) out.n = st === "str" || st === "dex" ? 20 : 1;
+    return out;
+  },
+  // 弱体・脱力・魅了は前からある効果のまま動かす（スパイアのカードの「モンスター1体（いなければ相手）」などもそのまま）
+  // 全員は前の「〜全部」の効果（vulnAll など）にする。モンスター全員だけ（mons）はそれに monOnly を付ける
+  lower: f => { if (f.st !== "vuln" && f.st !== "weak" && f.st !== "charm") return f; const { st, op, dur, ...r } = f;
+    if (f.to === "all" || f.to === "mons") return { ...r, kind: TO_ALL[st], to: null, ...(f.to === "mons" ? { monOnly: true } : {}) };
+    return { ...r, kind: st }; },
+  tgt: f => f.st === "str" && ["one", "two", "n", "random"].includes(f.to) ? "opp" : undefined,
+});
+// 動かすときの形（まとめた形にしたあと、lower があればそれで前からある効果にする）
+function fxExec(f){ const n = fxNorm(f), F = n && FX_FORMS[n.kind]; return F && F.lower ? F.lower(n) : n; }
+function statusText(f, spire){
+  const t = fxNorm({ ...f, kind: "status" }), n = t.n, me = t.side === "me", sd = me ? "自分" : "相手", tn = Math.max(1, +t.tn || 1);
+  if (t.st === "vuln" || t.st === "weak" || t.st === "charm") return toText(t.st, n, t.to, spire, t.tn, t.side);
+  if (t.st === "str" && t.to !== "p"){
+    const w = t.to === "this" ? "このモンスター" : t.to === "mons" ? `${sd}のモンスターすべて` : t.to === "all" ? `${sd}と${sd}のモンスターすべて` : t.to === "random" ? `ランダムな${sd}のモンスター1体${tn > 1 ? `（${tn}回）` : ""}` : `${sd}のモンスター${t.to === "n" || t.to === "two" ? Math.max(2, tn) : 1}体`;
+    return `${t.dur === "turn" ? "このターンの間、" : ""}${w}は筋力${t.op === "sub" ? "を" + n + "失う" : n + "を得る"}（モンスターは ATK${t.op === "sub" ? "−" : "+"}${n}）`;
+  }
+  const when = t.dur === "turn" ? (me ? "このターン、" : "相手の次のターンの終わりまで、") : "";
+  return `${when}${sd}は${ST_NAME[t.st]}${t.op === "sub" ? "を" + n + "失う" : n + "を得る"}`;
+}
+
+/* ---- 状態を消す（回復）: 1つの効果「cleanse」= だれの（who・to）× なにを（what）× 取り除く/減らす（how） ----
+   who: なし＝自分 / "op" 相手。to: p（プレイヤー）/ this（このモンスター）/ one（モンスターをえらぶ）/ mons（モンスター全員）/ all（プレイヤーとモンスター全員）
+   what: debuff（デバフすべて: 弱体・脱力・魅了・マイナスの筋力・マイナスの敏捷）/ vuln・weak・charm・str・dex・intang（その状態だけ）
+   how: clear（取り除く）/ reduce（n 減らす。筋力・敏捷は 0 に近づける） */
+const CL_TO = ["p", "this", "one", "mons", "all"];
+fxForm("cleanse", {
+  fields: {
+    who: v => v === "op" ? v : undefined, to: v => CL_TO.includes(v) && v !== "p" ? v : undefined,
+    what: v => v === "debuff" || ST_NAME[v] ? v : "debuff", how: v => v === "reduce" ? v : undefined,
+  },
+  norm(f){
+    const out = { ...f, to: CL_TO.includes(f.to) ? f.to : "p", what: f.what === "debuff" || ST_NAME[f.what] ? f.what : "debuff", how: f.how === "reduce" && f.what !== "debuff" && f.what !== "charm" ? "reduce" : "clear" };
+    if (f.who === "op") out.who = "op"; else delete out.who;
+    // 「えらぶ」のための向き（自分のモンスター＝side me）
+    if (out.who !== "op") out.side = "me"; else delete out.side;
+    if (out.how === "reduce"){ if (!(out.n > 0)) out.n = 1; } else delete out.n;
+    return out;
+  },
+  tgt: f => f.to === "one" ? "opp" : undefined,
+});
+function cleanseText(f){
+  const c = fxNorm({ ...f, kind: "cleanse" }), sd = c.who === "op" ? "相手" : "自分";
+  const w = c.to === "this" ? "このモンスター" : c.to === "one" ? `${sd}のモンスター1体` : c.to === "mons" ? `${sd}のモンスターすべて` : c.to === "all" ? `${sd}と${sd}のモンスターすべて` : sd;
+  const what = c.what === "debuff" ? "デバフ（弱体・脱力・魅了・マイナスの筋力と敏捷）" : ST_NAME[c.what];
+  return c.how === "reduce" ? `${w}の${what}を${c.n}減らす` : `${w}の${what}をすべて取り除く`;
+}
 // 追加コスト: LPを払う / 手札を捨てる / 最大マナを減らす（払えないと使えない）
 const USE_COND_WHERE = { field: "自分の場", grave: "自分の墓地", hand: "自分の手札", mana: "自分のマナゾーン" };
 function useCondsOf(c){ return c && Array.isArray(c.useConds) ? c.useConds.filter(x => x && USE_COND_WHERE[x.where] && Number.isFinite(+x.n) && +x.n > 0).slice(0, 12).map(x => ({ where: x.where, attr: String(x.attr || "").trim(), n: Math.max(1, Math.floor(+x.n)) })) : []; }
@@ -1085,7 +1168,7 @@ const MF_BY = {
   oppGrave: { label: "相手の墓地の枚数", val: (st, s) => P(st, O(s)).grave.length },
   oppMon:   { label: "相手のモンスターの数", val: (st, s) => P(st, O(s)).mz.filter(Boolean).length }
 };
-const mfAble = m => !!(m && !(m.kind === "remove" && m.zone !== "mon" && m.zone !== "any") && (MF_KINDS.includes(m.kind) || (!!FX_FORMS[m.kind] && m.to === "all") || m.kind === "revive" || m.kind === "reborn" || (TO_ALL[m.kind] && (m.to === "all" || m.to === "mons")) || (m.kind === "giveAttr" && m.aw !== "self")
+const mfAble = m => !!(m && !(m.kind === "remove" && m.zone !== "mon" && m.zone !== "any") && m.kind !== "cleanse" && !(m.kind === "status" && (m.to === "p" || m.to === "this")) && (MF_KINDS.includes(m.kind) || (!!FX_FORMS[m.kind] && m.to === "all") || m.kind === "revive" || m.kind === "reborn" || (TO_ALL[m.kind] && (m.to === "all" || m.to === "mons")) || (m.kind === "giveAttr" && m.aw !== "self")
   || ((!m.to || m.to === "one" || m.to === "two" || m.to === "random") && !hitsPlayer(m.kind) && (TARGETABLE[m.kind] || ["opp", "mine"].includes((KINDS[m.kind] || {}).target)))));
 const pctWord = n => { n = Math.max(1, Math.min(100, Math.round(+n || 0))); return n % 10 ? `${n}%` : n === 100 ? "すべて" : `${n / 10}割`; };
 const labList = () => ["all", ...Object.keys(ABS).filter(k => ABS[k].only !== "eq")];
@@ -1138,7 +1221,7 @@ function effsText(c, effs, detail = false){
     const m = g.m;
     // base 0 + 「○1つにつき」 reads as 「○1つにつき100ダメージ」
     const pz = m.per && !m.hits && !m.n && PER_DEFS[m.per], nn = pz ? `${perLab(m)}につき${m.pm ?? 1}` : m.n;
-    let tx = ((m.to || m.side === "me") && TARGETABLE[m.kind] && !FX_FORMS[m.kind] ? toText(m.kind, nn, m.to || "one", spire, m.tn, m.side) : KINDS[m.kind].text(nn, m.into, m)) + (pz ? "" : perText(m));
+    let tx = ((m.to || m.side === "me") && TARGETABLE[m.kind] && !FX_FORMS[m.kind] ? toText(m.kind, nn, m.to || "one", spire, m.tn, m.side) : KINDS[m.kind].text(nn, m.into, m, spire)) + (pz ? "" : perText(m));
     if (mfOn(m)) tx = /(相手|自分)のモンスター/.test(tx) ? tx.replace(/(相手|自分)のモンスター/, (w, x) => m.mfK === "attr" ? x + "の" + mfPhrase(m) + "モンスター" : mfPhrase(m) + x + "のモンスター") : tx.replace("モンスター", mfPhrase(m) + "モンスター");
     if (spire && k > 0 && aim(m) && G2.slice(0, k).some(x => aim(x.m))) tx = tx.replace(/^相手(に|を)/, "同じ相手$1");
     if (g.cnt > 1) tx += /ダメージ$/.test(tx) ? `を${g.cnt}回` : `（${g.cnt}回）`;

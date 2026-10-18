@@ -84,3 +84,16 @@ test('生む・持ってくる: 前の効果を開く・欄をかえる・保存
   f = change(f, 'fWhat', 'self'); assert.equal(f.from, 'hand'); f = change(f, 'fFrom', 'grave'); assert.equal(f.what, 'mon');
   f = change(f, 'fPick', 'random'); c = save(f); assert.equal(c.kind, 'fetch'); assert.equal(c.from, 'grave'); assert.equal(c.pick, 'random'); assert.equal(c.dest, 'field');
 });
+test('状態を付ける・消す: 前の効果を開く・欄をかえる・保存', () => {
+  const { conv, change, save } = setup();
+  let e = conv({ kind: 'strTemp', n: 40 }); assert.equal(e.kind, 'status'); assert.equal(e._g, 'buff'); assert.equal(e.dur, 'turn');
+  assert.equal(conv({ kind: 'oppStrDown', n: 20 })._g, 'debuff'); assert.equal(conv({ kind: 'vuln', n: 1 })._g, 'debuff');
+  e = change(e, 'sTo', 'this'); assert.equal(e.side, undefined); e = change(e, 'sSide', 'me'); assert.equal(e.side, undefined);
+  e = change(e, 'sTo', 'one'); e = change(e, 'sSide', 'me'); e = change(e, 'fTn', '2'); assert.equal(e.to, 'n'); assert.equal(e.tn, 2);
+  e = change(e, 'sSt', 'dex'); assert.equal(e.to, 'p'); assert.equal(e.n, 40);
+  e = change(e, 'sSt', 'weak'); assert.equal(e.n, 1); assert.equal(e.dur, undefined); e = change(e, 'sTo', 'random'); e = change(e, 'fTn', '3'); assert.equal(e.to, 'random'); assert.equal(e.tn, 3);
+  let c = save(e); assert.equal(c.kind, 'status'); assert.equal(c.st, 'weak'); assert.equal(c.to, 'random'); assert.equal(c.tn, 3); assert.equal(c.side, 'me');
+  let k = conv({ kind: 'cleanse' }); assert.equal(k._g, 'guard'); assert.equal(k.what, 'debuff');
+  k = change(k, 'cWhat', 'vuln'); k = change(k, 'cHow', 'reduce'); assert.equal(k.n, 1); k = change(k, 'cWhat', 'debuff'); assert.equal(k.how, 'clear');
+  k = change(k, 'cWho', 'op'); k = change(k, 'cTo', 'mons'); c = save(k); assert.equal(c.who, 'op'); assert.equal(c.to, 'mons'); assert.equal(c.what, 'debuff');
+});

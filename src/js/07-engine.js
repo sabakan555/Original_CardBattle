@@ -220,7 +220,7 @@ function atkOf(m){
   if (!atkOf.gl && typeof G !== "undefined" && G && G.st && G.st.players) for (const o of ["a", "b"]){ const i = P(G.st, o).mz.indexOf(m); if (i < 0) continue; const L = glGroup(G.st, o, i); if (L.length > 1){ atkOf.gl = true; try{ return L.reduce((t, j) => t + atkOf(P(G.st, o).mz[j]), 0); } finally{ atkOf.gl = false; } } break; }
   if (m.zero) return 0;
   if (m.fix != null) return m.fix;
-  const c = card(m.c), es = eqsOf(m), sa = staticAtk(m); let v = baseAtk(c) + (m.mod || 0) + (m.tmp || 0) + sa.add;
+  const c = card(m.c), es = eqsOf(m), sa = staticAtk(m); let v = baseAtk(c) + (m.mod || 0) + (m.tmp || 0) + (m.str || 0) + (m.strT || 0) + sa.add;
   es.forEach((e, k) => { v += (card(e.c).eqN || 0) * eqMult(es, k); });
   absOf(c).forEach(a => { if (a.k === "eqBonus" && a.name){ const w = normQ(a.name); if (es.some(e => normQ(card(e.c).name).includes(w))) v += a.n || 0; } });
   const mul = (m.mul || 1) * sa.mul; if (mul !== 1 && isFinite(v)) v = Math.floor(v * mul);
@@ -683,7 +683,7 @@ function fxTargets(st, s, fx, ctx = {}){
 }
 // 使えるかどうかを見るとき（まだ発動していない）: まとめた効果は中身（だれの・どれを）で対象を見る
 function useTargets(st, s, fx){
-  if (!fx) return null; const f = fxNorm(fx), ctx = { tagName: fx.into || "" };
+  if (!fx) return null; const f = fxExec(fx), ctx = { tagName: fx.into || "" };
   if (FX_FORMS[f.kind]) Object.assign(ctx, { form: f, side: f.side === "me" ? "me" : null });
   return targetOptions(st, s, f.kind, ctx);
 }
@@ -1289,6 +1289,46 @@ FX_FORMS.fetch.run = applyFetch;
 FX_FORMS.fetch.opts = (st, s, f, ctx) => f.pick === "one" && f.what !== "self" ? fetchCands(st, s, null, f, ctx) : null;
 // CPU: 強そうなカード（モンスターは ATK、ほかは 300）＋コスト
 FX_FORMS.fetch.auto = (st, s, opts) => { const v = id => { const x = card(id); return (cardType(x) === "monster" ? baseAtk(x) || 0 : 300) + (costOf(x) || 0) * 100; }; return opts.slice().sort((a, b) => cmpNum(v(b), v(a)))[0]; };
+/* ---- 状態を付ける（status: 筋力・敏捷・霊体。弱体・脱力・魅了は前からある効果で動く） ---- */
+function applyStatus(st, s, c, target, ctx, f, n, src){
+  const o = f.side === "me" ? s : O(s), p = P(st, o), d = f.op === "sub" ? -n : n, nm = ST_NAME[f.st], who = o === s ? "自分" : p.name;
+  if (f.to === "p" || f.to === "all" || f.st !== "str"){
+    if (f.st === "intang"){ p.intang = (p.intang || 0) + n; log(st, s, `${src}で${who}が霊体${n}を得た（霊体 ${p.intang}：受けるダメージが1になる）`); return; }
+    const k = f.st, kt = k + "Temp"; p[k] = (p[k] || 0) + d; if (f.dur === "turn") p[kt] = (p[kt] || 0) + d;
+    log(st, s, `${src}で${who}の${nm}が${d >= 0 ? "+" : "−"}${Math.abs(d)}（${nm} ${p[k]}${f.dur === "turn" ? `・${o === s ? "このターン" : `${p.name}のターンの終わりまで`}` : ""}）`);
+    if (f.to === "p") return;
+  }
+  // モンスターの筋力（そのぶん ATK が上がる・下がる）
+  const me = P(st, s), L = f.to === "this" ? [ctx.mon ? monAt(st, ctx.mon) : ctx.zone != null ? me.mz[ctx.zone] : null] : f.to === "mons" || f.to === "all" ? p.mz.filter(m => m && mfOk(st, s, f, m)) : [p.mz[target]];
+  let k = 0;
+  L.forEach(m => { if (!m) return; if (f.dur === "turn"){ m.strT = (m.strT || 0) + d; m.strTBy = st.turn; } else m.str = (m.str || 0) + d; k++; });
+  if (k) log(st, s, `${src}で${f.to === "this" || L.length === 1 ? `「${card(L[0].c).name}」` : `${who}のモンスター${k}体`}の筋力が${d >= 0 ? "+" : "−"}${Math.abs(d)}（ATK${d >= 0 ? "+" : "−"}${Math.abs(d)}${f.dur === "turn" ? "・このターンだけ" : ""}）`);
+  else log(st, s, `${src}：筋力を付けるモンスターがいない`);
+}
+FX_FORMS.status.run = applyStatus;
+FX_FORMS.status.opts = (st, s, f) => f.st === "str" && ["one", "two", "n", "random"].includes(f.to) ? undefined : null;
+
+/* ---- 状態を消す（cleanse） ---- */
+function cleanseOne(x, f, n, isMon){
+  const red = (k, v) => { if (!(x[k] > 0)) return; x[k] = f.how === "reduce" ? Math.max(0, x[k] - v) : 0; };
+  const toward0 = (k, kt) => { if (!x[k]) return; if (f.how === "reduce"){ const v = Math.min(Math.abs(x[k]), n); x[k] += x[k] > 0 ? -v : v; } else x[k] = 0; if (kt && x[kt]) x[kt] = 0; };
+  if (f.what === "debuff"){ red("vuln"); red("weak"); if (isMon) delete x.charm;
+    if (isMon){ if (x.str < 0) x.str = 0; if (x.strT < 0) x.strT = 0; } else { if (x.str < 0){ x.str = 0; if (x.strTemp < 0) x.strTemp = 0; } if (x.dex < 0){ x.dex = 0; if (x.dexTemp < 0) x.dexTemp = 0; } }
+    return; }
+  if (f.what === "charm"){ if (isMon) delete x.charm; return; }
+  if (f.what === "vuln" || f.what === "weak" || f.what === "intang") return red(f.what, n);
+  if (isMon && f.what === "str"){ toward0("str"); toward0("strT"); return; }
+  if (!isMon) toward0(f.what, f.what + "Temp");
+}
+function applyCleanse(st, s, c, target, ctx, f, n, src){
+  const o = f.who === "op" ? O(s) : s, p = P(st, o), me = P(st, s), who = o === s ? "自分" : p.name;
+  if (f.to === "p" || f.to === "all") cleanseOne(p, f, n, false);
+  const L = f.to === "this" ? [ctx.mon ? monAt(st, ctx.mon) : ctx.zone != null ? me.mz[ctx.zone] : null] : f.to === "one" ? [p.mz[target]] : f.to === "mons" || f.to === "all" ? p.mz : [];
+  L.forEach(m => { if (m) cleanseOne(m, f, n, true); });
+  log(st, s, `${src}：${cleanseText(f).replace(/^自分/, who)}`);
+}
+FX_FORMS.cleanse.run = applyCleanse;
+FX_FORMS.cleanse.opts = (st, s, f) => f.to === "one" ? undefined : null;
 // apply effect of card c for player s. target resolved already (or undefined for untargeted)
 // 護法: 相手の効果の対象になったモンスター（自分のモンスターを対象にする効果はそのまま）
 function wardMon(st, s, fx, target, ctx){
@@ -1309,7 +1349,7 @@ function wardStop(st, s, c, fx, target, ctx){
 }
 function applyEffect(st, s, c, target, ctx = {}, fx = normFx(c)){
   if (!fx) return;
-  fx = fxNorm(fx);
+  fx = fxExec(fx);
   if (immuneStop(st, s, c, fx, target, ctx)) return;
   if (wardStop(st, s, c, fx, target, ctx)) return;
   if (ctx.hit && ctx.spireAtk && typeof target === "string") ctx.hit.t = target;
@@ -1473,13 +1513,6 @@ function applyEffect(st, s, c, target, ctx = {}, fx = normFx(c)){
     case "vulnAll": if (!fx.monOnly) addVuln(st, s, "p", n, src, OS); opT.mz.forEach((m, i) => { if (mfOk(st, s, fx, m)) addVuln(st, s, "m:" + i, n, src, OS); }); break;
     case "weak": addWeak(st, s, target, n, src, OS); break;
     case "weakAll": if (!fx.monOnly) addWeak(st, s, "p", n, src, OS); opT.mz.forEach((m, i) => { if (mfOk(st, s, fx, m)) addWeak(st, s, "m:" + i, n, src, OS); }); break;
-    case "dex": me.dex = (me.dex || 0) + n; log(st, s, `${src}で敏捷${n}を得た（敏捷 ${me.dex}）`); break;
-    case "dexTemp": me.dex = (me.dex || 0) + n; me.dexTemp = (me.dexTemp || 0) + n; log(st, s, `${src}でこのターン敏捷${n}を得た（敏捷 ${me.dex}）`); break;
-    case "intang": me.intang = (me.intang || 0) + n; log(st, s, `${src}で霊体${n}を得た（霊体 ${me.intang}：受けるダメージが1になる）`); break;
-    case "str": me.str = (me.str || 0) + n; log(st, s, `${src}で筋力${n}を得た（筋力 ${me.str}）`); break;
-    case "strTemp": me.str = (me.str || 0) + n; me.strTemp = (me.strTemp || 0) + n; log(st, s, `${src}でこのターン筋力${n}を得た（筋力 ${me.str}）`); break;
-    case "oppStr": op.str = (op.str || 0) + n; log(st, s, `${src}で${op.name}が筋力${n}を得た（筋力 ${op.str}）`); break;
-    case "oppStrDown": op.str = (op.str || 0) - n; op.strTemp = (op.strTemp || 0) - n; log(st, s, `${src}で${op.name}の筋力が${n}下がった（筋力 ${op.str}・${op.name}のターンの終わりまで）`); break;
     case "loseLp": me.lp -= n; ev(st, { type: "hit", s, d: n, blk: 0 }); log(st, s, `${src}でLPを${n}失った`); lostLp(st, s); break;
     case "graveToTop": { const k = me.grave.indexOf(target); if (k >= 0){ me.grave.splice(k, 1); me.deck.unshift(target); log(st, s, `${src}で墓地の「${card(target).name}」を山札の一番上に置いた`); } break; }
     case "noDraw": me.noDraw = true; log(st, s, `${src}：このターンはもうカードを引けない`); break;
@@ -1558,7 +1591,7 @@ function applyEffect(st, s, c, target, ctx = {}, fx = normFx(c)){
 // resolve an effect that may need a target; `then` runs after (for attack responses)
 function runEffect(st, s, c, ctx = {}, then, fx = normFx(c)){
   if (!fx){ then && then(st); return; }
-  fx = fxNorm(fx);
+  fx = fxExec(fx);
   if (fx.ask){
     if (isHumanHere(s)){ G.chooseQ.push({ ask: true, s, c, fx, ctx, then }); return; }
     const yes = Math.random() < .5;
@@ -2515,7 +2548,7 @@ function passTurn(st, s){
       // 脱力 wears off at the end of its owner's own turn (it weakens what they deal on that turn)
       if (ep.weak > 0){ ep.weak--; if (!ep.weak) log(st, s, `${ep.name}の脱力がとけた`); }
       ep.mz.forEach(m => { if (m && m.weak > 0){ m.weak--; if (!m.weak) log(st, s, `「${card(m.c).name}」の脱力がとけた`); } }); }
-    for (const o of ["a", "b"]) P(st, o).mz.forEach(m => { if (m && m.tmpBy === s){ m.tmp = 0; m.tmpBy = null; } });
+    for (const o of ["a", "b"]) P(st, o).mz.forEach(m => { if (m && m.tmpBy === s){ m.tmp = 0; m.tmpBy = null; } if (m && m.strTBy === s){ m.strT = 0; m.strTBy = null; } });
     for (const o of ["a", "b"]) P(st, o).mz.forEach((m, i) => { if (!m || m.retBy !== s) return; const back = m.owner, B = P(st, back); const z = freeZone(B.mz); if (z < 0 && monCannotLeave(m)) return; delete m.retBy; P(st, o).mz[i] = null;
       if (z >= 0){ B.mz[z] = m; delete m.owner; log(st, back, `「${card(m.c).name}」が持ち主の場に戻った`); } else { leaveEquips(st, m); B.grave.push(m.c, ...(m.mats || [])); sealsOut(st, m); log(st, back, `「${card(m.c).name}」は戻る場所がなく墓地へ`); } });
     const xt = P(st, s).extraTurns > 0; if (xt) P(st, s).extraTurns--;
