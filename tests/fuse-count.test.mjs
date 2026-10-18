@@ -53,7 +53,7 @@ test('文: トリガーの名前・回数の条件', () => {
   assert.match(t.js('blockText')(f, f.blocks[1]), /このカードにフュージョンした回数が3回/);
 });
 
-test('手札のカード自身の「自分がフュージョンしたとき」: 3枚以上で変化し、フュージョンした枚数をひきつぐ', () => {
+test('手札のカード自身の「自分がフュージョンしたとき」: 3枚以上で変化し、変化先は0から数えなおす', () => {
   const t = setup();
   t.S.cards.set('j3', { id: 'j3', name: 'SCP-280-JP-3', type: 'monster', atk: 50, hf: { m: 'any' } });
   t.S.cards.set('j2', { id: 'j2', name: 'SCP-280-JP-2', type: 'monster', token: true, atk: 34, hf: { m: 'any' }, blocks: [
@@ -62,5 +62,6 @@ test('手札のカード自身の「自分がフュージョンしたとき」: 
   t.js('fuseHand')(t.st, 'a', 0, [1, 2]); assert.deepEqual(t.a.hand, ['j2']); // まだ2枚
   t.st.turnNo++; t.a.hand.push('m');
   t.js('fuseHand')(t.st, 'a', 0, [1]);
-  assert.deepEqual(t.a.hand, ['j3']); assert.equal(t.a.hf.j3, 3); assert.equal(t.a.hfX.j3, 2); assert.ok(!t.a.hf.j2);
+  assert.deepEqual(t.a.hand, ['j3']); assert.ok(!t.a.hf.j3); assert.ok(!t.a.hfX.j3); assert.ok(!t.a.hf.j2); // 変化先は0から
+  t.a.hand.push('m'); assert.equal(t.js('hfWhy')(t.st, 'a', 0), 'このターンはもうフュージョンした');
 });

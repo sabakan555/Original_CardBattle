@@ -336,7 +336,7 @@ function transformSelf(st, s, c, ctx, fx, src){
   const p = P(st, s);
   if (ctx.pz != null && p.sz[ctx.pz] && p.sz[ctx.pz].c === c.id){ p.sz[ctx.pz].c = id; done(c.id, "場"); return; }
   if (ctx.field && st.field && st.field.c === c.id){ st.field.c = id; done(c.id, "フィールド"); return; }
-  if (ctx.inHand){ const k = p.hand.indexOf(ctx.inHand); if (k >= 0){ p.hand[k] = id; hfMove(p, ctx.inHand, id); done(ctx.inHand, "手札"); return; } }
+  if (ctx.inHand){ const k = p.hand.indexOf(ctx.inHand); if (k >= 0){ p.hand[k] = id; hfMove(p, ctx.inHand, id, st); done(ctx.inHand, "手札"); return; } }
   const zi = p.sz.findIndex(z => z && z.c === c.id); if (zi >= 0){ p.sz[zi].c = id; done(c.id, "場"); return; }
   if (st.field && st.field.c === c.id && st.field.o === s){ st.field.c = id; done(c.id, "フィールド"); return; }
   for (const [pile, where] of [[p.grave, "墓地"], [p.exile = p.exile || [], "廃棄"], [p.hand, "手札"]]){ const k = pile.lastIndexOf(c.id); if (k >= 0){ pile[k] = id; done(c.id, where); return; } }
@@ -2040,8 +2040,12 @@ function fuseHand(st, s, hi, picks){
 }
 // 手札から出したとき: フュージョンした枚数を受けとる（手札の記録は消える）
 function hfTake(p, id){ const n = (p.hf || {})[id] || 0; if (p.hf && p.hf[id] != null){ const o = { ...p.hf }; delete o[id]; p.hf = o; } return n; }
-// 手札で変化したとき: フュージョンした枚数と回数は変化先にひきつぐ
-function hfMove(p, from, to){ for (const k of ["hf", "hfX"]){ const o = p[k]; if (!o || o[from] == null) continue; const v = o[from], q = { ...o }; delete q[from]; q[to] = (q[to] || 0) + v; p[k] = q; } }
+// 手札で変化したとき: 変化先は新しいカードなので、フュージョンした枚数と回数は0から数えなおす（少しずつフュージョンして段階的に進化できる）。
+// 「1ターンに1回」はひきつぐ（変化してすぐ同じターンにもう1回フュージョンはできない）
+function hfMove(p, from, to, st){
+  for (const k of ["hf", "hfX"]){ const o = p[k]; if (!o || o[from] == null) continue; const q = { ...o }; delete q[from]; delete q[to]; p[k] = q; }
+  if (p.hfT && st && p.hfT.no === st.turnNo && p.hfT.ids.includes(from) && !p.hfT.ids.includes(to)) p.hfT.ids.push(to);
+}
 // フュージョンした回数も同じように受けとる
 function hfTakeX(p, id){ const n = (p.hfX || {})[id] || 0; if (p.hfX && p.hfX[id] != null){ const o = { ...p.hfX }; delete o[id]; p.hfX = o; } return n; }
 function canSummonNow(st, s){ return P(st, s).mana ? true : !st.summoned; }
