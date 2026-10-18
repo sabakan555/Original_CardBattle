@@ -2023,13 +2023,22 @@ function fuseHand(st, s, hi, picks){
   const gone = picks.sort((a, b) => b - a).map(j => p.hand.splice(j, 1)[0]).reverse();
   (p.exile = p.exile || []).push(...gone);
   const n = ((p.hf || {})[id] || 0) + gone.length; p.hf = { ...(p.hf || {}), [id]: n };
+  const t = ((p.hfX || {})[id] || 0) + 1; p.hfX = { ...(p.hfX || {}), [id]: t }; p.hfTotal = (p.hfTotal || 0) + 1;
   if (!p.hfT || p.hfT.no !== st.turnNo) p.hfT = { no: st.turnNo, ids: [] }; p.hfT.ids.push(id);
-  log(st, s, `「${card(id).name}」に${gone.map(x => `「${card(x).name}」`).join("")}をフュージョンした（フュージョン ${n}枚）`);
+  log(st, s, `「${card(id).name}」に${gone.map(x => `「${card(x).name}」`).join("")}をフュージョンした（フュージョン ${n}枚・${t}回目）`);
   ev(st, { type: "spell", s, c: id });
+  // 「このカードにフュージョンしたとき（手札で）」と、場の「自分がフュージョンしたとき」
+  const c = card(id), L = [];
+  if (hasTrig(c, "fuse")) L.push({ c, trig: "fuse", ctx: { hfN: n, hfTimes: t, fuseN: gone.length, inHand: id } });
+  p.mz.forEach((m, i) => { if (m && hasTrig(card(m.c), "myFuse")) L.push({ c: card(m.c), trig: "myFuse", ctx: { zone: i, mon: { s, i, u: m.u }, fuseN: gone.length, fused: id } }); });
+  const step = (st2, k) => { if (k >= L.length || st2.winner){ checkEnd(st2); return; } runCard(st2, s, L[k].c, L[k].trig, L[k].ctx, st3 => step(st3, k + 1)); };
+  step(st, 0);
   return true;
 }
 // 手札から出したとき: フュージョンした枚数を受けとる（手札の記録は消える）
 function hfTake(p, id){ const n = (p.hf || {})[id] || 0; if (p.hf && p.hf[id] != null){ const o = { ...p.hf }; delete o[id]; p.hf = o; } return n; }
+// フュージョンした回数も同じように受けとる
+function hfTakeX(p, id){ const n = (p.hfX || {})[id] || 0; if (p.hfX && p.hfX[id] != null){ const o = { ...p.hfX }; delete o[id]; p.hfX = o; } return n; }
 function canSummonNow(st, s){ return P(st, s).mana ? true : !st.summoned; }
 function canAct(st, s){ return !(G && G.spectate) && st.turn === s && !st.pending && !st.askQ && !st.winner && !(G && G.chooseQ.length); }
 // mats: 質量にする墓地の場所（なければ古い順に自動）
@@ -2043,20 +2052,21 @@ function summon(st, s, hi, zi, disc, trib, mats){
   if (!pay(st, s, card(id))) return false;
   let matIds = [];
   if (ms){ matIds = mats.slice().sort((a, b) => b - a).map(j => p.grave.splice(j, 1)[0]).reverse(); log(st, s, `墓地の${matIds.map(x => `「${card(x).name}」`).join("")}を質量にした`); }
-  p.hand.splice(hi, 1); if (!p.mana) st.summoned = true; const hfN = hfTake(p, id);
+  p.hand.splice(hi, 1); if (!p.mana) st.summoned = true; const hfN = hfTake(p, id), hfX = hfTakeX(p, id);
   discardCost(st, s, card(id), shiftPicks(disc, hi));
   let tribAtk = 0;
   if (need){ tribAtk = trib.reduce((a, i) => a + Math.max(0, atkOf(p.mz[i]) || 0), 0); log(st, s, `${trib.map(i => `「${card(p.mz[i].c).name}」`).join("")}を生贄にした`); trib.forEach(i => sendToGrave(st, s, i)); z = (zi != null && !p.mz[zi]) ? zi : trib.includes(z) || z < 0 ? trib[0] : z; }
   const label = `「${card(id).name}」（ATK ${fmtN(baseAtk(card(id)))}）を${evo ? `「${card(p.mz[z].c).name}」から進化` : "召喚"}${p.mana ? `（コスト${costLabel(card(id))}）` : ""}`;
   // the opponent gets a window only if they hold something that can counter it
   if (sumWin(st, s, id)){
-    st.chain = [{ s, c: id, summon: true, cast: true, hfN, tribAtk, z, ctx: { zone: z }, mats: matIds, ...(evo ? { evo: true, bu: p.mz[z].u } : {}) }];
+    st.chain = [{ s, c: id, summon: true, cast: true, hfN, hfX, tribAtk, z, ctx: { zone: z }, mats: matIds, ...(evo ? { evo: true, bu: p.mz[z].u } : {}) }];
     log(st, s, `${label}しようとしている…`);
     st.pending = { type: "chain", by: s, wait: true, resume: null };
     return true;
   }
   if (evo) evoPut(st, s, z, id); else { p.mz[z] = mkMon(st, id); if (matIds.length) p.mz[z].mats = matIds; }
   if (hfN && p.mz[z]) p.mz[z].hfN = hfN;
+  if (hfX && p.mz[z]) p.mz[z].hfTimes = hfX;
   if (tribAtk && p.mz[z]) p.mz[z].tribAtk = tribAtk;
   log(st, s, label); ev(st, { type: "summon", s, z });
   trigger(st, s, card(id), "summon", { zone: z, mon: { s, i: z, u: p.mz[z].u }, cast: true });
@@ -2162,7 +2172,7 @@ function activate(st, s, from, i, ctx = {}){
   // キッカー: 人は「キッカーも払って発動」で、CPUは払えるときはいつも払う
   { const kk = Math.max(0, +c.kick || 0); if (kk && p.mana && (ctx.kick || (ctx.kick == null && typeof G !== "undefined" && G && G.mode === "cpu" && s !== G.slot)) && p.mana.cur >= kk){ p.mana.cur -= kk; ctx = { ...ctx, kicked: true }; log(st, s, `「${c.name}」：キッカー${kk}を払った！`); } }
   if (c.costX){ ctx = { ...ctx, x: p.lastPaid || 0 }; log(st, s, `「${c.name}」：X = ${p.lastPaid || 0}`); }
-  if (from === "hand"){ p.hand.splice(i, 1); const hn = hfTake(p, id); if (hn) ctx = { ...ctx, hfN: hn }; }
+  if (from === "hand"){ p.hand.splice(i, 1); const hn = hfTake(p, id), hx = hfTakeX(p, id); if (hn) ctx = { ...ctx, hfN: hn }; if (hx) ctx = { ...ctx, hfTimes: hx }; }
   else if (from === "grave") p.grave.splice(i, 1);
   else { var wasCp = !!(p.sz[i] && p.sz[i].cp); p.sz[i] = null; }
   countPlay(st, s, c);
@@ -2238,7 +2248,7 @@ function resolveChain(st, resume){
         runCard(st2, link.s, c, "summon", { zone: link.z, mon: { s: link.s, i: link.z, u: p.mz[link.z].u }, cast: !!link.cast }, st3 => enterFire(st3, link.s, "summon", st4 => onCardUsed(st4, link.s, c, step, (P(st4, link.s).mz[link.z] || {}).u))); return; }
       let z = p.mz[link.z] ? glZone(st2, link.s, link.c) : link.z;
       if (z < 0){ p.grave.push(link.c); log(st2, link.s, `場がいっぱいで「${c.name}」は出られなかった`); step(st2); return; }
-      p.mz[z] = mkMon(st2, link.c); if ((link.mats || []).length) p.mz[z].mats = link.mats.slice(); if (link.hfN) p.mz[z].hfN = link.hfN; if (link.tribAtk) p.mz[z].tribAtk = link.tribAtk;
+      p.mz[z] = mkMon(st2, link.c); if ((link.mats || []).length) p.mz[z].mats = link.mats.slice(); if (link.hfN) p.mz[z].hfN = link.hfN; if (link.hfX) p.mz[z].hfTimes = link.hfX; if (link.tribAtk) p.mz[z].tribAtk = link.tribAtk;
       log(st2, link.s, `「${c.name}」の${link.special ? "特殊召喚" : "召喚"}に成功！`); ev(st2, { type: "summon", s: link.s, z });
       runCard(st2, link.s, c, link.special ? "ssummon" : "summon", { zone: z, mon: { s: link.s, i: z, u: p.mz[z].u }, cast: !!link.cast && !link.special }, st3 => enterFire(st3, link.s, link.special ? "put" : "summon", st4 => onCardUsed(st4, link.s, c, step, (P(st4, link.s).mz[z] || {}).u)));
       return;

@@ -848,7 +848,7 @@ function mkKinds(){
   const pers = (t === "magic" || t === "trap") && $("#mkPersist").checked && !$("#mkField").checked;
   return Object.entries(KINDS).filter(([k, v]) => k !== "none" && !v.internal && !FX_FROM[k] && (!v.trap || mkTrapOk(t) || (ATK_REPLY.includes(k) && (t === "monster" || pers))) && (!v.mon || t === "monster" || t === "equip") && (!v.chain || t === "trap" || t === "magic")).map(([k]) => k);
 }
-function mkTrigs(){ if (MK.ctrBk) return CTR_TRIGS; if (MK.kind === "relic") return RELIC_TRIGS; if (MK.type === "magic" && $("#mkField").checked) return FIELD_TRIGS; const t = MK.type, pers = (t === "magic" || t === "trap") && $("#mkPersist").checked; return t === "monster" ? MON_TRIGS : t === "equip" ? EQ_TRIGS : pers ? PERSIST_TRIGS : ["use"]; }
+function mkTrigs(){ if (MK.ctrBk) return CTR_TRIGS; if (MK.kind === "relic") return RELIC_TRIGS; if (MK.type === "magic" && $("#mkField").checked) return FIELD_TRIGS; const t = MK.type, pers = (t === "magic" || t === "trap") && $("#mkPersist").checked, hf = !!mkHfVal(); return t === "monster" ? MON_TRIGS.filter(k => k !== "fuse" || hf) : t === "equip" ? EQ_TRIGS : pers ? PERSIST_TRIGS : hf ? ["use", "fuse"] : ["use"]; }
 const mkTrigLabel = k => { if (MK.ctrBk) return CTR_TRIG_LABEL[k]; if (MK.kind === "relic") return RELIC_TRIG_LABEL[k]; if (MK.type === "magic" && $("#mkField").checked) return ($("#mkFieldMine").checked ? FIELD_MINE_LABEL : FIELD_TRIG_LABEL)[k]; const t = MK.type, pers = (t === "magic" || t === "trap") && $("#mkPersist").checked; return pers ? PERSIST_TRIG_LABEL[k] : trigLabel(t, k); };
 // スパイア風（筋力・アタック/スキル/パワー・廃棄など）の効果: スパイア風の枠のとき以外は「スパイア風」の1つにまとめる
 const SPIRE_KINDS = ["str", "strTemp", "dex", "dexTemp", "intang", "vulnBonus", "plate", "barricade", "firstBlock2", "rageNow", "oppStrDown", "oppStr", "genAttack", "genAttack0", "genSkill", "genPower", "copyLastAtk", "graveAtkToHand", "playHandAtk", "dblAtk", "freeAttack", "freeSkill", "freePower", "corrupt", "drawUntil", "draft", "exhaustHand", "exhaustRand", "exhaustAll", "exhaustNonAtk"];
@@ -889,6 +889,7 @@ function perShow(k, bi){
   if (k === "sbN") return (+$("#mkSbCost").value || 0) > 0;
   if (k === "tribAtk") return MK.type === "monster";
   const b = MK.blocks[bi] || {};
+  if (k === "fuseN") return b.trig === "fuse" || b.trig === "myFuse";
   if (k === "lpPaid") return b.lpc > 0 || [...(b.then || []), ...(b.else || [])].some(e => e.kind === "lp" && e.op === "leave");
   if (k === "die") return b.roll === "die";
   if (k === "heads" || k === "tails") return b.roll === "coin";
@@ -1041,7 +1042,7 @@ function renderBlocksUI(){
   const condRow = (b, x, j) => {
     let h = `<div class="bk-row" data-part="cond" data-i="${j}">`;
     if (j > 0) h += `<select data-f="join" aria-label="つなぎ" class="bk-join">${opt("and", "かつ", b.join)}${opt("or", "または", b.join)}</select>`;
-    h += `<select data-f="k" aria-label="なにが">${Object.entries(COND_DEFS).filter(([k, d]) => (!d.gl || k === x.k || mkGlVal()) && (!d.hf || k === x.k || mkHfVal()) && (!d.gj || k === x.k || b.roll === "gj" || b.roll === "pgj") && (b.trig !== "while" || !WHILE_NG_CONDS.includes(k) || k === x.k)).map(([k, d]) => opt(k, d.label, x.k)).join("")}</select>`;
+    h += `<select data-f="k" aria-label="なにが">${Object.entries(COND_DEFS).filter(([k, d]) => (!d.gl || k === x.k || mkGlVal()) && (!d.hf || k === x.k || mkHfVal()) && (!d.fuse || k === x.k || b.trig === "fuse" || b.trig === "myFuse") && (!d.gj || k === x.k || b.roll === "gj" || b.roll === "pgj") && (b.trig !== "while" || !WHILE_NG_CONDS.includes(k) || k === x.k)).map(([k, d]) => opt(k, d.label, x.k)).join("")}</select>`;
     if (x.k === "ctr") h += ctrCondUI(x, opt);
     if (x.k === "attrMon") h += `<select data-f="side" aria-label="どちらの場">${opt("me", "自分の場の", x.side || "me")}${opt("op", "相手の場の", x.side || "me")}${opt("any", "お互いの場の", x.side || "me")}</select><select data-f="attr" aria-label="属性">${attrList().map(a => opt(a, a + "属性", x.attr || "火")).join("")}</select>`;
     if (x.k === "handF" || x.k === "drawn") h += usedPfUI(x, opt);
@@ -1519,7 +1520,7 @@ function renderAtkConds(){
   box.innerHTML = MK.atkConds.map((x, j) => {
     let h = `<div class="bk-row" data-i="${j}">`;
     if (j > 0) h += `<select data-f="join" aria-label="つなぎ" class="bk-join">${opt("and", "かつ", MK.atkJoin)}${opt("or", "または", MK.atkJoin)}</select>`;
-    h += `<select data-f="k" aria-label="なにが">${Object.entries(COND_DEFS).filter(([k, d]) => k !== "ask" && !d.roll && (!d.gl || k === x.k || mkGlVal()) && (!d.hf || k === x.k || mkHfVal())).map(([k, d]) => opt(k, d.label, x.k)).join("")}</select>`;
+    h += `<select data-f="k" aria-label="なにが">${Object.entries(COND_DEFS).filter(([k, d]) => k !== "ask" && !d.roll && (!d.fuse || k === x.k) && (!d.gl || k === x.k || mkGlVal()) && (!d.hf || k === x.k || mkHfVal())).map(([k, d]) => opt(k, d.label, x.k)).join("")}</select>`;
     if (x.k === "ctr") h += ctrCondUI(x, opt);
     if (isNumCond(x.k)) h += `<select data-f="op" aria-label="くらべかた">${opt("ge", "以上", x.op)}${opt("le", "以下", x.op)}${opt("eq", "ちょうど", x.op)}</select><input type="number" data-f="n" min="0" max="99999" value="${esc(x.n ?? 1)}" aria-label="数">`;
     if (x.k === "card") h += `<input type="text" data-f="name" maxlength="40" placeholder="カード名" value="${esc(x.name || "")}" aria-label="カード名"><select data-f="where" aria-label="どこに">${Object.entries(WHERE).map(([k, v]) => opt(k, "自分の" + v, x.where || "field")).join("")}</select><select data-f="match" aria-label="名前の合わせ方">${opt("exact", "名前がぴったり", x.match)}${opt("part", "名前に含む", x.match)}${opt("tag", "タグ", x.match)}</select><input type="number" data-f="cnt" min="0" max="99" value="${esc(x.cnt ?? 1)}" aria-label="枚数" style="width:64px">枚<select data-f="op" aria-label="くらべかた">${opt("ge", "以上", x.op || "ge")}${opt("le", "以下", x.op)}</select>`;

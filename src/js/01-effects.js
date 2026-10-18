@@ -7,8 +7,8 @@ const RARITY = { common: "コモン", uncommon: "アンコモン", rare: "レア
 const rarityOf = c => c && RARITY[c.rarity] ? c.rarity : "common";
 const spireKind = c => { const t = cardType(c); if (c && c.sk && t === "magic") return c.persist ? "power" : c.sk === "attack" ? "attack" : "skill"; return t === "monster" ? "attack" : t === "trap" || (t === "magic" && c.persist) ? "power" : "skill"; };
 const typeLabel = c => { if (c && c.potionView) return "ポーション"; const t = cardType(c); if (t === "monster" && c && c.token) return "トークン"; if (t === "monster" && c && c.ex) return "EXモンスター"; return isQuick(c) ? "速攻魔法" : isField(c) ? "フィールド魔法" : isPersist(c) ? "永続" + TYPE_LABEL[t] : TYPE_LABEL[t]; };
-const TRIGS = { evolve: "エボルヴしたとき", ctrReach: "カウンターが○個以上になったとき", summon: "召喚したとき", ssummon: "出されたとき（特殊召喚）", attack: "攻撃するとき", kill: "戦闘で相手を破壊したとき", destroyed: "破壊されたとき", battleLose: "バトルに負けたとき", turnStart: "自分のターンのはじめ", turnEnd: "自分のターンの終わり", enter: "場に出たとき", while: "場にいる間", anyUse: "魔法・罠が発動したとき", cardUse: "カードが使われたとき", attach: "装備したとき", use: "発動したとき", act: "起動（ボタンで使う）", oppAttack: "相手が攻撃してきたとき" };
-const MON_TRIGS = ["summon", "ssummon", "enter", "while", "act", "evolve", "ctrReach", "anyUse", "cardUse", "attack", "oppAttack", "kill", "destroyed", "battleLose", "turnStart", "turnEnd"];
+const TRIGS = { evolve: "エボルヴしたとき", ctrReach: "カウンターが○個以上になったとき", summon: "召喚したとき", ssummon: "出されたとき（特殊召喚）", attack: "攻撃するとき", kill: "戦闘で相手を破壊したとき", destroyed: "破壊されたとき", battleLose: "バトルに負けたとき", turnStart: "自分のターンのはじめ", turnEnd: "自分のターンの終わり", enter: "場に出たとき", while: "場にいる間", anyUse: "魔法・罠が発動したとき", cardUse: "カードが使われたとき", attach: "装備したとき", fuse: "このカードにフュージョンしたとき（手札で）", myFuse: "自分がフュージョンしたとき", use: "発動したとき", act: "起動（ボタンで使う）", oppAttack: "相手が攻撃してきたとき" };
+const MON_TRIGS = ["summon", "ssummon", "enter", "while", "act", "evolve", "ctrReach", "fuse", "myFuse", "anyUse", "cardUse", "attack", "oppAttack", "kill", "destroyed", "battleLose", "turnStart", "turnEnd"];
 // 攻撃に答える効果（攻撃を無効・攻撃モンスターを破壊など）: 罠のほか、「相手が攻撃してきたとき」の効果でも使える
 const ATK_REPLY = ["negate", "atkDownAtk", "dmgAtkAtk", "killAtk"];
 // 攻撃に答える効果か（「攻撃してきたモンスターを除去」もふくむ）
@@ -1114,6 +1114,9 @@ const COND_DEFS = {
   myLv:     { label: "このモンスターのレベル", who: "このモンスターのレベルが", unit: "", val: (st, s, c) => lvOf(c) },
   glOn:     { label: "このモンスターがGリンクしている（ゴッドリンク用）", gl: true },
   hfN:      { label: "このカードにフュージョンしたカードの枚数（フュージョン用）", who: "このカードにフュージョンしたカードが", unit: "枚", hf: true, val: (st, s, c, ctx) => hfCount(st, ctx) },
+  hfTimes:  { label: "このカードにフュージョンした回数（フュージョン用）", who: "このカードにフュージョンした回数が", unit: "回", hf: true, val: (st, s, c, ctx) => hfTimesOf(st, ctx) },
+  hfTotal:  { label: "この試合で自分がフュージョンした回数", who: "この試合で自分がフュージョンした回数が", unit: "回", val: (st, s) => P(st, s).hfTotal || 0 },
+  fuseN:    { label: "今フュージョンしたカードの枚数（「フュージョンしたとき」用）", who: "今フュージョンしたカードが", unit: "枚", fuse: true, val: (st, s, c, ctx) => (ctx && ctx.fuseN) || 0 },
   ask:      { label: "質問して「はい」と答えた" },
   used:     { label: "使ったカード（「魔法・罠が発動したとき」「カードが使われたとき」用）" },
   die:      { label: "サイコロの目（「まず」でサイコロを振ったとき）", who: "サイコロの目が", unit: "", roll: true, val: (st, s, c, ctx) => ctx && ctx.roll && ctx.roll.kind === "die" ? ctx.roll.v : 0 },
@@ -1137,10 +1140,15 @@ const OPS = { ge: "以上", le: "以下", eq: "" };
 // 「○1つにつき」: what a number can grow with (ダメージ / ブロック / マナ / 回復, or the number of hits)
 // このカードにフュージョンしたカードの枚数: 使ったとき（ctx.hfN）か、場のモンスター（m.hfN）
 function hfCount(st, ctx){ if (ctx && ctx.hfN != null) return +ctx.hfN || 0; const m = ctx && ctx.mon ? monAt(st, ctx.mon) : null; return m && m.hfN || 0; }
+// このカードにフュージョンした回数（1回に何枚フュージョンしても1回）
+function hfTimesOf(st, ctx){ if (ctx && ctx.hfTimes != null) return +ctx.hfTimes || 0; const m = ctx && ctx.mon ? monAt(st, ctx.mon) : null; return m && m.hfTimes || 0; }
 // 場の○属性のモンスターの数（side: me 自分 / op 相手 / any お互い）
 function attrMonN(st, s, side, attr){ const a = attr || "火"; let n = 0; for (const o of side === "op" ? [O(s)] : side === "any" ? [s, O(s)] : [s]) P(st, o).mz.forEach(m => { if (m && monAttrs(m).includes(a)) n++; }); return n; }
 const PER_DEFS = {
   hfN:      { label: "このカードにフュージョンしたカード", u: "1枚", hf: true, val: (st, s, c, t, ctx) => hfCount(st, ctx) },
+  hfTimes:  { label: "このカードにフュージョンした回数", u: "1回", hf: true, val: (st, s, c, t, ctx) => hfTimesOf(st, ctx) },
+  hfTotal:  { label: "この試合で自分がフュージョンした回数", u: "1回", val: (st, s) => P(st, s).hfTotal || 0 },
+  fuseN:    { label: "今フュージョンしたカード", u: "1枚", fuse: true, val: (st, s, c, t, ctx) => (ctx && ctx.fuseN) || 0 },
   myBlock:  { label: "自分のブロック", u: "1", val: (st, s) => P(st, s).block || 0 },
   manaZ:    { label: "自分のマナゾーンのカード", u: "1枚", val: (st, s) => manaCount(P(st, s)) },
   mass5:    { label: "このモンスターの質量5枚", u: "", val: (st, s, c, t, ctx) => { const m = ctx && ctx.mon && monAt(st, ctx.mon); return m ? Math.floor((m.mats || []).length / 5) : 0; } },
@@ -1228,6 +1236,7 @@ function normTrig(c, trig){
   if (c && c.ctrCard) return CTR_TRIGS.includes(trig) ? trig : "ctrOn";
   if (c && c.relicView) return RELIC_TRIGS.includes(trig) ? trig : "gain";
   const t = cardType(c);
+  if (trig === "fuse" && t === "magic" && !isPersist(c) && !isField(c)) return "fuse";
   if (t === "monster"){ const k = OLD_TRIG[trig] || trig; return MON_TRIGS.includes(k) ? k : "summon"; }
   if (t === "equip") return EQ_TRIGS.includes(trig) ? trig : "attach";
   if (isField(c)) return FIELD_TRIGS.includes(trig) ? trig : "use";
@@ -1343,7 +1352,7 @@ const limHead = (h, b) => !(b && b.lim > 0) ? h : h.endsWith("】") ? h.slice(0,
 const actLimText = b => { const L = actLim(b); return L.per === "free" ? "・何回でも" : L.per === "game" ? `・ゲーム中に${L.n}回` : `・1ターンに${L.n}回`; };
 function blockText(c, b, detail = false){
   const t = cardType(c), isMon = t === "monster" || t === "equip";
-  const head = c && c.ctrCard ? `【${CTR_TRIG_LABEL[b.trig] || ""}】` : c && c.relicView ? `【${RELIC_TRIG_LABEL[b.trig] || ""}】` : isMon ? (b.trig === "act" ? `【起動${actLimText(b)}】` + ((L => L.length ? L.join("、") + "：" : "")([b.xc > 0 ? `このカードのエクシーズ素材を${b.xc}つ取り除く` : "", b.mcost > 0 ? `マナを${b.mcost}払う` : "", b.lpc > 0 ? `LPを${fmtN(b.lpc)}払う` : "", b.cost ? ctrCostText(b.cost) : ""].filter(Boolean))) : b.trig === "ctrReach" ? `【${ctrReachHead(b)}】` : `【${trigLabel(t, b.trig)}】`) : isField(c) && b.trig !== "use" ? `【${fieldTrigLabel(c, b.trig)}】` : isPersist(c) && b.trig !== "use" ? `【${PERSIST_TRIG_LABEL[b.trig]}】` : "";
+  const head = c && c.ctrCard ? `【${CTR_TRIG_LABEL[b.trig] || ""}】` : c && c.relicView ? `【${RELIC_TRIG_LABEL[b.trig] || ""}】` : isMon ? (b.trig === "act" ? `【起動${actLimText(b)}】` + ((L => L.length ? L.join("、") + "：" : "")([b.xc > 0 ? `このカードのエクシーズ素材を${b.xc}つ取り除く` : "", b.mcost > 0 ? `マナを${b.mcost}払う` : "", b.lpc > 0 ? `LPを${fmtN(b.lpc)}払う` : "", b.cost ? ctrCostText(b.cost) : ""].filter(Boolean))) : b.trig === "ctrReach" ? `【${ctrReachHead(b)}】` : `【${trigLabel(t, b.trig)}】`) : b.trig === "fuse" ? `【${TRIGS.fuse}】` : isField(c) && b.trig !== "use" ? `【${fieldTrigLabel(c, b.trig)}】` : isPersist(c) && b.trig !== "use" ? `【${PERSIST_TRIG_LABEL[b.trig]}】` : "";
   const br = b.roll === "die" && b.dieBr && b.dieBr.length ? b.dieBr : null;
   const brText = br ? br.map(x => `${x.lo === x.hi ? x.lo : `${x.lo}〜${x.hi}`}が出たら${x.win ? "（当たり）" : ""}、${effsText(c, x.then, detail)}`).join(detail ? "。\n" : "。") : "";
   let s = (b.cont ? "さらに、" : limHead(head, b)) + (b.necro > 0 ? `【ネクロマンス${b.necro}】` : "") + (b.delayDie ? "" : delayText(b.delay)) + (b.roll === "die" ? `サイコロ${b.faces && b.faces !== 6 ? `（${b.faces}面）` : ""}を振る。` : b.roll === "coin" ? (b.coins > 1 ? `コインを${b.coins}回投げる。` : "コインを投げる。") : b.roll === "gj" ? "ガチンコ・ジャッジする。" : b.roll === "pgj" ? "パワーガチンコ・ジャッジする。" : "") + (b.delayDie ? `出た目の数のターン後の、${c && c.ctrCard ? "乗っている側" : "自分"}のターンのはじめに：` : "") + condsText(b) + (b.then.length ? (b.one && b.then.length > 1 ? (b.oneN > 1 ? `次の中から${b.oneN}回えらぶ（同じものをえらんでもよい）：` : "次の効果から1つえらんで発動する：") + (detail ? "\n" : "") + b.then.map(e => effsText(c, [e])).join(detail ? "\nまたは、" : "、または、") : effsText(c, b.then, detail)) + (br ? (detail ? "。\n" : "。") : "") : br ? "" : "なにもしない") + brText;
