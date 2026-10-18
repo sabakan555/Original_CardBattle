@@ -11,7 +11,7 @@ function setup(){
  const ctx={S:{cards},G:null,cardType:c=>c.type,attrsOf:c=>c.attrs||[],monAttrs:m=>cards.get(m.c).attrs||[],eqsOf:m=>m?.eqs||[],
    payLpOf:()=>0,payDiscOf:()=>0,payMaxOf:()=>0,payCtrOf:()=>null,ctrPayWhy:()=>'',whenOf:()=>'',isField:c=>!!c.field};
  vm.createContext(ctx);vm.runInContext(effects.slice(effects.indexOf('const USE_COND_WHERE ='),effects.indexOf('const payLpOf =')),ctx);
- vm.runInContext(engine,ctx);vm.runInContext('manaCivWhy=()=>"";',ctx);
+ vm.runInContext(effects.slice(effects.indexOf('/* ---- まとめた効果'), effects.indexOf('// 追加コスト')),ctx);vm.runInContext(engine,ctx);vm.runInContext('manaCivWhy=()=>"";',ctx);
  return {ctx,st,cards,a:st.players.a,b:st.players.b};
 }
 test('grave thresholds use >=, combine with AND, and never consume counted cards',()=>{

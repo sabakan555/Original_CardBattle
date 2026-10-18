@@ -18,9 +18,8 @@ function setup(){
   const st = { players: { a: player(), b: player() }, turn: 'a', turnNo: 1, log: [], ev: [] };
   const ctx = { S: { cards }, G: null, cardType: c => c.type, eqsOf: m => m?.eqs || [], KINDS: { destroy: { target: 'opp' }, bounce: { target: 'opp' }, removeBoard: { target: 'board' } },
     RB_MODE: { destroy: '破壊する', bounce: '戻す', banish: '除外する' }, SIDED_KINDS: new Set(), isField: () => false, sealedM: () => false, mfOn: () => false };
-  vm.createContext(ctx); vm.runInContext(engine, ctx);
+  vm.createContext(ctx); vm.runInContext(effects.slice(effects.indexOf('/* ---- まとめた効果'), effects.indexOf('// 追加コスト')), ctx); vm.runInContext(engine, ctx);
   vm.runInContext(effects.split('\n').filter(l => /^const (cannotLeave|monCannotLeave) =/.test(l)).join('\n'), ctx);
-  vm.runInContext(effects.slice(effects.indexOf('/* ---- ATKを変える'), effects.indexOf('// 追加コスト')), ctx); // atkNorm・fxTgt
   vm.runInContext(effects.slice(effects.indexOf('function mfOk('), effects.indexOf('\n', effects.indexOf('function mfOk('))), ctx);
   vm.runInContext(`ev=()=>{};glGroup=(st,s,i)=>[i];hasAltar=()=>false;monTrigList=()=>[];ctrTrigs=()=>[];runList=()=>{};
     monAbs=(st,s,i)=>(card(P(st,s).mz[i].c).abs||[]);hasAb=(st,s,i,k)=>{const m=P(st,s).mz[i];return !!m&&monAbs(st,s,i).some(a=>a.k===k);};

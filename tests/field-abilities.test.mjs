@@ -11,9 +11,8 @@ function setup(){
   const st={players:{a:player(),b:player()},first:'a',turn:'a',turnNo:1,log:[],ev:[]};
   const ctx={S:{cards},G:null,cardType:c=>c.type,eqsOf:m=>m?.eqs||[],KINDS:{},RB_MODE:{destroy:"破壊する",bounce:"戻す",banish:"除外する"},SIDED_KINDS:new Set(),
     isField:c=>!!c.field,whenOf:()=>'',sealedM:()=>false,eqCostOf:()=>0,eqUsed:()=>0,eqCapOf:()=>99};
-  vm.createContext(ctx);vm.runInContext(engine,ctx);
+  vm.createContext(ctx);vm.runInContext(effects.slice(effects.indexOf('/* ---- まとめた効果'), effects.indexOf('// 追加コスト')),ctx);vm.runInContext(engine,ctx);
   vm.runInContext(effects.split('\n').filter(l=>/^const (cannotLeave|monCannotLeave|isPersist) =/.test(l)).join('\n'),ctx);
-  vm.runInContext(effects.slice(effects.indexOf('/* ---- ATKを変える'), effects.indexOf('// 追加コスト')), ctx); // atkNorm・fxTgt
   vm.runInContext('ev=()=>{};glGroup=(st,s,i)=>[i];hasAb=()=>false;hasAltar=()=>false;monTrigList=()=>[];ctrTrigs=()=>[];runList=()=>{};',ctx);
   vm.runInContext(lobby.slice(lobby.indexOf('function startingField('),lobby.indexOf('function startState(')),ctx);
   return {ctx,st,cards,a:st.players.a,b:st.players.b};

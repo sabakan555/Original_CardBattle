@@ -198,7 +198,7 @@ function staticAtk(m){
         const pn = e.per && PER_DEFS[e.per] ? (e.pm ?? 1) * PER_DEFS[e.per].val(st, src.o, src.c, null, src.ctx, e) : 0;
         if (!STATIC_KINDS.includes(e.kind) && e.kind !== "atk") return;
         // 場にいる間の「自分のモンスター1体のATKアップ」は、前からこのモンスター自身に効く
-        const a = atkNorm(e.kind === "atkUp" && e.to !== "all" ? { ...e, kind: "selfAtk" } : e);
+        const a = fxNorm(e.kind === "atkUp" && e.to !== "all" ? { ...e, kind: "selfAtk" } : e);
         if (!a || a.kind !== "atk" || a.dur || !["add", "sub", "mul"].includes(a.op)) return;
         const hit = a.to === "this" ? self : a.to === "all" ? (a.side === "me") === mine : false;
         if (!hit) return;
@@ -688,8 +688,9 @@ function targetOptions(st, s, kind, ctx = {}){
   if (kind === "giveAb" || kind === "loseAb"){ const w = ctx.gw; if (w !== "mine" && w !== "opp") return null; const o = w === "mine" ? s : O(s), out = []; P(st, o).mz.forEach((m, i) => { if (m && (o === s || !fxHidden(st, o, i))) out.push(`${o}:${i}`); }); return out; }
   if (kind === "ctrAdd" || kind === "ctrDel") return ctx.ctrPick ? P(st, TS).mz.map((m, i) => m && (TS === s || !fxHidden(st, TS, i)) ? "m:" + i : null).filter(Boolean) : null;
   if (ctx.spireAtk && (kind === "dmg" || kind === "bash" || kind === "vuln" || kind === "weak")){ const tt = TS === s ? [] : tauntIdx(st, TS), ms = (tt.length ? tt : P(st, TS).mz.map((m, i) => m ? i : -1).filter(i => i >= 0)).map(i => "m:" + i); if (ctx.anyEnemy) return ms.length ? ["p", ...ms] : null; const left = ms.filter(o => !(ctx.hit && (ctx.hit.picked || []).includes(o))); return left.length ? ms : ["p"]; }
-  if (kind === "atk" && (ctx.atkTo === "this" || ctx.atkTo === "all")) return null;
-  const t = kind === "atk" && ctx.atkTo === "any" ? "any" : KINDS[kind] && KINDS[kind].target;
+  const F = FX_FORMS[kind], form = F && ctx.form && ctx.form.kind === kind ? ctx.form : null;
+  if (F && F.opts && form){ const r = F.opts(st, s, form, ctx); if (r !== undefined) return r; }
+  const t = form ? fxTgt(form) : KINDS[kind] && KINDS[kind].target;
   if (t === "szOpp") return P(st, O(s)).sz.map((z, i) => z ? i : -1).filter(i => i >= 0);
   if (t === "opp"){ const tt = TS === s ? [] : tauntIdx(st, TS); return (tt.length ? tt : P(st, TS).mz.map((m, i) => m ? i : -1).filter(i => i >= 0)).filter(i => TS === s || !fxHidden(st, TS, i)); }
   if (t === "any"){
@@ -723,12 +724,12 @@ function targetOptions(st, s, kind, ctx = {}){
   return null;
 }
 function autoTarget(st, s, kind, opts, fx){
+  { const F = FX_FORMS[kind]; if (F && F.auto && fx){ const r = F.auto(st, s, opts, fx); if (r !== undefined) return r; } }
   // 場のカードを除去: 相手の一番強いモンスター → 相手の魔法・罠 → フィールド（自分のカードはなるべく選ばない）
   if (kind === "removeBoard"){ const v = o => { if (o === "field") return st.field && st.field.o !== s ? 250 : -500; const [os, k, i] = o.split(":"), X = P(st, os), sg = os === s ? -1 : 1; if (k === "mz"){ const m = X.mz[+i]; return sg * (100 + (m ? atkOf(m) : 0)); } return sg * 300; }; return opts.slice().sort((a, b) => v(b) - v(a))[0]; }
   { const val = id => { const c = card(id); return (cardType(c) === "monster" ? baseAtk(c) || 0 : 300) + (costOf(c) || 0) * 100; };
     if (kind === "searchMon" || kind === "searchMagic" || kind === "searchTrap" || kind === "banishGrave") return opts.slice().sort((a, b) => val(b) - val(a))[0];
     // ATKを元に戻す: 自分の下がっているモンスターか、相手の上がっているモンスター
-    if (kind === "atk" && fx && fx.op === "reset"){ const gain = o => { const [os, oi] = String(o).split(":"), m = P(st, os).mz[+oi]; const d = m.zero ? -(baseAtk(card(m.c)) || 0) : modOf(m); return os === s ? -d : d; }; return opts.slice().sort((a, b) => gain(b) - gain(a))[0]; }
     if (kind === "scry"){ const D = P(st, s).deck; return opts.slice().sort((a, b) => val(D[b]) - val(D[a]))[0]; } }
   // ピーピングハンデス: 相手の手札の一番強そうなカード（ATK・コストが高いもの）
   if (kind === "discardPeek"){ const H = P(st, O(s)).hand, v = j => { const c = card(H[j]); return (cardType(c) === "monster" ? baseAtk(c) || 0 : 300) + (costOf(c) || 0) * 100; }; return opts.slice().sort((a, b) => v(b) - v(a))[0]; }
@@ -736,9 +737,6 @@ function autoTarget(st, s, kind, opts, fx){
   if (kind === "synthTo"){ const own = opts.filter(o => String(o).split(":")[0] === s); const L = own.length ? own : opts; return L.slice().sort((a, b) => { const [sa, ia] = String(a).split(":"), [sb, ib] = String(b).split(":"); return cmpNum(atkOf(P(st, sb).mz[+ib]), atkOf(P(st, sa).mz[+ia])); })[0]; }
   if (kind === "giveAb" || kind === "loseAb") return opts.slice().sort((a, b) => { const A = String(a).split(":"), B = String(b).split(":"); return cmpNum(atkOf(P(st, B[0]).mz[+B[1]]), atkOf(P(st, A[0]).mz[+A[1]])); })[0];
   // ATKを○にする: 自分のモンスターなら一番上がるもの、相手のなら一番下がるもの
-  if (kind === "atk" && fx && fx.op === "set"){ const T = P(st, fx.side === "me" ? s : O(s)), sg = fx.side === "me" ? 1 : -1, v = o => { const m = T.mz[+o]; const a = m ? atkOf(m) : 0; return sg * ((+fx.n || 0) - (isFinite(a) ? a : 1e9)); }; return opts.slice().sort((a, b) => v(b) - v(a))[0]; }
-  // 自分のモンスターのATKアップ・○倍は一番強いモンスター、ダウンは一番弱いモンスター
-  if (kind === "atk" && fx && fx.side === "me" && (fx.op === "add" || fx.op === "mul")){ const own = P(st, s); return opts.slice().sort((a, b) => cmpNum(atkOf(own.mz[+b]), atkOf(own.mz[+a])))[0]; }
   if (fx && fx.side === "me"){ const own = P(st, s), v = o => o === "p" ? 1e9 : (m => m ? atkOf(m) : 0)(own.mz[typeof o === "string" ? +o.slice(2) : o]); return opts.slice().sort((a, b) => v(a) - v(b))[0]; }
   // CPU スパイア attack: finish the strongest monster it can destroy now, otherwise the one closest to dying
   if (opts.length && opts.every(o => typeof o === "string" && o.startsWith("m:"))){
@@ -1070,6 +1068,16 @@ function applyAtk(st, s, c, target, ctx, fx, n, src){
   const who = fx.to === "all" ? `${fx.side === "me" ? "自分" : "相手"}のモンスター${L.length}体` : L[0] ? `「${card(L[0].c).name}」` : "";
   if (who) log(st, s, `${src}で${who}の${how}${tmp ? "（このターンだけ）" : ""}`);
 }
+FX_FORMS.atk.run = applyAtk;
+// このモンスター・全体はえらばない
+FX_FORMS.atk.opts = (st, s, f) => f.to === "this" || f.to === "all" ? null : undefined;
+// CPUのえらび方: 元に戻すは自分の下がっている／相手の上がっているモンスター、○にするは一番得をするモンスター、
+// 自分のモンスターのアップ・○倍は一番強いモンスター（ほかは KINDS の target どおり）
+FX_FORMS.atk.auto = (st, s, opts, fx) => {
+  if (fx.op === "reset") { const gain = o => { const [os, oi] = String(o).split(":"), m = P(st, os).mz[+oi]; const d = m.zero ? -(baseAtk(card(m.c)) || 0) : modOf(m); return os === s ? -d : d; }; return opts.slice().sort((a, b) => gain(b) - gain(a))[0]; }
+  if (fx.op === "set") { const T = P(st, fx.side === "me" ? s : O(s)), sg = fx.side === "me" ? 1 : -1, v = o => { const m = T.mz[+o]; const a = m ? atkOf(m) : 0; return sg * ((+fx.n || 0) - (isFinite(a) ? a : 1e9)); }; return opts.slice().sort((a, b) => v(b) - v(a))[0]; }
+  if (fx.side === "me" && (fx.op === "add" || fx.op === "mul")) { const own = P(st, s); return opts.slice().sort((a, b) => cmpNum(atkOf(own.mz[+b]), atkOf(own.mz[+a])))[0]; }
+};
 // apply effect of card c for player s. target resolved already (or undefined for untargeted)
 // 護法: 相手の効果の対象になったモンスター（自分のモンスターを対象にする効果はそのまま）
 function wardMon(st, s, fx, target, ctx){
@@ -1090,7 +1098,7 @@ function wardStop(st, s, c, fx, target, ctx){
 }
 function applyEffect(st, s, c, target, ctx = {}, fx = normFx(c)){
   if (!fx) return;
-  fx = atkNorm(fx);
+  fx = fxNorm(fx);
   if (immuneStop(st, s, c, fx, target, ctx)) return;
   if (wardStop(st, s, c, fx, target, ctx)) return;
   if (ctx.hit && ctx.spireAtk && typeof target === "string") ctx.hit.t = target;
@@ -1099,6 +1107,8 @@ function applyEffect(st, s, c, target, ctx = {}, fx = normFx(c)){
   let n = fx.n || 0;
   if (fx.per && !fx.hits) n += (fx.pm ?? 1) * perVal(st, s, c, fx, target, ctx);
   if (["dmg", "dmgAll", "dmgRand", "bash"].includes(fx.kind)) n = hitPower(st, s, n, ctx);
+  // まとめた効果（新しい形）は、それぞれの run で処理する
+  if (FX_FORMS[fx.kind] && FX_FORMS[fx.kind].run){ FX_FORMS[fx.kind].run(st, s, c, target, ctx, fx, n, src); return; }
   switch (fx.kind){
     // カウンターを乗せる・取り除く
     case "ctrAdd": case "ctrDel": {
@@ -1340,7 +1350,6 @@ function applyEffect(st, s, c, target, ctx = {}, fx = normFx(c)){
       if (keep == null){ me.deck.unshift(...top); break; }
       const rest = top.filter((_, i) => i !== k); me.deck.push(...rest); me.deck.unshift(keep);
       log(st, s, `${src}：山札の上を${top.length}枚見て、1枚を一番上に、${rest.length}枚を一番下に置いた`); break; }
-    case "atk": applyAtk(st, s, c, target, ctx, fx, n, src); break;
     case "atkSwap": { const me2 = ctx.mon && monAt(st, ctx.mon), t2 = opT.mz[target]; if (!me2 || !t2) { log(st, s, `${src}：入れかえる相手がいない`); break; }
       const a = atkOf(me2), b = atkOf(t2); if (!isFinite(a) || !isFinite(b)) break; me2.zero = t2.zero = false; me2.fix = t2.fix = null;
       me2.mod = (me2.mod || 0) + (b - atkOf(me2)); t2.mod = (t2.mod || 0) + (a - atkOf(t2)); log(st, s, `${src}：「${card(me2.c).name}」と「${card(t2.c).name}」のATKを入れかえた（${fmtN(a)} ⇔ ${fmtN(b)}）`); break; }
@@ -1464,7 +1473,7 @@ function applyEffect(st, s, c, target, ctx = {}, fx = normFx(c)){
 // resolve an effect that may need a target; `then` runs after (for attack responses)
 function runEffect(st, s, c, ctx = {}, then, fx = normFx(c)){
   if (!fx){ then && then(st); return; }
-  fx = atkNorm(fx);
+  fx = fxNorm(fx);
   if (fx.ask){
     if (isHumanHere(s)){ G.chooseQ.push({ ask: true, s, c, fx, ctx, then }); return; }
     const yes = Math.random() < .5;
@@ -1480,7 +1489,7 @@ function runEffect(st, s, c, ctx = {}, then, fx = normFx(c)){
   if (fx.kind === "scry") ctx = { ...ctx, scryN: Math.max(1, fx.n || 3) };
   if (KINDS[fx.kind] && KINDS[fx.kind].tag) ctx = { ...ctx, tagName: fx.into || "" };
   if (SIDED_KINDS.has(fx.kind)) ctx = { ...ctx, side: fx.side === "me" ? "me" : null };
-  if (fx.kind === "atk") ctx = { ...ctx, atkTo: fx.to };
+  if (FX_FORMS[fx.kind]) ctx = { ...ctx, form: fx };
   if (fx.kind === "giveAb" || fx.kind === "loseAb") ctx = { ...ctx, gw: GAB_W[fx.gw] ? fx.gw : "self" };
   if (fx.kind === "giveAttr") ctx = { ...ctx, aw: GAT_W[fx.aw] ? fx.aw : "opp1" };
   if (fx.kind === "setCost") ctx = { ...ctx, sp: fx.sp === "pick" ? "pick" : "filter" };
@@ -1675,7 +1684,7 @@ function runEffects(st, s, c, effs, ctx, then){
     // 1枚ずつの効果に「ふえる」: 枚数は使うときに決めてから1枚ずつおこなう（runEffect の eachN）
     if (KINDS[e.kind] && KINDS[e.kind].each && e.per && PER_DEFS[e.per]) one.push({ kind: e.kind, n: e.n, ...(e.into ? { into: e.into } : {}), per: e.per, pm: e.pm, hits: e.hits, pf: e.pf, pfn: e.pfn, pctr: e.pctr, pcw: e.pcw, pattr: e.pattr, eachN: true });
     else if (KINDS[e.kind] && KINDS[e.kind].each && e.n > 1){ for (let r = 0; r < e.n; r++) one.push({ kind: e.kind, n: 1, ...(e.into ? { into: e.into } : {}) }); }
-    else one.push(...expandFx({ kind: e.kind, n: e.n, to: e.to, ...(e.into ? { into: e.into } : {}), ...(e.intoId ? { intoId: e.intoId } : {}), ...(e.per ? { per: e.per, pm: e.pm, hits: e.hits } : {}), ...(KINDS[e.kind] && KINDS[e.kind].mod ? { mt: e.mt, ms: e.ms, mpl: e.mpl, mc: e.mc, mn: e.mn, gk: e.gk, gn: e.gn, nm: e.nm, ge: e.ge } : {}), ...(e.side ? { side: e.side } : {}), ...(e.kind === "atk" ? { op: e.op, dur: e.dur } : {}), ...(e.tn ? { tn: e.tn } : {}), ...(e.kind === "removeBoard" ? { rside: e.rside, rm: e.rm } : {}), ...(mfOn(e) ? { mfK: e.mfK, mfOp: e.mfOp, mfBy: e.mfBy, mfN: e.mfN, mfA: e.mfA } : {}), ...(KINDS[e.kind] && KINDS[e.kind].ctr ? { ctr: e.ctr, cw: e.cw } : {}), ...(e.per === "ctr" ? { pctr: e.pctr, pcw: e.pcw } : {}), ...(e.per === "attrMon" ? { pattr: e.pattr } : {}), ...(e.per === "usedNow" || e.per === "handF" ? { pf: e.pf, pfn: e.pfn } : {}), ...(e.kind === "giveAb" || e.kind === "loseAb" ? { ab: e.ab, gw: e.gw, gd: e.gd } : {}), ...(e.kind === "giveAttr" ? { aw: e.aw, ga: e.ga, gm: e.gm } : {}), ...(["dblNext", "freeNext", "setCost", "copyPick"].includes(e.kind) ? { pf: e.pf, pfn: e.pfn, cpw: e.cpw, sp: e.sp, sd: e.sd } : {}) }));
+    else one.push(...expandFx({ kind: e.kind, n: e.n, to: e.to, ...(e.into ? { into: e.into } : {}), ...(e.intoId ? { intoId: e.intoId } : {}), ...(e.per ? { per: e.per, pm: e.pm, hits: e.hits } : {}), ...(KINDS[e.kind] && KINDS[e.kind].mod ? { mt: e.mt, ms: e.ms, mpl: e.mpl, mc: e.mc, mn: e.mn, gk: e.gk, gn: e.gn, nm: e.nm, ge: e.ge } : {}), ...(e.side ? { side: e.side } : {}), ...fxFields(e), ...(e.tn ? { tn: e.tn } : {}), ...(e.kind === "removeBoard" ? { rside: e.rside, rm: e.rm } : {}), ...(mfOn(e) ? { mfK: e.mfK, mfOp: e.mfOp, mfBy: e.mfBy, mfN: e.mfN, mfA: e.mfA } : {}), ...(KINDS[e.kind] && KINDS[e.kind].ctr ? { ctr: e.ctr, cw: e.cw } : {}), ...(e.per === "ctr" ? { pctr: e.pctr, pcw: e.pcw } : {}), ...(e.per === "attrMon" ? { pattr: e.pattr } : {}), ...(e.per === "usedNow" || e.per === "handF" ? { pf: e.pf, pfn: e.pfn } : {}), ...(e.kind === "giveAb" || e.kind === "loseAb" ? { ab: e.ab, gw: e.gw, gd: e.gd } : {}), ...(e.kind === "giveAttr" ? { aw: e.aw, ga: e.ga, gm: e.gm } : {}), ...(["dblNext", "freeNext", "setCost", "copyPick"].includes(e.kind) ? { pf: e.pf, pfn: e.pfn, cpw: e.cpw, sp: e.sp, sd: e.sd } : {}) }));
     // 「×○回」: the same effect again and again
     const cr = ctx && ctx.roll && ctx.roll.kind === "coin" ? ctx.roll : null;
     const reps = e.timesDie ? (ctx && ctx.roll && ctx.roll.kind === "die" ? ctx.roll.v : 0) : e.timesCoin ? (cr ? (e.timesCoin === "t" ? (cr.n || 1) - cr.v : cr.v) : 0) : Math.max(1, Math.min(20, e.times || 1));

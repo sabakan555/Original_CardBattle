@@ -112,5 +112,5 @@ test('効果の文は中身から作られる', () => {
   assert.equal(txt({ op: 'add', n: 300, to: 'one', side: 'me' }), '自分のモンスター1体のATK+300');
   assert.equal(txt({ op: 'mul', n: 2, to: 'this' }), 'このモンスターのATKを2倍にする');
   assert.equal(txt({ op: 'set', n: 0 }), '相手のモンスター1体のATKを0にする');
-  assert.equal(vm.runInContext('atkNorm', ctx)({ kind: 'atkDownTmpAll', n: 100, side: 'me' }).to, 'all');
+  assert.equal(vm.runInContext('fxNorm', ctx)({ kind: 'atkDownTmpAll', n: 100, side: 'me' }).to, 'all');
 });
