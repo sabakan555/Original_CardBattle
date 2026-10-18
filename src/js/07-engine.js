@@ -336,7 +336,7 @@ function transformSelf(st, s, c, ctx, fx, src){
   const p = P(st, s);
   if (ctx.pz != null && p.sz[ctx.pz] && p.sz[ctx.pz].c === c.id){ p.sz[ctx.pz].c = id; done(c.id, "場"); return; }
   if (ctx.field && st.field && st.field.c === c.id){ st.field.c = id; done(c.id, "フィールド"); return; }
-  if (ctx.inHand){ const k = p.hand.indexOf(ctx.inHand); if (k >= 0){ p.hand[k] = id; done(ctx.inHand, "手札"); return; } }
+  if (ctx.inHand){ const k = p.hand.indexOf(ctx.inHand); if (k >= 0){ p.hand[k] = id; hfMove(p, ctx.inHand, id); done(ctx.inHand, "手札"); return; } }
   const zi = p.sz.findIndex(z => z && z.c === c.id); if (zi >= 0){ p.sz[zi].c = id; done(c.id, "場"); return; }
   if (st.field && st.field.c === c.id && st.field.o === s){ st.field.c = id; done(c.id, "フィールド"); return; }
   for (const [pile, where] of [[p.grave, "墓地"], [p.exile = p.exile || [], "廃棄"], [p.hand, "手札"]]){ const k = pile.lastIndexOf(c.id); if (k >= 0){ pile[k] = id; done(c.id, where); return; } }
@@ -2029,7 +2029,10 @@ function fuseHand(st, s, hi, picks){
   ev(st, { type: "spell", s, c: id });
   // 「このカードにフュージョンしたとき（手札で）」と、場の「自分がフュージョンしたとき」
   const c = card(id), L = [];
-  if (hasTrig(c, "fuse")) L.push({ c, trig: "fuse", ctx: { hfN: n, hfTimes: t, fuseN: gone.length, inHand: id } });
+  const hctx = { hfN: n, hfTimes: t, fuseN: gone.length, inHand: id, fused: id };
+  if (hasTrig(c, "fuse")) L.push({ c, trig: "fuse", ctx: hctx });
+  // 手札のこのカード自身の「自分がフュージョンしたとき」も出る（このカードもフュージョンしたので）
+  if (hasTrig(c, "myFuse")) L.push({ c, trig: "myFuse", ctx: hctx });
   p.mz.forEach((m, i) => { if (m && hasTrig(card(m.c), "myFuse")) L.push({ c: card(m.c), trig: "myFuse", ctx: { zone: i, mon: { s, i, u: m.u }, fuseN: gone.length, fused: id } }); });
   const step = (st2, k) => { if (k >= L.length || st2.winner){ checkEnd(st2); return; } runCard(st2, s, L[k].c, L[k].trig, L[k].ctx, st3 => step(st3, k + 1)); };
   step(st, 0);
@@ -2037,6 +2040,8 @@ function fuseHand(st, s, hi, picks){
 }
 // 手札から出したとき: フュージョンした枚数を受けとる（手札の記録は消える）
 function hfTake(p, id){ const n = (p.hf || {})[id] || 0; if (p.hf && p.hf[id] != null){ const o = { ...p.hf }; delete o[id]; p.hf = o; } return n; }
+// 手札で変化したとき: フュージョンした枚数と回数は変化先にひきつぐ
+function hfMove(p, from, to){ for (const k of ["hf", "hfX"]){ const o = p[k]; if (!o || o[from] == null) continue; const v = o[from], q = { ...o }; delete q[from]; q[to] = (q[to] || 0) + v; p[k] = q; } }
 // フュージョンした回数も同じように受けとる
 function hfTakeX(p, id){ const n = (p.hfX || {})[id] || 0; if (p.hfX && p.hfX[id] != null){ const o = { ...p.hfX }; delete o[id]; p.hfX = o; } return n; }
 function canSummonNow(st, s){ return P(st, s).mana ? true : !st.summoned; }
