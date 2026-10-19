@@ -664,6 +664,7 @@ function renderDetail(info, anim){
   const eqRow = info.eqList && info.eqList.length ? `<div class="eqrow"><div class="eqlbl">装備（左から順）　${esc(info.cap || "")}</div><div class="eqlist">${info.eqList.map((e, k) => `${k ? `<span class="eqarr">→</span>` : ""}<button class="eqi" data-eqcid="${esc(e.c)}" aria-label="「${esc(card(e.c).name)}」の詳細">${cardHTML(card(e.c), "xs", "", { mana: e.mana })}${e.mult > 1 || e.used || e.opp ? `<span class="eqtag">${[e.mult > 1 ? "×2" : "", e.used ? "使用ずみ" : "", e.opp ? "相手の" : ""].filter(Boolean).join("・")}</span>` : ""}</button>`).join("")}</div></div>` : "";
   const back = G.detailBack ? `<button class="small ghost eqback" data-detailback>← もどる</button>` : "";
   box.innerHTML = `${CLOSE}<h3>カード詳細</h3>${back}${info.glIds && info.glIds.length > 1 ? `<div class="detailcard gl-join" style="--gln:${info.glIds.length}">${info.glIds.map(x => cardHTML(card(x.id), "detail" + (x.me ? " gl-me" : ""), "", { mod: x.mod, mana: info.mana })).join("")}</div><p class="note gl-cap" style="margin:4px 0 0;text-align:center">${info.glIds.map(x => `「${esc(card(x.id).name)}」`).join("＋")}がGリンク中</p>` : `<div class="detailcard">${cardHTML(c, "detail", "", { mod: info.mod, mana: info.mana })}</div>`}${eqRow}${ownFx}${xbFx}<dl class="dl">${lvAttrRowsIn(rows, c).map(([k, v, h]) => `<dt>${k}</dt><dd>${h || tkLink(esc(v))}</dd>`).join("")}</dl>${actDetail(c)}`;
+  upgradeArt(box);
 }
 // 詳細: 起動効果を持つ自分の場のモンスターなら「発動する」
 function actDetail(c){

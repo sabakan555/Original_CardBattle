@@ -24,10 +24,10 @@ function renderDeck(){
   const pool = sortCards(pool0.filter(c => matchCard(c, S.filt.deck) && (fitsDeck(c, deckKindNow()) || S.deckEdit.cards[c.id])), S.filt.deck.sort);
   S.deckPoolIds = pool.map(c => c.id);
   setCount("deck", pool.length, pool0.length);
-  $("#deckPool").innerHTML = (pool.length ? "" : `<p class="muted">条件に合うカードがありません。</p>`) + pool.map(c => {
+  fillChunked($("#deckPool"), JSON.stringify([S.filt.deck, deckKindNow()]), "", pool.map(c => {
     const k = famCount(c.id), lim = cardLimit(c), shown = k ? card(famPick(c.id)) : c;
     return `<div class="pool-item${isBorrowed(c.id) ? " borrowed" : ""}">${isBorrowed(c.id) ? `<span class="borrow-tag" title="持っていないけど、このデッキでは借りて使える">借りもの</span>` : ""}${cardHTML(shown, "sm", "", { mana: $("#deckMana").checked })}<div class="cnt"><button class="small" data-dm="${esc(c.id)}" ${k ? "" : "disabled"} aria-label="へらす">−</button><b>${k}/${lim || "∞"}</b><button class="small" data-dp="${esc(c.id)}" ${lim && k >= lim ? "disabled" : ""} aria-label="ふやす">＋</button></div></div>`;
-  }).join("");
+  }), `<p class="muted">条件に合うカードがありません。</p>`);
 }
 $("#deckMana").addEventListener("change", renderDeck);
 $("#deckView").addEventListener("click", e => stripClick(e, "deck"));
@@ -126,6 +126,7 @@ function renderCardView(){
     <button class="cv-nav next" data-cv="next" ${CV.i < CV.ids.length - 1 ? "" : "disabled"} aria-label="次のカード">›</button>
     <div class="cv-pos">${CV.i + 1} / ${CV.ids.length}</div></div>`;
   $("#cardView").hidden = false;
+  upgradeArt($("#cardView"));
 }
 $("#cardView").addEventListener("click", e => {
   if (e.target === e.currentTarget){ closeCardView(); return; }
@@ -317,7 +318,7 @@ function renderMe(){
     return `<div class="me-deck">${face ? cardHTML(face, "", "", { mana: !!dk.mana }) : ""}<div style="flex:1;min-width:0"><div class="nm">${esc(dk.name)}</div><div class="meta">${dk.cards.length}枚${dk.mana ? "・コストデッキ" : ""}${dk.spire ? "・スパイア" : ""}</div><div class="row" style="gap:6px;margin-top:6px"><button class="small" data-medit="${esc(dk.id)}">編集</button><button class="small primary" data-muse="${esc(dk.id)}">対戦で使う</button></div></div></div>`;
   }).join("") || `<p class="muted">まだデッキがありません。</p>`;
   S.meIds = mine.map(c => c.id);
-  $("#mpCards").innerHTML = mine.map(c => `<div class="g-item">${cardHTML(c, "sm")}</div>`).join("") || `<p class="muted">まだカードがありません。</p>`;
+  fillChunked($("#mpCards"), "me", "", mine.map(c => `<div class="g-item">${cardHTML(c, "sm")}</div>`), `<p class="muted">まだカードがありません。</p>`);
 }
 $("#mpName").addEventListener("change", e => { S.name = e.target.value.trim() || "プレイヤー"; e.target.value = S.name; ls.set("cb_name", S.name); saveProfile(); renderAll(); });
 $("#mpIcon").addEventListener("change", e => { ls.set("cb_icon", e.target.value); saveProfile(); renderMe(); });

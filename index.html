@@ -361,6 +361,7 @@ ruby rt{font-size:.5em;line-height:1;font-style:normal}
 .filters select{padding:4px 8px;font-size:14px}
 .filters .count{font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums;margin-left:auto}
 .gallery{display:flex;flex-wrap:wrap;gap:18px 14px}
+.chunk-more{flex-basis:100%;display:flex;justify-content:center;padding:8px 0 4px}
 .g-item{display:flex;flex-direction:column;gap:6px;align-items:center}
 .roomlist{display:flex;flex-direction:column;gap:6px}
 .roomlist h3{font-size:14px;color:var(--accent,var(--ink))}
@@ -1972,6 +1973,7 @@ div.f{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:13px}
       </div>
       <div class="filters" id="galFilters"></div>
       <details class="admin-tag" id="adminTagRow" hidden><summary>管理者：表示中のカードのタグを一括で変える</summary><div class="row" style="gap:8px;margin:8px 0 4px;align-items:center;flex-wrap:wrap"><input type="text" id="bulkTag" list="tagNames" maxlength="40" placeholder="タグ" style="width:160px"><button class="small" id="btnBulkTag" type="button">つける</button><button class="small danger" id="btnBulkUntag" type="button">外す</button><span class="note" id="bulkTagMsg">いま表示しているカード（自分のカードとはじめからのカード）だけが対象。押すと枚数を出すので、もう一度押すと実行します。絞り込みで「タグ」をえらんでおくと、そのタグのカードだけにできる</span></div></details>
+      <details class="admin-tag" id="adminArtRow" hidden><summary>管理者：カードの絵を軽い形に移す</summary><div class="row" style="gap:8px;margin:8px 0 4px;align-items:center;flex-wrap:wrap"><button class="small" id="btnArtMig" type="button">まとめて移す</button><span class="note" id="artMigMsg">絵を別の場所（cardArt）に分けて、一覧ではサムネを使うようにします。絵の中身は変わりません。</span></div></details>
       <div class="gallery" id="gallery"></div>
       <div id="potWrap" hidden style="margin-top:22px"><h3 style="margin:0 0 10px">ポーション（カード以外）</h3><div class="gallery" id="potGallery"></div></div>
       <div id="relWrap" hidden style="margin-top:22px"><h3 style="margin:0 0 10px">レリック（カード以外）</h3><div class="gallery" id="relGallery"></div></div>
@@ -2194,6 +2196,34 @@ const cmpNum = (a, b) => a === b ? 0 : a < b ? -1 : 1;
 const S = { db: null, name: "", tab: "play", starters: [], userCards: [], cards: new Map(), decks: [], galF: "all" };
 let G = null;
 
+
+/* ================= 長い一覧は少しずつ描く（カードが多くても固まらないように） ================= */
+// key が前回と同じ（同じしぼりこみ）なら、すでに表示していた枚数は保ったまま描き直す
+const CHUNK_N = 48;
+function fillChunked(el, key, head, items, empty){
+  if (!el) return;
+  if (el._chunkObs){ el._chunkObs.disconnect(); el._chunkObs = null; }
+  if (el._chunkKey !== key){ el._chunkKey = key; el._chunkN = CHUNK_N; }
+  const n = Math.min(items.length, Math.max(CHUNK_N, el._chunkN || CHUNK_N));
+  el.innerHTML = head + (items.length ? items.slice(0, n).join("") : (empty || ""));
+  el._chunkN = n;
+  if (n < items.length) addChunkMore(el, items);
+}
+function addChunkMore(el, items){
+  const more = document.createElement("div"); more.className = "chunk-more";
+  more.innerHTML = `<button type="button" class="small">もっと見る（あと${items.length - el._chunkN}枚）</button>`;
+  el.appendChild(more);
+  const step = () => {
+    if (!more.isConnected) return;
+    if (el._chunkObs){ el._chunkObs.disconnect(); el._chunkObs = null; }
+    more.remove();
+    const a = el._chunkN, b = Math.min(items.length, a + CHUNK_N);
+    el.insertAdjacentHTML("beforeend", items.slice(a, b).join("")); el._chunkN = b;
+    if (b < items.length) addChunkMore(el, items);
+  };
+  more.querySelector("button").addEventListener("click", step);
+  if ("IntersectionObserver" in window){ const o = new IntersectionObserver(es => { if (es.some(x => x.isIntersecting)) step(); }, { rootMargin: "600px 0px" }); o.observe(more); el._chunkObs = o; }
+}
 /* ================= effect catalog ================= */
 const TYPE_LABEL = { monster: "モンスター", magic: "魔法", equip: "装備", trap: "罠" };
 // スパイア風 cards use Slay-the-Spire style names for the same three kinds
@@ -3750,7 +3780,8 @@ function applyBuiltinEdits(){
 }
 async function saveBuiltinDoc(id, doc){
   if (!S.db || !isAdmin()) throw { code: "not-admin" };
-  await S.db.doc("builtin/" + id).set(JSON.parse(JSON.stringify(doc)));
+  // はじめからあるカードは数が少ないので、絵は分けずにそのまま入れる
+  await S.db.doc("builtin/" + id).set(JSON.parse(JSON.stringify(withFullArt(doc))));
 }
 async function deleteBuiltinDoc(id){
   if (!S.db || !isAdmin()) throw { code: "not-admin" };
@@ -3910,7 +3941,7 @@ function cardHTML(c, cls = "", attrs = "", opts = {}){
 function cardHTML0(c, cls = "", attrs = "", opts = {}){
   if (!c) c = { name: "？", type: "monster", atk: 0 };
   const t = cardType(c);
-  const art = c.img ? `<img alt="" src="${c.img}">` : `<span class="noart">絵なし</span>`;
+  const art = c.img ? `<img alt="" decoding="async" src="${artSrc(c.img)}"${artImgAttrs(c)}>` : `<span class="noart">絵なし</span>`;
   const ft = fxText(c);
   const lim = cardLimit(c);
   let atk = "";
@@ -3955,7 +3986,7 @@ function socraHTML(c, t, cls, attrs, opts, sv, showCost){
   let num = "";
   if (t === "monster"){ const base = baseAtk(c), mod = opts.mod || 0; num = `<span class="s-atk s-box ${mod > 0 ? "up" : mod < 0 ? "dn" : ""}">${fmtN(Math.max(0, base + mod))}</span>`; }
   else if (t === "equip" && c.eqN) num = `<span class="s-atk">${c.eqN > 0 ? "+" : "−"}${Math.abs(c.eqN)}</span>`;
-  const art = c.img ? `<img alt="" src="${c.img}">` : "";
+  const art = c.img ? `<img alt="" decoding="async" src="${artSrc(c.img)}"${artImgAttrs(c)}>` : "";
   let info = "";
   if (fx){
     body = fxRowsHTML(c); cap = "";
@@ -3998,7 +4029,7 @@ function spireHTML(c, t, cls, attrs, opts, sv, showCost){
   let num = "", cap = "";
   if (t === "monster"){ const base = baseAtk(c), mod = opts.mod || 0; num = `<span class="p-atk ${mod > 0 ? "up" : mod < 0 ? "dn" : ""}"><small>ATK</small><b>${fmtN(Math.max(0, base + mod))}</b></span>`; if (hasEqCap(c)) cap = `<span class="p-cap" title="装備キャパ">${eqCapOf(c)}</span>`; }
   else if (t === "equip"){ if (c.eqN) num = `<span class="p-atk ${c.eqN > 0 ? "up" : "dn"}"><small>ATK</small><b>${c.eqN > 0 ? "+" : "−"}${Math.abs(c.eqN)}</b></span>`; if (eqCostOf(c)) cap = `<span class="p-cap" title="装備コスト">−${eqCostOf(c)}</span>`; }
-  const art = c.img ? `<img alt="" src="${c.img}">` : "";
+  const art = c.img ? `<img alt="" decoding="async" src="${artSrc(c.img)}"${artImgAttrs(c)}>` : "";
   return `<div class="card spire ${t} sk-${spireKind(c)} rar-${rarityOf(c)}${c.spc === "silent" ? " spc-silent" : ""}${showCost ? " costed" : ""}${c.token ? " token" : ""}${c.modded ? " modded" : ""} ${cls}" ${attrs}${sv.length ? ` style='${sv.join(";")}'` : ""}>${opts.done ? `<span class="done">${opts.done}</span>` : ""}${opts.eq ? `<span class="eqb">${esc(opts.eq)}</span>` : ""}${ctrBadges(opts)}${opts.vuln ? `<span class="vulc" title="弱体：受けるダメージが1.5倍">弱体${opts.vuln}</span>` : ""}${opts.weak ? `<span class="wkc" title="脱力：与える戦闘ダメージが0.75倍">脱力${opts.weak}</span>` : ""}<div class="p-base"></div><div class="p-art">${art}</div><div class="p-over"></div><div class="p-gemimg"></div>${showCost ? `<span class="p-gem" title="コスト">${costLabel(c)}</span>` : ""}<div class="p-name"><span>${rubyHTML(c.nameRuby || c.name || "")}</span></div><div class="p-type">${SPIRE_LABEL[spireKind(c)]}</div><div class="p-text"><div class="body">${body}</div>${c.flavor ? `<div class="flv">${rubyHTML(c.flavor)}</div>` : ""}</div>${cap}${num}</div>`;
 }
 // card back: the owner's own sleeve if they drew one
@@ -4048,13 +4079,121 @@ function encodeArt(c, alpha){
   }
   return url;
 }
+/* ================= 絵を分けて保存する（サイトを軽くする） =================
+   大きい絵は cardArt/{カードID} に分けて保存し、cards にはサムネ（小さい絵）だけを置く。
+   一覧・デッキ・対戦はサムネで表示して、大きく見る・編集する・画像で保存するときだけ本物の絵を読みこむ。
+   cardArt に書けないとき（Firestoreのルールが未設定など）は、これまでどおり cards に絵をそのまま入れる。 */
+const THUMB_W = 280, THUMB_BUDGET = 24000, SPLIT_MIN = 32000;
+S.artFull = new Map();  // サムネ → 本物の絵
+S.artLoads = new Map(); // カードID → 読みこみ中のPromise
+let ART_SPLIT_OK = true;
+const artHash = s => { let h = 0x811c9dc5; for (let i = 0; i < s.length; i++){ h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193); } return (h >>> 0).toString(36) + "_" + s.length.toString(36); };
+const artSrc = img => (img && S.artFull.get(img)) || img || "";
+const artImgAttrs = c => c && c.artRef && S.db ? ` data-aid="${esc(c.skinOf || c.id)}"` : "";
+const rawCard = id => [...(S.userCards || []), ...(S.userPotions || []), ...(S.userRelics || [])].find(c => c && c.id === id) || null;
+function loadImgEl(src){ return new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im); im.onerror = rej; im.src = src; }); }
+async function makeThumb(src){
+  const im = await loadImgEl(src), W = im.naturalWidth || THUMB_W, H = im.naturalHeight || THUMB_W;
+  const w = Math.min(THUMB_W, W), h = Math.max(1, Math.round(H * w / W));
+  const c = document.createElement("canvas"); c.width = w; c.height = h;
+  const x = c.getContext("2d"); x.imageSmoothingQuality = "high"; x.drawImage(im, 0, 0, w, h);
+  const webp = c.toDataURL("image/webp", .5).startsWith("data:image/webp"), alpha = !/^data:image\/jpe?g/.test(src);
+  let u = "";
+  for (const q of [.85, .75, .65, .55, .45]){ u = webp ? c.toDataURL("image/webp", q) : alpha ? c.toDataURL("image/png") : c.toDataURL("image/jpeg", q); if (u.length <= THUMB_BUDGET) break; }
+  return u;
+}
+// cardArt を読みこんで、サムネ → 本物の絵 の対応を覚える（成功: true / 失敗: false）
+function loadFullArt(id){
+  if (!S.db || !id) return Promise.resolve(false);
+  if (S.artLoads.has(id)) return S.artLoads.get(id);
+  const p = S.db.doc("cardArt/" + id).get().then(snap => {
+    const arts = (snap.exists && snap.data() && snap.data().arts) || {}, c = rawCard(id);
+    [c && c.img, ...((c && Array.isArray(c.skins) ? c.skins : []).map(s => s && s.img))].forEach(t => { if (typeof t === "string" && arts[artHash(t)]) S.artFull.set(t, arts[artHash(t)]); });
+    return true;
+  }).catch(() => { S.artLoads.delete(id); return false; });
+  S.artLoads.set(id, p);
+  return p;
+}
+const ensureFullArt = id => { const c = rawCard(id); return c && c.artRef ? loadFullArt(id) : Promise.resolve(true); };
+// 本物の絵のURL（編集で読みこむとき用）
+function artFullSrc(c){
+  if (!c || !c.img) return Promise.resolve("");
+  if (!c.artRef || S.artFull.has(c.img)) return Promise.resolve(artSrc(c.img));
+  return loadFullArt(c.skinOf || c.id).then(() => artSrc(c.img));
+}
+// 表示中のサムネを本物の絵に差しかえる（カード詳細など大きく見せるところで呼ぶ）
+function upgradeArt(root){
+  if (!root || !S.db) return;
+  root.querySelectorAll("img[data-aid]").forEach(im => {
+    const t = im.getAttribute("src"), f = S.artFull.get(t);
+    if (f){ im.src = f; return; }
+    loadFullArt(im.dataset.aid).then(() => { const g = S.artFull.get(t); if (g && im.isConnected && im.getAttribute("src") === t) im.src = g; });
+  });
+}
+// サムネを本物の絵に戻した形（分けずに保存するとき用）
+function withFullArt(doc){
+  const o = { ...doc, artRef: null };
+  if (typeof o.img === "string") o.img = artSrc(o.img);
+  if (Array.isArray(o.skins)) o.skins = o.skins.map(s => s && typeof s.img === "string" ? { ...s, img: artSrc(s.img) } : s);
+  return o;
+}
+async function splitArt(doc){
+  const arts = {}; let n = 0;
+  const one = async img => {
+    if (typeof img !== "string" || !img.startsWith("data:")) return img;
+    const full = artSrc(img);
+    if (full.length <= SPLIT_MIN) return full;
+    const t = await makeThumb(full);
+    if (!t || t.length >= full.length) return full;
+    arts[artHash(t)] = full; n++; S.artFull.set(t, full);
+    return t;
+  };
+  const out = { ...doc };
+  if ("img" in doc) out.img = await one(doc.img);
+  if (Array.isArray(doc.skins)) out.skins = await Promise.all(doc.skins.map(async s => s && typeof s.img === "string" ? { ...s, img: await one(s.img) } : s));
+  out.artRef = n ? true : null;
+  return { doc: out, arts: n ? arts : null };
+}
 async function saveCardDoc(id, doc){
+  if (S.db){
+    const had = !!(rawCard(id) || {}).artRef;
+    if (had && !(await ensureFullArt(id))) throw { code: "art-load" };
+    let d = withFullArt(doc), arts = null;
+    if (ART_SPLIT_OK){
+      try{ ({ doc: d, arts } = await splitArt(doc)); }catch(e){ d = withFullArt(doc); arts = null; }
+      if (arts){
+        try{ await S.db.doc("cardArt/" + id).set({ arts, updatedAt: Date.now() }); }
+        catch(e){ if (e && e.code === "permission-denied"){ ART_SPLIT_OK = false; d = withFullArt(doc); arts = null; } else throw e; }
+      }
+    }
+    if (JSON.stringify(d).length > 900000) throw { code: "too-big" };
+    await S.db.doc("cards/" + id).set(d);
+    if (had && !arts) S.db.doc("cardArt/" + id).delete().catch(() => {});
+    return;
+  }
   if (JSON.stringify(doc).length > 900000) throw { code: "too-big" };
-  if (S.db){ await S.db.doc("cards/" + id).set(doc); }
-  else { const a = local.cards().filter(c => c.id !== id); a.push({ id, ...doc }); ls.set("cb_cards", a); S.userCards = a; rebuildCards(); renderAll(); }
+  const a = local.cards().filter(c => c.id !== id); a.push({ id, ...doc }); ls.set("cb_cards", a); S.userCards = a; rebuildCards(); renderAll();
+}
+// まだ分けていないカードの絵を cardArt に移す（自分のカードは自動で、管理者は全部まとめて）
+const artNeedsSplit = c => !!c && !c.artRef && [c.img, ...(Array.isArray(c.skins) ? c.skins.map(s => s && s.img) : [])].some(t => typeof t === "string" && t.startsWith("data:") && t.length > SPLIT_MIN);
+let artMigBusy = false;
+async function migrateArt(all, onStep){
+  if (!S.db || artMigBusy || !ART_SPLIT_OK) return { done: 0, fail: 0, left: 0 };
+  artMigBusy = true; let done = 0, fail = 0;
+  try{
+    const L = [...(S.userCards || []), ...(S.userPotions || []), ...(S.userRelics || [])].filter(c => artNeedsSplit(c) && (all || isMine(c)));
+    for (const c of L){
+      if (!ART_SPLIT_OK) break;
+      const { id, ...doc } = c;
+      try{ await saveCardDoc(id, doc); done++; }catch(e){ fail++; }
+      if (onStep) onStep(done, fail, L.length);
+      await new Promise(r => setTimeout(r, 250));
+    }
+    return { done, fail, left: Math.max(0, L.length - done - fail) };
+  } finally { artMigBusy = false; }
 }
 async function deleteCardDoc(id){
-  if (S.db){ await S.db.doc("cards/" + id).delete(); }
+  if (S.db){ await S.db.doc("cards/" + id).delete(); S.db.doc("cardArt/" + id).delete().catch(() => {}); }
   else { const a = local.cards().filter(c => c.id !== id); ls.set("cb_cards", a); S.userCards = a; rebuildCards(); renderAll(); }
 }
 async function saveDeckDoc(id, doc){
@@ -4067,14 +4206,24 @@ async function deleteDeckDoc(id){
 }
 function subscribeData(){
   if (S.db){
-    S.db.collection("cards").onSnapshot({ includeMetadataChanges: true }, snap => { S.userCards = snap.docs.map(d => ({ id: d.id, ...d.data() })); rebuildCards(); S.cardsReady = !snap.metadata.fromCache && !snap.metadata.hasPendingWrites; if (S.cardsReady) pruneDeletedDeckCards(); renderAll(); }, () => toast("カードの読みこみが止まりました。ページを開きなおしてね"));
+    S.db.collection("cards").onSnapshot({ includeMetadataChanges: true }, snap => {
+      const ch = snap.docChanges(), wasReady = S.cardsReady, first = !S.cardsSeen;
+      ch.forEach(x => { if (x.type !== "added") S.artLoads.delete(x.doc.id); }); // 絵が変わったかもしれないので読みなおす
+      S.cardsReady = !snap.metadata.fromCache && !snap.metadata.hasPendingWrites; S.cardsSeen = true;
+      // 中身が変わっていない通知（同期の状態だけ）では、作り直しも描き直しもしない
+      if (!first && !ch.length && wasReady === S.cardsReady) return;
+      S.userCards = snap.docs.map(d => ({ id: d.id, ...d.data() })); rebuildCards();
+      if (S.cardsReady) pruneDeletedDeckCards();
+      renderAll();
+      if (S.cardsReady && !S.artMigAuto){ S.artMigAuto = true; setTimeout(() => migrateArt(false), 4000); } // 自分のカードの絵を、少しずつ軽い形に移す
+    }, () => toast("カードの読みこみが止まりました。ページを開きなおしてね"));
     S.db.collection("decks").onSnapshot({ includeMetadataChanges: true }, snap => { S.decks = snap.docs.map(d => ({ id: d.id, ...d.data() })); S.decksReady = !snap.metadata.fromCache && !snap.metadata.hasPendingWrites; if (S.decksReady) pruneDeletedDeckCards(); renderAll(); }, () => {});
     S.db.collection("builtin").onSnapshot(snap => { const m = {}; snap.docs.forEach(d => { m[d.id] = d.data(); }); S.builtinEdits = m; rebuildCards(); renderAll(); }, () => {});
     subscribeCounters();
     subscribeTrades();
   } else { S.userCards = local.cards(); S.decks = local.decks(); rebuildCards(); renderAll(); subscribeCounters(); }
 }
-const writeErr = e => toast(e && e.code === "too-big" ? "カードのデータが大きすぎて保存できません。効果の文章を短くしてみてね" : e && (e.code === "permission-denied" || e.code === "invalid_argument") ? "保存できませんでした（権限がありません）。自分のカード以外は変更できないよ" : e && e.code === "quota_exceeded" ? "保存容量がいっぱいです。古いカードを消してね" : "保存できませんでした。もう一度ためしてね");
+const writeErr = e => toast(e && e.code === "too-big" ? "カードのデータが大きすぎて保存できません。効果の文章を短くしてみてね" : e && (e.code === "permission-denied" || e.code === "invalid_argument") ? "保存できませんでした（権限がありません）。自分のカード以外は変更できないよ" : e && e.code === "quota_exceeded" ? "保存容量がいっぱいです。古いカードを消してね" : e && e.code === "art-load" ? "カードの絵を読みこめませんでした。通信を確かめて、もう一度ためしてね" : "保存できませんでした。もう一度ためしてね");
 
 // スターターデッキ（サバ缶のデッキ「スターターデッキ予定」から。2026-10-04）
 const STARTER_CARDS = [{"deckMode": "normal", "blocks": [{"else": [], "trig": "summon", "join": "and", "conds": [], "then": [{"kind": "oppSummon", "into": "ボム", "n": 1}]}], "nameSize": "m", "atkInf": false, "textSize": "m", "font": "round", "author": "サバ缶", "atk": 200, "limit": 3, "persist": false, "name": "ボンバーマン", "eqN": 0, "atkJoin": "and", "type": "monster", "abs": [], "flavor": "", "tags": [], "exhaust": false, "frameless": false, "eqAb": "none", "quick": false, "costX": false, "effect": "", "id": "sd-cmupz5vull9hxz", "starter": true, "img": "assets/starter/cmupz5vull9hxz.webp"}, {"flAlpha": 0, "limit": 0, "atkInf": false, "cost": 1, "costX": false, "effect": "", "nameSize": "l", "atkJoin": "and", "quick": false, "exhaust": false, "name": "てまぬい", "eqN": 0, "flavor": "は？", "abs": [], "deckMode": "both", "tags": [], "type": "monster", "eqAb": "none", "author": "サバ缶", "atk": 100, "frameless": true, "font": "daruma", "persist": false, "holo": "rainbow", "foil": "gold", "textSize": "m", "id": "sd-cmupvdov9erw20", "starter": true, "img": "assets/starter/cmupvdov9erw20.webp"}, {"trib": 2, "atkInf": false, "cost": 8, "nameSize": "s", "tribCost": 0, "abs": [], "name": "｜青眼の白龍《ブルーアイズ・ホワイトドラゴン》", "effect": "高い攻撃力を誇る伝説のドラゴン。\n\nどんな相手でも粉砕する、その破壊力は計り知れない。", "persist": false, "atk": 3000, "flavor": "", "quick": false, "eqAb": "none", "atkCondsCost": [], "author": "サバ缶", "tags": [], "costX": false, "atkJoinCost": "and", "type": "monster", "textSize": "s", "frame": "ygo", "font": "shipM", "deckMode": "both", "foil": "silver", "eqN": 0, "atkJoin": "and", "holo": "rainbow", "frameless": false, "limit": 1, "exhaust": false, "id": "sd-cmupr4jsufkx1l", "starter": true, "img": "assets/starter/cmupr4jsufkx1l.webp"}, {"atkConds": [{"op": "eq", "k": "otherMon", "n": 2}], "eqN": 0, "deckMode": "normal", "flavor": "最強の攻撃力を誇る", "eqAb": "none", "type": "monster", "limit": 3, "persist": false, "tags": [], "effect": "", "quick": false, "font": "shipM", "costX": false, "textSize": "s", "atkInf": false, "frameless": false, "atkJoin": "and", "exhaust": false, "atk": 1000, "author": "サバ缶", "name": "ビッグバトルボール忍", "nameSize": "s", "abs": [{"k": "topOnly"}], "blocks": [{"join": "and", "then": [{"intoId": "sd-cmupsf0h8mph7s", "kind": "oppSummon", "n": 1, "into": "ビッグバトルボール忍"}], "conds": [], "else": [], "trig": "destroyed"}], "id": "sd-cmupsf0h8mph7s", "starter": true, "img": "assets/starter/cmupsf0h8mph7s.webp"}, {"abs": [], "frameless": false, "nameSize": "m", "name": "とんかつ", "author": "サバ缶", "atk": 0, "persist": false, "blocks": [{"join": "and", "conds": [], "then": [{"into": "てまぬい", "intoId": "sd-cmupvdov9erw20", "n": 1, "kind": "genNamed"}, {"gn": 100, "gk": "atkUp", "n": 1, "mc": "named", "kind": "modAdd", "ge": {"kind": "atkUp", "n": 100}, "mpl": "both", "into": "てまぬい", "ms": "me"}], "trig": "use", "else": []}], "cost": 2, "flavor": "", "costX": false, "font": "murecho", "quick": false, "effect": "", "textSize": "s", "deckMode": "both", "tags": [], "type": "magic", "atkJoin": "and", "limit": 3, "eqN": 0, "eqAb": "none", "exhaust": false, "atkInf": false, "id": "sd-cmupw78ts80xl6", "starter": true, "img": "assets/starter/cmupw78ts80xl6.jpeg"}, {"blocks": [{"conds": [], "then": [{"to": "two", "n": 100, "kind": "destroy"}, {"n": 1, "kind": "discard"}], "join": "and", "else": [], "trig": "summon"}], "atkInf": false, "persist": false, "abs": [], "trib": 3, "eqN": 0, "eqAb": "none", "type": "monster", "name": "氷結界の龍トリシューラ", "quick": false, "costX": false, "author": "teru", "nameSize": "s", "flavor": "", "font": "reggae", "deckMode": "normal", "exhaust": false, "frameless": true, "effect": "", "limit": 3, "atk": 2700, "textSize": "s", "atkJoin": "and", "id": "sd-cmupunkk7pvnzp", "starter": true, "img": "assets/starter/cmupunkk7pvnzp.webp"}, {"blocks": [{"then": [{"n": 1, "kind": "draw"}], "join": "and", "else": [], "trig": "summon", "conds": []}], "eqAb": "none", "colB": "#bdd3ff", "atkJoin": "and", "deckMode": "both", "tags": [], "colF": "#2b2b2b", "type": "monster", "eqN": 0, "author": "サバ缶", "exhaust": false, "font": "maru", "textSize": "m", "atk": 300, "atkInf": false, "cost": 3, "costX": false, "persist": false, "quick": false, "abs": [], "effect": "", "name": "アクア・ハルカス", "limit": 3, "flavor": "", "frameless": false, "nameSize": "s", "id": "sd-cmum9ii2zahnai", "starter": true, "img": "assets/starter/cmum9ii2zahnai.webp"}, {"atkInf": false, "nameSize": "s", "font": "lubri", "eqAb": "none", "quick": false, "limit": 3, "name": "ガッタリン（幼体）", "flavor": "illustration:モロコシチップ", "exhaust": false, "abs": [{"k": "haste"}], "atkJoin": "and", "textSize": "s", "persist": false, "atk": 250, "author": "サバ缶", "tags": [], "eqN": 0, "type": "monster", "effect": "", "frameless": false, "deckMode": "normal", "blocks": [{"trig": "kill", "else": [], "conds": [], "join": "and", "then": [{"n": 1, "into": "ガッタリン（成体）", "kind": "transformSelf"}]}], "costX": false, "id": "sd-cmur39ki3xe0iw", "starter": true, "img": "assets/starter/cmur39ki3xe0iw.png"}, {"quick": false, "exhaust": false, "nameSize": "m", "costX": false, "eqN": 0, "atkInf": false, "atkJoin": "and", "font": "lubri", "type": "monster", "flavor": "illustration:モロコシチップ", "frame": "future", "tags": [], "limit": 3, "effect": "このモンスターは攻撃できない。このカードは戦闘によるダメージを0にする。このモンスターは優先的に狙われる。", "frameless": true, "eqAb": "none", "persist": false, "atk": 300, "author": "サバ缶", "name": "スタッティー", "textSize": "m", "deckMode": "normal", "abs": [{"k": "noAttack"}, {"k": "taunt"}, {"n": 99999, "k": "dmgCut"}], "id": "sd-cmur3lwf4559wo", "starter": true, "img": "assets/starter/cmur3lwf4559wo.webp"}, {"eqAb": "none", "abs": [], "type": "trap", "limit": 3, "tags": [], "author": "サバ缶", "quick": false, "when": "attacked", "frameless": false, "font": "lubri", "atk": 0, "costX": false, "persist": false, "nameSize": "m", "blocks": [{"else": [], "conds": [], "trig": "use", "join": "and", "then": [{"kind": "atkDown", "to": "all", "n": 200}]}], "flavor": "", "effect": "", "deckMode": "normal", "name": "ローション", "textSize": "m", "atkJoin": "and", "eqN": 0, "exhaust": false, "atkInf": false, "id": "sd-cmur3xo6pbq3jw", "starter": true, "img": "assets/starter/cmur3xo6pbq3jw.png"}, {"textEdge": true, "atkInf": false, "deckMode": "both", "persist": false, "limit": 3, "name": "ナナシちゃん", "abs": [], "effect": "", "quick": false, "costX": false, "cost": 5, "flavor": "", "atk": 333, "textSize": "m", "exhaust": false, "frameless": true, "blocks": [{"join": "and", "then": [{"intoId": "socra-2", "n": 2, "kind": "genNamed", "into": "キノコ"}], "conds": [], "else": [], "trig": "summon"}], "holo": "rainbow", "foil": "silver", "atkJoin": "and", "author": "サバ缶", "font": "lubri", "eqN": 0, "type": "monster", "colF": "#0a481f", "nameSize": "m", "tags": [], "flAlpha": 0, "colB": "#97c2dd", "eqAb": "none", "id": "sd-cmuprde5x6xnx2", "starter": true, "img": "assets/starter/cmuprde5x6xnx2.webp"}, {"deckMode": "both", "abs": [], "author": "サバ缶", "blocks": [{"dieBr": [{"lo": 1, "hi": 1, "then": [{"kind": "selfDiscAll", "n": 1}]}, {"then": [{"n": 2, "kind": "oppDraw"}], "hi": 2, "lo": 2}, {"lo": 3, "hi": 3, "then": [{"n": 200, "side": "me", "kind": "dmg"}]}, {"hi": 4, "lo": 4, "then": [{"n": 2, "kind": "draw"}]}, {"hi": 5, "lo": 5, "then": [{"kind": "atkMul", "n": 2}]}, {"then": [{"to": "all", "kind": "destroy", "n": 1}], "lo": 6, "hi": 6}], "else": [], "conds": [], "trig": "summon", "then": [], "roll": "die", "join": "and"}], "font": "lubri", "tags": [], "type": "monster", "atk": 250, "exhaust": false, "textSize": "s", "eqAb": "none", "atkJoin": "and", "limit": 3, "atkInf": false, "name": "ドパガキスンスン", "flavor": "ﾜｧ〜！！！！！！！！！！！！！！！", "persist": false, "nameSize": "m", "costX": false, "effect": "召喚したときサイコロを振り、出た目によって効果が変化する。", "eqN": 0, "quick": false, "frameless": false, "cost": 5, "id": "sd-cmupr0n0y9s4zn", "starter": true, "img": "assets/starter/cmupr0n0y9s4zn.webp"}, {"cost": 2, "abs": [], "exhaust": false, "nameSize": "s", "atkJoin": "and", "atk": 0, "name": "でじこが来たにょ", "author": "サバ缶", "frameless": false, "blocks": [{"join": "and", "then": [{"kind": "draw", "n": 2}], "else": [], "conds": [], "trig": "use"}], "quick": false, "flavor": "来てくれてありがとう", "persist": false, "colB": "#fde7f1", "eqAb": "none", "effect": "カードを2枚引く", "costX": false, "type": "trap", "textSize": "l", "colF": "#d06a9a", "tags": [], "deckMode": "both", "font": "round", "atkInf": false, "limit": 3, "eqN": 0, "id": "sd-cmuqm05sjcrajh", "starter": true, "img": "assets/starter/cmuqm05sjcrajh.jpeg"}, {"frame": "future", "textSize": "m", "abs": [{"k": "noAttack"}], "persist": false, "limit": 3, "name": "オイラー", "quick": false, "author": "サバ缶", "atk": 50, "costX": false, "blocks": [{"join": "and", "then": [{"n": 1, "kind": "draw"}], "trig": "summon", "conds": [], "else": []}, {"else": [], "conds": [], "trig": "turnStart", "join": "and", "then": [{"kind": "heal", "n": 100}]}], "deckMode": "normal", "exhaust": false, "flavor": "illustration:モロコシチップ", "nameSize": "m", "font": "lubri", "atkJoin": "and", "frameless": true, "effect": "", "tags": [], "type": "monster", "eqAb": "none", "atkInf": false, "eqN": 0, "id": "sd-cmur579ysciuxe", "starter": true, "img": "assets/starter/cmur579ysciuxe.webp"}, {"atkJoin": "and", "atkInf": false, "font": "lubri", "persist": false, "frameless": true, "nameSize": "m", "quick": false, "name": "ドリラット", "flavor": "illustration:モロコシチップ", "eqAb": "none", "limit": 3, "eqN": 0, "tags": [], "deckMode": "normal", "author": "サバ缶", "abs": [], "effect": "", "textSize": "m", "blocks": [{"else": [], "trig": "turnStart", "conds": [], "then": [{"n": 100, "kind": "selfAtk"}], "join": "and"}], "type": "monster", "exhaust": false, "atk": 100, "costX": false, "id": "sd-cmur49s2g57dly", "starter": true, "img": "assets/starter/cmur49s2g57dly.webp"}, {"quick": false, "flAlpha": 0, "costX": false, "frameless": true, "atk": 0, "atkJoin": "and", "blocks": [{"conds": [], "trig": "use", "else": [], "join": "and", "then": [{"kind": "draw", "n": 2}]}, {"join": "and", "then": [{"n": 3, "kind": "selfDiscRand"}], "conds": [{"k": "hand", "n": 5, "op": "ge"}], "else": [], "trig": "use"}], "nameSize": "m", "exhaust": false, "author": "サバ缶", "limit": 3, "name": "あだぷたー酒状態", "abs": [], "tags": [], "textEdge": true, "colF": "#1c3f8a", "eqN": 0, "deckMode": "normal", "type": "magic", "effect": "", "eqAb": "none", "colB": "#f2edb0", "flavor": "illustration:あだぷたー", "atkInf": false, "font": "lubri", "foil": "silver", "textSize": "s", "holo": "rainbow", "persist": false, "id": "sd-cmurd4kwk1jmyz", "starter": true, "img": "assets/starter/cmurd4kwk1jmyz.webp"}, {"tags": [], "costX": false, "exhaust": false, "type": "magic", "quick": false, "eqAb": "none", "atkInf": false, "atkJoin": "and", "limit": 3, "flavor": "", "eqN": 0, "frame": "ygo", "font": "serifH", "nameSize": "m", "holo": "rainbow", "effect": "", "foil": "rainbow", "author": "サバ缶", "persist": false, "abs": [], "deckMode": "normal", "blocks": [{"trig": "use", "conds": [], "else": [], "then": [{"n": 1, "kind": "fusion"}], "join": "and"}], "textSize": "s", "atk": 0, "frameless": false, "name": "融合", "id": "sd-cmurfc8k04f8z8", "starter": true, "img": "assets/starter/cmurfc8k04f8z8.webp"}, {"exhaust": false, "abs": [], "atkInf": false, "name": "デトロン", "atkJoin": "and", "atk": 666, "flavor": "illustration:モロコシチップ", "nameSize": "m", "effect": "", "author": "サバ缶", "persist": false, "atkConds": [{"side": "op", "k": "stronger", "has": "no"}], "limit": 1, "font": "lubri", "deckMode": "normal", "blocks": [{"conds": [], "trig": "attack", "else": [], "join": "and", "then": [{"kind": "destroyOwnAll", "n": 1}, {"to": "all", "n": 1, "kind": "destroy"}, {"n": 300, "kind": "dmg"}, {"n": 300, "side": "me", "kind": "dmg"}]}], "tags": [], "quick": false, "textSize": "s", "type": "monster", "frameless": true, "costX": false, "eqN": 0, "eqAb": "none", "id": "sd-cmur5ifrepkotw", "starter": true, "img": "assets/starter/cmur5ifrepkotw.webp"}, {"type": "trap", "atk": 0, "flavor": "ア゛ア゛ア゛ア゛ア゛ア゛ア゛！！！！！！", "tags": [], "frame": "ygo", "frameless": false, "eqAb": "none", "limit": 3, "effect": "", "abs": [], "quick": false, "persist": false, "costX": false, "font": "serifH", "nameSize": "m", "when": "attacked", "atkInf": false, "deckMode": "normal", "eqN": 0, "exhaust": false, "author": "サバ缶", "textSize": "s", "name": "落とし穴", "atkJoin": "and", "blocks": [{"then": [{"kind": "killAtk", "n": 1}], "join": "and", "trig": "use", "conds": [], "else": []}], "id": "sd-cmurm6jtpm7wyh", "starter": true, "img": "assets/starter/cmurm6jtpm7wyh.webp"}, {"costX": false, "exhaust": false, "ex": true, "frameless": true, "nameSize": "m", "name": "サBANカ", "abs": [], "atkJoin": "and", "quick": false, "atkInf": false, "limit": 3, "flavor": "", "atk": 300, "effect": "", "frame": "future", "author": "サバ缶", "persist": false, "holo": "rainbow", "blocks": [{"then": [{"kind": "oppNoAtk", "n": 1}], "join": "and", "trig": "enter", "else": [], "conds": []}], "font": "lubri", "textSize": "l", "eqN": 0, "deckMode": "normal", "type": "monster", "tags": [], "fusion": [{"v": "サバ缶", "m": "name"}, {"v": "", "m": "any"}], "eqAb": "none", "id": "sd-cmus6xrlcg9az4", "starter": true, "img": "assets/starter/cmus6xrlcg9az4.webp"}, {"abs": [{"k": "direct"}], "exhaust": false, "font": "lubri", "frameless": false, "atkJoin": "and", "atk": 50, "colF": "#162f69", "tags": [], "type": "monster", "eqAb": "none", "colB": "#ffa3ee", "author": "サバ缶", "nameSize": "l", "persist": false, "effect": "", "limit": 3, "flavor": "", "deckMode": "normal", "name": "サバ缶", "textSize": "m", "atkInf": false, "costX": false, "quick": false, "eqN": 0, "id": "sd-cmus6s9cpan659", "starter": true, "img": "assets/starter/cmus6s9cpan659.webp"}, {"tags": [], "colF": "#058583", "blocks": [{"trig": "use", "else": [], "conds": [], "join": "and", "then": [{"n": 1, "kind": "reflectFx"}, {"kind": "reflectDmg", "n": 1}]}], "type": "magic", "colB": "#b3f9cb", "eqAb": "none", "author": "サバ缶", "nameSize": "m", "frameless": false, "exhaust": false, "when": "oppUse", "atkJoin": "and", "eqN": 0, "font": "heavy", "holo": "rainbow", "atkInf": false, "costX": false, "abs": [], "deckMode": "normal", "quick": true, "effect": "何でも跳ね返す", "limit": 3, "persist": false, "atk": 0, "textSize": "l", "flavor": "￥10", "name": "スーパーミラー", "id": "sd-cmutbd4oqjt28m", "starter": true, "img": "assets/starter/cmutbd4oqjt28m.webp"}, {"effect": "", "nameSize": "m", "tags": [], "costX": false, "type": "monster", "quick": false, "eqAb": "none", "flavor": "", "atkInf": false, "persist": false, "limit": 3, "font": "round", "frameless": false, "eqN": 0, "abs": [{"k": "noAttack"}], "textSize": "m", "atk": 0, "blocks": [{"conds": [], "trig": "destroyed", "else": [], "join": "and", "then": [{"n": 250, "kind": "loseLp"}]}], "deckMode": "normal", "exhaust": false, "name": "ボム", "author": "サバ缶", "atkJoin": "and", "token": true, "id": "sd-cmupzfyq8414ch", "starter": true, "img": "assets/starter/cmupzfyq8414ch.png"}, {"nameSize": "s", "atkJoin": "and", "effect": "", "costX": false, "frameless": true, "abs": [], "eqAb": "none", "type": "monster", "flavor": "illustration:モロコシチップ", "exhaust": false, "tags": [], "quick": false, "holo": "rainbow", "atkInf": false, "limit": 3, "atk": 300, "font": "lubri", "frame": "future", "textSize": "s", "persist": false, "blocks": [{"then": [{"n": 600, "kind": "selfAtk"}], "conds": [{"match": "name", "who": "me", "k": "used", "name": "ローション"}], "join": "and", "trig": "while", "else": []}], "name": "ガッタリン（成体）", "deckMode": "normal", "token": true, "eqN": 0, "author": "サバ缶", "id": "sd-cmur3bu2d1iqit", "starter": true, "img": "assets/starter/cmur3bu2d1iqit.webp"}];
@@ -4556,6 +4705,7 @@ async function shotFontCSS(root){
 }
 // カード1枚を大きめに描いて PNG にする（スパイア風などのはみ出す枠も入るように、まわりに余白をとる）
 async function cardShotBlob(c){
+  if (c && c.artRef) await loadFullArt(c.skinOf || c.id); // 画像は本物の絵で作る
   const box = document.createElement("div"); box.className = "card-shot";
   box.innerHTML = cardHTML(c, "", "", { mana: hasCost(c) });
   document.body.appendChild(box);
@@ -6379,7 +6529,7 @@ function mkApplyLook(L){
   const fr = $("#mkFrame"); fr.value = [...fr.options].some(o => o.value === (L.frame || "")) ? (L.frame || "") : "";
   setFrameless(!!L.frameless); setFlAlpha(L.flAlpha ?? FL_ALPHA_DEF); setTEdge(!!L.textEdge); setShine(L.holo, ""); if (FOIL_TAG[L.foil]) $("#mkName").value = foilName($("#mkName").value, L.foil); setColor(L.colF, L.colB, L.colF2, L.colB2, L.colGd);
   $("#mkFont").value = FONTS[L.font] ? L.font : "klee"; syncFrame(); syncFont(); $("#mkSpc").value = L.spc === "silent" ? "silent" : ""; syncRarity();
-  if (!L.img){ clearCanvas(); undoStack = []; } else { const im = new Image(); im.onload = () => { clearCanvas(); setPhoto(im); setMode("draw"); composite(); undoStack = []; MK.artDirty = true; }; im.src = L.img; }
+  if (!L.img){ clearCanvas(); undoStack = []; } else { const im = new Image(); im.onload = () => { clearCanvas(); setPhoto(im); setMode("draw"); composite(); undoStack = []; MK.artDirty = true; }; im.src = artSrc(L.img); }
   MK.artDirty = true;
 }
 function renderSkinUI(){
@@ -6508,7 +6658,7 @@ async function potGalClick(e){
     $("#mkFont").value = FONTS[c.font] ? c.font : "klee"; syncFont();
     loadFxForm({ ...c, type: "magic", ...(c.type === "relic" ? { relicView: true } : {}) });
     if (!c.img){ clearCanvas(); undoStack = []; MK.artDirty = false; }
-    else { const im = new Image(); im.onload = () => { clearCanvas(); setPhoto(im); setMode("draw"); composite(); undoStack = []; MK.artDirty = false; }; im.src = c.img; }
+    else { const im = new Image(); im.onload = () => { clearCanvas(); setPhoto(im); setMode("draw"); composite(); undoStack = []; MK.artDirty = false; }; artFullSrc(c).then(src => { im.src = src; }); }
     potionModeUI(); $("#btnNew").hidden = false; $("#btnSave").textContent = "変更を保存";
     window.scrollTo({ top: 0, behavior: "smooth" });
     return true;
@@ -6550,7 +6700,7 @@ $("#btnBulkTag").addEventListener("click", () => bulkTag(true));
 $("#btnBulkUntag").addEventListener("click", () => bulkTag(false));
 $("#bulkTag").addEventListener("input", () => { BULK_ARM = null; });
 function renderGallery(){
-  $("#adminTagRow").hidden = !isAdmin();
+  $("#adminTagRow").hidden = !isAdmin(); $("#adminArtRow").hidden = !isAdmin() || !S.db;
   let list = [...S.userCards].sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
   if (S.galF === "mine") list = list.filter(c => isMine(c));
   const items = list.map(c => {
@@ -6571,7 +6721,7 @@ function renderGallery(){
   if ((S.filt.gal || {}).type === "counter"){ const L = ctrGalList(); setCount("gal", L.length, L.length); $("#gallery").innerHTML = L.map(ctrTileHTML).join("") + `<div class="ctr-tile ctr-new"><button type="button" class="primary" data-ctrnewg>＋ 新しいカウンターを作る</button><span class="note">カード工房の「カード以外 → カウンター」で作れます</span></div>`; return; }
   if ((S.filt.gal || {}).type === "relic"){ const L = relicList(); setCount("gal", L.length, L.length); $("#gallery").innerHTML = L.map(relItemHTML).join("") || `<p class="muted">レリックがありません。</p>`; return; }
   if ((S.filt.gal || {}).type === "potion"){ const L = potionList(); setCount("gal", L.length, L.length); $("#gallery").innerHTML = L.map(potItemHTML).join("") || `<p class="muted">ポーションがありません。上の「つくるもの」で「カード以外」をえらぶと作れます。</p>`; return; }
-  $("#gallery").innerHTML = ctrBanner(S.filt.gal) + (items2.join("") || (total ? `<p class="muted">条件に合うカードがありません。</p>` : `<p class="muted">まだ自分のカードはありません。上で描いてみよう！</p>`));
+  fillChunked($("#gallery"), JSON.stringify([S.galF, S.filt.gal]), ctrBanner(S.filt.gal), items2, total ? `<p class="muted">条件に合うカードがありません。</p>` : `<p class="muted">まだ自分のカードはありません。上で描いてみよう！</p>`);
 }
 $("#gallery").addEventListener("click", e => {
   const by = e.target.closest("[data-by]"); if (!by) return;
@@ -6596,7 +6746,7 @@ $("#gallery").addEventListener("click", async e => {
     setMkKind("card"); S.editId = c.id; mkSkinReset(c); setFrameless(!!c.frameless); setFlAlpha(c.flAlpha ?? FL_ALPHA_DEF); setTEdge(!!c.textEdge); setShine(c.holo, ""); setColor(c.colF, c.colB, c.colF2, c.colB2, c.colGd); mkSetLvAttr(c); $("#mkFxRows").checked = MK.fxRows = !!c.fxRows; $("#mkHideText").checked = !!c.hideText; MK.artDirty = false; $("#mkName").value = foilName(c.nameRuby || c.name, c.foil); $("#mkEff").value = c.effect || ""; $("#mkFlv").value = c.flavor || ""; $("#mkNameSize").value = SIZES_T[c.nameSize] ? c.nameSize : "m"; $("#mkTextSize").value = SIZES_T[c.textSize] ? c.textSize : "m"; syncSizes(); $("#mkAtk").value = c.atkInf ? "∞" : (c.atk || 0); $("#mkLimit").value = String(cardLimit(c));
     mkLoadVars(c); setUseConds(c); $("#mkFusion").checked = !!(Array.isArray(c.fusion) && c.fusion.length); MK.fusion = Array.isArray(c.fusion) && c.fusion.length ? JSON.parse(JSON.stringify(c.fusion)) : null; renderFusion(); $("#mkQuick").checked = !!c.quick; $("#mkStartOnField").checked = !!c.startOnField; $("#mkCannotLeave").checked = !!c.cannotLeave; $("#mkInnate").checked = !!c.innate; $("#mkRetain").checked = !!c.retain; $("#mkEthereal").checked = !!c.ethereal; $("#mkSly").checked = !!c.sly; { const g = hfOf(c); $("#mkHf").checked = !!g; $("#mkHfM").value = g ? g.m : "tag"; $("#mkHfW").value = g && g.w || ""; syncHfUI(); } $("#mkCascade").checked = !!c.cascade; { const g = glOf(c); $("#mkGl").checked = !!g; $("#mkGlSide").value = g ? (g.l && g.r ? "lr" : g.r ? "r" : "l") : "r"; $("#mkGlW").value = g && g.w || ""; $("#mkGlSide").hidden = $("#mkGlW").hidden = !g; } $("#mkWhen").value = WHEN_LABEL[c.when] ? c.when : ""; $("#mkExhaust").checked = !!c.exhaust; $("#mkNoUse").checked = !!c.noUse; $("#mkFlash").checked = !!c.flashback; $("#mkMass").value = Math.max(0, +c.mass || 0); $("#mkFMass").value = c.field ? Math.max(0, +c.mass || 0) : 0; $("#mkLand").checked = !!c.land; $("#mkFieldMine").checked = !!c.fieldMine; $("#mkAnySum").checked = !!c.anySum; $("#mkStrig").checked = !!c.strig; $("#mkKick").value = Math.max(0, +c.kick || 0); $("#mkToken").checked = !!c.token; $("#mkEx").checked = !!c.ex; $("#mkPayLp").value = String(payLpOf(c)); $("#mkPayDisc").value = String(payDiscOf(c)); $("#mkPayDiscTag").value = c.payDiscTag || ""; setPayCtr(c.payCtr); setCostMech(c); $("#mkTags").value = tagsOf(c).join(" "); $("#mkShowTags").checked = !!c.showTags; syncTribe(); $("#mkTribTag").value = c.tribTag || ""; $("#mkPayDiscAll").checked = payDiscAll(c); $("#mkPayDisc").disabled = payDiscAll(c); $("#mkPayMax").value = String(payMaxOf(c)); $("#mkPersist").checked = !!c.persist; $("#mkField").checked = !!c.field; MK.sk = c.sk || null; $("#mkRarity").value = rarityOf(c); $("#mkSpc").value = c.spc === "silent" ? "silent" : ""; setMkType(cardType(c)); loadFxForm(c); $("#mkFont").value = FONTS[c.font] ? c.font : "klee"; syncFont(); $("#mkCost").value = c.costX ? "X" : c.costInf && hasCost(c) ? "∞" : hasCost(c) ? String(costOf(c)) : "1"; if (!$("#mkCost").value && hasCost(c)) $("#mkCost").insertAdjacentHTML("beforeend", `<option value="${costOf(c)}">${costOf(c)}</option>`), $("#mkCost").value = String(costOf(c)); setMkDeck(deckModeOf(c)); $("#mkEq").value = c.eqN || 0; $("#mkEqAb").value = "none"; $("#mkEqCost").value = String(eqCostOf(c)); $("#mkEqCap").value = hasEqCap(c) ? String(+c.eqCap) : ""; loadAbs(absOf(c)); syncEqLine(); $("#mkFrame").value = [...$("#mkFrame").options].some(o => o.value && o.value === c.frame) ? c.frame : ""; syncFrame(); loadSS(c);
     if (!c.img){ clearCanvas(); undoStack = []; MK.artDirty = false; }
-    else { const im = new Image(); im.onload = () => { clearCanvas(); setPhoto(im); setMode("draw"); composite(); undoStack = []; MK.artDirty = false; }; im.src = c.img; }
+    else { const im = new Image(); im.onload = () => { clearCanvas(); setPhoto(im); setMode("draw"); composite(); undoStack = []; MK.artDirty = false; }; artFullSrc(c).then(src => { im.src = src; }); }
     $("#mkTitle").textContent = "カードを編集中"; $("#btnNew").hidden = false; $("#btnSave").textContent = "変更を保存";
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
@@ -6608,6 +6758,7 @@ $("#gallery").addEventListener("click", async e => {
     if (delArm !== "b:" + id){ delArm = "b:" + id; renderGallery(); return; }
     delArm = null;
     try{
+      if (!(await ensureFullArt(id))) throw { code: "art-load" };
       const doc = JSON.parse(JSON.stringify({ ...c, id: undefined, starter: undefined, edited: undefined, author: base.author, ownerId: null, updatedAt: Date.now() }));
       await saveBuiltinDoc(base.id, doc);
       for (const d of myDecks().filter(d => d.cards.includes(id))) await saveDeckDoc(d.id, { ...d, id: undefined, cards: d.cards.map(x => x === id ? base.id : x), key: d.key === id ? base.id : d.key || null });
@@ -6633,6 +6784,19 @@ $("#gallery").addEventListener("click", async e => {
   }
 });
 
+
+// 管理者: まだ分けていないカードの絵を、まとめて cardArt に移す
+$("#btnArtMig").addEventListener("click", async () => {
+  if (!isAdmin()) return;
+  const msg = $("#artMigMsg"), btn = $("#btnArtMig"), all = [...(S.userCards || []), ...(S.userPotions || []), ...(S.userRelics || [])];
+  const n = all.filter(artNeedsSplit).length;
+  if (!n){ msg.textContent = "移すカードはありません（全部軽い形になっています）"; return; }
+  btn.disabled = true; msg.textContent = `移しています… 0 / ${n}`;
+  try{
+    const r = await migrateArt(true, (d, f, t) => { msg.textContent = `移しています… ${d + f} / ${t}${f ? `（失敗 ${f}）` : ""}`; });
+    msg.textContent = !ART_SPLIT_OK ? "cardArt に書きこめませんでした。Firestoreのルールに cardArt を追加してね" : `${r.done}枚を移しました${r.fail ? `（${r.fail}枚は失敗。ほかの人のカードは書きかえる権限がないかも）` : ""}`;
+  } finally { btn.disabled = false; }
+});
 /* ================= decks ================= */
 S.deckEdit = { id: null, cards: {} };
 function myDecks(){ return S.decks.filter(d => isMine(d, "owner")); }
@@ -6659,10 +6823,10 @@ function renderDeck(){
   const pool = sortCards(pool0.filter(c => matchCard(c, S.filt.deck) && (fitsDeck(c, deckKindNow()) || S.deckEdit.cards[c.id])), S.filt.deck.sort);
   S.deckPoolIds = pool.map(c => c.id);
   setCount("deck", pool.length, pool0.length);
-  $("#deckPool").innerHTML = (pool.length ? "" : `<p class="muted">条件に合うカードがありません。</p>`) + pool.map(c => {
+  fillChunked($("#deckPool"), JSON.stringify([S.filt.deck, deckKindNow()]), "", pool.map(c => {
     const k = famCount(c.id), lim = cardLimit(c), shown = k ? card(famPick(c.id)) : c;
     return `<div class="pool-item${isBorrowed(c.id) ? " borrowed" : ""}">${isBorrowed(c.id) ? `<span class="borrow-tag" title="持っていないけど、このデッキでは借りて使える">借りもの</span>` : ""}${cardHTML(shown, "sm", "", { mana: $("#deckMana").checked })}<div class="cnt"><button class="small" data-dm="${esc(c.id)}" ${k ? "" : "disabled"} aria-label="へらす">−</button><b>${k}/${lim || "∞"}</b><button class="small" data-dp="${esc(c.id)}" ${lim && k >= lim ? "disabled" : ""} aria-label="ふやす">＋</button></div></div>`;
-  }).join("");
+  }), `<p class="muted">条件に合うカードがありません。</p>`);
 }
 $("#deckMana").addEventListener("change", renderDeck);
 $("#deckView").addEventListener("click", e => stripClick(e, "deck"));
@@ -6761,6 +6925,7 @@ function renderCardView(){
     <button class="cv-nav next" data-cv="next" ${CV.i < CV.ids.length - 1 ? "" : "disabled"} aria-label="次のカード">›</button>
     <div class="cv-pos">${CV.i + 1} / ${CV.ids.length}</div></div>`;
   $("#cardView").hidden = false;
+  upgradeArt($("#cardView"));
 }
 $("#cardView").addEventListener("click", e => {
   if (e.target === e.currentTarget){ closeCardView(); return; }
@@ -6952,7 +7117,7 @@ function renderMe(){
     return `<div class="me-deck">${face ? cardHTML(face, "", "", { mana: !!dk.mana }) : ""}<div style="flex:1;min-width:0"><div class="nm">${esc(dk.name)}</div><div class="meta">${dk.cards.length}枚${dk.mana ? "・コストデッキ" : ""}${dk.spire ? "・スパイア" : ""}</div><div class="row" style="gap:6px;margin-top:6px"><button class="small" data-medit="${esc(dk.id)}">編集</button><button class="small primary" data-muse="${esc(dk.id)}">対戦で使う</button></div></div></div>`;
   }).join("") || `<p class="muted">まだデッキがありません。</p>`;
   S.meIds = mine.map(c => c.id);
-  $("#mpCards").innerHTML = mine.map(c => `<div class="g-item">${cardHTML(c, "sm")}</div>`).join("") || `<p class="muted">まだカードがありません。</p>`;
+  fillChunked($("#mpCards"), "me", "", mine.map(c => `<div class="g-item">${cardHTML(c, "sm")}</div>`), `<p class="muted">まだカードがありません。</p>`);
 }
 $("#mpName").addEventListener("change", e => { S.name = e.target.value.trim() || "プレイヤー"; e.target.value = S.name; ls.set("cb_name", S.name); saveProfile(); renderAll(); });
 $("#mpIcon").addEventListener("change", e => { ls.set("cb_icon", e.target.value); saveProfile(); renderMe(); });
@@ -10966,6 +11131,7 @@ function renderDetail(info, anim){
   const eqRow = info.eqList && info.eqList.length ? `<div class="eqrow"><div class="eqlbl">装備（左から順）　${esc(info.cap || "")}</div><div class="eqlist">${info.eqList.map((e, k) => `${k ? `<span class="eqarr">→</span>` : ""}<button class="eqi" data-eqcid="${esc(e.c)}" aria-label="「${esc(card(e.c).name)}」の詳細">${cardHTML(card(e.c), "xs", "", { mana: e.mana })}${e.mult > 1 || e.used || e.opp ? `<span class="eqtag">${[e.mult > 1 ? "×2" : "", e.used ? "使用ずみ" : "", e.opp ? "相手の" : ""].filter(Boolean).join("・")}</span>` : ""}</button>`).join("")}</div></div>` : "";
   const back = G.detailBack ? `<button class="small ghost eqback" data-detailback>← もどる</button>` : "";
   box.innerHTML = `${CLOSE}<h3>カード詳細</h3>${back}${info.glIds && info.glIds.length > 1 ? `<div class="detailcard gl-join" style="--gln:${info.glIds.length}">${info.glIds.map(x => cardHTML(card(x.id), "detail" + (x.me ? " gl-me" : ""), "", { mod: x.mod, mana: info.mana })).join("")}</div><p class="note gl-cap" style="margin:4px 0 0;text-align:center">${info.glIds.map(x => `「${esc(card(x.id).name)}」`).join("＋")}がGリンク中</p>` : `<div class="detailcard">${cardHTML(c, "detail", "", { mod: info.mod, mana: info.mana })}</div>`}${eqRow}${ownFx}${xbFx}<dl class="dl">${lvAttrRowsIn(rows, c).map(([k, v, h]) => `<dt>${k}</dt><dd>${h || tkLink(esc(v))}</dd>`).join("")}</dl>${actDetail(c)}`;
+  upgradeArt(box);
 }
 // 詳細: 起動効果を持つ自分の場のモンスターなら「発動する」
 function actDetail(c){

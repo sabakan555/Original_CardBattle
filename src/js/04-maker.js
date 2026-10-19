@@ -1554,7 +1554,7 @@ function mkApplyLook(L){
   const fr = $("#mkFrame"); fr.value = [...fr.options].some(o => o.value === (L.frame || "")) ? (L.frame || "") : "";
   setFrameless(!!L.frameless); setFlAlpha(L.flAlpha ?? FL_ALPHA_DEF); setTEdge(!!L.textEdge); setShine(L.holo, ""); if (FOIL_TAG[L.foil]) $("#mkName").value = foilName($("#mkName").value, L.foil); setColor(L.colF, L.colB, L.colF2, L.colB2, L.colGd);
   $("#mkFont").value = FONTS[L.font] ? L.font : "klee"; syncFrame(); syncFont(); $("#mkSpc").value = L.spc === "silent" ? "silent" : ""; syncRarity();
-  if (!L.img){ clearCanvas(); undoStack = []; } else { const im = new Image(); im.onload = () => { clearCanvas(); setPhoto(im); setMode("draw"); composite(); undoStack = []; MK.artDirty = true; }; im.src = L.img; }
+  if (!L.img){ clearCanvas(); undoStack = []; } else { const im = new Image(); im.onload = () => { clearCanvas(); setPhoto(im); setMode("draw"); composite(); undoStack = []; MK.artDirty = true; }; im.src = artSrc(L.img); }
   MK.artDirty = true;
 }
 function renderSkinUI(){
@@ -1683,7 +1683,7 @@ async function potGalClick(e){
     $("#mkFont").value = FONTS[c.font] ? c.font : "klee"; syncFont();
     loadFxForm({ ...c, type: "magic", ...(c.type === "relic" ? { relicView: true } : {}) });
     if (!c.img){ clearCanvas(); undoStack = []; MK.artDirty = false; }
-    else { const im = new Image(); im.onload = () => { clearCanvas(); setPhoto(im); setMode("draw"); composite(); undoStack = []; MK.artDirty = false; }; im.src = c.img; }
+    else { const im = new Image(); im.onload = () => { clearCanvas(); setPhoto(im); setMode("draw"); composite(); undoStack = []; MK.artDirty = false; }; artFullSrc(c).then(src => { im.src = src; }); }
     potionModeUI(); $("#btnNew").hidden = false; $("#btnSave").textContent = "変更を保存";
     window.scrollTo({ top: 0, behavior: "smooth" });
     return true;
@@ -1725,7 +1725,7 @@ $("#btnBulkTag").addEventListener("click", () => bulkTag(true));
 $("#btnBulkUntag").addEventListener("click", () => bulkTag(false));
 $("#bulkTag").addEventListener("input", () => { BULK_ARM = null; });
 function renderGallery(){
-  $("#adminTagRow").hidden = !isAdmin();
+  $("#adminTagRow").hidden = !isAdmin(); $("#adminArtRow").hidden = !isAdmin() || !S.db;
   let list = [...S.userCards].sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
   if (S.galF === "mine") list = list.filter(c => isMine(c));
   const items = list.map(c => {
@@ -1746,7 +1746,7 @@ function renderGallery(){
   if ((S.filt.gal || {}).type === "counter"){ const L = ctrGalList(); setCount("gal", L.length, L.length); $("#gallery").innerHTML = L.map(ctrTileHTML).join("") + `<div class="ctr-tile ctr-new"><button type="button" class="primary" data-ctrnewg>＋ 新しいカウンターを作る</button><span class="note">カード工房の「カード以外 → カウンター」で作れます</span></div>`; return; }
   if ((S.filt.gal || {}).type === "relic"){ const L = relicList(); setCount("gal", L.length, L.length); $("#gallery").innerHTML = L.map(relItemHTML).join("") || `<p class="muted">レリックがありません。</p>`; return; }
   if ((S.filt.gal || {}).type === "potion"){ const L = potionList(); setCount("gal", L.length, L.length); $("#gallery").innerHTML = L.map(potItemHTML).join("") || `<p class="muted">ポーションがありません。上の「つくるもの」で「カード以外」をえらぶと作れます。</p>`; return; }
-  $("#gallery").innerHTML = ctrBanner(S.filt.gal) + (items2.join("") || (total ? `<p class="muted">条件に合うカードがありません。</p>` : `<p class="muted">まだ自分のカードはありません。上で描いてみよう！</p>`));
+  fillChunked($("#gallery"), JSON.stringify([S.galF, S.filt.gal]), ctrBanner(S.filt.gal), items2, total ? `<p class="muted">条件に合うカードがありません。</p>` : `<p class="muted">まだ自分のカードはありません。上で描いてみよう！</p>`);
 }
 $("#gallery").addEventListener("click", e => {
   const by = e.target.closest("[data-by]"); if (!by) return;
@@ -1771,7 +1771,7 @@ $("#gallery").addEventListener("click", async e => {
     setMkKind("card"); S.editId = c.id; mkSkinReset(c); setFrameless(!!c.frameless); setFlAlpha(c.flAlpha ?? FL_ALPHA_DEF); setTEdge(!!c.textEdge); setShine(c.holo, ""); setColor(c.colF, c.colB, c.colF2, c.colB2, c.colGd); mkSetLvAttr(c); $("#mkFxRows").checked = MK.fxRows = !!c.fxRows; $("#mkHideText").checked = !!c.hideText; MK.artDirty = false; $("#mkName").value = foilName(c.nameRuby || c.name, c.foil); $("#mkEff").value = c.effect || ""; $("#mkFlv").value = c.flavor || ""; $("#mkNameSize").value = SIZES_T[c.nameSize] ? c.nameSize : "m"; $("#mkTextSize").value = SIZES_T[c.textSize] ? c.textSize : "m"; syncSizes(); $("#mkAtk").value = c.atkInf ? "∞" : (c.atk || 0); $("#mkLimit").value = String(cardLimit(c));
     mkLoadVars(c); setUseConds(c); $("#mkFusion").checked = !!(Array.isArray(c.fusion) && c.fusion.length); MK.fusion = Array.isArray(c.fusion) && c.fusion.length ? JSON.parse(JSON.stringify(c.fusion)) : null; renderFusion(); $("#mkQuick").checked = !!c.quick; $("#mkStartOnField").checked = !!c.startOnField; $("#mkCannotLeave").checked = !!c.cannotLeave; $("#mkInnate").checked = !!c.innate; $("#mkRetain").checked = !!c.retain; $("#mkEthereal").checked = !!c.ethereal; $("#mkSly").checked = !!c.sly; { const g = hfOf(c); $("#mkHf").checked = !!g; $("#mkHfM").value = g ? g.m : "tag"; $("#mkHfW").value = g && g.w || ""; syncHfUI(); } $("#mkCascade").checked = !!c.cascade; { const g = glOf(c); $("#mkGl").checked = !!g; $("#mkGlSide").value = g ? (g.l && g.r ? "lr" : g.r ? "r" : "l") : "r"; $("#mkGlW").value = g && g.w || ""; $("#mkGlSide").hidden = $("#mkGlW").hidden = !g; } $("#mkWhen").value = WHEN_LABEL[c.when] ? c.when : ""; $("#mkExhaust").checked = !!c.exhaust; $("#mkNoUse").checked = !!c.noUse; $("#mkFlash").checked = !!c.flashback; $("#mkMass").value = Math.max(0, +c.mass || 0); $("#mkFMass").value = c.field ? Math.max(0, +c.mass || 0) : 0; $("#mkLand").checked = !!c.land; $("#mkFieldMine").checked = !!c.fieldMine; $("#mkAnySum").checked = !!c.anySum; $("#mkStrig").checked = !!c.strig; $("#mkKick").value = Math.max(0, +c.kick || 0); $("#mkToken").checked = !!c.token; $("#mkEx").checked = !!c.ex; $("#mkPayLp").value = String(payLpOf(c)); $("#mkPayDisc").value = String(payDiscOf(c)); $("#mkPayDiscTag").value = c.payDiscTag || ""; setPayCtr(c.payCtr); setCostMech(c); $("#mkTags").value = tagsOf(c).join(" "); $("#mkShowTags").checked = !!c.showTags; syncTribe(); $("#mkTribTag").value = c.tribTag || ""; $("#mkPayDiscAll").checked = payDiscAll(c); $("#mkPayDisc").disabled = payDiscAll(c); $("#mkPayMax").value = String(payMaxOf(c)); $("#mkPersist").checked = !!c.persist; $("#mkField").checked = !!c.field; MK.sk = c.sk || null; $("#mkRarity").value = rarityOf(c); $("#mkSpc").value = c.spc === "silent" ? "silent" : ""; setMkType(cardType(c)); loadFxForm(c); $("#mkFont").value = FONTS[c.font] ? c.font : "klee"; syncFont(); $("#mkCost").value = c.costX ? "X" : c.costInf && hasCost(c) ? "∞" : hasCost(c) ? String(costOf(c)) : "1"; if (!$("#mkCost").value && hasCost(c)) $("#mkCost").insertAdjacentHTML("beforeend", `<option value="${costOf(c)}">${costOf(c)}</option>`), $("#mkCost").value = String(costOf(c)); setMkDeck(deckModeOf(c)); $("#mkEq").value = c.eqN || 0; $("#mkEqAb").value = "none"; $("#mkEqCost").value = String(eqCostOf(c)); $("#mkEqCap").value = hasEqCap(c) ? String(+c.eqCap) : ""; loadAbs(absOf(c)); syncEqLine(); $("#mkFrame").value = [...$("#mkFrame").options].some(o => o.value && o.value === c.frame) ? c.frame : ""; syncFrame(); loadSS(c);
     if (!c.img){ clearCanvas(); undoStack = []; MK.artDirty = false; }
-    else { const im = new Image(); im.onload = () => { clearCanvas(); setPhoto(im); setMode("draw"); composite(); undoStack = []; MK.artDirty = false; }; im.src = c.img; }
+    else { const im = new Image(); im.onload = () => { clearCanvas(); setPhoto(im); setMode("draw"); composite(); undoStack = []; MK.artDirty = false; }; artFullSrc(c).then(src => { im.src = src; }); }
     $("#mkTitle").textContent = "カードを編集中"; $("#btnNew").hidden = false; $("#btnSave").textContent = "変更を保存";
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
@@ -1783,6 +1783,7 @@ $("#gallery").addEventListener("click", async e => {
     if (delArm !== "b:" + id){ delArm = "b:" + id; renderGallery(); return; }
     delArm = null;
     try{
+      if (!(await ensureFullArt(id))) throw { code: "art-load" };
       const doc = JSON.parse(JSON.stringify({ ...c, id: undefined, starter: undefined, edited: undefined, author: base.author, ownerId: null, updatedAt: Date.now() }));
       await saveBuiltinDoc(base.id, doc);
       for (const d of myDecks().filter(d => d.cards.includes(id))) await saveDeckDoc(d.id, { ...d, id: undefined, cards: d.cards.map(x => x === id ? base.id : x), key: d.key === id ? base.id : d.key || null });
@@ -1808,3 +1809,16 @@ $("#gallery").addEventListener("click", async e => {
   }
 });
 
+
+// 管理者: まだ分けていないカードの絵を、まとめて cardArt に移す
+$("#btnArtMig").addEventListener("click", async () => {
+  if (!isAdmin()) return;
+  const msg = $("#artMigMsg"), btn = $("#btnArtMig"), all = [...(S.userCards || []), ...(S.userPotions || []), ...(S.userRelics || [])];
+  const n = all.filter(artNeedsSplit).length;
+  if (!n){ msg.textContent = "移すカードはありません（全部軽い形になっています）"; return; }
+  btn.disabled = true; msg.textContent = `移しています… 0 / ${n}`;
+  try{
+    const r = await migrateArt(true, (d, f, t) => { msg.textContent = `移しています… ${d + f} / ${t}${f ? `（失敗 ${f}）` : ""}`; });
+    msg.textContent = !ART_SPLIT_OK ? "cardArt に書きこめませんでした。Firestoreのルールに cardArt を追加してね" : `${r.done}枚を移しました${r.fail ? `（${r.fail}枚は失敗。ほかの人のカードは書きかえる権限がないかも）` : ""}`;
+  } finally { btn.disabled = false; }
+});

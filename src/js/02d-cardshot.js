@@ -52,6 +52,7 @@ async function shotFontCSS(root){
 }
 // カード1枚を大きめに描いて PNG にする（スパイア風などのはみ出す枠も入るように、まわりに余白をとる）
 async function cardShotBlob(c){
+  if (c && c.artRef) await loadFullArt(c.skinOf || c.id); // 画像は本物の絵で作る
   const box = document.createElement("div"); box.className = "card-shot";
   box.innerHTML = cardHTML(c, "", "", { mana: hasCost(c) });
   document.body.appendChild(box);

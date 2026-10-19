@@ -349,6 +349,7 @@ ruby rt{font-size:.5em;line-height:1;font-style:normal}
 .filters select{padding:4px 8px;font-size:14px}
 .filters .count{font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums;margin-left:auto}
 .gallery{display:flex;flex-wrap:wrap;gap:18px 14px}
+.chunk-more{flex-basis:100%;display:flex;justify-content:center;padding:8px 0 4px}
 .g-item{display:flex;flex-direction:column;gap:6px;align-items:center}
 .roomlist{display:flex;flex-direction:column;gap:6px}
 .roomlist h3{font-size:14px;color:var(--accent,var(--ink))}

@@ -19,3 +19,31 @@ const cmpNum = (a, b) => a === b ? 0 : a < b ? -1 : 1;
 const S = { db: null, name: "", tab: "play", starters: [], userCards: [], cards: new Map(), decks: [], galF: "all" };
 let G = null;
 
+
+/* ================= 長い一覧は少しずつ描く（カードが多くても固まらないように） ================= */
+// key が前回と同じ（同じしぼりこみ）なら、すでに表示していた枚数は保ったまま描き直す
+const CHUNK_N = 48;
+function fillChunked(el, key, head, items, empty){
+  if (!el) return;
+  if (el._chunkObs){ el._chunkObs.disconnect(); el._chunkObs = null; }
+  if (el._chunkKey !== key){ el._chunkKey = key; el._chunkN = CHUNK_N; }
+  const n = Math.min(items.length, Math.max(CHUNK_N, el._chunkN || CHUNK_N));
+  el.innerHTML = head + (items.length ? items.slice(0, n).join("") : (empty || ""));
+  el._chunkN = n;
+  if (n < items.length) addChunkMore(el, items);
+}
+function addChunkMore(el, items){
+  const more = document.createElement("div"); more.className = "chunk-more";
+  more.innerHTML = `<button type="button" class="small">もっと見る（あと${items.length - el._chunkN}枚）</button>`;
+  el.appendChild(more);
+  const step = () => {
+    if (!more.isConnected) return;
+    if (el._chunkObs){ el._chunkObs.disconnect(); el._chunkObs = null; }
+    more.remove();
+    const a = el._chunkN, b = Math.min(items.length, a + CHUNK_N);
+    el.insertAdjacentHTML("beforeend", items.slice(a, b).join("")); el._chunkN = b;
+    if (b < items.length) addChunkMore(el, items);
+  };
+  more.querySelector("button").addEventListener("click", step);
+  if ("IntersectionObserver" in window){ const o = new IntersectionObserver(es => { if (es.some(x => x.isIntersecting)) step(); }, { rootMargin: "600px 0px" }); o.observe(more); el._chunkObs = o; }
+}

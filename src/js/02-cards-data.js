@@ -185,7 +185,8 @@ function applyBuiltinEdits(){
 }
 async function saveBuiltinDoc(id, doc){
   if (!S.db || !isAdmin()) throw { code: "not-admin" };
-  await S.db.doc("builtin/" + id).set(JSON.parse(JSON.stringify(doc)));
+  // はじめからあるカードは数が少ないので、絵は分けずにそのまま入れる
+  await S.db.doc("builtin/" + id).set(JSON.parse(JSON.stringify(withFullArt(doc))));
 }
 async function deleteBuiltinDoc(id){
   if (!S.db || !isAdmin()) throw { code: "not-admin" };
@@ -345,7 +346,7 @@ function cardHTML(c, cls = "", attrs = "", opts = {}){
 function cardHTML0(c, cls = "", attrs = "", opts = {}){
   if (!c) c = { name: "？", type: "monster", atk: 0 };
   const t = cardType(c);
-  const art = c.img ? `<img alt="" src="${c.img}">` : `<span class="noart">絵なし</span>`;
+  const art = c.img ? `<img alt="" decoding="async" src="${artSrc(c.img)}"${artImgAttrs(c)}>` : `<span class="noart">絵なし</span>`;
   const ft = fxText(c);
   const lim = cardLimit(c);
   let atk = "";
@@ -390,7 +391,7 @@ function socraHTML(c, t, cls, attrs, opts, sv, showCost){
   let num = "";
   if (t === "monster"){ const base = baseAtk(c), mod = opts.mod || 0; num = `<span class="s-atk s-box ${mod > 0 ? "up" : mod < 0 ? "dn" : ""}">${fmtN(Math.max(0, base + mod))}</span>`; }
   else if (t === "equip" && c.eqN) num = `<span class="s-atk">${c.eqN > 0 ? "+" : "−"}${Math.abs(c.eqN)}</span>`;
-  const art = c.img ? `<img alt="" src="${c.img}">` : "";
+  const art = c.img ? `<img alt="" decoding="async" src="${artSrc(c.img)}"${artImgAttrs(c)}>` : "";
   let info = "";
   if (fx){
     body = fxRowsHTML(c); cap = "";
@@ -433,7 +434,7 @@ function spireHTML(c, t, cls, attrs, opts, sv, showCost){
   let num = "", cap = "";
   if (t === "monster"){ const base = baseAtk(c), mod = opts.mod || 0; num = `<span class="p-atk ${mod > 0 ? "up" : mod < 0 ? "dn" : ""}"><small>ATK</small><b>${fmtN(Math.max(0, base + mod))}</b></span>`; if (hasEqCap(c)) cap = `<span class="p-cap" title="装備キャパ">${eqCapOf(c)}</span>`; }
   else if (t === "equip"){ if (c.eqN) num = `<span class="p-atk ${c.eqN > 0 ? "up" : "dn"}"><small>ATK</small><b>${c.eqN > 0 ? "+" : "−"}${Math.abs(c.eqN)}</b></span>`; if (eqCostOf(c)) cap = `<span class="p-cap" title="装備コスト">−${eqCostOf(c)}</span>`; }
-  const art = c.img ? `<img alt="" src="${c.img}">` : "";
+  const art = c.img ? `<img alt="" decoding="async" src="${artSrc(c.img)}"${artImgAttrs(c)}>` : "";
   return `<div class="card spire ${t} sk-${spireKind(c)} rar-${rarityOf(c)}${c.spc === "silent" ? " spc-silent" : ""}${showCost ? " costed" : ""}${c.token ? " token" : ""}${c.modded ? " modded" : ""} ${cls}" ${attrs}${sv.length ? ` style='${sv.join(";")}'` : ""}>${opts.done ? `<span class="done">${opts.done}</span>` : ""}${opts.eq ? `<span class="eqb">${esc(opts.eq)}</span>` : ""}${ctrBadges(opts)}${opts.vuln ? `<span class="vulc" title="弱体：受けるダメージが1.5倍">弱体${opts.vuln}</span>` : ""}${opts.weak ? `<span class="wkc" title="脱力：与える戦闘ダメージが0.75倍">脱力${opts.weak}</span>` : ""}<div class="p-base"></div><div class="p-art">${art}</div><div class="p-over"></div><div class="p-gemimg"></div>${showCost ? `<span class="p-gem" title="コスト">${costLabel(c)}</span>` : ""}<div class="p-name"><span>${rubyHTML(c.nameRuby || c.name || "")}</span></div><div class="p-type">${SPIRE_LABEL[spireKind(c)]}</div><div class="p-text"><div class="body">${body}</div>${c.flavor ? `<div class="flv">${rubyHTML(c.flavor)}</div>` : ""}</div>${cap}${num}</div>`;
 }
 // card back: the owner's own sleeve if they drew one
@@ -483,13 +484,121 @@ function encodeArt(c, alpha){
   }
   return url;
 }
+/* ================= 絵を分けて保存する（サイトを軽くする） =================
+   大きい絵は cardArt/{カードID} に分けて保存し、cards にはサムネ（小さい絵）だけを置く。
+   一覧・デッキ・対戦はサムネで表示して、大きく見る・編集する・画像で保存するときだけ本物の絵を読みこむ。
+   cardArt に書けないとき（Firestoreのルールが未設定など）は、これまでどおり cards に絵をそのまま入れる。 */
+const THUMB_W = 280, THUMB_BUDGET = 24000, SPLIT_MIN = 32000;
+S.artFull = new Map();  // サムネ → 本物の絵
+S.artLoads = new Map(); // カードID → 読みこみ中のPromise
+let ART_SPLIT_OK = true;
+const artHash = s => { let h = 0x811c9dc5; for (let i = 0; i < s.length; i++){ h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193); } return (h >>> 0).toString(36) + "_" + s.length.toString(36); };
+const artSrc = img => (img && S.artFull.get(img)) || img || "";
+const artImgAttrs = c => c && c.artRef && S.db ? ` data-aid="${esc(c.skinOf || c.id)}"` : "";
+const rawCard = id => [...(S.userCards || []), ...(S.userPotions || []), ...(S.userRelics || [])].find(c => c && c.id === id) || null;
+function loadImgEl(src){ return new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im); im.onerror = rej; im.src = src; }); }
+async function makeThumb(src){
+  const im = await loadImgEl(src), W = im.naturalWidth || THUMB_W, H = im.naturalHeight || THUMB_W;
+  const w = Math.min(THUMB_W, W), h = Math.max(1, Math.round(H * w / W));
+  const c = document.createElement("canvas"); c.width = w; c.height = h;
+  const x = c.getContext("2d"); x.imageSmoothingQuality = "high"; x.drawImage(im, 0, 0, w, h);
+  const webp = c.toDataURL("image/webp", .5).startsWith("data:image/webp"), alpha = !/^data:image\/jpe?g/.test(src);
+  let u = "";
+  for (const q of [.85, .75, .65, .55, .45]){ u = webp ? c.toDataURL("image/webp", q) : alpha ? c.toDataURL("image/png") : c.toDataURL("image/jpeg", q); if (u.length <= THUMB_BUDGET) break; }
+  return u;
+}
+// cardArt を読みこんで、サムネ → 本物の絵 の対応を覚える（成功: true / 失敗: false）
+function loadFullArt(id){
+  if (!S.db || !id) return Promise.resolve(false);
+  if (S.artLoads.has(id)) return S.artLoads.get(id);
+  const p = S.db.doc("cardArt/" + id).get().then(snap => {
+    const arts = (snap.exists && snap.data() && snap.data().arts) || {}, c = rawCard(id);
+    [c && c.img, ...((c && Array.isArray(c.skins) ? c.skins : []).map(s => s && s.img))].forEach(t => { if (typeof t === "string" && arts[artHash(t)]) S.artFull.set(t, arts[artHash(t)]); });
+    return true;
+  }).catch(() => { S.artLoads.delete(id); return false; });
+  S.artLoads.set(id, p);
+  return p;
+}
+const ensureFullArt = id => { const c = rawCard(id); return c && c.artRef ? loadFullArt(id) : Promise.resolve(true); };
+// 本物の絵のURL（編集で読みこむとき用）
+function artFullSrc(c){
+  if (!c || !c.img) return Promise.resolve("");
+  if (!c.artRef || S.artFull.has(c.img)) return Promise.resolve(artSrc(c.img));
+  return loadFullArt(c.skinOf || c.id).then(() => artSrc(c.img));
+}
+// 表示中のサムネを本物の絵に差しかえる（カード詳細など大きく見せるところで呼ぶ）
+function upgradeArt(root){
+  if (!root || !S.db) return;
+  root.querySelectorAll("img[data-aid]").forEach(im => {
+    const t = im.getAttribute("src"), f = S.artFull.get(t);
+    if (f){ im.src = f; return; }
+    loadFullArt(im.dataset.aid).then(() => { const g = S.artFull.get(t); if (g && im.isConnected && im.getAttribute("src") === t) im.src = g; });
+  });
+}
+// サムネを本物の絵に戻した形（分けずに保存するとき用）
+function withFullArt(doc){
+  const o = { ...doc, artRef: null };
+  if (typeof o.img === "string") o.img = artSrc(o.img);
+  if (Array.isArray(o.skins)) o.skins = o.skins.map(s => s && typeof s.img === "string" ? { ...s, img: artSrc(s.img) } : s);
+  return o;
+}
+async function splitArt(doc){
+  const arts = {}; let n = 0;
+  const one = async img => {
+    if (typeof img !== "string" || !img.startsWith("data:")) return img;
+    const full = artSrc(img);
+    if (full.length <= SPLIT_MIN) return full;
+    const t = await makeThumb(full);
+    if (!t || t.length >= full.length) return full;
+    arts[artHash(t)] = full; n++; S.artFull.set(t, full);
+    return t;
+  };
+  const out = { ...doc };
+  if ("img" in doc) out.img = await one(doc.img);
+  if (Array.isArray(doc.skins)) out.skins = await Promise.all(doc.skins.map(async s => s && typeof s.img === "string" ? { ...s, img: await one(s.img) } : s));
+  out.artRef = n ? true : null;
+  return { doc: out, arts: n ? arts : null };
+}
 async function saveCardDoc(id, doc){
+  if (S.db){
+    const had = !!(rawCard(id) || {}).artRef;
+    if (had && !(await ensureFullArt(id))) throw { code: "art-load" };
+    let d = withFullArt(doc), arts = null;
+    if (ART_SPLIT_OK){
+      try{ ({ doc: d, arts } = await splitArt(doc)); }catch(e){ d = withFullArt(doc); arts = null; }
+      if (arts){
+        try{ await S.db.doc("cardArt/" + id).set({ arts, updatedAt: Date.now() }); }
+        catch(e){ if (e && e.code === "permission-denied"){ ART_SPLIT_OK = false; d = withFullArt(doc); arts = null; } else throw e; }
+      }
+    }
+    if (JSON.stringify(d).length > 900000) throw { code: "too-big" };
+    await S.db.doc("cards/" + id).set(d);
+    if (had && !arts) S.db.doc("cardArt/" + id).delete().catch(() => {});
+    return;
+  }
   if (JSON.stringify(doc).length > 900000) throw { code: "too-big" };
-  if (S.db){ await S.db.doc("cards/" + id).set(doc); }
-  else { const a = local.cards().filter(c => c.id !== id); a.push({ id, ...doc }); ls.set("cb_cards", a); S.userCards = a; rebuildCards(); renderAll(); }
+  const a = local.cards().filter(c => c.id !== id); a.push({ id, ...doc }); ls.set("cb_cards", a); S.userCards = a; rebuildCards(); renderAll();
+}
+// まだ分けていないカードの絵を cardArt に移す（自分のカードは自動で、管理者は全部まとめて）
+const artNeedsSplit = c => !!c && !c.artRef && [c.img, ...(Array.isArray(c.skins) ? c.skins.map(s => s && s.img) : [])].some(t => typeof t === "string" && t.startsWith("data:") && t.length > SPLIT_MIN);
+let artMigBusy = false;
+async function migrateArt(all, onStep){
+  if (!S.db || artMigBusy || !ART_SPLIT_OK) return { done: 0, fail: 0, left: 0 };
+  artMigBusy = true; let done = 0, fail = 0;
+  try{
+    const L = [...(S.userCards || []), ...(S.userPotions || []), ...(S.userRelics || [])].filter(c => artNeedsSplit(c) && (all || isMine(c)));
+    for (const c of L){
+      if (!ART_SPLIT_OK) break;
+      const { id, ...doc } = c;
+      try{ await saveCardDoc(id, doc); done++; }catch(e){ fail++; }
+      if (onStep) onStep(done, fail, L.length);
+      await new Promise(r => setTimeout(r, 250));
+    }
+    return { done, fail, left: Math.max(0, L.length - done - fail) };
+  } finally { artMigBusy = false; }
 }
 async function deleteCardDoc(id){
-  if (S.db){ await S.db.doc("cards/" + id).delete(); }
+  if (S.db){ await S.db.doc("cards/" + id).delete(); S.db.doc("cardArt/" + id).delete().catch(() => {}); }
   else { const a = local.cards().filter(c => c.id !== id); ls.set("cb_cards", a); S.userCards = a; rebuildCards(); renderAll(); }
 }
 async function saveDeckDoc(id, doc){
@@ -502,12 +611,22 @@ async function deleteDeckDoc(id){
 }
 function subscribeData(){
   if (S.db){
-    S.db.collection("cards").onSnapshot({ includeMetadataChanges: true }, snap => { S.userCards = snap.docs.map(d => ({ id: d.id, ...d.data() })); rebuildCards(); S.cardsReady = !snap.metadata.fromCache && !snap.metadata.hasPendingWrites; if (S.cardsReady) pruneDeletedDeckCards(); renderAll(); }, () => toast("カードの読みこみが止まりました。ページを開きなおしてね"));
+    S.db.collection("cards").onSnapshot({ includeMetadataChanges: true }, snap => {
+      const ch = snap.docChanges(), wasReady = S.cardsReady, first = !S.cardsSeen;
+      ch.forEach(x => { if (x.type !== "added") S.artLoads.delete(x.doc.id); }); // 絵が変わったかもしれないので読みなおす
+      S.cardsReady = !snap.metadata.fromCache && !snap.metadata.hasPendingWrites; S.cardsSeen = true;
+      // 中身が変わっていない通知（同期の状態だけ）では、作り直しも描き直しもしない
+      if (!first && !ch.length && wasReady === S.cardsReady) return;
+      S.userCards = snap.docs.map(d => ({ id: d.id, ...d.data() })); rebuildCards();
+      if (S.cardsReady) pruneDeletedDeckCards();
+      renderAll();
+      if (S.cardsReady && !S.artMigAuto){ S.artMigAuto = true; setTimeout(() => migrateArt(false), 4000); } // 自分のカードの絵を、少しずつ軽い形に移す
+    }, () => toast("カードの読みこみが止まりました。ページを開きなおしてね"));
     S.db.collection("decks").onSnapshot({ includeMetadataChanges: true }, snap => { S.decks = snap.docs.map(d => ({ id: d.id, ...d.data() })); S.decksReady = !snap.metadata.fromCache && !snap.metadata.hasPendingWrites; if (S.decksReady) pruneDeletedDeckCards(); renderAll(); }, () => {});
     S.db.collection("builtin").onSnapshot(snap => { const m = {}; snap.docs.forEach(d => { m[d.id] = d.data(); }); S.builtinEdits = m; rebuildCards(); renderAll(); }, () => {});
     subscribeCounters();
     subscribeTrades();
   } else { S.userCards = local.cards(); S.decks = local.decks(); rebuildCards(); renderAll(); subscribeCounters(); }
 }
-const writeErr = e => toast(e && e.code === "too-big" ? "カードのデータが大きすぎて保存できません。効果の文章を短くしてみてね" : e && (e.code === "permission-denied" || e.code === "invalid_argument") ? "保存できませんでした（権限がありません）。自分のカード以外は変更できないよ" : e && e.code === "quota_exceeded" ? "保存容量がいっぱいです。古いカードを消してね" : "保存できませんでした。もう一度ためしてね");
+const writeErr = e => toast(e && e.code === "too-big" ? "カードのデータが大きすぎて保存できません。効果の文章を短くしてみてね" : e && (e.code === "permission-denied" || e.code === "invalid_argument") ? "保存できませんでした（権限がありません）。自分のカード以外は変更できないよ" : e && e.code === "quota_exceeded" ? "保存容量がいっぱいです。古いカードを消してね" : e && e.code === "art-load" ? "カードの絵を読みこめませんでした。通信を確かめて、もう一度ためしてね" : "保存できませんでした。もう一度ためしてね");
 
