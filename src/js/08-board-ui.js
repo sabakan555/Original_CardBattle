@@ -41,6 +41,7 @@ function after(){
   const aq = G.st && G.st.askQ;
   if (aq && G.mode === "online" && !G.spectate && aq.by === G.slot){
     const w = G.askWait;
+    if (w && w.n === aq.n && aq.ans != null && w.pick){ G.askWait = null; act(st => { const k = +st.askQ.ans || 0, o = (st.askQ.opts || [])[k]; st.askQ = null; log(st, w.s, `「${w.name}」：相手は「${o ? o.name : "？"}」をえらんだ`); w.resume(st, k); }); return; }
     if (w && w.n === aq.n && aq.ans != null){ G.askWait = null; act(st => { const y = !!st.askQ.ans; st.askQ = null; log(st, w.s, `「${w.name}」：相手に「${w.text}」→ ${y ? "はい" : "いいえ"}`); w.resume(st, y); }); return; }
     if (!w || w.n !== aq.n){ G.askWait = null; act(st => { st.askQ = null; log(st, G.slot, `「${aq.name}」の質問は取り消された`); }); return; }
   }
@@ -723,7 +724,8 @@ function renderOverlay(){
     html = `<div class="box"><h2 style="margin:0">ネオーの祝福：レリックを1つえらぶ</h2><p class="muted" style="margin:0">スパイアデッキのはじまりに、どれか1つだけ手に入る</p><div class="relic-pick">${rp.map(k => [k, relicDef(k)]).filter(x => x[1]).map(([k, d]) => `<button data-relic="${esc(k)}">${d.img ? `<img class="rl-img" alt="" src="${d.img}">` : ""}<b>${esc(d.name)}</b>${esc(d.text)}</button>`).join("")}</div></div>`;
   } else if (st.askQ && st.askQ.ans == null && st.askQ.to === me && !G.spectate && !st.winner){
     const aq = st.askQ;
-    html = `<div class="box"><h2 style="margin:0">${esc(P(st, aq.by).name)} の「${esc(aq.name)}」からの質問</h2><p style="margin:0;font-size:18px;font-weight:700">${esc(aq.text)}</p><p class="muted" style="margin:0">あなたの答えで相手のカードの効果が変わります</p><div class="row"><button class="primary" data-askq="yes">はい</button><button data-askq="no">いいえ</button><button class="ghost" data-peek>盤面を見る</button></div></div>`; peek = true;
+    html = aq.opts ? `<div class="box"><h2 style="margin:0">${esc(P(st, aq.by).name)} の「${esc(aq.name)}」</h2><p style="margin:0;font-size:18px;font-weight:700">${esc(aq.text)}</p><div class="p1list">${aq.opts.map((o, k) => `<button type="button" class="p1" data-askpick="${k}"><b>【${esc(o.name)}】</b><span>${esc(o.text)}</span></button>`).join("")}</div><div class="row"><button class="ghost" data-peek>盤面を見る</button></div></div>`
+      : `<div class="box"><h2 style="margin:0">${esc(P(st, aq.by).name)} の「${esc(aq.name)}」からの質問</h2><p style="margin:0;font-size:18px;font-weight:700">${esc(aq.text)}</p><p class="muted" style="margin:0">あなたの答えで相手のカードの効果が変わります</p><div class="row"><button class="primary" data-askq="yes">はい</button><button data-askq="no">いいえ</button><button class="ghost" data-peek>盤面を見る</button></div></div>`; peek = true;
   } else if (G.fusPick && !st.winner){
     const f = G.fusPick, fc = card(f.target), X = P(st, f.q.s);
     const cand = [...X.hand.map((id, i) => ({ k: "hand:" + i, id, where: "手札" })), ...X.mz.map((m, i) => m ? { k: "mz:" + i, id: m.c, where: "場", m } : null).filter(Boolean)].filter(x => fc.fusion.some(y => fusionMatOk(x.id, y)));
@@ -748,6 +750,7 @@ function renderOverlay(){
         if (o === "field"){ const f = st.field; return `<div class="g-item">${cardHTML(card(f.c), "sm pick", `data-opt="field" tabindex="0" role="button"`, mOpt(f.o))}<div class="meta">フィールド</div></div>`; }
         const [os, zk, oi] = String(o).split(":"), X = P(st, os), who = os === me ? "自分" : "相手";
         if (zk === "mz"){ const m = X.mz[+oi]; return `<div class="g-item">${cardHTML(card(m.c), "sm pick", `data-opt="${o}" tabindex="0" role="button"`, { mod: modOf(m), ...mOpt(os) })}<div class="meta">${who}のモンスター</div></div>`; }
+        if (zk === "mana"){ const x = (X.manaZ || [])[+oi]; return `<div class="g-item">${cardHTML(card(x.c), "sm pick", `data-opt="${o}" tabindex="0" role="button"`, mOpt(os))}<div class="meta">${who}のマナゾーン</div></div>`; }
         if (zk === "eq"){ const e = X.standingEq[+oi]; return `<div class="g-item">${cardHTML(card(e.c), "sm pick", `data-opt="${o}" tabindex="0" role="button"`, mOpt(os))}<div class="meta">${who}の待機中の装備</div></div>`; }
         const z = X.sz[+oi], vis = z.face || os === me;
         return `<div class="g-item">${vis ? cardHTML(card(z.c), "sm pick", `data-opt="${o}" tabindex="0" role="button"`, mOpt(os)) : backHTML("sm pick", `data-opt="${o}" tabindex="0" role="button"`, X.sleeve)}<div class="meta">${who}の${z.face ? "魔法・罠" : "セット中"}</div></div>`;
@@ -865,6 +868,7 @@ $("#overlay").addEventListener("click", e => {
   { const lv = e.target.closest("[data-lpv]"); if (lv && G){ G.lpView = lv.dataset.lpv; renderAll(); return; } }
   { const xu = e.target.closest("[data-exuse]"); if (xu && G && !G.spectate){ const k = +xu.dataset.exuse, me = G.slot; let hi = -1, id = null; { const xid = P(G.st, me).ex[k], xc = card(xid); if (sxK(xc)){ const why = sxWhy(G.st, me, xc); if (why){ toast(why); return; } G.exView = false; G.sxPick = { id: xid, picked: [] }; renderAll(); return; } } if (isFusion(card(P(G.st, me).ex[k]))){ toast("融合モンスターは「融合召喚」の効果でだけ出せます"); return; } G.exView = false; act(st => { const p = P(st, me); if (!canAct(st, me) || p.ex[k] == null) return false; exReturnP(st, me); id = p.ex.splice(k, 1)[0]; p.hand.push(id); hi = p.hand.length - 1; p.exTemp = { id, i: hi }; G.sel = { z: "hand", s: "me", i: hi }; G.atkFrom = null; }); if (hi < 0) renderAll(); return; } }
   if (!G) return;
+  { const ap = e.target.closest("[data-askpick]"); if (ap){ const k = +ap.dataset.askpick; act(st => { if (!st.askQ || st.askQ.to !== G.slot || st.askQ.ans != null || !st.askQ.opts) return false; st.askQ.ans = k; log(st, G.slot, `「${st.askQ.name}」で「${(st.askQ.opts[k] || {}).name || "？"}」をえらんだ`); }); return; } }
   { const aq = e.target.closest("[data-askq]"); if (aq){ const yes = aq.dataset.askq === "yes"; act(st => { if (!st.askQ || st.askQ.to !== G.slot || st.askQ.ans != null) return false; st.askQ.ans = yes; log(st, G.slot, `「${st.askQ.name}」の質問「${st.askQ.text}」に「${yes ? "はい" : "いいえ"}」と答えた`); }); return; } }
   { const p1 = e.target.closest("[data-p1]"); if (p1 && G.chooseQ.length && G.chooseQ[0].pick1){ const q = G.chooseQ.shift(), k = +p1.dataset.p1; act(st => { q.p1go(st, k); }); return; } }
   const ak = e.target.closest("[data-ask]");
@@ -1008,7 +1012,7 @@ $("#board").addEventListener("click", e => {
       const w = i.w, nmW = P(st, w).name; st.idleSkips = st.idleSkips || {}; st.idleSkips[w] = (st.idleSkips[w] || 0) + 1;
       log(st, G.slot, `${nmW} が${TURN_IDLE / 60}分動かなかったので進めた（${st.idleSkips[w]}回目）`);
       if (st.idleSkips[w] >= 3){ st.winner = O(w); st.why = `${nmW} が3回時間切れになった`; return; }
-      if (st.askQ && st.askQ.ans == null && st.askQ.to === w){ st.askQ.ans = false; log(st, G.slot, "質問は「いいえ」あつかいになった"); return; }
+      if (st.askQ && st.askQ.ans == null && st.askQ.to === w){ st.askQ.ans = st.askQ.opts ? 0 : false; log(st, G.slot, st.askQ.opts ? "えらばなかったので、1つめをえらんだあつかいになった" : "質問は「いいえ」あつかいになった"); return; }
       st.askQ = null;
       if (st.pending && st.pending.wait) respond(st, w, null); else { exReturnP(st, w); endTurn(st, w); }
     });

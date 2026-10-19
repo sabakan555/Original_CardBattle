@@ -1871,6 +1871,7 @@ div.f{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:13px}
               <div class="abs-list" id="mkAbsCard">
                 <label data-cat="card"><input type="checkbox" id="mkStartOnField"> ゲーム開始時に場へ置く（空きがなければ山札・EXデッキに残す）</label>
                 <label data-cat="card"><input type="checkbox" id="mkCannotLeave"> 場から離れない（破壊・手札戻し・除外・生贄でも場に残る）</label>
+                <label data-cat="card"><input type="checkbox" id="mkNoNeg"> 打ち消されない（このカードの発動・召喚は、打ち消し・跳ね返しで無効にされない）</label>
                 <label data-cat="card"><input type="checkbox" id="mkInnate"> 天賦（ゲーム開始時と自分のターンのはじめ、山札にあれば一番上に置く）</label>
                 <label data-cat="card"><input type="checkbox" id="mkRetain"> 保留（ターンの終わりに手札から捨てられない・スパイアデッキ）</label>
                 <label data-cat="card"><input type="checkbox" id="mkEthereal"> エセリアル（ターンの終わりに手札にあると廃棄される）</label>
@@ -2248,7 +2249,7 @@ const RELIC_TRIG_LABEL = { gain: "手に入れたとき", ...Object.fromEntries(
 const RELIC_TRIGS = Object.keys(RELIC_TRIG_LABEL);
 const cannotLeave = id => !!(card(id) && card(id).cannotLeave);
 const monCannotLeave = m => !!(m && (cannotLeave(m.c) || (m.evoU || []).some(x => cannotLeave(x.c))));
-const fieldAbilityText = c => c ? [c.startOnField ? "《ゲーム開始時に場へ置く》" : "", c.cannotLeave ? "《場から離れない》" : ""].filter(Boolean).join("。") : "";
+const fieldAbilityText = c => c ? [c.startOnField ? "《ゲーム開始時に場へ置く》" : "", c.cannotLeave ? "《場から離れない》" : "", c.noNeg ? "《打ち消されない》" : ""].filter(Boolean).join("。") : "";
 const isPersist = c => !!(c && (c.persist || c.cannotLeave) && !c.field && (cardType(c) === "magic" || cardType(c) === "trap"));
 // フィールド魔法: お互いに1枚だけ（場に1枚）。新しいフィールドが出ると、前のフィールドは持ち主の墓地へ。効果はどちらのプレイヤーにも効く
 const isField = c => !!(c && c.field && cardType(c) === "magic");
@@ -2499,6 +2500,7 @@ const ABS = {
   eqBonus:    { label: "特定の名前の装備を付けているとATKアップ", only: "mon", self: true, n: 300, name: true, text: (n, nm) => `名前に「${nm || "？"}」が入った装備を付けているとき、ATK+${n}` }
 };
 const KW_DESC = {
+  "打ち消されない": "このカードの発動・召喚・特殊召喚は、相手の打ち消し・跳ね返しで無効にされない。相手には打ち消しのチャンスも出ない",
   "召喚を打ち消されない": "このカードの召喚・特殊召喚は、相手の打ち消し（罠・速攻・装備の打ち消し）で無効にされない。相手には召喚に答えるチャンスも出ない",
   "ゲーム開始時に場へ置く": "最初の手札とは別に、デッキから空いている場へコストなしで置く。召喚・発動時の効果は出ない。装備は待機状態、通常魔法・罠はセット状態で置く",
   "場から離れない": "破壊・手札戻し・除外・マナ送りでも場に残り、生贄や召喚素材には使えない。装備先が場を離れた装備は待機状態で場に残る",
@@ -2931,10 +2933,12 @@ function atkText(f){
    side: なし＝相手 / "me" 自分 / "both" お互い
    how: destroy（破壊）/ hand（持ち主の手札）/ exile（除外）/ deck（持ち主の山札。pos: top 一番上・bottom 一番下・shuffle 混ぜる）/ grave（墓地へ送る。破壊あつかいにしない）
    破壊だけが「破壊されたとき」の効果などを起こすので、どかし方はまとめずに選べるようにしている */
-const RM_ZONE = { mon: "モンスター", st: "魔法・罠", field: "フィールド魔法", any: "場のカード" };
+const RM_ZONE = { mon: "モンスター", st: "魔法・罠", field: "フィールド魔法", any: "場のカード", mana: "マナゾーンのカード", anyMana: "場とマナゾーンのカード" };
+// 場のカード（モンスター・魔法罠・待機中の装備）を含むか / マナゾーンのカードを含むか
+const rmBoard = z => z === "any" || z === "anyMana", rmMana = z => z === "mana" || z === "anyMana";
 const RM_HOW = { destroy: "破壊", hand: "手札に戻す", exile: "除外", deck: "山札に戻す", grave: "墓地へ送る" };
 const RM_POS = { top: "一番上", bottom: "一番下", shuffle: "シャッフル" };
-const RM_TO = new Set(["one", "two", "random", "n", "all", "this", "others", "attacker"]);
+const RM_TO = new Set(["one", "two", "random", "n", "all", "this", "others", "attacker", "oppPick"]);
 fxForm("remove", {
   label: "場から除去する", menu: "場から除去する（破壊・手札に戻す・除外・山札・墓地）", target: "board", text: f => removeText(f),
   targetable: ["one", "two", "random", "all"], sided: true, groups: ["destroy", "remove"], group: () => "destroy",
@@ -2975,6 +2979,11 @@ fxForm("remove", {
 });
 function removeText(f){
   const r = fxNorm({ ...f, kind: "remove" }), unit = r.zone === "mon" ? "体" : "枚", sd = r.side === "me" ? "自分の" : r.side === "both" ? "お互いの" : "相手の", pl = RM_ZONE[r.zone], tn = Math.max(1, Math.round(+r.tn || 1));
+  if (r.to === "oppPick"){
+    const whose = r.side === "me" ? "こちらの" : r.side === "both" ? "お互いの" : "自分の";
+    const vv = r.how === "hand" ? "持ち主の手札に戻す" : r.how === "exile" ? "除外する" : r.how === "grave" ? "墓地へ送る" : r.how === "deck" ? (r.pos === "top" ? "持ち主の山札の一番上に置く" : r.pos === "bottom" ? "持ち主の山札の一番下に置く" : "持ち主の山札に戻してシャッフルする") : "破壊する";
+    return `相手は${whose}${pl}を${tn}${unit}えらび、それを${vv}`;
+  }
   const w = r.zone === "field" ? "場のフィールド魔法" : r.to === "this" ? (r.zone === "mon" ? "このモンスター" : "このカード") : r.to === "attacker" ? "攻撃してきたモンスター" : r.to === "others" ? "このカード以外の、お互いの場のカードすべて"
     : r.to === "all" ? `${sd}${pl}すべて` : r.to === "random" ? `ランダムな${sd}${pl}${tn > 1 ? tn + unit : "1" + unit}` : r.to === "two" ? `${sd}${pl}ちがう2${unit}` : r.to === "n" && tn > 1 ? `${sd}${pl}${tn}${unit}` : `${sd}${pl}1${unit}`;
   const v = r.how === "hand" ? "持ち主の手札に戻す" : r.how === "exile" ? "除外する" : r.how === "grave" ? "墓地へ送る" : r.how === "deck" ? (r.pos === "top" ? "持ち主の山札の一番上に置く" : r.pos === "bottom" ? "持ち主の山札の一番下に置く" : "持ち主の山札に戻してシャッフルする") : "破壊する";
@@ -3520,7 +3529,7 @@ const mfLimit = (st, s, fx) => { const by = MF_BY[fx.mfBy] ? fx.mfBy : "n"; retu
 // 墓地のカード（場にいないので、カードに書いてある元の数字・属性でしぼる）
 function mfCardOk(st, s, fx, id){ const c = card(id); if (!c || !mfOn(fx)) return !!c; if (fx.mfK === "attr") return attrsOf(c).includes(fx.mfA); const lim = mfLimit(st, s, fx), v = fx.mfK === "atk" ? baseAtk(c) : fx.mfK === "lv" ? lvOf(c) : costOf(c); return fx.mfOp === "ge" ? cmpNum(v, lim) >= 0 : cmpNum(v, lim) <= 0; }
 function mfOk(st, s, fx, m){ if (m && fxImmune(st, s, m)) return false; if (!m || !mfOn(fx)) return !!m; if (fx.mfK === "attr") return monAttrs(m).includes(fx.mfA); const lim = mfLimit(st, s, fx), v = fx.mfK === "atk" ? atkOf(m) : fx.mfK === "lv" ? lvOf(card(m.c)) : costOf(card(m.c)); return fx.mfOp === "ge" ? cmpNum(v, lim) >= 0 : cmpNum(v, lim) <= 0; }
-const cleanEff = e => e && KINDS[e.kind] && e.kind !== "none" ? { kind: e.kind, ...(e.dn ? { dn: String(e.dn).slice(0, 20) } : {}), ...(e.di ? { di: String(e.di).slice(0, 12) } : {}), ...(e.dd ? { dd: String(e.dd).slice(0, 80) } : {}), ...(e.n != null ? { n: e.n } : {}), ...(e.to && e.to !== "one" && TARGETABLE[e.kind] ? { to: e.to } : {}), ...(TARGETABLE[e.kind] && e.side === "me" ? { side: "me" } : {}), ...(TARGETABLE[e.kind] && (e.to === "n" || e.to === "random") && e.tn > 1 ? { tn: Math.min(10, Math.round(+e.tn)) } : {}), ...(KINDS[e.kind].name && e.into ? { into: String(e.into).slice(0, 40) } : {}), ...(KINDS[e.kind].name && e.into && e.intoId && pickCardKind(e.kind) ? { intoId: String(e.intoId).slice(0, 80) } : {}), ...(e.times > 1 ? { times: Math.min(20, Math.round(e.times)) } : {}), ...(e.timesDie ? { timesDie: true } : {}), ...(e.timesCoin === "h" || e.timesCoin === "t" ? { timesCoin: e.timesCoin } : {}), ...(KINDS[e.kind].mod && (e.kind === "modAdd" || e.kind === "modRep") && e.ge && KINDS[e.ge.kind] && !KINDS[e.ge.kind].mod ? { ge: cleanEff(e.ge) } : {}), ...(KINDS[e.kind].mod ? { ms: modT(e).side, mpl: modT(e).place, mc: modT(e).scope, ...(e.mn > 1 ? { mn: Math.min(40, Math.round(+e.mn)) } : {}), ...(e.gk && KINDS[e.gk] && !KINDS[e.gk].mod ? { gk: e.gk, gn: Math.max(1, Math.round(+e.gn || 1)) } : {}), ...(e.nm ? { nm: String(e.nm).slice(0, 20) } : {}), ...(modT(e).scope === "named" && e.into ? { into: String(e.into).slice(0, 40) } : {}) } : {}), ...(e.per && PER_DEFS[e.per] && perOk(e.kind) ? { per: e.per, pm: e.pm ?? 1, ...(e.hits || !KINDS[e.kind].n ? { hits: true } : {}), ...(e.per === "ctr" ? { pctr: String(e.pctr || ctrDefault()), pcw: CTR_AT[e.pcw] ? e.pcw : "self" } : {}), ...(e.per === "attrMon" ? { pattr: String(e.pattr || "火").slice(0, 20) } : {}), ...(e.per === "usedNow" || e.per === "handF" ? { pf: USED_PF[e.pf] ? e.pf : "any", ...(["name", "part", "tag"].includes(e.pf) && e.pfn ? { pfn: String(e.pfn).slice(0, 40) } : {}) } : {}) } : {}), ...(["dblNext", "freeNext", "setCost"].includes(e.kind) ? { pf: USED_PF[e.pf] ? e.pf : "any", ...(["name", "part", "tag"].includes(e.pf) && e.pfn ? { pfn: String(e.pfn).slice(0, 40) } : {}) } : {}), ...(e.kind === "copyPick" && e.cpw === "next" ? { cpw: "next" } : {}), ...(e.kind === "setCost" ? { sp: e.sp === "pick" ? "pick" : "filter", sd: e.sd === "used" ? "used" : "turn" } : {}), ...(e.kind === "dieWin" ? (lo => ({ wl: lo, wh: Math.max(lo, Math.min(100, Math.round(+e.wh || lo))) }))(Math.max(1, Math.min(100, Math.round(+e.wl || 1)))) : {}), ...(e.kind === "giveAttr" ? { aw: GAT_W[e.aw] ? e.aw : "opp1", ga: String(e.ga || "火").slice(0, 20), gm: e.gm === "set" ? "set" : "add" } : {}), ...(e.kind === "loseAb" ? { ab: labKey(e), gw: GAB_W[e.gw] ? e.gw : "self", ...(GAB_D[e.gd] != null && e.gd ? { gd: e.gd } : {}) } : {}), ...(e.kind === "giveAb" ? { ab: gabKey(e), gw: GAB_W[e.gw] ? e.gw : "self", ...(GAB_D[e.gd] != null && e.gd ? { gd: e.gd } : {}), ...(ABS[gabKey(e)].name && e.into ? { into: String(e.into).slice(0, 40) } : {}) } : {}), ...(e.kind === "removeBoard" ? { rside: RB_SIDE[e.rside] ? e.rside : "op", rm: RB_MODE[e.rm] ? e.rm : "destroy" } : {}), ...(mfOn(e) ? { mfK: e.mfK, mfOp: e.mfOp === "ge" ? "ge" : "le", mfBy: MF_BY[e.mfBy] ? e.mfBy : "n", mfN: Math.max(-99, Math.min(9999, Math.round(+e.mfN || 0))), ...(e.mfK === "attr" ? { mfA: String(e.mfA || "火").slice(0, 20) } : {}) } : {}), ...(KINDS[e.kind].ctr ? { ctr: String(e.ctr || ctrDefault()), cw: CTR_CW[e.cw] ? e.cw : "pick", ...(e.cw === "rand" && e.ctn > 1 ? { ctn: Math.min(10, Math.round(+e.ctn)) } : {}), ...(e.side === "me" ? { side: "me" } : {}) } : {}), ...fxFields(e) } : null;
+const cleanEff = e => e && KINDS[e.kind] && e.kind !== "none" ? { kind: e.kind, ...(e.dn ? { dn: String(e.dn).slice(0, 20) } : {}), ...(e.di ? { di: String(e.di).slice(0, 12) } : {}), ...(e.dd ? { dd: String(e.dd).slice(0, 80) } : {}), ...(e.n != null ? { n: e.n } : {}), ...(e.to && e.to !== "one" && TARGETABLE[e.kind] ? { to: e.to } : {}), ...(TARGETABLE[e.kind] && e.side === "me" ? { side: "me" } : {}), ...(TARGETABLE[e.kind] && (e.to === "n" || e.to === "random" || e.to === "oppPick") && e.tn > 1 ? { tn: Math.min(10, Math.round(+e.tn)) } : {}), ...(KINDS[e.kind].name && e.into ? { into: String(e.into).slice(0, 40) } : {}), ...(KINDS[e.kind].name && e.into && e.intoId && pickCardKind(e.kind) ? { intoId: String(e.intoId).slice(0, 80) } : {}), ...(e.times > 1 ? { times: Math.min(20, Math.round(e.times)) } : {}), ...(e.timesDie ? { timesDie: true } : {}), ...(e.timesCoin === "h" || e.timesCoin === "t" ? { timesCoin: e.timesCoin } : {}), ...(KINDS[e.kind].mod && (e.kind === "modAdd" || e.kind === "modRep") && e.ge && KINDS[e.ge.kind] && !KINDS[e.ge.kind].mod ? { ge: cleanEff(e.ge) } : {}), ...(KINDS[e.kind].mod ? { ms: modT(e).side, mpl: modT(e).place, mc: modT(e).scope, ...(e.mn > 1 ? { mn: Math.min(40, Math.round(+e.mn)) } : {}), ...(e.gk && KINDS[e.gk] && !KINDS[e.gk].mod ? { gk: e.gk, gn: Math.max(1, Math.round(+e.gn || 1)) } : {}), ...(e.nm ? { nm: String(e.nm).slice(0, 20) } : {}), ...(modT(e).scope === "named" && e.into ? { into: String(e.into).slice(0, 40) } : {}) } : {}), ...(e.per && PER_DEFS[e.per] && perOk(e.kind) ? { per: e.per, pm: e.pm ?? 1, ...(e.hits || !KINDS[e.kind].n ? { hits: true } : {}), ...(e.per === "ctr" ? { pctr: String(e.pctr || ctrDefault()), pcw: CTR_AT[e.pcw] ? e.pcw : "self" } : {}), ...(e.per === "attrMon" ? { pattr: String(e.pattr || "火").slice(0, 20) } : {}), ...(e.per === "usedNow" || e.per === "handF" ? { pf: USED_PF[e.pf] ? e.pf : "any", ...(["name", "part", "tag"].includes(e.pf) && e.pfn ? { pfn: String(e.pfn).slice(0, 40) } : {}) } : {}) } : {}), ...(["dblNext", "freeNext", "setCost"].includes(e.kind) ? { pf: USED_PF[e.pf] ? e.pf : "any", ...(["name", "part", "tag"].includes(e.pf) && e.pfn ? { pfn: String(e.pfn).slice(0, 40) } : {}) } : {}), ...(e.kind === "copyPick" && e.cpw === "next" ? { cpw: "next" } : {}), ...(e.kind === "setCost" ? { sp: e.sp === "pick" ? "pick" : "filter", sd: e.sd === "used" ? "used" : "turn" } : {}), ...(e.kind === "dieWin" ? (lo => ({ wl: lo, wh: Math.max(lo, Math.min(100, Math.round(+e.wh || lo))) }))(Math.max(1, Math.min(100, Math.round(+e.wl || 1)))) : {}), ...(e.kind === "giveAttr" ? { aw: GAT_W[e.aw] ? e.aw : "opp1", ga: String(e.ga || "火").slice(0, 20), gm: e.gm === "set" ? "set" : "add" } : {}), ...(e.kind === "loseAb" ? { ab: labKey(e), gw: GAB_W[e.gw] ? e.gw : "self", ...(GAB_D[e.gd] != null && e.gd ? { gd: e.gd } : {}) } : {}), ...(e.kind === "giveAb" ? { ab: gabKey(e), gw: GAB_W[e.gw] ? e.gw : "self", ...(GAB_D[e.gd] != null && e.gd ? { gd: e.gd } : {}), ...(ABS[gabKey(e)].name && e.into ? { into: String(e.into).slice(0, 40) } : {}) } : {}), ...(e.kind === "removeBoard" ? { rside: RB_SIDE[e.rside] ? e.rside : "op", rm: RB_MODE[e.rm] ? e.rm : "destroy" } : {}), ...(mfOn(e) ? { mfK: e.mfK, mfOp: e.mfOp === "ge" ? "ge" : "le", mfBy: MF_BY[e.mfBy] ? e.mfBy : "n", mfN: Math.max(-99, Math.min(9999, Math.round(+e.mfN || 0))), ...(e.mfK === "attr" ? { mfA: String(e.mfA || "火").slice(0, 20) } : {}) } : {}), ...(KINDS[e.kind].ctr ? { ctr: String(e.ctr || ctrDefault()), cw: CTR_CW[e.cw] ? e.cw : "pick", ...(e.cw === "rand" && e.ctn > 1 ? { ctn: Math.min(10, Math.round(+e.ctn)) } : {}), ...(e.side === "me" ? { side: "me" } : {}) } : {}), ...fxFields(e) } : null;
 const LEGACY_COND = { lp: { k: "lp", op: "le" }, grave: { k: "grave", op: "ge" }, hand: { k: "sameHand", op: "ge" } };
 function blocksOf(c){
   if (!c) return [];
@@ -5208,7 +5217,7 @@ function absFilter(){
 }
 $("#absQ").addEventListener("input", absFilter);
 $("#absCats").addEventListener("click", e => { const b = e.target.closest("[data-abscat]"); if (!b) return; MK.absCat = b.dataset.abscat; absFilter(); });
-["#mkStartOnField", "#mkCannotLeave", "#mkInnate", "#mkRetain", "#mkEthereal", "#mkSly"].forEach(q => $(q).addEventListener("change", () => { if (typeof updateSecs === "function") updateSecs(); }));
+["#mkStartOnField", "#mkCannotLeave", "#mkNoNeg", "#mkInnate", "#mkRetain", "#mkEthereal", "#mkSly"].forEach(q => $(q).addEventListener("change", () => { if (typeof updateSecs === "function") updateSecs(); }));
 ["#mkCascade", "#mkCascT", "#mkGl", "#mkGlSide", "#mkGlW"].forEach(q => $(q).addEventListener("input", () => updateBkText()));
 // フュージョン: つけた・外したら、条件と「1枚につき」の一覧（「フュージョンしたカードの枚数」）を出しなおす
 ["#mkHf", "#mkHfM", "#mkHfW"].forEach(q => $(q).addEventListener("input", () => updateBkText()));
@@ -5959,7 +5968,7 @@ function twWith(fn){ const cur = MK.blocks, ty = MK.type, sv = MK._twMon || {}; 
 function twRead(){ const sv = [MK.blocks, MK.type]; MK.blocks = MK.twBlocks || []; MK.type = "magic"; try{ return readBlocks(); } finally { MK.blocks = sv[0]; MK.type = sv[1]; } }
 function mkTwVal(){ if (MK.type !== "monster" || MK.kind === "potion" || MK.kind === "relic" || !$("#mkTw").checked) return null; const n = Math.round(+$("#mkTwCost").value); return { name: $("#mkTwName").value.trim().slice(0, 40), cost: isFinite(n) ? Math.max(0, Math.min(99, n)) : 1, blocks: twRead() }; }
 function syncTwUI(){ const on = $("#mkTw").checked && (MK.type === "monster" || !!MK.twSide); $("#twOpts").hidden = !on; document.querySelectorAll("#mkType button").forEach(b => { if (b.dataset.t === "twin") b.setAttribute("aria-pressed", String(on)); else if (on && (b.dataset.t === "monster" || b.dataset.t === "magic")) b.setAttribute("aria-pressed", "false"); }); if (!on && MK.twSide) mkTwSide(false); const sm = $("#sumTw"); if (sm){ sm.textContent = on ? `魔法「${$("#mkTwName").value.trim() || "？"}」` : "なし"; sm.classList.toggle("on", on); } }
-function mkPreviewCard(){ if (MK.ctrBk) return { type: "monster", ctrCard: "x", name: "このカウンター", blocks: readBlocks() }; if (MK.twSide) return twWith(mkPreviewCard); return { startOnField: $("#mkStartOnField").checked, cannotLeave: $("#mkCannotLeave").checked, ...mkLvAttrVal(), cascade: mkCascadeVal(), gl: mkGlVal(), hf: mkHfVal(), fusion: mkFusionVal(), when: mkWhenVal(), field: MK.type === "magic" && $("#mkField").checked, ex: $("#mkEx").checked, noUse: (MK.type === "magic" || MK.type === "trap") && $("#mkNoUse").checked, fxRows: $("#mkFxRows").checked, ...mkSpOpts(), mass: mkMassVal(), fieldMine: MK.type === "magic" && $("#mkField").checked && $("#mkFieldMine").checked || null, anySum: MK.type === "monster" && $("#mkAnySum").checked || null, land: MK.type === "magic" && $("#mkField").checked && $("#mkLand").checked || null, tags: MK.kind === "card" || !MK.kind ? parseTags($("#mkTags").value) : [], showTags: (MK.kind === "card" || !MK.kind) && $("#mkShowTags").checked || null, tribTag: MK.type === "monster" ? $("#mkTribTag").value.trim() || null : null, ...(MK.type === "monster" ? mkVarFields() : {}), ...(MK.kind === "relic" ? { relicView: true } : {}), type: MK.type, frame: MK.kind === "potion" || MK.kind === "relic" ? "spire" : $("#mkFrame").value, persist: (MK.type === "magic" || MK.type === "trap") && $("#mkPersist").checked && !$("#mkField").checked, costX: $("#mkCost").value === "X", costInf: $("#mkCost").value === "∞", ...mkPays(), blocks: readBlocks(), ss: readSS(), eqN: Math.round(+$("#mkEq").value || 0), abs: readAbs() }; }
+function mkPreviewCard(){ if (MK.ctrBk) return { type: "monster", ctrCard: "x", name: "このカウンター", blocks: readBlocks() }; if (MK.twSide) return twWith(mkPreviewCard); return { startOnField: $("#mkStartOnField").checked, cannotLeave: $("#mkCannotLeave").checked, noNeg: $("#mkNoNeg").checked, ...mkLvAttrVal(), cascade: mkCascadeVal(), gl: mkGlVal(), hf: mkHfVal(), fusion: mkFusionVal(), when: mkWhenVal(), field: MK.type === "magic" && $("#mkField").checked, ex: $("#mkEx").checked, noUse: (MK.type === "magic" || MK.type === "trap") && $("#mkNoUse").checked, fxRows: $("#mkFxRows").checked, ...mkSpOpts(), mass: mkMassVal(), fieldMine: MK.type === "magic" && $("#mkField").checked && $("#mkFieldMine").checked || null, anySum: MK.type === "monster" && $("#mkAnySum").checked || null, land: MK.type === "magic" && $("#mkField").checked && $("#mkLand").checked || null, tags: MK.kind === "card" || !MK.kind ? parseTags($("#mkTags").value) : [], showTags: (MK.kind === "card" || !MK.kind) && $("#mkShowTags").checked || null, tribTag: MK.type === "monster" ? $("#mkTribTag").value.trim() || null : null, ...(MK.type === "monster" ? mkVarFields() : {}), ...(MK.kind === "relic" ? { relicView: true } : {}), type: MK.type, frame: MK.kind === "potion" || MK.kind === "relic" ? "spire" : $("#mkFrame").value, persist: (MK.type === "magic" || MK.type === "trap") && $("#mkPersist").checked && !$("#mkField").checked, costX: $("#mkCost").value === "X", costInf: $("#mkCost").value === "∞", ...mkPays(), blocks: readBlocks(), ss: readSS(), eqN: Math.round(+$("#mkEq").value || 0), abs: readAbs() }; }
 function readBlocks(){
   const bs = (MK.blocks || []).map(b => ({ trig: b.trig, ...(b.cont ? { cont: true } : {}), ...(b.alt ? { alt: true } : {}), ...(b.bn ? { bn: b.bn } : {}), ...(b.necro > 0 ? { necro: b.necro } : {}), ...(b.trig === "act" && b.mcost > 0 ? { mcost: b.mcost } : {}), ...(b.trig === "act" && b.lpc > 0 ? { lpc: b.lpc } : {}), ...(b.trig === "act" && b.xc > 0 && MK.sx === "xyz" ? { xc: b.xc } : {}), ...(b.trig === "ctrReach" ? { rc: b.rc || ctrDefault(), rn: b.rn || 1, rw: b.rw === "me" ? "me" : "self" } : {}), ...(b.trig === "act" && b.cost && b.cost.id && b.cost.n > 0 ? { cost: { id: b.cost.id, n: b.cost.n, w: b.cost.w } } : {}), ...(b.bic ? { bic: b.bic } : {}), ...(b.bd ? { bd: b.bd } : {}), ...(b.one ? { one: true, ...(b.oneN > 1 ? { oneN: b.oneN } : {}) } : {}), ...(b.lim > 0 && b.trig !== "act" && b.trig !== "while" ? { lim: b.lim } : {}), ...(b.trig === "act" ? { ap: b.ap === "game" || b.ap === "free" ? b.ap : "turn", an: Math.max(1, Math.min(9, Math.round(+b.an || 1))) } : {}), ...(b.delay > 0 ? { delay: b.delay } : {}), ...(b.delayDie ? { delayDie: true, roll: "die", faces: b.faces || 6 } : {}), ...(b.grant && b.grant.to ? { grant: { to: b.grant.to, at: b.grant.at === "turnStart" ? "turnStart" : "turnEnd", dur: b.grant.dur || 0 } } : {}), ...(b.roll === "die" || b.roll === "coin" || b.roll === "gj" || b.roll === "pgj" ? { roll: b.roll, ...(b.roll === "die" && b.faces && b.faces !== 6 ? { faces: b.faces } : {}), ...(b.roll === "coin" && b.coins > 1 ? { coins: b.coins } : {}) } : {}), join: b.join === "or" ? "or" : "and", conds: (b.conds || []).map(x => ({ ...x })), then: (b.then || []).map(cleanEff).filter(Boolean), else: (b.conds || []).length ? (b.else || []).map(cleanEff).filter(Boolean) : [], ...(b.roll === "die" && (b.dieBr || []).length ? { dieBr: b.dieBr.map(x => ({ lo: x.lo, hi: x.hi, then: (x.then || []).map(cleanEff).filter(Boolean), ...(x.win ? { win: true } : {}) })).filter(x => x.then.length) } : {}) })).filter(b => b.then.length || (b.dieBr || []).length || b.else.length);
   return bs.length ? bs : null;
@@ -6110,7 +6119,7 @@ const ATK_WHO = { this: ["this", undefined, "このモンスター"], op1: ["one
   me1: ["one", "me", "自分のモンスターをえらんで"], meRand: ["random", "me", "自分のランダムなモンスター"], meAll: ["all", "me", "自分のモンスターすべて"], any: ["any", undefined, "場のモンスター1体（自分か相手）"] };
 const ATK_WHILE_WHO = ["this", "meAll", "opAll"];
 const atkWho = e => e.to === "this" ? "this" : e.to === "any" ? "any" : (e.side === "me" ? "me" : "op") + (e.to === "all" ? "All" : e.to === "random" ? "Rand" : "1");
-const RM_WHO = { pick: "えらんで", random: "ランダムに", all: "すべて", this: "このカード", others: "このカード以外すべて（お互いの場）", attacker: "攻撃してきたモンスター" };
+const RM_WHO = { pick: "えらんで", oppPick: "相手がえらんで", random: "ランダムに", all: "すべて", this: "このカード", others: "このカード以外すべて（お互いの場）", attacker: "攻撃してきたモンスター" };
 const rmWho = e => e.to === "one" || e.to === "two" || e.to === "n" ? "pick" : e.to;
 const fCount = (e, opt, label) => { const tn = Math.max(1, e.tn || (e.to === "two" ? 2 : 1)); return `<input type="number" data-f="fTn" min="1" max="10" value="${esc(tn)}" aria-label="${esc(label)}" style="width:60px"><span class="note">${esc(label)}</span>`; };
 // 工房で開いたとき・欄をかえたときに、まとめた効果の形をそろえる（中身はそれぞれの fxForm の fix と group）
@@ -6264,7 +6273,7 @@ function removeUI(e, opt, trig){
   return (e.zone !== "field" && !["this", "others", "attacker"].includes(e.to) ? `<select data-f="rSide" aria-label="だれの">${opt("", "相手の", e.side || "")}${opt("me", "自分の", e.side || "")}${opt("both", "お互いの", e.side || "")}</select>` : "")
     + `<select data-f="rZone" aria-label="なにを">${zones.map(k => opt(k, RM_ZONE[k], e.zone)).join("")}</select>`
     + (e.zone === "field" ? "" : `<select data-f="rWho" aria-label="どれを">${whos.map(k => opt(k, k === "this" && mon ? "このモンスター" : RM_WHO[k], who)).join("")}</select>`)
-    + (e.zone !== "field" && (who === "pick" || who === "random") ? fCount(e, opt, e.zone === "mon" ? (who === "random" ? "回" : "体") : (who === "random" ? "回" : "枚")) : "")
+    + (e.zone !== "field" && (who === "pick" || who === "random" || who === "oppPick") ? fCount(e, opt, e.zone === "mon" ? (who === "random" ? "回" : "体") : (who === "random" ? "回" : "枚")) : "")
     + `<select data-f="rHow" aria-label="どうどかす">${Object.keys(RM_HOW).map(k => opt(k, { destroy: "破壊する", hand: "手札に戻す", exile: "除外する", deck: "山札に戻す", grave: "墓地へ送る（破壊ではない）" }[k], e.how)).join("")}</select>`
     + (e.how === "deck" ? `<select data-f="rPos" aria-label="山札のどこ">${Object.keys(RM_POS).map(k => opt(k, { top: "一番上に", bottom: "一番下に", shuffle: "混ぜてシャッフル" }[k], e.pos || "shuffle")).join("")}</select>` : "");
 }
@@ -6414,7 +6423,7 @@ initBlocksUI();
 $("#mkFxMode").addEventListener("click", e => { const b = e.target.closest("button[data-m]"); if (b) setFxMode(b.dataset.m); });
 applyFxMode();
 function resetMaker(){
-  S.editId = null; setUseConds(null); mkSkinReset(null); $("#mkStartOnField").checked = false; $("#mkCannotLeave").checked = false; $("#mkInnate").checked = false; $("#mkRetain").checked = false; $("#mkEthereal").checked = false; $("#mkSly").checked = false; $("#mkHf").checked = false; $("#mkHfM").value = "tag"; $("#mkHfW").value = ""; syncHfUI(); $("#mkCascade").checked = false; $("#mkGl").checked = false; $("#mkGlSide").value = "r"; $("#mkGlW").value = ""; $("#mkGlSide").hidden = $("#mkGlW").hidden = true; setFrameless(false); setFlAlpha(FL_ALPHA_DEF); setTEdge(false); setShine("", ""); setColor(null, null); if (typeof mkSetLvAttr === "function") mkSetLvAttr(null); $("#mkFxRows").checked = MK.fxRows = false; $("#mkHideText").checked = false; $("#mkName").value = ""; $("#mkEff").value = ""; $("#mkFlv").value = ""; $("#mkNameSize").value = $("#mkTextSize").value = "m"; syncSizes(); $("#mkAtk").value = 300; $("#mkEq").value = 200; $("#mkEqAb").value = "none"; $("#mkEqCost").value = "0"; $("#mkEqCap").value = ""; $("#mkFrame").value = ""; syncFrame(); $("#mkFont").value = "klee"; syncFont(); $("#mkQuick").checked = false; $("#mkWhen").value = ""; $("#mkFusion").checked = false; MK.fusion = null; renderFusion(); $("#mkExhaust").checked = false; $("#mkNoUse").checked = false; $("#mkFlash").checked = $("#mkStrig").checked = false; $("#mkKick").value = 0; $("#mkMass").value = 0; $("#mkFMass").value = 0; $("#mkLand").checked = $("#mkAnySum").checked = $("#mkFieldMine").checked = false; $("#mkToken").checked = false; $("#mkEx").checked = false; $("#mkNeow").checked = false; $("#mkPayLp").value = "0"; $("#mkPayDisc").value = "0"; $("#mkPayDiscTag").value = ""; setPayCtr(null); setCostMech(null); $("#mkTags").value = ""; $("#mkShowTags").checked = false; syncTribe(); $("#mkTribTag").value = ""; $("#mkPayDiscAll").checked = false; $("#mkPayDisc").disabled = false; $("#mkPayMax").value = "0"; $("#mkPersist").checked = false; $("#mkField").checked = false; MK.sk = null; $("#mkRarity").value = "common"; $("#mkSpc").value = ""; $("#mkCost").value = "1"; setMkDeck("normal"); $("#mkLimit").value = "3"; clearCanvas(); undoStack = [];
+  S.editId = null; setUseConds(null); mkSkinReset(null); $("#mkStartOnField").checked = false; $("#mkCannotLeave").checked = false; $("#mkNoNeg").checked = false; $("#mkInnate").checked = false; $("#mkRetain").checked = false; $("#mkEthereal").checked = false; $("#mkSly").checked = false; $("#mkHf").checked = false; $("#mkHfM").value = "tag"; $("#mkHfW").value = ""; syncHfUI(); $("#mkCascade").checked = false; $("#mkGl").checked = false; $("#mkGlSide").value = "r"; $("#mkGlW").value = ""; $("#mkGlSide").hidden = $("#mkGlW").hidden = true; setFrameless(false); setFlAlpha(FL_ALPHA_DEF); setTEdge(false); setShine("", ""); setColor(null, null); if (typeof mkSetLvAttr === "function") mkSetLvAttr(null); $("#mkFxRows").checked = MK.fxRows = false; $("#mkHideText").checked = false; $("#mkName").value = ""; $("#mkEff").value = ""; $("#mkFlv").value = ""; $("#mkNameSize").value = $("#mkTextSize").value = "m"; syncSizes(); $("#mkAtk").value = 300; $("#mkEq").value = 200; $("#mkEqAb").value = "none"; $("#mkEqCost").value = "0"; $("#mkEqCap").value = ""; $("#mkFrame").value = ""; syncFrame(); $("#mkFont").value = "klee"; syncFont(); $("#mkQuick").checked = false; $("#mkWhen").value = ""; $("#mkFusion").checked = false; MK.fusion = null; renderFusion(); $("#mkExhaust").checked = false; $("#mkNoUse").checked = false; $("#mkFlash").checked = $("#mkStrig").checked = false; $("#mkKick").value = 0; $("#mkMass").value = 0; $("#mkFMass").value = 0; $("#mkLand").checked = $("#mkAnySum").checked = $("#mkFieldMine").checked = false; $("#mkToken").checked = false; $("#mkEx").checked = false; $("#mkNeow").checked = false; $("#mkPayLp").value = "0"; $("#mkPayDisc").value = "0"; $("#mkPayDiscTag").value = ""; setPayCtr(null); setCostMech(null); $("#mkTags").value = ""; $("#mkShowTags").checked = false; syncTribe(); $("#mkTribTag").value = ""; $("#mkPayDiscAll").checked = false; $("#mkPayDisc").disabled = false; $("#mkPayMax").value = "0"; $("#mkPersist").checked = false; $("#mkField").checked = false; MK.sk = null; $("#mkRarity").value = "common"; $("#mkSpc").value = ""; $("#mkCost").value = "1"; setMkDeck("normal"); $("#mkLimit").value = "3"; clearCanvas(); undoStack = [];
   setMkType("monster"); loadFxForm(null); loadAbs([]); loadSS(null); mkLoadVars(null);
   $("#mkTitle").textContent = "カードを描く"; $("#btnNew").hidden = true; $("#btnSave").textContent = "カードを保存"; potionModeUI();
 }
@@ -6448,7 +6457,7 @@ function updateSecs(){
   const abs = readAbs();
   $("#secAbs").hidden = false; if (typeof syncCostUI === "function") syncCostUI();
   $("#secAbsTitle").textContent = "能力";
-  { const cn = [["#mkStartOnField", "ゲーム開始時に場へ置く"], ["#mkCannotLeave", "場から離れない"], ["#mkInnate", "天賦"], ["#mkRetain", "保留"], ["#mkEthereal", "エセリアル"], ["#mkSly", "スライ"], ["#mkCascade", "続唱"], ["#mkHf", "フュージョン"]].filter(([q]) => $(q).checked).map(x => x[1]), al = [...cn, ...abs.map(a => ABS[a.k] ? (ABS[a.k].kw || ABS[a.k].label) : a.k)]; sum("#sumAbs", al.length ? al.join("・") : "なし", al.length); }
+  { const cn = [["#mkStartOnField", "ゲーム開始時に場へ置く"], ["#mkCannotLeave", "場から離れない"], ["#mkNoNeg", "打ち消されない"], ["#mkInnate", "天賦"], ["#mkRetain", "保留"], ["#mkEthereal", "エセリアル"], ["#mkSly", "スライ"], ["#mkCascade", "続唱"], ["#mkHf", "フュージョン"]].filter(([q]) => $(q).checked).map(x => x[1]), al = [...cn, ...abs.map(a => ABS[a.k] ? (ABS[a.k].kw || ABS[a.k].label) : a.k)]; sum("#sumAbs", al.length ? al.join("・") : "なし", al.length); }
   $("#secEq").hidden = $("#eqNote").hidden && $("#capRow").hidden;
   $("#secEqTitle").textContent = t === "equip" ? "装備コスト" : "装備キャパ";
   if (t === "equip") sum("#sumEq", `コスト ${Math.max(0, Math.round(+$("#mkEqCost").value || 0))}`, true);
@@ -6579,7 +6588,7 @@ function mkBuildDoc(){
   if (prev && prev.builtinPotion && !MK.artDirty && doc.img === potionArt(prev.potKey)) delete doc.img;
   if (prev && prev.builtinRelic){ if (!MK.artDirty && !prev.img) doc.img = ""; doc.neow = true; }
   doc.cascade = mkCascadeVal(); doc.gl = mkGlVal(); doc.hf = mkHfVal();
-  doc.startOnField = $("#mkStartOnField").checked || null; doc.cannotLeave = $("#mkCannotLeave").checked || null; doc.innate = $("#mkInnate").checked || null; doc.retain = $("#mkRetain").checked || null; doc.ethereal = $("#mkEthereal").checked || null; doc.sly = (MK.type === "magic" || MK.type === "trap") && $("#mkSly").checked || null;
+  doc.startOnField = $("#mkStartOnField").checked || null; doc.cannotLeave = $("#mkCannotLeave").checked || null; doc.noNeg = $("#mkNoNeg").checked || null; doc.innate = $("#mkInnate").checked || null; doc.retain = $("#mkRetain").checked || null; doc.ethereal = $("#mkEthereal").checked || null; doc.sly = (MK.type === "magic" || MK.type === "trap") && $("#mkSly").checked || null;
   if (MK.kind === "potion" || MK.kind === "relic") Object.assign(doc, { type: MK.kind, neow: MK.kind === "relic" && $("#mkNeow").checked || null, atk: 0, atkInf: false, eqN: 0, eqCost: null, eqCap: null, abs: [], frame: null, ss: null, quick: false, persist: false, sk: null, rarity: null, exhaust: false, payLp: null, payDisc: null, payMax: null, cost: null, costX: false, deckMode: "normal", limit: 0 });
   doc.ctrs = ctrSnap(doc);
   if (!MK.skinRaw){ MK.skins = MK.skins || []; if (MK.skinCur >= 0 && MK.skins[MK.skinCur]){ MK.skins[MK.skinCur] = { ...MK.skins[MK.skinCur], ...lookOf(doc) }; if (MK.baseLook) Object.assign(doc, MK.baseLook); } doc.skins = MK.skins.length ? MK.skins.map(s => ({ ...s })) : null; }
@@ -6755,7 +6764,7 @@ $("#gallery").addEventListener("click", async e => {
   if (ed){
     const c = S.cards.get(ed.dataset.edit); if (!c || !(isMine(c) || (c.starter && isAdmin()))) return;
     setMkKind("card"); S.editId = c.id; mkSkinReset(c); setFrameless(!!c.frameless); setFlAlpha(c.flAlpha ?? FL_ALPHA_DEF); setTEdge(!!c.textEdge); setShine(c.holo, ""); setColor(c.colF, c.colB, c.colF2, c.colB2, c.colGd); mkSetLvAttr(c); $("#mkFxRows").checked = MK.fxRows = !!c.fxRows; $("#mkHideText").checked = !!c.hideText; MK.artDirty = false; $("#mkName").value = foilName(c.nameRuby || c.name, c.foil); $("#mkEff").value = c.effect || ""; $("#mkFlv").value = c.flavor || ""; $("#mkNameSize").value = SIZES_T[c.nameSize] ? c.nameSize : "m"; $("#mkTextSize").value = SIZES_T[c.textSize] ? c.textSize : "m"; syncSizes(); $("#mkAtk").value = c.atkInf ? "∞" : (c.atk || 0); $("#mkLimit").value = String(cardLimit(c));
-    mkLoadVars(c); setUseConds(c); $("#mkFusion").checked = !!(Array.isArray(c.fusion) && c.fusion.length); MK.fusion = Array.isArray(c.fusion) && c.fusion.length ? JSON.parse(JSON.stringify(c.fusion)) : null; renderFusion(); $("#mkQuick").checked = !!c.quick; $("#mkStartOnField").checked = !!c.startOnField; $("#mkCannotLeave").checked = !!c.cannotLeave; $("#mkInnate").checked = !!c.innate; $("#mkRetain").checked = !!c.retain; $("#mkEthereal").checked = !!c.ethereal; $("#mkSly").checked = !!c.sly; { const g = hfOf(c); $("#mkHf").checked = !!g; $("#mkHfM").value = g ? g.m : "tag"; $("#mkHfW").value = g && g.w || ""; syncHfUI(); } $("#mkCascade").checked = !!c.cascade; { const g = glOf(c); $("#mkGl").checked = !!g; $("#mkGlSide").value = g ? (g.l && g.r ? "lr" : g.r ? "r" : "l") : "r"; $("#mkGlW").value = g && g.w || ""; $("#mkGlSide").hidden = $("#mkGlW").hidden = !g; } $("#mkWhen").value = WHEN_LABEL[c.when] ? c.when : ""; $("#mkExhaust").checked = !!c.exhaust; $("#mkNoUse").checked = !!c.noUse; $("#mkFlash").checked = !!c.flashback; $("#mkMass").value = Math.max(0, +c.mass || 0); $("#mkFMass").value = c.field ? Math.max(0, +c.mass || 0) : 0; $("#mkLand").checked = !!c.land; $("#mkFieldMine").checked = !!c.fieldMine; $("#mkAnySum").checked = !!c.anySum; $("#mkStrig").checked = !!c.strig; $("#mkKick").value = Math.max(0, +c.kick || 0); $("#mkToken").checked = !!c.token; $("#mkEx").checked = !!c.ex; $("#mkPayLp").value = String(payLpOf(c)); $("#mkPayDisc").value = String(payDiscOf(c)); $("#mkPayDiscTag").value = c.payDiscTag || ""; setPayCtr(c.payCtr); setCostMech(c); $("#mkTags").value = tagsOf(c).join(" "); $("#mkShowTags").checked = !!c.showTags; syncTribe(); $("#mkTribTag").value = c.tribTag || ""; $("#mkPayDiscAll").checked = payDiscAll(c); $("#mkPayDisc").disabled = payDiscAll(c); $("#mkPayMax").value = String(payMaxOf(c)); $("#mkPersist").checked = !!c.persist; $("#mkField").checked = !!c.field; MK.sk = c.sk || null; $("#mkRarity").value = rarityOf(c); $("#mkSpc").value = c.spc === "silent" ? "silent" : ""; setMkType(cardType(c)); loadFxForm(c); $("#mkFont").value = FONTS[c.font] ? c.font : "klee"; syncFont(); $("#mkCost").value = c.costX ? "X" : c.costInf && hasCost(c) ? "∞" : hasCost(c) ? String(costOf(c)) : "1"; if (!$("#mkCost").value && hasCost(c)) $("#mkCost").insertAdjacentHTML("beforeend", `<option value="${costOf(c)}">${costOf(c)}</option>`), $("#mkCost").value = String(costOf(c)); setMkDeck(deckModeOf(c)); $("#mkEq").value = c.eqN || 0; $("#mkEqAb").value = "none"; $("#mkEqCost").value = String(eqCostOf(c)); $("#mkEqCap").value = hasEqCap(c) ? String(+c.eqCap) : ""; loadAbs(absOf(c)); syncEqLine(); $("#mkFrame").value = [...$("#mkFrame").options].some(o => o.value && o.value === c.frame) ? c.frame : ""; syncFrame(); loadSS(c);
+    mkLoadVars(c); setUseConds(c); $("#mkFusion").checked = !!(Array.isArray(c.fusion) && c.fusion.length); MK.fusion = Array.isArray(c.fusion) && c.fusion.length ? JSON.parse(JSON.stringify(c.fusion)) : null; renderFusion(); $("#mkQuick").checked = !!c.quick; $("#mkStartOnField").checked = !!c.startOnField; $("#mkCannotLeave").checked = !!c.cannotLeave; $("#mkNoNeg").checked = !!c.noNeg; $("#mkInnate").checked = !!c.innate; $("#mkRetain").checked = !!c.retain; $("#mkEthereal").checked = !!c.ethereal; $("#mkSly").checked = !!c.sly; { const g = hfOf(c); $("#mkHf").checked = !!g; $("#mkHfM").value = g ? g.m : "tag"; $("#mkHfW").value = g && g.w || ""; syncHfUI(); } $("#mkCascade").checked = !!c.cascade; { const g = glOf(c); $("#mkGl").checked = !!g; $("#mkGlSide").value = g ? (g.l && g.r ? "lr" : g.r ? "r" : "l") : "r"; $("#mkGlW").value = g && g.w || ""; $("#mkGlSide").hidden = $("#mkGlW").hidden = !g; } $("#mkWhen").value = WHEN_LABEL[c.when] ? c.when : ""; $("#mkExhaust").checked = !!c.exhaust; $("#mkNoUse").checked = !!c.noUse; $("#mkFlash").checked = !!c.flashback; $("#mkMass").value = Math.max(0, +c.mass || 0); $("#mkFMass").value = c.field ? Math.max(0, +c.mass || 0) : 0; $("#mkLand").checked = !!c.land; $("#mkFieldMine").checked = !!c.fieldMine; $("#mkAnySum").checked = !!c.anySum; $("#mkStrig").checked = !!c.strig; $("#mkKick").value = Math.max(0, +c.kick || 0); $("#mkToken").checked = !!c.token; $("#mkEx").checked = !!c.ex; $("#mkPayLp").value = String(payLpOf(c)); $("#mkPayDisc").value = String(payDiscOf(c)); $("#mkPayDiscTag").value = c.payDiscTag || ""; setPayCtr(c.payCtr); setCostMech(c); $("#mkTags").value = tagsOf(c).join(" "); $("#mkShowTags").checked = !!c.showTags; syncTribe(); $("#mkTribTag").value = c.tribTag || ""; $("#mkPayDiscAll").checked = payDiscAll(c); $("#mkPayDisc").disabled = payDiscAll(c); $("#mkPayMax").value = String(payMaxOf(c)); $("#mkPersist").checked = !!c.persist; $("#mkField").checked = !!c.field; MK.sk = c.sk || null; $("#mkRarity").value = rarityOf(c); $("#mkSpc").value = c.spc === "silent" ? "silent" : ""; setMkType(cardType(c)); loadFxForm(c); $("#mkFont").value = FONTS[c.font] ? c.font : "klee"; syncFont(); $("#mkCost").value = c.costX ? "X" : c.costInf && hasCost(c) ? "∞" : hasCost(c) ? String(costOf(c)) : "1"; if (!$("#mkCost").value && hasCost(c)) $("#mkCost").insertAdjacentHTML("beforeend", `<option value="${costOf(c)}">${costOf(c)}</option>`), $("#mkCost").value = String(costOf(c)); setMkDeck(deckModeOf(c)); $("#mkEq").value = c.eqN || 0; $("#mkEqAb").value = "none"; $("#mkEqCost").value = String(eqCostOf(c)); $("#mkEqCap").value = hasEqCap(c) ? String(+c.eqCap) : ""; loadAbs(absOf(c)); syncEqLine(); $("#mkFrame").value = [...$("#mkFrame").options].some(o => o.value && o.value === c.frame) ? c.frame : ""; syncFrame(); loadSS(c);
     if (!c.img){ clearCanvas(); undoStack = []; MK.artDirty = false; }
     else { const im = new Image(); im.onload = () => { clearCanvas(); setPhoto(im); setMode("draw"); composite(); undoStack = []; MK.artDirty = false; }; artFullSrc(c).then(src => { im.src = src; }); }
     $("#mkTitle").textContent = "カードを編集中"; $("#btnNew").hidden = false; $("#btnSave").textContent = "変更を保存";
@@ -8952,17 +8961,58 @@ FX_FORMS.atk.auto = (st, s, opts, fx) => {
   if (fx.op === "set") { const T = P(st, fx.side === "me" ? s : O(s)), sg = fx.side === "me" ? 1 : -1, v = o => { const m = T.mz[+o]; const a = m ? atkOf(m) : 0; return sg * ((+fx.n || 0) - (isFinite(a) ? a : 1e9)); }; return opts.slice().sort((a, b) => v(b) - v(a))[0]; }
   if (fx.side === "me" && (fx.op === "add" || fx.op === "mul")) { const own = P(st, s); return opts.slice().sort((a, b) => cmpNum(atkOf(own.mz[+b]), atkOf(own.mz[+a])))[0]; }
 };
+/* ---- 相手がえらぶ ----
+   chooser（ふつうは効果を使った人の相手）が、えらべるもの（labels）から1つえらぶ。cb(st, えらんだ番号)
+   この画面の人がえらぶ: ボタン / オンラインで相手の画面: st.askQ で答えを待つ / CPU: auto(なければ先頭) */
+function askPick(st, s, chooser, c, title, labels, auto, cb){
+  if (!labels.length){ cb(st, -1); return; }
+  if (isHumanHere(chooser)){ G.chooseQ.push({ ask: true, s, to: chooser !== s ? chooser : null, c, ctx: {}, then: null, fx: { kind: "__block", ask: title }, pick1: labels.map(l => ({ name: l.name, text: l.text || "" })), p1go: (st2, k) => cb(st2, k) }); return; }
+  if (G && G.mode === "online" && !G.spectate && chooser !== G.slot && s === G.slot){
+    st.un = (st.un || 0) + 1; st.askQ = { n: st.un, by: s, to: chooser, text: title, name: c.name, ans: null, opts: labels.map(l => ({ name: l.name, text: l.text || "" })) };
+    G.askWait = { n: st.un, s, name: c.name, text: title, pick: true, resume: (st2, k) => cb(st2, k) };
+    log(st, s, `「${c.name}」：相手がえらんでいます`); return;
+  }
+  cb(st, Math.max(0, Math.min(labels.length - 1, auto)));
+}
+// 場のカードの名前（えらぶ人から見えないセットは名前を出さない）
+function boardOptLabel(st, o, viewer){
+  if (o === "field") return { name: card(st.field.c).name, text: "フィールド魔法" };
+  const [os, zk, oi] = String(o).split(":"), X = P(st, os), who = os === viewer ? "自分" : "相手";
+  if (zk === "mz"){ const m = X.mz[+oi]; return { name: card(m.c).name, text: `${who}のモンスター（ATK ${fmtN(atkOf(m))}）` }; }
+  if (zk === "eq"){ const e = X.standingEq[+oi]; return { name: card(e.c).name, text: `${who}の待機中の装備` }; }
+  if (zk === "mana"){ const x = X.manaZ[+oi]; return { name: card(x.c).name, text: `${who}のマナゾーン` }; }
+  const z = X.sz[+oi], vis = z.face || os === viewer;
+  return { name: vis ? card(z.c).name : "セットされたカード", text: `${who}の${z.face ? "魔法・罠" : "セット中"}（左から${+oi + 1}番目）` };
+}
+// 「相手がえらんで」の除去: 1枚ずつ相手がえらび、そのたびにどかす（n 枚まで）
+function oppPickRun(st, s, c, ctx, then, fx, left){
+  if (left <= 0 || st.winner){ then && then(st); return; }
+  ctx = { ...ctx, form: fx };
+  const one = { ...fx, to: "one" }, opts = fxTargets(st, s, fx, ctx) || [], chooser = O(s);
+  if (!opts.length){ log(st, s, `「${c.name}」：どかすカードがない`); then && then(st); return; }
+  const verb = { destroy: "破壊する", hand: "手札に戻す", exile: "除外する", deck: "山札に戻す", grave: "墓地へ送る" }[fx.how] || "どかす";
+  // CPUがえらぶとき: 自分のカードなら一番どうでもいいもの（弱いモンスター → マナ → 魔法・罠 → フィールド）、相手のカードなら一番強いもの
+  const val = o => { if (o === "field") return 400; const [os, k, i] = String(o).split(":"), m = k === "mz" ? P(st, os).mz[+i] : null; return (os === chooser ? 1 : -1) * (k === "mz" ? 100 + (m ? atkOf(m) : 0) : k === "mana" ? 250 : 300); };
+  const best = opts.slice().sort((a, b) => val(a) - val(b))[0], auto = Math.max(0, opts.indexOf(best));
+  askPick(st, s, chooser, c, `「${c.name}」：${verb}カードをえらんでください（あと${left}枚）`, opts.map(o => boardOptLabel(st, o, chooser)), auto, (st2, k) => {
+    const o = (fxTargets(st2, s, fx, ctx) || [])[k];
+    if (o == null){ then && then(st2); return; }
+    applyEffect(st2, s, c, o, ctx, one);
+    oppPickRun(st2, s, c, ctx, then, fx, left - 1);
+  });
+}
 /* ---- 場から除去する（remove） ---- */
 // えらべる対象: このカード・全部・このカード以外・攻撃してきたモンスター・フィールドはえらばない
 FX_FORMS.remove.opts = (st, s, f, ctx) => {
   if (f.to === "this" || f.to === "all" || f.to === "others" || f.to === "attacker" || f.zone === "field") return null;
-  if (fxTgt(f) === "opp") return undefined; // 前と同じ（相手のモンスター → 挑発・裏向きを見る / 自分のモンスター）
+  if (fxTgt(f) === "opp" && f.to !== "oppPick") return undefined; // 前と同じ（相手のモンスター → 挑発・裏向きを見る / 自分のモンスター）
   const sides = f.side === "me" ? [s] : f.side === "both" ? [s, O(s)] : [O(s)], out = [];
   sides.forEach(o => { const X = P(st, o);
-    if (f.zone === "mon" || f.zone === "any") X.mz.forEach((m, i) => { if (m && (o === s || !fxHidden(st, o, i))) out.push(`${o}:mz:${i}`); });
-    if (f.zone === "st" || f.zone === "any") X.sz.forEach((z, i) => { if (z && !(o === s && ctx.pz === i)) out.push(`${o}:sz:${i}`); });
-    if (f.zone === "any") (X.standingEq || []).forEach((e, i) => out.push(`${o}:eq:${i}`)); });
-  if (f.zone === "any" && st.field && sides.includes(st.field.o) && !ctx.field) out.push("field");
+    if (f.zone === "mon" || rmBoard(f.zone)) X.mz.forEach((m, i) => { if (m && (o === s || !fxHidden(st, o, i))) out.push(`${o}:mz:${i}`); });
+    if (f.zone === "st" || rmBoard(f.zone)) X.sz.forEach((z, i) => { if (z && !(o === s && ctx.pz === i)) out.push(`${o}:sz:${i}`); });
+    if (rmBoard(f.zone)) (X.standingEq || []).forEach((e, i) => out.push(`${o}:eq:${i}`));
+    if (rmMana(f.zone)) (X.manaZ || []).forEach((x, i) => { if (x) out.push(`${o}:mana:${i}`); }); });
+  if (rmBoard(f.zone) && st.field && sides.includes(st.field.o) && !ctx.field) out.push("field");
   return out;
 };
 // CPUのえらび方: 場のカードは、相手の一番強いモンスター → 相手の魔法・罠 → フィールド（自分のカードはなるべく選ばない）。
@@ -8994,16 +9044,17 @@ function removeThings(st, s, c, target, ctx, f){
   if (f.to === "all"){
     const sides = f.side === "both" ? [s, O(s)] : [TS];
     for (const o of sides){ const X = P(st, o);
-      if (f.zone === "mon" || f.zone === "any") X.mz.forEach((m, i) => { if (m && mfOk(st, s, f, m)) mz(o, i); });
-      if (f.zone === "st" || f.zone === "any") X.sz.forEach((z, i) => { if (z && !(o === s && ctx.pz === i)) out.push({ k: "sz", o, i }); });
-      if (f.zone === "any") (X.standingEq || []).forEach((e, i) => out.push({ k: "eq", o, i })); }
-    if (f.zone === "any" && st.field && sides.includes(st.field.o) && !ctx.field) out.push({ k: "field" });
+      if (f.zone === "mon" || rmBoard(f.zone)) X.mz.forEach((m, i) => { if (m && mfOk(st, s, f, m)) mz(o, i); });
+      if (f.zone === "st" || rmBoard(f.zone)) X.sz.forEach((z, i) => { if (z && !(o === s && ctx.pz === i)) out.push({ k: "sz", o, i }); });
+      if (rmBoard(f.zone)) (X.standingEq || []).forEach((e, i) => out.push({ k: "eq", o, i }));
+      if (rmMana(f.zone)) (X.manaZ || []).forEach((x, i) => { if (x) out.push({ k: "mana", o, i }); }); }
+    if (rmBoard(f.zone) && st.field && sides.includes(st.field.o) && !ctx.field) out.push({ k: "field" });
     return out;
   }
   if (target == null) return out;
   if (typeof target === "number"){ mz(TS, target); return out; }
   const t = String(target); if (t === "field"){ if (st.field) out.push({ k: "field" }); return out; }
-  const mm = t.match(/^([ab]):(mz|sz|eq):(\d+)$/); if (!mm) return out;
+  const mm = t.match(/^([ab]):(mz|sz|eq|mana):(\d+)$/); if (!mm) return out;
   if (mm[2] === "mz") mz(mm[1], +mm[3]); else out.push({ k: mm[2], o: mm[1], i: +mm[3] });
   return out;
 }
@@ -9027,12 +9078,14 @@ function applyRemove(st, s, c, target, ctx, f, n, src){
       continue;
     }
     if (x.k === "field"){ const fl = st.field; if (!fl || cannotLeave(fl.c)) continue; st.field = null; removeCardTo(st, fl.o, fl.c, f.how, f.pos, fl.mats); if (f.to !== "others") log(st, s, `${src}でフィールド魔法「${card(fl.c).name}」を${verb}`); else log(st, s, `フィールド「${card(fl.c).name}」も${verb}`); continue; }
+    // マナゾーン: カードを持ち主の墓地・手札などへ（タップしていないマナなら、使えるマナも1減る）
+    if (x.k === "mana"){ const X = P(st, x.o), mz0 = (X.manaZ || [])[x.i]; if (!mz0) continue; X.manaZ[x.i] = null; if (!mz0.tap && X.mana) X.mana.cur = Math.max(0, X.mana.cur - 1); removeCardTo(st, x.o, mz0.c, f.how === "destroy" ? "grave" : f.how, f.pos); if (f.to !== "all" && f.to !== "others") log(st, s, `${src}でマナゾーンの「${card(mz0.c).name}」を${f.how === "destroy" ? "墓地へ送った" : verb}`); continue; }
     if (x.k === "eq"){ const X = P(st, x.o), e = (X.standingEq || [])[x.i]; if (!e || cannotLeave(e.c)) continue; X.standingEq[x.i] = null; removeCardTo(st, e.o, e.c, f.how, f.pos); if (f.to !== "all" && f.to !== "others") log(st, s, `${src}で待機中の「${card(e.c).name}」を${verb}`); continue; }
     const X = P(st, x.o), z = X.sz[x.i]; if (!z || cannotLeave(z.c)) continue; X.sz[x.i] = null;
     removeCardTo(st, x.o, z.c, f.how, f.pos, z.fcp || z.cp ? z.mats : [], z.fcp || z.cp); ev(st, { type: "destroy", s: x.o, z: x.i, k: "sz" });
     if (f.to !== "all" && f.to !== "others") log(st, s, `${src}で${z.face ? `「${card(z.c).name}」` : `セットされていたカード（「${card(z.c).name}」）`}を${verb}`);
   }
-  for (const o of ["a", "b"]){ const X = P(st, o); if (X.standingEq) X.standingEq = X.standingEq.filter(Boolean); }
+  for (const o of ["a", "b"]){ const X = P(st, o); if (X.standingEq) X.standingEq = X.standingEq.filter(Boolean); if (X.manaZ && X.manaZ.some(x => !x)){ X.manaZ = X.manaZ.filter(Boolean); manaSync(X); } }
 }
 FX_FORMS.remove.run = applyRemove;
 /* ---- 手札をどかす（handOut） ---- */
@@ -9494,6 +9547,7 @@ function runEffect(st, s, c, ctx = {}, then, fx = normFx(c)){
   if (fx.kind === "playTop" || fx.kind === "playTopEx"){ const ex = fx.kind === "playTopEx", go = (st2, r) => { if (r <= 0 || st2.winner){ then && then(st2); return; } playTopCard(st2, s, `「${c.name}」`, ex, st3 => go(st3, r - 1)); }; go(st, Math.max(1, fx.n || 1)); return; }
   if ((c && c.frame === "spire" || fx.rand || fx.distinct) && (fx.kind === "dmg" || fx.kind === "bash" || fx.kind === "vuln" || fx.kind === "weak")) ctx = { ...ctx, spireAtk: true };
   let opts = fxTargets(st, s, fx, ctx);
+  if (fx.to === "oppPick" && fx.kind === "remove") return oppPickRun(st, s, c, ctx, then, fx, Math.max(1, Math.min(10, Math.round(+fx.tn || 1))));
   if (opts && fx.distinct && ctx.hit && ctx.hit.picked) opts = opts.filter(o => !ctx.hit.picked.includes(String(o)));
   if (fx.rand && ctx.spireAtk) ctx = { ...ctx, anyEnemy: true }, opts = fxTargets(st, s, fx, ctx);
   if (opts && opts.length === 1 && opts[0] === "p" && ctx.spireAtk){ applyEffect(st, s, c, "p", ctx, fx); then && then(st); return; }
@@ -10119,13 +10173,14 @@ function resolveChain(st, resume){
     }
     if ((normFx(c) || {}).kind === "reflectFx"){
       const t = chain[link.target];
-      if (t && !t.summon && !t.negated){ t.negated = true; t.reflect = link.s; ev(st2, { type: "counter", s: link.s }); log(st2, link.s, `「${c.name}」で「${card(t.c).name}」を跳ね返す！`); }
+      if (t && !t.summon && noNegLink(t)) log(st2, link.s, `「${card(t.c).name}」は打ち消されない！`);
+      else if (t && !t.summon && !t.negated){ t.negated = true; t.reflect = link.s; ev(st2, { type: "counter", s: link.s }); log(st2, link.s, `「${c.name}」で「${card(t.c).name}」を跳ね返す！`); }
       else log(st2, link.s, `「${c.name}」：跳ね返すカードがない`);
       step(st2); return;
     }
     if (link.cancel || (normFx(c) || {}).kind === "cancel"){
       const t = chain[link.target];
-      if (t && t.summon && noNegSum(t.c)) log(st2, link.s, `「${card(t.c).name}」の召喚は打ち消されない！`);
+      if (noNegLink(t)) log(st2, link.s, `「${card(t.c).name}」の${t.summon ? "召喚" : "発動"}は打ち消されない！`);
       else if (t){ t.negated = true; ev(st2, { type: "counter", s: link.s }); log(st2, link.s, `「${c.name}」で「${card(t.c).name}」の${t.summon ? (t.special ? "特殊召喚" : "召喚") : "発動"}を打ち消す！`); }
       else log(st2, link.s, `「${c.name}」：無効にするカードがない`);
       step(st2); return;
@@ -10151,7 +10206,9 @@ function afterChain(st){
   else if (pd.type === "summoned") st.pending = null;
 }
 // 「召喚を打ち消されない」モンスター: 相手は召喚に答えられない（打ち消しのチャンスを出さない）
-const noNegSum = id => absOf(card(id)).some(a => a.k === "noNegSummon");
+const noNegSum = id => absOf(card(id)).some(a => a.k === "noNegSummon") || !!(card(id) || {}).noNeg;
+// 《打ち消されない》: 発動・召喚のどちらも、打ち消し・跳ね返しで無効にされない
+const noNegLink = t => !!t && (t.summon ? noNegSum(t.c) : !!(card(t.c) || {}).noNeg);
 const sumWin = (st, s, id) => !noNegSum(id) && responseOptions(st, O(s), "summon").length > 0;
 // after a summon succeeds, the opponent may answer with cards whose timing is 「相手がモンスターを召喚・特殊召喚したとき」
 function summonedWindow(st, s, z, special){
@@ -10166,7 +10223,7 @@ function usableIn(st, s, c, win){
   if (win === "summoned" && whenOf(c) !== "oppSummon") return false;
   if (isAtkReply(fx) && win !== "attack" && win !== "chainAttack") return false;
   if (fx && fx.kind === "cancel" && win !== "chain" && win !== "chainAttack" && win !== "summon") return false;
-  if (fx && fx.kind === "cancel"){ const top = st.chain && st.chain[st.chain.length - 1]; if (top && top.summon && noNegSum(top.c)) return false; }
+  if (fx && (fx.kind === "cancel" || fx.kind === "reflectFx")){ const top = st.chain && st.chain[st.chain.length - 1]; if (noNegLink(top)) return false; }
   if (fx && fx.kind === "reflectFx"){ const top = st.chain && st.chain[st.chain.length - 1]; if ((win !== "chain" && win !== "chainAttack") || !top || top.summon || top.s === s || top.cancel) return false; }
   if (win === "summon" && (!fx || fx.kind !== "cancel")) return false;
   const opts = useTargets(st, s, fx);
@@ -10175,7 +10232,7 @@ function usableIn(st, s, c, win){
 // equips with the "cancel once" ability that player s owns
 function eqCancelOptions(st, s, win){
   if (win !== "chain" && win !== "chainAttack" && win !== "summon") return [];
-  { const top = st.chain && st.chain[st.chain.length - 1]; if (top && top.summon && noNegSum(top.c)) return []; }
+  { const top = st.chain && st.chain[st.chain.length - 1]; if (noNegLink(top)) return []; }
   const out = [];
   for (const o of ["a", "b"]) P(st, o).mz.forEach(m => eqsOf(m).forEach(e => { if (e.o === s && !e.used && absOf(card(e.c)).some(a => a.k === "negateOnce")) out.push({ from: "eq", i: e.u, c: card(e.c) }); }));
   return out;
@@ -10527,6 +10584,7 @@ function after(){
   const aq = G.st && G.st.askQ;
   if (aq && G.mode === "online" && !G.spectate && aq.by === G.slot){
     const w = G.askWait;
+    if (w && w.n === aq.n && aq.ans != null && w.pick){ G.askWait = null; act(st => { const k = +st.askQ.ans || 0, o = (st.askQ.opts || [])[k]; st.askQ = null; log(st, w.s, `「${w.name}」：相手は「${o ? o.name : "？"}」をえらんだ`); w.resume(st, k); }); return; }
     if (w && w.n === aq.n && aq.ans != null){ G.askWait = null; act(st => { const y = !!st.askQ.ans; st.askQ = null; log(st, w.s, `「${w.name}」：相手に「${w.text}」→ ${y ? "はい" : "いいえ"}`); w.resume(st, y); }); return; }
     if (!w || w.n !== aq.n){ G.askWait = null; act(st => { st.askQ = null; log(st, G.slot, `「${aq.name}」の質問は取り消された`); }); return; }
   }
@@ -11209,7 +11267,8 @@ function renderOverlay(){
     html = `<div class="box"><h2 style="margin:0">ネオーの祝福：レリックを1つえらぶ</h2><p class="muted" style="margin:0">スパイアデッキのはじまりに、どれか1つだけ手に入る</p><div class="relic-pick">${rp.map(k => [k, relicDef(k)]).filter(x => x[1]).map(([k, d]) => `<button data-relic="${esc(k)}">${d.img ? `<img class="rl-img" alt="" src="${d.img}">` : ""}<b>${esc(d.name)}</b>${esc(d.text)}</button>`).join("")}</div></div>`;
   } else if (st.askQ && st.askQ.ans == null && st.askQ.to === me && !G.spectate && !st.winner){
     const aq = st.askQ;
-    html = `<div class="box"><h2 style="margin:0">${esc(P(st, aq.by).name)} の「${esc(aq.name)}」からの質問</h2><p style="margin:0;font-size:18px;font-weight:700">${esc(aq.text)}</p><p class="muted" style="margin:0">あなたの答えで相手のカードの効果が変わります</p><div class="row"><button class="primary" data-askq="yes">はい</button><button data-askq="no">いいえ</button><button class="ghost" data-peek>盤面を見る</button></div></div>`; peek = true;
+    html = aq.opts ? `<div class="box"><h2 style="margin:0">${esc(P(st, aq.by).name)} の「${esc(aq.name)}」</h2><p style="margin:0;font-size:18px;font-weight:700">${esc(aq.text)}</p><div class="p1list">${aq.opts.map((o, k) => `<button type="button" class="p1" data-askpick="${k}"><b>【${esc(o.name)}】</b><span>${esc(o.text)}</span></button>`).join("")}</div><div class="row"><button class="ghost" data-peek>盤面を見る</button></div></div>`
+      : `<div class="box"><h2 style="margin:0">${esc(P(st, aq.by).name)} の「${esc(aq.name)}」からの質問</h2><p style="margin:0;font-size:18px;font-weight:700">${esc(aq.text)}</p><p class="muted" style="margin:0">あなたの答えで相手のカードの効果が変わります</p><div class="row"><button class="primary" data-askq="yes">はい</button><button data-askq="no">いいえ</button><button class="ghost" data-peek>盤面を見る</button></div></div>`; peek = true;
   } else if (G.fusPick && !st.winner){
     const f = G.fusPick, fc = card(f.target), X = P(st, f.q.s);
     const cand = [...X.hand.map((id, i) => ({ k: "hand:" + i, id, where: "手札" })), ...X.mz.map((m, i) => m ? { k: "mz:" + i, id: m.c, where: "場", m } : null).filter(Boolean)].filter(x => fc.fusion.some(y => fusionMatOk(x.id, y)));
@@ -11234,6 +11293,7 @@ function renderOverlay(){
         if (o === "field"){ const f = st.field; return `<div class="g-item">${cardHTML(card(f.c), "sm pick", `data-opt="field" tabindex="0" role="button"`, mOpt(f.o))}<div class="meta">フィールド</div></div>`; }
         const [os, zk, oi] = String(o).split(":"), X = P(st, os), who = os === me ? "自分" : "相手";
         if (zk === "mz"){ const m = X.mz[+oi]; return `<div class="g-item">${cardHTML(card(m.c), "sm pick", `data-opt="${o}" tabindex="0" role="button"`, { mod: modOf(m), ...mOpt(os) })}<div class="meta">${who}のモンスター</div></div>`; }
+        if (zk === "mana"){ const x = (X.manaZ || [])[+oi]; return `<div class="g-item">${cardHTML(card(x.c), "sm pick", `data-opt="${o}" tabindex="0" role="button"`, mOpt(os))}<div class="meta">${who}のマナゾーン</div></div>`; }
         if (zk === "eq"){ const e = X.standingEq[+oi]; return `<div class="g-item">${cardHTML(card(e.c), "sm pick", `data-opt="${o}" tabindex="0" role="button"`, mOpt(os))}<div class="meta">${who}の待機中の装備</div></div>`; }
         const z = X.sz[+oi], vis = z.face || os === me;
         return `<div class="g-item">${vis ? cardHTML(card(z.c), "sm pick", `data-opt="${o}" tabindex="0" role="button"`, mOpt(os)) : backHTML("sm pick", `data-opt="${o}" tabindex="0" role="button"`, X.sleeve)}<div class="meta">${who}の${z.face ? "魔法・罠" : "セット中"}</div></div>`;
@@ -11351,6 +11411,7 @@ $("#overlay").addEventListener("click", e => {
   { const lv = e.target.closest("[data-lpv]"); if (lv && G){ G.lpView = lv.dataset.lpv; renderAll(); return; } }
   { const xu = e.target.closest("[data-exuse]"); if (xu && G && !G.spectate){ const k = +xu.dataset.exuse, me = G.slot; let hi = -1, id = null; { const xid = P(G.st, me).ex[k], xc = card(xid); if (sxK(xc)){ const why = sxWhy(G.st, me, xc); if (why){ toast(why); return; } G.exView = false; G.sxPick = { id: xid, picked: [] }; renderAll(); return; } } if (isFusion(card(P(G.st, me).ex[k]))){ toast("融合モンスターは「融合召喚」の効果でだけ出せます"); return; } G.exView = false; act(st => { const p = P(st, me); if (!canAct(st, me) || p.ex[k] == null) return false; exReturnP(st, me); id = p.ex.splice(k, 1)[0]; p.hand.push(id); hi = p.hand.length - 1; p.exTemp = { id, i: hi }; G.sel = { z: "hand", s: "me", i: hi }; G.atkFrom = null; }); if (hi < 0) renderAll(); return; } }
   if (!G) return;
+  { const ap = e.target.closest("[data-askpick]"); if (ap){ const k = +ap.dataset.askpick; act(st => { if (!st.askQ || st.askQ.to !== G.slot || st.askQ.ans != null || !st.askQ.opts) return false; st.askQ.ans = k; log(st, G.slot, `「${st.askQ.name}」で「${(st.askQ.opts[k] || {}).name || "？"}」をえらんだ`); }); return; } }
   { const aq = e.target.closest("[data-askq]"); if (aq){ const yes = aq.dataset.askq === "yes"; act(st => { if (!st.askQ || st.askQ.to !== G.slot || st.askQ.ans != null) return false; st.askQ.ans = yes; log(st, G.slot, `「${st.askQ.name}」の質問「${st.askQ.text}」に「${yes ? "はい" : "いいえ"}」と答えた`); }); return; } }
   { const p1 = e.target.closest("[data-p1]"); if (p1 && G.chooseQ.length && G.chooseQ[0].pick1){ const q = G.chooseQ.shift(), k = +p1.dataset.p1; act(st => { q.p1go(st, k); }); return; } }
   const ak = e.target.closest("[data-ask]");
@@ -11494,7 +11555,7 @@ $("#board").addEventListener("click", e => {
       const w = i.w, nmW = P(st, w).name; st.idleSkips = st.idleSkips || {}; st.idleSkips[w] = (st.idleSkips[w] || 0) + 1;
       log(st, G.slot, `${nmW} が${TURN_IDLE / 60}分動かなかったので進めた（${st.idleSkips[w]}回目）`);
       if (st.idleSkips[w] >= 3){ st.winner = O(w); st.why = `${nmW} が3回時間切れになった`; return; }
-      if (st.askQ && st.askQ.ans == null && st.askQ.to === w){ st.askQ.ans = false; log(st, G.slot, "質問は「いいえ」あつかいになった"); return; }
+      if (st.askQ && st.askQ.ans == null && st.askQ.to === w){ st.askQ.ans = st.askQ.opts ? 0 : false; log(st, G.slot, st.askQ.opts ? "えらばなかったので、1つめをえらんだあつかいになった" : "質問は「いいえ」あつかいになった"); return; }
       st.askQ = null;
       if (st.pending && st.pending.wait) respond(st, w, null); else { exReturnP(st, w); endTurn(st, w); }
     });

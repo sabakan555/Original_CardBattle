@@ -1149,17 +1149,58 @@ FX_FORMS.atk.auto = (st, s, opts, fx) => {
   if (fx.op === "set") { const T = P(st, fx.side === "me" ? s : O(s)), sg = fx.side === "me" ? 1 : -1, v = o => { const m = T.mz[+o]; const a = m ? atkOf(m) : 0; return sg * ((+fx.n || 0) - (isFinite(a) ? a : 1e9)); }; return opts.slice().sort((a, b) => v(b) - v(a))[0]; }
   if (fx.side === "me" && (fx.op === "add" || fx.op === "mul")) { const own = P(st, s); return opts.slice().sort((a, b) => cmpNum(atkOf(own.mz[+b]), atkOf(own.mz[+a])))[0]; }
 };
+/* ---- 相手がえらぶ ----
+   chooser（ふつうは効果を使った人の相手）が、えらべるもの（labels）から1つえらぶ。cb(st, えらんだ番号)
+   この画面の人がえらぶ: ボタン / オンラインで相手の画面: st.askQ で答えを待つ / CPU: auto(なければ先頭) */
+function askPick(st, s, chooser, c, title, labels, auto, cb){
+  if (!labels.length){ cb(st, -1); return; }
+  if (isHumanHere(chooser)){ G.chooseQ.push({ ask: true, s, to: chooser !== s ? chooser : null, c, ctx: {}, then: null, fx: { kind: "__block", ask: title }, pick1: labels.map(l => ({ name: l.name, text: l.text || "" })), p1go: (st2, k) => cb(st2, k) }); return; }
+  if (G && G.mode === "online" && !G.spectate && chooser !== G.slot && s === G.slot){
+    st.un = (st.un || 0) + 1; st.askQ = { n: st.un, by: s, to: chooser, text: title, name: c.name, ans: null, opts: labels.map(l => ({ name: l.name, text: l.text || "" })) };
+    G.askWait = { n: st.un, s, name: c.name, text: title, pick: true, resume: (st2, k) => cb(st2, k) };
+    log(st, s, `「${c.name}」：相手がえらんでいます`); return;
+  }
+  cb(st, Math.max(0, Math.min(labels.length - 1, auto)));
+}
+// 場のカードの名前（えらぶ人から見えないセットは名前を出さない）
+function boardOptLabel(st, o, viewer){
+  if (o === "field") return { name: card(st.field.c).name, text: "フィールド魔法" };
+  const [os, zk, oi] = String(o).split(":"), X = P(st, os), who = os === viewer ? "自分" : "相手";
+  if (zk === "mz"){ const m = X.mz[+oi]; return { name: card(m.c).name, text: `${who}のモンスター（ATK ${fmtN(atkOf(m))}）` }; }
+  if (zk === "eq"){ const e = X.standingEq[+oi]; return { name: card(e.c).name, text: `${who}の待機中の装備` }; }
+  if (zk === "mana"){ const x = X.manaZ[+oi]; return { name: card(x.c).name, text: `${who}のマナゾーン` }; }
+  const z = X.sz[+oi], vis = z.face || os === viewer;
+  return { name: vis ? card(z.c).name : "セットされたカード", text: `${who}の${z.face ? "魔法・罠" : "セット中"}（左から${+oi + 1}番目）` };
+}
+// 「相手がえらんで」の除去: 1枚ずつ相手がえらび、そのたびにどかす（n 枚まで）
+function oppPickRun(st, s, c, ctx, then, fx, left){
+  if (left <= 0 || st.winner){ then && then(st); return; }
+  ctx = { ...ctx, form: fx };
+  const one = { ...fx, to: "one" }, opts = fxTargets(st, s, fx, ctx) || [], chooser = O(s);
+  if (!opts.length){ log(st, s, `「${c.name}」：どかすカードがない`); then && then(st); return; }
+  const verb = { destroy: "破壊する", hand: "手札に戻す", exile: "除外する", deck: "山札に戻す", grave: "墓地へ送る" }[fx.how] || "どかす";
+  // CPUがえらぶとき: 自分のカードなら一番どうでもいいもの（弱いモンスター → マナ → 魔法・罠 → フィールド）、相手のカードなら一番強いもの
+  const val = o => { if (o === "field") return 400; const [os, k, i] = String(o).split(":"), m = k === "mz" ? P(st, os).mz[+i] : null; return (os === chooser ? 1 : -1) * (k === "mz" ? 100 + (m ? atkOf(m) : 0) : k === "mana" ? 250 : 300); };
+  const best = opts.slice().sort((a, b) => val(a) - val(b))[0], auto = Math.max(0, opts.indexOf(best));
+  askPick(st, s, chooser, c, `「${c.name}」：${verb}カードをえらんでください（あと${left}枚）`, opts.map(o => boardOptLabel(st, o, chooser)), auto, (st2, k) => {
+    const o = (fxTargets(st2, s, fx, ctx) || [])[k];
+    if (o == null){ then && then(st2); return; }
+    applyEffect(st2, s, c, o, ctx, one);
+    oppPickRun(st2, s, c, ctx, then, fx, left - 1);
+  });
+}
 /* ---- 場から除去する（remove） ---- */
 // えらべる対象: このカード・全部・このカード以外・攻撃してきたモンスター・フィールドはえらばない
 FX_FORMS.remove.opts = (st, s, f, ctx) => {
   if (f.to === "this" || f.to === "all" || f.to === "others" || f.to === "attacker" || f.zone === "field") return null;
-  if (fxTgt(f) === "opp") return undefined; // 前と同じ（相手のモンスター → 挑発・裏向きを見る / 自分のモンスター）
+  if (fxTgt(f) === "opp" && f.to !== "oppPick") return undefined; // 前と同じ（相手のモンスター → 挑発・裏向きを見る / 自分のモンスター）
   const sides = f.side === "me" ? [s] : f.side === "both" ? [s, O(s)] : [O(s)], out = [];
   sides.forEach(o => { const X = P(st, o);
-    if (f.zone === "mon" || f.zone === "any") X.mz.forEach((m, i) => { if (m && (o === s || !fxHidden(st, o, i))) out.push(`${o}:mz:${i}`); });
-    if (f.zone === "st" || f.zone === "any") X.sz.forEach((z, i) => { if (z && !(o === s && ctx.pz === i)) out.push(`${o}:sz:${i}`); });
-    if (f.zone === "any") (X.standingEq || []).forEach((e, i) => out.push(`${o}:eq:${i}`)); });
-  if (f.zone === "any" && st.field && sides.includes(st.field.o) && !ctx.field) out.push("field");
+    if (f.zone === "mon" || rmBoard(f.zone)) X.mz.forEach((m, i) => { if (m && (o === s || !fxHidden(st, o, i))) out.push(`${o}:mz:${i}`); });
+    if (f.zone === "st" || rmBoard(f.zone)) X.sz.forEach((z, i) => { if (z && !(o === s && ctx.pz === i)) out.push(`${o}:sz:${i}`); });
+    if (rmBoard(f.zone)) (X.standingEq || []).forEach((e, i) => out.push(`${o}:eq:${i}`));
+    if (rmMana(f.zone)) (X.manaZ || []).forEach((x, i) => { if (x) out.push(`${o}:mana:${i}`); }); });
+  if (rmBoard(f.zone) && st.field && sides.includes(st.field.o) && !ctx.field) out.push("field");
   return out;
 };
 // CPUのえらび方: 場のカードは、相手の一番強いモンスター → 相手の魔法・罠 → フィールド（自分のカードはなるべく選ばない）。
@@ -1191,16 +1232,17 @@ function removeThings(st, s, c, target, ctx, f){
   if (f.to === "all"){
     const sides = f.side === "both" ? [s, O(s)] : [TS];
     for (const o of sides){ const X = P(st, o);
-      if (f.zone === "mon" || f.zone === "any") X.mz.forEach((m, i) => { if (m && mfOk(st, s, f, m)) mz(o, i); });
-      if (f.zone === "st" || f.zone === "any") X.sz.forEach((z, i) => { if (z && !(o === s && ctx.pz === i)) out.push({ k: "sz", o, i }); });
-      if (f.zone === "any") (X.standingEq || []).forEach((e, i) => out.push({ k: "eq", o, i })); }
-    if (f.zone === "any" && st.field && sides.includes(st.field.o) && !ctx.field) out.push({ k: "field" });
+      if (f.zone === "mon" || rmBoard(f.zone)) X.mz.forEach((m, i) => { if (m && mfOk(st, s, f, m)) mz(o, i); });
+      if (f.zone === "st" || rmBoard(f.zone)) X.sz.forEach((z, i) => { if (z && !(o === s && ctx.pz === i)) out.push({ k: "sz", o, i }); });
+      if (rmBoard(f.zone)) (X.standingEq || []).forEach((e, i) => out.push({ k: "eq", o, i }));
+      if (rmMana(f.zone)) (X.manaZ || []).forEach((x, i) => { if (x) out.push({ k: "mana", o, i }); }); }
+    if (rmBoard(f.zone) && st.field && sides.includes(st.field.o) && !ctx.field) out.push({ k: "field" });
     return out;
   }
   if (target == null) return out;
   if (typeof target === "number"){ mz(TS, target); return out; }
   const t = String(target); if (t === "field"){ if (st.field) out.push({ k: "field" }); return out; }
-  const mm = t.match(/^([ab]):(mz|sz|eq):(\d+)$/); if (!mm) return out;
+  const mm = t.match(/^([ab]):(mz|sz|eq|mana):(\d+)$/); if (!mm) return out;
   if (mm[2] === "mz") mz(mm[1], +mm[3]); else out.push({ k: mm[2], o: mm[1], i: +mm[3] });
   return out;
 }
@@ -1224,12 +1266,14 @@ function applyRemove(st, s, c, target, ctx, f, n, src){
       continue;
     }
     if (x.k === "field"){ const fl = st.field; if (!fl || cannotLeave(fl.c)) continue; st.field = null; removeCardTo(st, fl.o, fl.c, f.how, f.pos, fl.mats); if (f.to !== "others") log(st, s, `${src}でフィールド魔法「${card(fl.c).name}」を${verb}`); else log(st, s, `フィールド「${card(fl.c).name}」も${verb}`); continue; }
+    // マナゾーン: カードを持ち主の墓地・手札などへ（タップしていないマナなら、使えるマナも1減る）
+    if (x.k === "mana"){ const X = P(st, x.o), mz0 = (X.manaZ || [])[x.i]; if (!mz0) continue; X.manaZ[x.i] = null; if (!mz0.tap && X.mana) X.mana.cur = Math.max(0, X.mana.cur - 1); removeCardTo(st, x.o, mz0.c, f.how === "destroy" ? "grave" : f.how, f.pos); if (f.to !== "all" && f.to !== "others") log(st, s, `${src}でマナゾーンの「${card(mz0.c).name}」を${f.how === "destroy" ? "墓地へ送った" : verb}`); continue; }
     if (x.k === "eq"){ const X = P(st, x.o), e = (X.standingEq || [])[x.i]; if (!e || cannotLeave(e.c)) continue; X.standingEq[x.i] = null; removeCardTo(st, e.o, e.c, f.how, f.pos); if (f.to !== "all" && f.to !== "others") log(st, s, `${src}で待機中の「${card(e.c).name}」を${verb}`); continue; }
     const X = P(st, x.o), z = X.sz[x.i]; if (!z || cannotLeave(z.c)) continue; X.sz[x.i] = null;
     removeCardTo(st, x.o, z.c, f.how, f.pos, z.fcp || z.cp ? z.mats : [], z.fcp || z.cp); ev(st, { type: "destroy", s: x.o, z: x.i, k: "sz" });
     if (f.to !== "all" && f.to !== "others") log(st, s, `${src}で${z.face ? `「${card(z.c).name}」` : `セットされていたカード（「${card(z.c).name}」）`}を${verb}`);
   }
-  for (const o of ["a", "b"]){ const X = P(st, o); if (X.standingEq) X.standingEq = X.standingEq.filter(Boolean); }
+  for (const o of ["a", "b"]){ const X = P(st, o); if (X.standingEq) X.standingEq = X.standingEq.filter(Boolean); if (X.manaZ && X.manaZ.some(x => !x)){ X.manaZ = X.manaZ.filter(Boolean); manaSync(X); } }
 }
 FX_FORMS.remove.run = applyRemove;
 /* ---- 手札をどかす（handOut） ---- */
@@ -1691,6 +1735,7 @@ function runEffect(st, s, c, ctx = {}, then, fx = normFx(c)){
   if (fx.kind === "playTop" || fx.kind === "playTopEx"){ const ex = fx.kind === "playTopEx", go = (st2, r) => { if (r <= 0 || st2.winner){ then && then(st2); return; } playTopCard(st2, s, `「${c.name}」`, ex, st3 => go(st3, r - 1)); }; go(st, Math.max(1, fx.n || 1)); return; }
   if ((c && c.frame === "spire" || fx.rand || fx.distinct) && (fx.kind === "dmg" || fx.kind === "bash" || fx.kind === "vuln" || fx.kind === "weak")) ctx = { ...ctx, spireAtk: true };
   let opts = fxTargets(st, s, fx, ctx);
+  if (fx.to === "oppPick" && fx.kind === "remove") return oppPickRun(st, s, c, ctx, then, fx, Math.max(1, Math.min(10, Math.round(+fx.tn || 1))));
   if (opts && fx.distinct && ctx.hit && ctx.hit.picked) opts = opts.filter(o => !ctx.hit.picked.includes(String(o)));
   if (fx.rand && ctx.spireAtk) ctx = { ...ctx, anyEnemy: true }, opts = fxTargets(st, s, fx, ctx);
   if (opts && opts.length === 1 && opts[0] === "p" && ctx.spireAtk){ applyEffect(st, s, c, "p", ctx, fx); then && then(st); return; }
@@ -2316,13 +2361,14 @@ function resolveChain(st, resume){
     }
     if ((normFx(c) || {}).kind === "reflectFx"){
       const t = chain[link.target];
-      if (t && !t.summon && !t.negated){ t.negated = true; t.reflect = link.s; ev(st2, { type: "counter", s: link.s }); log(st2, link.s, `「${c.name}」で「${card(t.c).name}」を跳ね返す！`); }
+      if (t && !t.summon && noNegLink(t)) log(st2, link.s, `「${card(t.c).name}」は打ち消されない！`);
+      else if (t && !t.summon && !t.negated){ t.negated = true; t.reflect = link.s; ev(st2, { type: "counter", s: link.s }); log(st2, link.s, `「${c.name}」で「${card(t.c).name}」を跳ね返す！`); }
       else log(st2, link.s, `「${c.name}」：跳ね返すカードがない`);
       step(st2); return;
     }
     if (link.cancel || (normFx(c) || {}).kind === "cancel"){
       const t = chain[link.target];
-      if (t && t.summon && noNegSum(t.c)) log(st2, link.s, `「${card(t.c).name}」の召喚は打ち消されない！`);
+      if (noNegLink(t)) log(st2, link.s, `「${card(t.c).name}」の${t.summon ? "召喚" : "発動"}は打ち消されない！`);
       else if (t){ t.negated = true; ev(st2, { type: "counter", s: link.s }); log(st2, link.s, `「${c.name}」で「${card(t.c).name}」の${t.summon ? (t.special ? "特殊召喚" : "召喚") : "発動"}を打ち消す！`); }
       else log(st2, link.s, `「${c.name}」：無効にするカードがない`);
       step(st2); return;
@@ -2348,7 +2394,9 @@ function afterChain(st){
   else if (pd.type === "summoned") st.pending = null;
 }
 // 「召喚を打ち消されない」モンスター: 相手は召喚に答えられない（打ち消しのチャンスを出さない）
-const noNegSum = id => absOf(card(id)).some(a => a.k === "noNegSummon");
+const noNegSum = id => absOf(card(id)).some(a => a.k === "noNegSummon") || !!(card(id) || {}).noNeg;
+// 《打ち消されない》: 発動・召喚のどちらも、打ち消し・跳ね返しで無効にされない
+const noNegLink = t => !!t && (t.summon ? noNegSum(t.c) : !!(card(t.c) || {}).noNeg);
 const sumWin = (st, s, id) => !noNegSum(id) && responseOptions(st, O(s), "summon").length > 0;
 // after a summon succeeds, the opponent may answer with cards whose timing is 「相手がモンスターを召喚・特殊召喚したとき」
 function summonedWindow(st, s, z, special){
@@ -2363,7 +2411,7 @@ function usableIn(st, s, c, win){
   if (win === "summoned" && whenOf(c) !== "oppSummon") return false;
   if (isAtkReply(fx) && win !== "attack" && win !== "chainAttack") return false;
   if (fx && fx.kind === "cancel" && win !== "chain" && win !== "chainAttack" && win !== "summon") return false;
-  if (fx && fx.kind === "cancel"){ const top = st.chain && st.chain[st.chain.length - 1]; if (top && top.summon && noNegSum(top.c)) return false; }
+  if (fx && (fx.kind === "cancel" || fx.kind === "reflectFx")){ const top = st.chain && st.chain[st.chain.length - 1]; if (noNegLink(top)) return false; }
   if (fx && fx.kind === "reflectFx"){ const top = st.chain && st.chain[st.chain.length - 1]; if ((win !== "chain" && win !== "chainAttack") || !top || top.summon || top.s === s || top.cancel) return false; }
   if (win === "summon" && (!fx || fx.kind !== "cancel")) return false;
   const opts = useTargets(st, s, fx);
@@ -2372,7 +2420,7 @@ function usableIn(st, s, c, win){
 // equips with the "cancel once" ability that player s owns
 function eqCancelOptions(st, s, win){
   if (win !== "chain" && win !== "chainAttack" && win !== "summon") return [];
-  { const top = st.chain && st.chain[st.chain.length - 1]; if (top && top.summon && noNegSum(top.c)) return []; }
+  { const top = st.chain && st.chain[st.chain.length - 1]; if (noNegLink(top)) return []; }
   const out = [];
   for (const o of ["a", "b"]) P(st, o).mz.forEach(m => eqsOf(m).forEach(e => { if (e.o === s && !e.used && absOf(card(e.c)).some(a => a.k === "negateOnce")) out.push({ from: "eq", i: e.u, c: card(e.c) }); }));
   return out;
