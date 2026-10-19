@@ -1004,7 +1004,11 @@ function fireTurn(st, who, trig, then, timersDone, boonsDone){
   const PL = persistList(st, who, trig, {}); PL.forEach(x => log(st, who, `${x.c.relicView ? "レリック" : "永続"}「${x.c.name}」の効果！`));
   const fc = fieldCard(st), FL = fc && (trig === "turnStart" || trig === "turnEnd") && hasTrig(fc, trig) && (!fc.fieldMine || st.field.o === who) ? [{ s: who, c: fc, trig, ctx: { field: true } }] : [];
   FL.forEach(x => log(st, who, `フィールド「${x.c.name}」の効果！`));
-  runList(st, L.concat(PL, FL), trig === "turnStart" ? st2 => anySumAsk(st2, who, then) : then);
+  // 「相手のターンのはじめ／終わり」: ターンを迎えていない側のモンスター・装備・永続・レリック（ターンの持ち主の効果のあとに出る）
+  const ot = trig === "turnStart" ? "oppTurnStart" : trig === "turnEnd" ? "oppTurnEnd" : null, op = who === "a" ? "b" : "a", OL = [];
+  if (ot) for (const o of ["a", "b"]) P(st, o).mz.forEach((m, i) => { if (m) monTrigList(st, o, i, ot).forEach(x => { if (x.s === op && hasTrig(x.c, ot)) OL.push(x); }); });
+  const OPL = ot ? persistList(st, op, ot, {}) : []; OPL.forEach(x => log(st, op, `${x.c.relicView ? "レリック" : "永続"}「${x.c.name}」の効果！`));
+  runList(st, L.concat(PL, FL, OL, OPL), trig === "turnStart" ? st2 => anySumAsk(st2, who, then) : then);
 }
 // face-up 永続 cards of player s whose effect fires on `trig`
 function persistList(st, s, trig, ctx){
