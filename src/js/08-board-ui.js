@@ -480,7 +480,7 @@ function playEvents(prevLp, nowLp){
   }
   if (reduceMotion) return;
   // one after another: a spell banner gets time to show before its hits, each hit gets its own beat (ツインストライク → 2 hits)
-  const GAP = { spell: 900, summon: 900, attack: 560, hit: 420, fusion: 2800, turn: 1250, gj: 1500 };
+  const GAP = { shieldBreak: 2400, spell: 900, summon: 900, attack: 560, hit: 420, fusion: 2800, turn: 1250, gj: 1500 };
   let t = 0;
   list.forEach(e => { setTimeout(() => { try{ animateEvent(e); }catch(err){} }, t); t += e.type === "ace" ? (aceShown(e) ? 1950 : 0) : GAP[e.type] || 320; });
 }
@@ -537,6 +537,13 @@ function animateEvent(e){
   if (!G) return;
   if (e.type === "turn"){ turnCut(e); return; }
   if (e.type === "ace"){ aceFx(e); return; }
+  // シールドブレイク: 割られたシールドを見せる（中身が見えるのは持ち主だけ。相手・観戦は裏向き）
+  if (e.type === "shieldBreak"){
+    const own = sideOf(e.s) === "me" && !G.spectate, ids = (e.c || []).slice(0, 12), n = ids.length || e.n || 1, small = innerWidth < 640;
+    const cards = (own && ids.length ? ids.map(id => `<div class="shd-c">${cardHTML(card(id), small ? "sm" : "", "", mOpt(e.s))}${card(id) && card(id).strig ? `<span class="shd-trig">S・トリガー</span>` : ""}</div>`) : Array.from({ length: n }, () => `<div class="shd-c">${backHTML(small ? "sm" : "", "", P(G.st, e.s).sleeve)}</div>`)).join("");
+    fxEl("fxspell fxshd " + (own ? "mine" : "theirs"), `<div class="lbl">${own ? "シールドがブレイクされた！" : "シールドブレイク！"}${n > 1 ? ` ×${n}` : ""}</div><div class="shd-row">${cards}</div>`);
+    return;
+  }
   if (e.type === "summon" && e.c){
     fxEl("fxspell " + (sideOf(e.s) === "me" ? "mine" : "theirs"), `<div class="lbl">モンスター登場！</div>${cardHTML(card(e.c), "lg", "", mOpt(e.s))}`);
   }

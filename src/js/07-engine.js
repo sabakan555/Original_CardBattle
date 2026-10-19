@@ -2745,7 +2745,7 @@ function breakShields(st, D, n, why){
   const k = Math.min(Math.max(0, n), p.shields.length); if (!k) return 0;
   const got = p.shields.splice(p.shields.length - k, k); p.hand.push(...got);
   log(st, D, `${why}で${p.name}のシールドを${k}枚ブレイク！（のこり${p.shields.length}枚）`);
-  ev(st, { type: "shieldBreak", s: D, n: k });
+  ev(st, { type: "shieldBreak", s: D, n: k, c: got.slice() });
   const L = got.filter(id => { const c = card(id), t = cardType(c); return c && c.strig && !c.noUse && (t === "monster" || t === "magic" || t === "trap"); });
   if (L.length) (st.strigQ = st.strigQ || []).push(...L.map(id => ({ s: D, c: id })));
   return k;

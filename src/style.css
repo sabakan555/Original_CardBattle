@@ -1626,3 +1626,11 @@ div.f{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:13px}
 /* タップ（シールドデッキ）: 横向き */
 .zones .card.tapped{transform:rotate(90deg) scale(.72);transition:transform .2s}
 @media (prefers-reduced-motion:reduce){.zones .card.tapped{transition:none}}
+/* シールドブレイクのプレビュー */
+.fxspell.fxshd{animation-duration:2.4s;display:flex;flex-direction:column;align-items:center;gap:10px;max-width:calc(100vw - 32px)}
+.fxshd .shd-row{display:flex;flex-wrap:wrap;justify-content:center;gap:10px}
+.fxshd .shd-c{position:relative}
+.fxshd .shd-trig{position:absolute;left:50%;bottom:-10px;transform:translateX(-50%);white-space:nowrap;font-weight:800;font-size:13px;padding:1px 10px;border-radius:999px;background:#f2c14e;color:#1e2328;border:2px solid #1e2328}
+.fxshd .shd-c .card{--w:clamp(64px,18vw,140px)}
+.fxshd .lbl{white-space:nowrap}
+@media (max-width:640px){.fxshd .lbl{font-size:20px}.fxshd .shd-row{gap:6px}}
