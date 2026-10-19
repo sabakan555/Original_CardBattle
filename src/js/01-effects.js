@@ -806,7 +806,9 @@ function handOutText(f){
    who: me（自分）/ op（相手）/ both（お互い）
    dest: hand（手札）/ deck（山札。pos: top・bottom・shuffle）/ grave（墓地）/ field（場。モンスターは出す〔特殊召喚〕、魔法・罠は伏せてセット）
    free: このターンはコスト0（手札に加えるとき）。when: "next" なら次の自分のターンのはじめに手札へ */
-const GEN_WHAT = { named: "名前を指定したカード", self: "このカードのコピー", lastAtk: "直前に使ったアタックのコピー", pick: "手札1枚のコピー", random: "ランダムなスパイア風カード" };
+const GEN_WHAT = { named: "名前を指定したカード", self: "このカードのコピー", lastAtk: "直前に使ったアタックのコピー", pick: "手札1枚のコピー", random: "ランダムなスパイア風カード", tag: "タグのついたランダムなカード" };
+// タグのランダム: どの種類から（なし＝どれでも）
+const GEN_TK = { monster: "モンスター", magic: "魔法", trap: "罠" };
 const GEN_DEST = { hand: "手札", deck: "山札", grave: "墓地", field: "場" };
 const GEN_WHO = { me: "自分", op: "相手", both: "お互い" };
 fxForm("gen", {
@@ -820,12 +822,14 @@ fxForm("gen", {
     summonNamed: { what: "named", dest: "field" }, oppSummon: { what: "named", who: "op", dest: "field" }, oppSetNamed: { what: "named", who: "op", dest: "field" },
     copyHand: { what: "self" }, copyDeck: { what: "self", dest: "deck", pos: "shuffle" }, copyGrave: { what: "self", dest: "grave" },
     copyLastAtk: { what: "lastAtk" }, copyPick: { what: "pick", fromCpw: true },
+    tagGen: { what: "tag" },
     genAttack: { what: "random", sk: "attack" }, genAttack0: { what: "random", sk: "attack", free: true }, genSkill: { what: "random", sk: "skill" }, genPower: { what: "random", sk: "power" },
   },
   fields: {
     what: v => GEN_WHAT[v] ? v : "named", who: v => v === "op" || v === "both" ? v : undefined, dest: v => GEN_DEST[v] && v !== "hand" ? v : undefined,
     pos: (v, e) => e.dest === "deck" ? (RM_POS[v] ? v : "shuffle") : undefined,
     sk: (v, e) => e.what === "random" ? (["attack", "skill", "power"].includes(v) ? v : "attack") : undefined,
+    tk: (v, e) => e.what === "tag" && GEN_TK[v] ? v : undefined,
     free: (v, e) => v && (e.dest || "hand") === "hand" ? true : undefined, when: (v, e) => v === "next" && (e.dest || "hand") === "hand" ? "next" : undefined,
   },
   norm(f, L){
@@ -837,7 +841,9 @@ fxForm("gen", {
     if (what === "random") out.sk = ["attack", "skill", "power"].includes(L.sk || f.sk) ? L.sk || f.sk : "attack"; else delete out.sk;
     if ((L.free || f.free) && dest === "hand") out.free = true; else delete out.free;
     const when = L.fromCpw ? f.cpw : f.when; if (when === "next" && dest === "hand") out.when = "next"; else delete out.when;
-    if (what !== "named"){ delete out.into; delete out.intoId; }
+    if (what !== "named" && what !== "tag"){ delete out.into; delete out.intoId; }
+    if (what === "tag") delete out.intoId;
+    if (what !== "tag" || !GEN_TK[out.tk]) delete out.tk;
     delete out.cpw; delete out.to;
     return out;
   },
@@ -846,9 +852,9 @@ fxForm("gen", {
 });
 function genText(f){
   const g = fxNorm({ ...f, kind: "gen" }), n = g.n || 1, who = GEN_WHO[g.who || "me"];
-  const what = g.what === "named" ? `「${g.into || "？"}」` : g.what === "random" ? `ランダムな${SPIRE_LABEL[g.sk] || "アタック"}` : g.what === "pick" ? "そのコピー" : GEN_WHAT[g.what];
+  const what = g.what === "named" ? `「${g.into || "？"}」` : g.what === "random" ? `ランダムな${SPIRE_LABEL[g.sk] || "アタック"}` : g.what === "tag" ? `タグ「${g.into || "？"}」のついたランダムな${GEN_TK[g.tk] || "カード"}` : g.what === "pick" ? "そのコピー" : GEN_WHAT[g.what];
   // 場に出すときは、名前のカードがモンスターなら「体・出す」、魔法・罠なら「枚・セットする」（わからなければ両方書く）
-  const nc = g.dest === "field" && g.what === "named" && g.into && typeof S !== "undefined" && S.cards ? [...S.cards.values()].find(x => x && x.name === g.into) : null, nt = nc ? cardType(nc) : g.what === "random" ? "magic" : "";
+  const nc = g.dest === "field" && g.what === "named" && g.into && typeof S !== "undefined" && S.cards ? [...S.cards.values()].find(x => x && x.name === g.into) : null, nt = nc ? cardType(nc) : g.what === "random" ? "magic" : g.what === "tag" ? g.tk || "" : "";
   const cnt = n > 1 ? `を${n}${g.dest === "field" && nt === "monster" ? "体" : "枚"}` : "を";
   const where = g.dest === "hand" ? `${who}の手札に加える` : g.dest === "grave" ? `${who}の墓地に加える` : g.dest === "field" ? (nt === "monster" ? `${who}の場に出す（特殊召喚）` : nt === "magic" || nt === "trap" ? `${who}の場にセットする` : `${who}の場に出す（魔法・罠はセットする）`)
     : g.pos === "top" ? `${who}の山札の一番上に置く` : g.pos === "bottom" ? `${who}の山札の一番下に置く` : `${who}の山札に混ぜる`;

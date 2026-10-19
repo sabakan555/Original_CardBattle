@@ -3032,7 +3032,9 @@ function handOutText(f){
    who: me（自分）/ op（相手）/ both（お互い）
    dest: hand（手札）/ deck（山札。pos: top・bottom・shuffle）/ grave（墓地）/ field（場。モンスターは出す〔特殊召喚〕、魔法・罠は伏せてセット）
    free: このターンはコスト0（手札に加えるとき）。when: "next" なら次の自分のターンのはじめに手札へ */
-const GEN_WHAT = { named: "名前を指定したカード", self: "このカードのコピー", lastAtk: "直前に使ったアタックのコピー", pick: "手札1枚のコピー", random: "ランダムなスパイア風カード" };
+const GEN_WHAT = { named: "名前を指定したカード", self: "このカードのコピー", lastAtk: "直前に使ったアタックのコピー", pick: "手札1枚のコピー", random: "ランダムなスパイア風カード", tag: "タグのついたランダムなカード" };
+// タグのランダム: どの種類から（なし＝どれでも）
+const GEN_TK = { monster: "モンスター", magic: "魔法", trap: "罠" };
 const GEN_DEST = { hand: "手札", deck: "山札", grave: "墓地", field: "場" };
 const GEN_WHO = { me: "自分", op: "相手", both: "お互い" };
 fxForm("gen", {
@@ -3046,12 +3048,14 @@ fxForm("gen", {
     summonNamed: { what: "named", dest: "field" }, oppSummon: { what: "named", who: "op", dest: "field" }, oppSetNamed: { what: "named", who: "op", dest: "field" },
     copyHand: { what: "self" }, copyDeck: { what: "self", dest: "deck", pos: "shuffle" }, copyGrave: { what: "self", dest: "grave" },
     copyLastAtk: { what: "lastAtk" }, copyPick: { what: "pick", fromCpw: true },
+    tagGen: { what: "tag" },
     genAttack: { what: "random", sk: "attack" }, genAttack0: { what: "random", sk: "attack", free: true }, genSkill: { what: "random", sk: "skill" }, genPower: { what: "random", sk: "power" },
   },
   fields: {
     what: v => GEN_WHAT[v] ? v : "named", who: v => v === "op" || v === "both" ? v : undefined, dest: v => GEN_DEST[v] && v !== "hand" ? v : undefined,
     pos: (v, e) => e.dest === "deck" ? (RM_POS[v] ? v : "shuffle") : undefined,
     sk: (v, e) => e.what === "random" ? (["attack", "skill", "power"].includes(v) ? v : "attack") : undefined,
+    tk: (v, e) => e.what === "tag" && GEN_TK[v] ? v : undefined,
     free: (v, e) => v && (e.dest || "hand") === "hand" ? true : undefined, when: (v, e) => v === "next" && (e.dest || "hand") === "hand" ? "next" : undefined,
   },
   norm(f, L){
@@ -3063,7 +3067,9 @@ fxForm("gen", {
     if (what === "random") out.sk = ["attack", "skill", "power"].includes(L.sk || f.sk) ? L.sk || f.sk : "attack"; else delete out.sk;
     if ((L.free || f.free) && dest === "hand") out.free = true; else delete out.free;
     const when = L.fromCpw ? f.cpw : f.when; if (when === "next" && dest === "hand") out.when = "next"; else delete out.when;
-    if (what !== "named"){ delete out.into; delete out.intoId; }
+    if (what !== "named" && what !== "tag"){ delete out.into; delete out.intoId; }
+    if (what === "tag") delete out.intoId;
+    if (what !== "tag" || !GEN_TK[out.tk]) delete out.tk;
     delete out.cpw; delete out.to;
     return out;
   },
@@ -3072,9 +3078,9 @@ fxForm("gen", {
 });
 function genText(f){
   const g = fxNorm({ ...f, kind: "gen" }), n = g.n || 1, who = GEN_WHO[g.who || "me"];
-  const what = g.what === "named" ? `「${g.into || "？"}」` : g.what === "random" ? `ランダムな${SPIRE_LABEL[g.sk] || "アタック"}` : g.what === "pick" ? "そのコピー" : GEN_WHAT[g.what];
+  const what = g.what === "named" ? `「${g.into || "？"}」` : g.what === "random" ? `ランダムな${SPIRE_LABEL[g.sk] || "アタック"}` : g.what === "tag" ? `タグ「${g.into || "？"}」のついたランダムな${GEN_TK[g.tk] || "カード"}` : g.what === "pick" ? "そのコピー" : GEN_WHAT[g.what];
   // 場に出すときは、名前のカードがモンスターなら「体・出す」、魔法・罠なら「枚・セットする」（わからなければ両方書く）
-  const nc = g.dest === "field" && g.what === "named" && g.into && typeof S !== "undefined" && S.cards ? [...S.cards.values()].find(x => x && x.name === g.into) : null, nt = nc ? cardType(nc) : g.what === "random" ? "magic" : "";
+  const nc = g.dest === "field" && g.what === "named" && g.into && typeof S !== "undefined" && S.cards ? [...S.cards.values()].find(x => x && x.name === g.into) : null, nt = nc ? cardType(nc) : g.what === "random" ? "magic" : g.what === "tag" ? g.tk || "" : "";
   const cnt = n > 1 ? `を${n}${g.dest === "field" && nt === "monster" ? "体" : "枚"}` : "を";
   const where = g.dest === "hand" ? `${who}の手札に加える` : g.dest === "grave" ? `${who}の墓地に加える` : g.dest === "field" ? (nt === "monster" ? `${who}の場に出す（特殊召喚）` : nt === "magic" || nt === "trap" ? `${who}の場にセットする` : `${who}の場に出す（魔法・罠はセットする）`)
     : g.pos === "top" ? `${who}の山札の一番上に置く` : g.pos === "bottom" ? `${who}の山札の一番下に置く` : `${who}の山札に混ぜる`;
@@ -6144,6 +6150,7 @@ const FORM_F = {
   cHow: (x, v) => ({ ...x, how: v }),
   gWhat: (x, v) => ({ ...x, what: v }),
   gSk: (x, v) => ({ ...x, sk: v }),
+  gTk: (x, v) => ({ ...x, tk: GEN_TK[v] ? v : undefined }),
   gWho: (x, v) => ({ ...x, who: v === "op" || v === "both" ? v : undefined }),
   gDest: (x, v) => ({ ...x, dest: v }),
   gOpt: (x, v) => ({ ...x, free: v === "free" || undefined, when: v === "next" ? "next" : undefined }),
@@ -6220,8 +6227,9 @@ function cleanseUI(e, opt){
 // 読む順: 「名前」を → 2枚 → 相手の → 場に出す（山札のどこ・コスト0・次のターン）
 function genUI(e, opt){
   const hand = (e.dest || "hand") === "hand";
-  return `<select data-f="gWhat" aria-label="なにを">${Object.keys(GEN_WHAT).map(k => opt(k, { named: "名前を指定したカード", self: "このカードのコピー", lastAtk: "直前のアタックのコピー", pick: "手札をえらんでコピー", random: "ランダムなスパイア風カード" }[k], e.what)).join("")}</select>`
+  return `<select data-f="gWhat" aria-label="なにを">${Object.keys(GEN_WHAT).map(k => opt(k, { named: "名前を指定したカード", self: "このカードのコピー", lastAtk: "直前のアタックのコピー", pick: "手札をえらんでコピー", random: "ランダムなスパイア風カード", tag: "タグのついたランダムなカード" }[k], e.what)).join("")}</select>`
     + (e.what === "named" ? `<input type="text" data-f="into" list="cardNames" maxlength="40" value="${esc(e.into || "")}" placeholder="カード名" aria-label="カード名">` + pickHTML(e) : "")
+    + (e.what === "tag" ? `<input type="text" data-f="into" list="tagNames" maxlength="40" value="${esc(e.into || "")}" placeholder="タグ（例: アイアンクラッド）" aria-label="タグ"><select data-f="gTk" aria-label="種類">${opt("", "どれでも", e.tk || "")}${Object.keys(GEN_TK).map(k => opt(k, GEN_TK[k], e.tk || "")).join("")}</select>` : "")
     + (e.what === "random" ? `<select data-f="gSk" aria-label="種類">${opt("attack", "アタック", e.sk)}${opt("skill", "スキル", e.sk)}${opt("power", "パワー", e.sk)}</select>` : "")
     + `<span class="bk-n"><input type="number" data-f="n" min="1" max="40" value="${esc(e.n || 1)}" aria-label="枚数"><span class="note">枚</span></span>`
     + `<select data-f="gWho" aria-label="だれの">${opt("", "自分の", e.who || "")}${opt("op", "相手の", e.who || "")}${opt("both", "お互いの", e.who || "")}</select>`
@@ -9058,6 +9066,11 @@ function genIds(st, s, c, target, f, n){
   if (f.what === "self") return c && hasCard(c.id) ? Array(n).fill(c.id) : [];
   if (f.what === "lastAtk") return me.lastAtk && hasCard(me.lastAtk) ? Array(n).fill(me.lastAtk) : [];
   if (f.what === "pick"){ const id = me.hand[target]; return id != null ? Array(n).fill(id) : []; }
+  // タグのついたランダムなカード（全カードから。トークン・スキン・テスト用は除く。場に出すときは装備を除く）
+  if (f.what === "tag"){
+    const pool = [...S.cards.values()].filter(x => x && !x.skinOf && !x.token && !x.tut && hasTag(x.id, f.into) && (!f.tk || cardType(x) === f.tk) && (f.dest !== "field" || cardType(x) !== "equip"));
+    return pool.length ? Array.from({ length: n }, () => pool[Math.floor(Math.random() * pool.length)].id) : [];
+  }
   const pool = draftPool(me.spc).filter(x => spireKind(x) === f.sk); if (!pool.length) return [];
   return Array.from({ length: n }, () => pool[Math.floor(Math.random() * pool.length)].id);
 }
@@ -9066,7 +9079,7 @@ function applyGen(st, s, c, target, ctx, f, n, src){
   const sides = f.who === "both" ? [s, O(s)] : f.who === "op" ? [O(s)] : [s];
   for (const o of sides){
     const ids = genIds(st, s, c, target, f, n), p = P(st, o), whose = o === s ? "自分" : p.name;
-    if (!ids.length){ log(st, s, `${src}：${f.what === "named" ? `「${f.into || "？"}」というカードが見つからない` : f.what === "lastAtk" ? "コピーするアタックがない" : f.what === "random" ? `加えられる${SPIRE_LABEL[f.sk] || "カード"}がない` : "生むカードがない"}`); return; }
+    if (!ids.length){ log(st, s, `${src}：${f.what === "named" ? `「${f.into || "？"}」というカードが見つからない` : f.what === "lastAtk" ? "コピーするアタックがない" : f.what === "random" ? `加えられる${SPIRE_LABEL[f.sk] || "カード"}がない` : f.what === "tag" ? `タグ「${f.into || "？"}」の${GEN_TK[f.tk] || "カード"}がない` : "生むカードがない"}`); return; }
     const nm = [...new Set(ids)].map(id => `「${card(id).name}」`).join("");
     if (f.dest === "hand"){
       if (f.when === "next"){ (p.nextGive = p.nextGive || []).push({ id: ids[0], n: ids.length }); log(st, s, `${src}：次の${o === s ? "自分" : p.name}のターンのはじめに${nm}を${ids.length}枚手札に加える`); continue; }
@@ -9407,7 +9420,6 @@ function applyEffect(st, s, c, target, ctx = {}, fx = normFx(c)){
       trigger(st, s, fc, "ssummon", { zone: z, mon: { s, i: z, u: me.mz[z].u } }); enterFire(st, s, "put");
       break;
     }
-    case "tagGen": { const pool = [...S.cards.values()].filter(x => x && !x.skinOf && hasTag(x.id, fx.into) && !x.token), got = []; for (let r = 0; r < (n || 1) && pool.length; r++){ const x = pool[Math.floor(Math.random() * pool.length)]; me.hand.push(x.id); got.push(x); } log(st, s, got.length ? `${src}で${got.map(x => `「${x.name}」`).join("")}を手札に加えた` : `${src}：タグ「${fx.into || "？"}」のカードがない`); break; }
     case "transformHand": transformAt(st, s, target, fx.into, src, c, fx); break;
     case "transformRand": { const L = shuffle(me.hand.map((_, k) => k)).slice(0, n || 1); if (!L.length) log(st, s, `${src}：手札がない`); L.forEach(k => transformAt(st, s, k, fx.into, src, c, fx)); break; }
     case "transformAtk": { const L = me.hand.map((id, k) => isAttackCard(card(id)) ? k : -1).filter(k => k >= 0); if (!L.length) log(st, s, `${src}：手札にアタックがない`); L.forEach(k => transformAt(st, s, k, fx.into, src, c, fx)); break; }
