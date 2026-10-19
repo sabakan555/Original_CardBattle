@@ -1166,6 +1166,7 @@ const FORM_F = {
   cHow: (x, v) => ({ ...x, how: v }),
   gWhat: (x, v) => ({ ...x, what: v }),
   gSk: (x, v) => ({ ...x, sk: v }),
+  gTk: (x, v) => ({ ...x, tk: GEN_TK[v] ? v : undefined }),
   gWho: (x, v) => ({ ...x, who: v === "op" || v === "both" ? v : undefined }),
   gDest: (x, v) => ({ ...x, dest: v }),
   gOpt: (x, v) => ({ ...x, free: v === "free" || undefined, when: v === "next" ? "next" : undefined }),
@@ -1242,8 +1243,9 @@ function cleanseUI(e, opt){
 // 読む順: 「名前」を → 2枚 → 相手の → 場に出す（山札のどこ・コスト0・次のターン）
 function genUI(e, opt){
   const hand = (e.dest || "hand") === "hand";
-  return `<select data-f="gWhat" aria-label="なにを">${Object.keys(GEN_WHAT).map(k => opt(k, { named: "名前を指定したカード", self: "このカードのコピー", lastAtk: "直前のアタックのコピー", pick: "手札をえらんでコピー", random: "ランダムなスパイア風カード" }[k], e.what)).join("")}</select>`
+  return `<select data-f="gWhat" aria-label="なにを">${Object.keys(GEN_WHAT).map(k => opt(k, { named: "名前を指定したカード", self: "このカードのコピー", lastAtk: "直前のアタックのコピー", pick: "手札をえらんでコピー", random: "ランダムなスパイア風カード", tag: "タグのついたランダムなカード" }[k], e.what)).join("")}</select>`
     + (e.what === "named" ? `<input type="text" data-f="into" list="cardNames" maxlength="40" value="${esc(e.into || "")}" placeholder="カード名" aria-label="カード名">` + pickHTML(e) : "")
+    + (e.what === "tag" ? `<input type="text" data-f="into" list="tagNames" maxlength="40" value="${esc(e.into || "")}" placeholder="タグ（例: アイアンクラッド）" aria-label="タグ"><select data-f="gTk" aria-label="種類">${opt("", "どれでも", e.tk || "")}${Object.keys(GEN_TK).map(k => opt(k, GEN_TK[k], e.tk || "")).join("")}</select>` : "")
     + (e.what === "random" ? `<select data-f="gSk" aria-label="種類">${opt("attack", "アタック", e.sk)}${opt("skill", "スキル", e.sk)}${opt("power", "パワー", e.sk)}</select>` : "")
     + `<span class="bk-n"><input type="number" data-f="n" min="1" max="40" value="${esc(e.n || 1)}" aria-label="枚数"><span class="note">枚</span></span>`
     + `<select data-f="gWho" aria-label="だれの">${opt("", "自分の", e.who || "")}${opt("op", "相手の", e.who || "")}${opt("both", "お互いの", e.who || "")}</select>`

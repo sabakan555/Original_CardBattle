@@ -1263,6 +1263,11 @@ function genIds(st, s, c, target, f, n){
   if (f.what === "self") return c && hasCard(c.id) ? Array(n).fill(c.id) : [];
   if (f.what === "lastAtk") return me.lastAtk && hasCard(me.lastAtk) ? Array(n).fill(me.lastAtk) : [];
   if (f.what === "pick"){ const id = me.hand[target]; return id != null ? Array(n).fill(id) : []; }
+  // タグのついたランダムなカード（全カードから。トークン・スキン・テスト用は除く。場に出すときは装備を除く）
+  if (f.what === "tag"){
+    const pool = [...S.cards.values()].filter(x => x && !x.skinOf && !x.token && !x.tut && hasTag(x.id, f.into) && (!f.tk || cardType(x) === f.tk) && (f.dest !== "field" || cardType(x) !== "equip"));
+    return pool.length ? Array.from({ length: n }, () => pool[Math.floor(Math.random() * pool.length)].id) : [];
+  }
   const pool = draftPool(me.spc).filter(x => spireKind(x) === f.sk); if (!pool.length) return [];
   return Array.from({ length: n }, () => pool[Math.floor(Math.random() * pool.length)].id);
 }
@@ -1271,7 +1276,7 @@ function applyGen(st, s, c, target, ctx, f, n, src){
   const sides = f.who === "both" ? [s, O(s)] : f.who === "op" ? [O(s)] : [s];
   for (const o of sides){
     const ids = genIds(st, s, c, target, f, n), p = P(st, o), whose = o === s ? "自分" : p.name;
-    if (!ids.length){ log(st, s, `${src}：${f.what === "named" ? `「${f.into || "？"}」というカードが見つからない` : f.what === "lastAtk" ? "コピーするアタックがない" : f.what === "random" ? `加えられる${SPIRE_LABEL[f.sk] || "カード"}がない` : "生むカードがない"}`); return; }
+    if (!ids.length){ log(st, s, `${src}：${f.what === "named" ? `「${f.into || "？"}」というカードが見つからない` : f.what === "lastAtk" ? "コピーするアタックがない" : f.what === "random" ? `加えられる${SPIRE_LABEL[f.sk] || "カード"}がない` : f.what === "tag" ? `タグ「${f.into || "？"}」の${GEN_TK[f.tk] || "カード"}がない` : "生むカードがない"}`); return; }
     const nm = [...new Set(ids)].map(id => `「${card(id).name}」`).join("");
     if (f.dest === "hand"){
       if (f.when === "next"){ (p.nextGive = p.nextGive || []).push({ id: ids[0], n: ids.length }); log(st, s, `${src}：次の${o === s ? "自分" : p.name}のターンのはじめに${nm}を${ids.length}枚手札に加える`); continue; }
@@ -1612,7 +1617,6 @@ function applyEffect(st, s, c, target, ctx = {}, fx = normFx(c)){
       trigger(st, s, fc, "ssummon", { zone: z, mon: { s, i: z, u: me.mz[z].u } }); enterFire(st, s, "put");
       break;
     }
-    case "tagGen": { const pool = [...S.cards.values()].filter(x => x && !x.skinOf && hasTag(x.id, fx.into) && !x.token), got = []; for (let r = 0; r < (n || 1) && pool.length; r++){ const x = pool[Math.floor(Math.random() * pool.length)]; me.hand.push(x.id); got.push(x); } log(st, s, got.length ? `${src}で${got.map(x => `「${x.name}」`).join("")}を手札に加えた` : `${src}：タグ「${fx.into || "？"}」のカードがない`); break; }
     case "transformHand": transformAt(st, s, target, fx.into, src, c, fx); break;
     case "transformRand": { const L = shuffle(me.hand.map((_, k) => k)).slice(0, n || 1); if (!L.length) log(st, s, `${src}：手札がない`); L.forEach(k => transformAt(st, s, k, fx.into, src, c, fx)); break; }
     case "transformAtk": { const L = me.hand.map((id, k) => isAttackCard(card(id)) ? k : -1).filter(k => k >= 0); if (!L.length) log(st, s, `${src}：手札にアタックがない`); L.forEach(k => transformAt(st, s, k, fx.into, src, c, fx)); break; }
