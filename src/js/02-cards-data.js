@@ -567,7 +567,7 @@ async function saveCardDoc(id, doc){
     if (ART_SPLIT_OK){
       try{ ({ doc: d, arts } = await splitArt(doc)); }catch(e){ d = withFullArt(doc); arts = null; }
       if (arts){
-        try{ await S.db.doc("cardArt/" + id).set({ arts, updatedAt: Date.now() }); }
+        try{ await S.db.doc("cardArt/" + id).set({ arts, ownerId: doc.ownerId || S.uid || null, updatedAt: Date.now() }); }
         catch(e){ if (e && e.code === "permission-denied"){ ART_SPLIT_OK = false; d = withFullArt(doc); arts = null; } else throw e; }
       }
     }
