@@ -1623,3 +1623,6 @@ div.f{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:13px}
 .shieldz .shs i{display:block;width:14px;height:20px;border-radius:3px;border:1.5px solid #9fb2ff;background:linear-gradient(135deg,#2b3a8a,#5b3a9a)}
 .shieldz b{font-size:18px}
 .lpv.shd,.lp.shd{color:#9fb2ff}
+/* タップ（シールドデッキ）: 横向き */
+.zones .card.tapped{transform:rotate(90deg) scale(.72);transition:transform .2s}
+@media (prefers-reduced-motion:reduce){.zones .card.tapped{transition:none}}

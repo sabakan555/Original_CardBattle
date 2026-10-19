@@ -2517,14 +2517,19 @@ function responseOptions(st, s, win){
 function usableTraps(st, s){ return responseOptions(st, s, "attack").filter(o => o.from === "sz").map(o => o.i); }
 // where monster `from` may attack: L = opponent zones, direct = may attack directly
 const topOnlyMon = (st, s, i) => !!(P(st, s).mz[i] && (P(st, s).mz[i].topOnly || hasAb(st, s, i, "topOnly")));
+// タップ（シールドデッキ）: シールドデッキのモンスターは攻撃・ブロックでタップし、自分のターンのはじめにアンタップ。
+// アンタップ中のシールドデッキのモンスターは、突進を持つモンスターにしか攻撃されない
+const canHitUntapped = (st, s, i) => { const m = P(st, s).mz[i]; return !!m && (hasAb(st, s, i, "rush") || m.rushTurn === st.turnNo); };
 function atkTargets(st, s, from){
-  const o = O(s), op = P(st, o), all = op.mz.map((x, j) => x ? j : -1).filter(j => j >= 0 && !hiddenMon(st, o, j)), tt = tauntIdx(st, o).filter(j => all.includes(j)), top = topOnlyMon(st, s, from);
+  const o = O(s), op = P(st, o), hitU = !op.shieldOn || canHitUntapped(st, s, from), all = op.mz.map((x, j) => x ? j : -1).filter(j => j >= 0 && !hiddenMon(st, o, j) && (hitU || op.mz[j].tap)), tt = tauntIdx(st, o).filter(j => all.includes(j)), top = topOnlyMon(st, s, from);
   // 飛行: 飛行・対空を持つモンスターにしか攻撃されない
   const air = hasAb(st, s, from, "flying") || hasAb(st, s, from, "reach"), fly = j => hasAb(st, o, j, "flying");
   let L = (tt.length ? tt : all).filter(j => air || !fly(j));
   if (top && L.length){ const mx = Math.max(...L.map(j => atkOf(op.mz[j]))); L = L.filter(j => atkOf(op.mz[j]) === mx); }
   { const aa = monAbs(st, s, from).filter(a => a.k === "atkAttr").map(a => String(a.name || "").replace(/属性$/, "").trim()).filter(Boolean); if (aa.length) L = L.filter(j => aa.every(x => monAttrs(op.mz[j]).includes(x))); }
   const flyDirect = hasAb(st, s, from, "flying") && !all.some(j => fly(j) || hasAb(st, o, j, "reach"));
+  // シールドデッキの相手には、場にモンスターがいても直接攻撃できる（止めるのはブロッカー）
+  if (op.shieldOn) return { L, direct: !rushOnly(st, s, from), top, taunt: tt.length > 0 };
   return { L, direct: !rushOnly(st, s, from) && !tt.length && (!all.length || (!top && (hasAb(st, s, from, "direct") || flyDirect))), top, taunt: tt.length > 0 };
 }
 
@@ -2576,11 +2581,11 @@ function revoAuto(st, s, from){ const p = P(st, s), m = p.mz[from], L = revoCand
 /* ---- ブロッカー（デュエマ風）: 相手の攻撃に、代わりに受けて立つ ---- */
 function blockOpts(st, s){
   const pd = st.pending; if (!pd || pd.type !== "attack" || pd.by === s || pd.blocked) return [];
-  return P(st, s).mz.map((m, i) => m && i !== pd.to && hasAb(st, s, i, "blocker") && m.blkTurn !== st.turnNo ? { from: "blk", i, c: card(m.c) } : null).filter(Boolean);
+  return P(st, s).mz.map((m, i) => m && !m.tap && i !== pd.to && hasAb(st, s, i, "blocker") && m.blkTurn !== st.turnNo ? { from: "blk", i, c: card(m.c) } : null).filter(Boolean);
 }
 function doBlock(st, s, i){
   const pd = st.pending, m = P(st, s).mz[i]; if (!pd || pd.type !== "attack" || !m) return false;
-  m.blkTurn = st.turnNo; pd.to = i; pd.blocked = true;
+  m.blkTurn = st.turnNo; pd.to = i; pd.blocked = true; if (P(st, s).shieldOn) m.tap = true;
   log(st, s, `「${card(m.c).name}」がブロックした！`); ev(st, { type: "block", s, z: i });
   return true;
 }
@@ -2597,7 +2602,7 @@ function declareAttack(st, s, from, to, noRevo){
   const m = P(st, s).mz[from]; if (!m || !canAttack(st, s, from)) return false;
   const T = atkTargets(st, s, from);
   if (to === "direct" ? !T.direct : !T.L.includes(to)) return false;
-  m.atkCount = (m.atkCount || 0) + 1; m.atkTotal = (m.atkTotal || 0) + 1;
+  m.atkCount = (m.atkCount || 0) + 1; m.atkTotal = (m.atkTotal || 0) + 1; if (P(st, s).shieldOn) m.tap = true;
   m.attacked = m.atkCount >= maxAttacks(st, s, from);
   glGroup(st, s, from).forEach(j => { const x = P(st, s).mz[j]; if (x && x !== m){ x.atkCount = m.atkCount; x.attacked = m.attacked; } });
   if (!m.revealed && hasAb(st, s, from, "stealth")){ m.revealed = true; log(st, s, `「${card(m.c).name}」の隠密がとけた`); }
@@ -2870,7 +2875,7 @@ function passTurn(st, s){
     const xt = P(st, s).extraTurns > 0; if (xt) P(st, s).extraTurns--;
     st.turn = xt ? s : O(s); st.turnNo++; st.summoned = false;
     const np = P(st, st.turn); zoneTrim(st.players.a); zoneTrim(st.players.b);
-    np.mz.forEach(m => { if (m) m.age = (m.age || 0) + 1; }); evolveCheck(st, st.turn, "start");
+    np.mz.forEach(m => { if (m){ m.age = (m.age || 0) + 1; delete m.tap; } }); evolveCheck(st, st.turn, "start");
     if (np.intang > 0){ np.intang--; if (!np.intang) log(st, st.turn, `${np.name}の霊体がとけた`); }
     if (np.vuln > 0){ np.vuln--; if (!np.vuln) log(st, st.turn, `${np.name}の弱体がとけた`); }
     np.mz.forEach(m => { if (m && m.vuln > 0){ m.vuln--; if (!m.vuln) log(st, st.turn, `「${card(m.c).name}」の弱体がとけた`); } });

@@ -1635,6 +1635,9 @@ div.f{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:13px}
 .shieldz .shs i{display:block;width:14px;height:20px;border-radius:3px;border:1.5px solid #9fb2ff;background:linear-gradient(135deg,#2b3a8a,#5b3a9a)}
 .shieldz b{font-size:18px}
 .lpv.shd,.lp.shd{color:#9fb2ff}
+/* タップ（シールドデッキ）: 横向き */
+.zones .card.tapped{transform:rotate(90deg) scale(.72);transition:transform .2s}
+@media (prefers-reduced-motion:reduce){.zones .card.tapped{transition:none}}
 </style>
 <style>html,body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
 </head>
@@ -2482,7 +2485,7 @@ const EQ_AB = { none: "なし", twice: "1ターンに2回攻撃できる", direc
 const ABS = {
   twice:      { label: "1ターンに2回攻撃できる", kw: "2回攻撃" },
   haste:      { label: "速攻（出たターンから攻撃できる）", kw: "速攻" },
-  rush:       { label: "突進（出たターンから、相手のモンスターにだけ攻撃できる）", kw: "突進" },
+  rush:       { label: "突進（出たターンから、相手のモンスターにだけ攻撃できる。シールドデッキのアンタップのモンスターにも攻撃できる）", kw: "突進" },
   first:      { label: "先制攻撃（バトルで相手を倒せるなら、先に倒して自分は破壊されない）", kw: "先制攻撃" },
   direct:     { label: "相手の場にモンスターがいても直接攻撃できる", kw: "直接攻撃" },
   guard:      { label: "戦闘では破壊されない", kw: "戦闘耐性" },
@@ -2555,7 +2558,7 @@ const KW_DESC = {
   "フュージョン": "自分のターンに1回、手札のこのカードに、（ ）のカードを手札から好きな枚数フュージョンできる。フュージョンしたカードは廃棄札になる。フュージョンした枚数で強くなるカードがある（使ったときの枚数が、そのカードにずっと残る）",
   "続唱": "コストを払って手札から使ったとき（モンスターの召喚・魔法の発動）、山札の上から、このカードよりコストが小さいモンスターか魔法が出るまでめくる。それをタダで使ってもよい。めくった残りはランダムな順で山札の下に置く（コストを使うデッキでだけ働く）",
   "ゴッドリンク": "左Gは右どなり、右Gは左どなりのゾーンに、リンクできるゴッドがいると、リンクして1体のモンスターとして扱う。ATKは合計、能力は全員ぶん、攻撃は合わせて1回（1体でも召喚酔いでなければ攻撃できる）。破壊されるときは、ATKが一番低いゴッド1体だけが場を離れる",
-  "2回攻撃": "1ターンに2回攻撃できる", "速攻": "出たターンから攻撃できる（召喚酔いしない）", "突進": "出たターンから攻撃できるが、相手のモンスターにだけ（直接攻撃はできない）", "先制攻撃": "バトルで相手を倒せるとき（ATKが同じか上・必殺）、先に倒すので自分は破壊されない。お互いに先制攻撃ならふつうのバトル", "交戦": "このモンスターが攻撃するとき・攻撃されたときの、どちらでも出る効果", "直接攻撃": "相手の場にモンスターがいても、相手に直接攻撃できる",
+  "2回攻撃": "1ターンに2回攻撃できる", "速攻": "出たターンから攻撃できる（召喚酔いしない）", "突進": "出たターンから攻撃できるが、相手のモンスターにだけ（直接攻撃はできない）。シールドデッキの相手の、アンタップのモンスターにも攻撃できる", "先制攻撃": "バトルで相手を倒せるとき（ATKが同じか上・必殺）、先に倒すので自分は破壊されない。お互いに先制攻撃ならふつうのバトル", "交戦": "このモンスターが攻撃するとき・攻撃されたときの、どちらでも出る効果", "直接攻撃": "相手の場にモンスターがいても、相手に直接攻撃できる",
   "戦闘耐性": "戦闘では破壊されない", "効果耐性": "効果では破壊されない", "攻撃不可": "攻撃できない", "強者狙い": "相手の場で一番ATKが高いモンスターにしか攻撃できない",
   "挑発": "相手はこのモンスターにしか攻撃できず、効果の対象にもこのモンスターしか選べない", "鉄壁": "戦闘で受けるダメージが（ ）の数だけ減る",
   "貫通": "相手のモンスターを戦闘で倒したとき、ATKの差ではなく、このモンスターのATKぶん全部のダメージを相手に与える",
@@ -2571,7 +2574,8 @@ const KW_DESC = {
   "フラッシュバック": "墓地からもう1回だけ使える（自分のターンに、手札の下に出るボタンから）。使ったあとは廃棄される",
   "キッカー": "コストデッキで、コストに（ ）のマナを足して払うと「もし：キッカーを払った」の効果が出る", "エンハンス": "コストデッキで、（ ）のマナを足して払えるときは自動で払い、「もし：キッカーを払った」の効果が出る", "マナ武装": "自分のマナゾーンに、その属性のカードが決まった枚数以上あると出る効果", "マッドネス": "このモンスターが手札から捨てられたとき、コストを払わずに特殊召喚される", "サイクリング": "手札からこのカードを捨てて、カードを1枚引ける（マナがいるときもある）", "侵略": "決まったモンスターが攻撃するとき、手札からその上に重ねて出し、そのまま攻撃する", "S級侵略": "侵略を、手札だけでなく墓地・マナゾーン・場（自分のほかのモンスター）からもできる", "アタック・チャンス": "決まったモンスターが攻撃するとき、手札からこの魔法をタダで使える", "結晶": "安いコストで魔法・罠ゾーンに置き、カウントダウンが0になると場に出る", "カウントダウン": "自分のターンのはじめに1減り、0になると破壊される", "超次元": "EXデッキに入り、場を離れるとEXデッキに戻るモンスター", "アクセラレート": "モンスターのコストが払えないときだけ、魔法側として使える", "上陸": "自分のマナゾーンにカードが置かれるたびに出る効果",
   "S・トリガー": "シールドデッキでは、ブレイクされたシールドがこのカードなら、コストを払わずに使う（モンスターは召喚、魔法・罠は発動）。シールドデッキでないときは、相手に直接攻撃を宣言されたとき、山札の一番上がこのカードなら、ダメージを受ける前にコストを払わずに使う",
-  "シールド": "シールドデッキのルール。ゲーム開始時に山札の上から5枚を裏向きで置く。直接攻撃を受けるとシールドがブレイクされて手札に加わる（S・トリガーならタダで使える）。シールドが0枚のときに直接攻撃を受けると負け。LPは使わない（ダメージはシールドのブレイクになる）",
+  "タップ": "シールドデッキのモンスターは、攻撃・ブロックするとタップ（横向き）になり、自分のターンのはじめにアンタップにもどる。アンタップのあいだは、突進を持つモンスターにしか攻撃されない。タップ中はブロックできない",
+  "シールド": "シールドデッキのルール。ゲーム開始時に山札の上から5枚を裏向きで置く。相手のモンスターは場にモンスターがいても直接攻撃できる。直接攻撃を受けるとシールドがブレイクされて手札に加わる（S・トリガーならタダで使える）。シールドが0枚のときに直接攻撃を受けると負け。LPは使わない（ダメージはシールドのブレイクになる）。モンスターは《タップ》する",
   "ブレイカー": "シールドデッキの相手に直接攻撃したとき、シールドを書かれた枚数ブレイクする",
   "W・ブレイカー": "シールドデッキの相手に直接攻撃したとき、シールドを2枚ブレイクする",
   "T・ブレイカー": "シールドデッキの相手に直接攻撃したとき、シールドを3枚ブレイクする",
@@ -10465,14 +10469,19 @@ function responseOptions(st, s, win){
 function usableTraps(st, s){ return responseOptions(st, s, "attack").filter(o => o.from === "sz").map(o => o.i); }
 // where monster `from` may attack: L = opponent zones, direct = may attack directly
 const topOnlyMon = (st, s, i) => !!(P(st, s).mz[i] && (P(st, s).mz[i].topOnly || hasAb(st, s, i, "topOnly")));
+// タップ（シールドデッキ）: シールドデッキのモンスターは攻撃・ブロックでタップし、自分のターンのはじめにアンタップ。
+// アンタップ中のシールドデッキのモンスターは、突進を持つモンスターにしか攻撃されない
+const canHitUntapped = (st, s, i) => { const m = P(st, s).mz[i]; return !!m && (hasAb(st, s, i, "rush") || m.rushTurn === st.turnNo); };
 function atkTargets(st, s, from){
-  const o = O(s), op = P(st, o), all = op.mz.map((x, j) => x ? j : -1).filter(j => j >= 0 && !hiddenMon(st, o, j)), tt = tauntIdx(st, o).filter(j => all.includes(j)), top = topOnlyMon(st, s, from);
+  const o = O(s), op = P(st, o), hitU = !op.shieldOn || canHitUntapped(st, s, from), all = op.mz.map((x, j) => x ? j : -1).filter(j => j >= 0 && !hiddenMon(st, o, j) && (hitU || op.mz[j].tap)), tt = tauntIdx(st, o).filter(j => all.includes(j)), top = topOnlyMon(st, s, from);
   // 飛行: 飛行・対空を持つモンスターにしか攻撃されない
   const air = hasAb(st, s, from, "flying") || hasAb(st, s, from, "reach"), fly = j => hasAb(st, o, j, "flying");
   let L = (tt.length ? tt : all).filter(j => air || !fly(j));
   if (top && L.length){ const mx = Math.max(...L.map(j => atkOf(op.mz[j]))); L = L.filter(j => atkOf(op.mz[j]) === mx); }
   { const aa = monAbs(st, s, from).filter(a => a.k === "atkAttr").map(a => String(a.name || "").replace(/属性$/, "").trim()).filter(Boolean); if (aa.length) L = L.filter(j => aa.every(x => monAttrs(op.mz[j]).includes(x))); }
   const flyDirect = hasAb(st, s, from, "flying") && !all.some(j => fly(j) || hasAb(st, o, j, "reach"));
+  // シールドデッキの相手には、場にモンスターがいても直接攻撃できる（止めるのはブロッカー）
+  if (op.shieldOn) return { L, direct: !rushOnly(st, s, from), top, taunt: tt.length > 0 };
   return { L, direct: !rushOnly(st, s, from) && !tt.length && (!all.length || (!top && (hasAb(st, s, from, "direct") || flyDirect))), top, taunt: tt.length > 0 };
 }
 
@@ -10524,11 +10533,11 @@ function revoAuto(st, s, from){ const p = P(st, s), m = p.mz[from], L = revoCand
 /* ---- ブロッカー（デュエマ風）: 相手の攻撃に、代わりに受けて立つ ---- */
 function blockOpts(st, s){
   const pd = st.pending; if (!pd || pd.type !== "attack" || pd.by === s || pd.blocked) return [];
-  return P(st, s).mz.map((m, i) => m && i !== pd.to && hasAb(st, s, i, "blocker") && m.blkTurn !== st.turnNo ? { from: "blk", i, c: card(m.c) } : null).filter(Boolean);
+  return P(st, s).mz.map((m, i) => m && !m.tap && i !== pd.to && hasAb(st, s, i, "blocker") && m.blkTurn !== st.turnNo ? { from: "blk", i, c: card(m.c) } : null).filter(Boolean);
 }
 function doBlock(st, s, i){
   const pd = st.pending, m = P(st, s).mz[i]; if (!pd || pd.type !== "attack" || !m) return false;
-  m.blkTurn = st.turnNo; pd.to = i; pd.blocked = true;
+  m.blkTurn = st.turnNo; pd.to = i; pd.blocked = true; if (P(st, s).shieldOn) m.tap = true;
   log(st, s, `「${card(m.c).name}」がブロックした！`); ev(st, { type: "block", s, z: i });
   return true;
 }
@@ -10545,7 +10554,7 @@ function declareAttack(st, s, from, to, noRevo){
   const m = P(st, s).mz[from]; if (!m || !canAttack(st, s, from)) return false;
   const T = atkTargets(st, s, from);
   if (to === "direct" ? !T.direct : !T.L.includes(to)) return false;
-  m.atkCount = (m.atkCount || 0) + 1; m.atkTotal = (m.atkTotal || 0) + 1;
+  m.atkCount = (m.atkCount || 0) + 1; m.atkTotal = (m.atkTotal || 0) + 1; if (P(st, s).shieldOn) m.tap = true;
   m.attacked = m.atkCount >= maxAttacks(st, s, from);
   glGroup(st, s, from).forEach(j => { const x = P(st, s).mz[j]; if (x && x !== m){ x.atkCount = m.atkCount; x.attacked = m.attacked; } });
   if (!m.revealed && hasAb(st, s, from, "stealth")){ m.revealed = true; log(st, s, `「${card(m.c).name}」の隠密がとけた`); }
@@ -10818,7 +10827,7 @@ function passTurn(st, s){
     const xt = P(st, s).extraTurns > 0; if (xt) P(st, s).extraTurns--;
     st.turn = xt ? s : O(s); st.turnNo++; st.summoned = false;
     const np = P(st, st.turn); zoneTrim(st.players.a); zoneTrim(st.players.b);
-    np.mz.forEach(m => { if (m) m.age = (m.age || 0) + 1; }); evolveCheck(st, st.turn, "start");
+    np.mz.forEach(m => { if (m){ m.age = (m.age || 0) + 1; delete m.tap; } }); evolveCheck(st, st.turn, "start");
     if (np.intang > 0){ np.intang--; if (!np.intang) log(st, st.turn, `${np.name}の霊体がとけた`); }
     if (np.vuln > 0){ np.vuln--; if (!np.vuln) log(st, st.turn, `${np.name}の弱体がとけた`); }
     np.mz.forEach(m => { if (m && m.vuln > 0){ m.vuln--; if (!m.vuln) log(st, st.turn, `「${card(m.c).name}」の弱体がとけた`); } });
@@ -11146,13 +11155,13 @@ function renderBoard0(){
     const ttl = es.length ? ` title="${esc("装備（左から）：" + es.map(e => card(e.c).name).join("→"))}"` : "";
     const atkr = atkNow && atkNow.by === s && atkNow.from === i, atkd = atkNow && atkNow.by !== s && atkNow.to === i;
     const stt0 = atkr ? "攻撃中！" : atkd ? "狙われている" : "";
-    const stt = stt0 || z.attacked && s === st.turn ? stt0 || "攻撃済" : (z.atkCount && s === st.turn ? "あと1回" : "") || (charmActive(st, z) ? "魅了" : "") || ((z.noAtkTurn || 0) >= st.turnNo ? "攻撃できない" : "");
+    const stt = stt0 || z.attacked && s === st.turn ? stt0 || "攻撃済" : (z.atkCount && s === st.turn ? "あと1回" : "") || (charmActive(st, z) ? "魅了" : "") || ((z.noAtkTurn || 0) >= st.turnNo ? "攻撃できない" : "") || (z.tap ? "タップ" : "");
     const zz = sick(st, s, i) ? " sick" : "", zx = (!z.shieldGone && hasAb(st, s, i, "shield") ? " shielded" : "") + (hiddenMon(st, s, i) ? " stealthy" : "");
     const actH = mine && !G.spectate && hasTrig(monCard(z), "act"), actNo = actH ? actWhy(st, s, i) : "";
     const evH = mine && !G.spectate && hasAb(st, s, i, "evolve") && !z.evolved, evNo = evH ? evoWhy(st, s, i) : "";
     const sealN = (z.seals || []).length;
     const rsx = !sealN && (hasAb(st, s, i, "noEffect") || hasAb(st, s, i, "unaffected") || hasAb(st, s, i, "ward") || hiddenMon(st, s, i)), rsxT = [hasAb(st, s, i, "unaffected") ? "相手の効果を受けない" : "", hasAb(st, s, i, "noEffect") ? "効果では破壊されない" : "", hasAb(st, s, i, "ward") ? "護法" : "", jdOn(st, s, i) ? "ジャストダイバー中" : hiddenMon(st, s, i) ? "隠密中" : ""].filter(Boolean).join("・");
-    return glBadge(st, s, i, (h => sealN ? h.replace(/<\/div>$/, `<span class="sealx" title="封印 ${sealN}（ないものとして扱う。持ち主が同じタグのモンスターを出すと1つはがれる）">封印${sealN > 1 ? " " + sealN : ""}</span></div>`) : h)((h => rsx ? h.replace(/<\/div>$/, `<span class="rsx" role="img" aria-label="除去耐性：${rsxT}" title="${rsxT}"></span></div>`) : h)((h => evH ? h.replace(/<\/div>$/, `<button type="button" class="evobtn" data-evomon="${i}" ${evNo ? "disabled" : ""} title="${esc(evNo || `エボルヴする（エボルヴポイント あと${EVO_MAX - (P(st, s).evoUsed || 0)}）`)}" aria-label="「${esc(card(z.c).name)}」をエボルヴさせる">エボルヴ</button></div>`) : h)((h => actH ? h.replace(/<\/div>$/, `<button type="button" class="actbtn" data-actmon="${i}" ${actNo ? "disabled" : ""} title="${actNo ? esc(actNo) : "能力を発動する"}" aria-label="「${esc(card(z.c).name)}」の能力を発動する">${ACT_ICON}</button></div>`) : h)(zcap(cardHTML((A => A.join() === attrsOf(card(z.c)).join() ? card(z.c) : { ...card(z.c), attrs: A })(monAttrs(z)), cls + zz + zx + (actH ? (actNo ? " actable actused" : " actable") : "") + (atkr ? " attacking" : "") + (atkd ? " atk-tgt" : ""), attrs + (zz ? ` title="召喚酔い：次の自分のターンから攻撃できる"` : ttl), { mod: modOf(z), done: stt, eq: eqB, dmg: z.dmg || 0, ctr: z.ctr, vuln: z.vuln || 0, weak: z.weak || 0, ...mOpt(s) }), card(z.c), z))))));
+    return glBadge(st, s, i, (h => sealN ? h.replace(/<\/div>$/, `<span class="sealx" title="封印 ${sealN}（ないものとして扱う。持ち主が同じタグのモンスターを出すと1つはがれる）">封印${sealN > 1 ? " " + sealN : ""}</span></div>`) : h)((h => rsx ? h.replace(/<\/div>$/, `<span class="rsx" role="img" aria-label="除去耐性：${rsxT}" title="${rsxT}"></span></div>`) : h)((h => evH ? h.replace(/<\/div>$/, `<button type="button" class="evobtn" data-evomon="${i}" ${evNo ? "disabled" : ""} title="${esc(evNo || `エボルヴする（エボルヴポイント あと${EVO_MAX - (P(st, s).evoUsed || 0)}）`)}" aria-label="「${esc(card(z.c).name)}」をエボルヴさせる">エボルヴ</button></div>`) : h)((h => actH ? h.replace(/<\/div>$/, `<button type="button" class="actbtn" data-actmon="${i}" ${actNo ? "disabled" : ""} title="${actNo ? esc(actNo) : "能力を発動する"}" aria-label="「${esc(card(z.c).name)}」の能力を発動する">${ACT_ICON}</button></div>`) : h)(zcap(cardHTML((A => A.join() === attrsOf(card(z.c)).join() ? card(z.c) : { ...card(z.c), attrs: A })(monAttrs(z)), cls + zz + zx + (z.tap ? " tapped" : "") + (actH ? (actNo ? " actable actused" : " actable") : "") + (atkr ? " attacking" : "") + (atkd ? " atk-tgt" : ""), attrs + (zz ? ` title="召喚酔い：次の自分のターンから攻撃できる"` : ttl), { mod: modOf(z), done: stt, eq: eqB, dmg: z.dmg || 0, ctr: z.ctr, vuln: z.vuln || 0, weak: z.weak || 0, ...mOpt(s) }), card(z.c), z))))));
   }).join("");
 
   // action bar
