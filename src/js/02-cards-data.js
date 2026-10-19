@@ -206,7 +206,9 @@ function rebuildCards(){
   // ポーション (カード以外) live in the cards collection too, but never act as cards
   const allU = S.userCards || []; S.userPotions = allU.filter(c => c && c.type === "potion"); S.userRelics = allU.filter(c => c && c.type === "relic"); S.userCards = allU.filter(c => !(c && (c.type === "potion" || c.type === "relic")));
   S.userCards.forEach(c => { if (c && c.nameRuby == null && /《|\[(?:#[0-9a-fA-F]{3,6}|[金銀銅虹])\]|\[\/\]/.test(c.name || "")){ c.nameRuby = c.name; c.name = plainRuby(c.name); } });
-  S.cards = new Map([...S.starters, ...(S.hiddenBase || []), ...S.userCards, ...skinVariants([...S.starters, ...S.userCards])].map(c => [c.id, c]));
+  // テストモードのカード（S.cards にだけ入れている）は、カードの読みなおしで消さない
+  const testCards = S.cards ? [...S.cards.values()].filter(c => c && c.test) : [];
+  S.cards = new Map([...S.starters, ...(S.hiddenBase || []), ...S.userCards, ...skinVariants([...S.starters, ...S.userCards])].concat(testCards).map(c => [c.id, c]));
   rebuildOwned();
   rebuildCtrEmb();
   const dl = document.getElementById("cardNames");
@@ -559,7 +561,7 @@ async function splitArt(doc){
   out.artRef = n ? true : null;
   return { doc: out, arts: n ? arts : null };
 }
-async function saveCardDoc(id, doc){
+async function saveCardDoc(id, doc, onlySplit){
   if (S.db){
     const had = !!(rawCard(id) || {}).artRef;
     if (had && !(await ensureFullArt(id))) throw { code: "art-load" };
@@ -571,6 +573,7 @@ async function saveCardDoc(id, doc){
         catch(e){ if (e && e.code === "permission-denied"){ ART_SPLIT_OK = false; d = withFullArt(doc); arts = null; } else throw e; }
       }
     }
+    if (onlySplit && !arts) return false;
     if (JSON.stringify(d).length > 900000) throw { code: "too-big" };
     await S.db.doc("cards/" + id).set(d);
     if (had && !arts) S.db.doc("cardArt/" + id).delete().catch(() => {});
@@ -590,7 +593,7 @@ async function migrateArt(all, onStep){
     for (const c of L){
       if (!ART_SPLIT_OK) break;
       const { id, ...doc } = c;
-      try{ await saveCardDoc(id, doc); done++; }catch(e){ fail++; }
+      try{ if (await saveCardDoc(id, doc, true) === false) fail++; else done++; }catch(e){ fail++; }
       if (onStep) onStep(done, fail, L.length);
       await new Promise(r => setTimeout(r, 250));
     }
