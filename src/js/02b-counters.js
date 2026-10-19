@@ -408,7 +408,7 @@ function mkCostMech(save){
   const nv = (id, lo, hi, d) => Math.max(lo, Math.min(hi, Math.round(+(g(id) ? g(id).value : d) || 0)));
   const mt = id => g(id) && ["tag", "part", "exact"].includes(g(id).value) ? g(id).value : "tag", tx = id => g(id) ? g(id).value.trim().slice(0, 40) : "";
   const more = { cycle: g("mkCycle") && g("mkCycle").checked ? { n: nv("mkCycleN", 0, 20, 1) } : null,
-    invade: g("mkInvade") && g("mkInvade").checked && tx("mkInvadeName") ? { match: mt("mkInvadeMatch"), name: tx("mkInvadeName") } : null,
+    invade: g("mkInvade") && g("mkInvade").checked && tx("mkInvadeName") ? (() => { const fr = [["mkInvH", "hand"], ["mkInvG", "grave"], ["mkInvM", "mana"], ["mkInvF", "field"]].filter(([id]) => g(id) && g(id).checked).map(x => x[1]); return { match: mt("mkInvadeMatch"), name: tx("mkInvadeName"), ...(fr.length && !(fr.length === 1 && fr[0] === "hand") ? { from: fr } : {}) }; })() : null,
     atkChance: g("mkAch") && g("mkAch").checked && tx("mkAchName") ? { match: mt("mkAchMatch"), name: tx("mkAchName") } : null,
     graveSum: g("mkGSum") && g("mkGSum").checked ? { n: nv("mkGSumN", 0, 20, 3) } : null,
     cryst: g("mkCryst") && g("mkCryst").checked ? { n: nv("mkCrystN", 0, 20, 1), k: nv("mkCrystK", 1, 9, 2) } : null,
@@ -439,7 +439,7 @@ function setCostMech(c){
   g("mkDelve").checked = !!(c && c.delve); if (g("mkRevG")){ g("mkRevG").checked = !!(c && c.revG != null); g("mkRevGN").value = String(c && c.revG != null ? Math.max(0, +c.revG || 0) : 3); }
   { const on = (id, v) => { if (g(id)) g(id).checked = !!v; }, val = (id, v) => { if (g(id)) g(id).value = String(v); };
     on("mkCycle", c && c.cycle); val("mkCycleN", c && c.cycle ? +c.cycle.n || 0 : 1);
-    on("mkInvade", c && c.invade && c.invade.name); val("mkInvadeMatch", c && c.invade && c.invade.match || "tag"); val("mkInvadeName", c && c.invade ? c.invade.name || "" : "");
+    on("mkInvade", c && c.invade && c.invade.name); val("mkInvadeMatch", c && c.invade && c.invade.match || "tag"); val("mkInvadeName", c && c.invade ? c.invade.name || "" : ""); { const fr = c && c.invade && Array.isArray(c.invade.from) ? c.invade.from : ["hand"]; on("mkInvH", fr.includes("hand")); on("mkInvG", fr.includes("grave")); on("mkInvM", fr.includes("mana")); on("mkInvF", fr.includes("field")); }
     on("mkAch", c && c.atkChance && c.atkChance.name); val("mkAchMatch", c && c.atkChance && c.atkChance.match || "tag"); val("mkAchName", c && c.atkChance ? c.atkChance.name || "" : "");
     on("mkGSum", c && c.graveSum); val("mkGSumN", c && c.graveSum ? +c.graveSum.n || 0 : 3);
     on("mkCryst", c && c.cryst); val("mkCrystN", c && c.cryst ? +c.cryst.n || 0 : 1); val("mkCrystK", c && c.cryst ? +c.cryst.k || 2 : 2);
@@ -454,4 +454,4 @@ function syncDmEvo(){ const g = id => document.getElementById(id); if (!g("mkDmE
 (() => { const el = document.getElementById("mkDmEvoMatch"); if (el) el.addEventListener("change", syncDmEvo); })();
 function syncMug(){ const g = id => document.getElementById(id); if (!g("mkMugMatch")) return; const m = g("mkMugMatch").value; g("mkMugName").setAttribute("list", m === "tag" ? "tagNames" : "cardNames"); }
 (() => { const el = document.getElementById("mkMugMatch"); if (el) el.addEventListener("change", syncMug); })();
-["mkCycle", "mkCycleN", "mkInvade", "mkInvadeMatch", "mkInvadeName", "mkAch", "mkAchMatch", "mkAchName", "mkGSum", "mkGSumN", "mkCryst", "mkCrystN", "mkCrystK", "mkCd", "mkCdK", "mkPsy", "mkTax", "mkTaxN", "mkTaxWhat", "mkSbCost", "mkGz", "mkGzWhere", "mkGzMatch", "mkGzName", "mkGzCnt", "mkDelve", "mkRevG", "mkRevGN", "mkRevo", "mkRevoMatch", "mkRevoName", "mkDmEvo", "mkDmEvoMatch", "mkDmEvoName", "mkMug", "mkMugMatch", "mkMugName", "mkMugF", "mkMugG"].forEach(id => { const el = document.getElementById(id); if (el){ el.addEventListener("input", () => { if (typeof updateBkText === "function") updateBkText(); }); el.addEventListener("change", () => { if (typeof updateBkText === "function") updateBkText(); }); } });
+["mkCycle", "mkCycleN", "mkInvade", "mkInvadeMatch", "mkInvadeName", "mkInvH", "mkInvG", "mkInvM", "mkInvF", "mkAch", "mkAchMatch", "mkAchName", "mkGSum", "mkGSumN", "mkCryst", "mkCrystN", "mkCrystK", "mkCd", "mkCdK", "mkPsy", "mkTax", "mkTaxN", "mkTaxWhat", "mkSbCost", "mkGz", "mkGzWhere", "mkGzMatch", "mkGzName", "mkGzCnt", "mkDelve", "mkRevG", "mkRevGN", "mkRevo", "mkRevoMatch", "mkRevoName", "mkDmEvo", "mkDmEvoMatch", "mkDmEvoName", "mkMug", "mkMugMatch", "mkMugName", "mkMugF", "mkMugG"].forEach(id => { const el = document.getElementById(id); if (el){ el.addEventListener("input", () => { if (typeof updateBkText === "function") updateBkText(); }); el.addEventListener("change", () => { if (typeof updateBkText === "function") updateBkText(); }); } });

@@ -2611,13 +2611,26 @@ function declareAttack(st, s, from, to, noRevo){
 function atkHand(st, s, from){
   const go = st2 => atkChanceStep(st2, s, from, st3 => attackGo(st3, s, from));
   const p = P(st, s), m = p.mz[from]; if (!m || st.winner){ go(st); return; }
-  const ac = card(m.c), L = p.hand.map((id, j) => j).filter(j => { const c = card(p.hand[j]); return c && cardType(c) === "monster" && c.invade && revoHit(ac, c.invade); });
+  const ac = card(m.c), ok = (id, z) => { const c = card(id); return c && cardType(c) === "monster" && c.invade && invFrom(c).includes(z) && revoHit(ac, c.invade); };
+  // 侵略の候補（S級侵略は墓地・マナゾーン・場からも）。同じ場所の同じカードは1つにまとめる
+  const L = [], seen = new Set(), add = (z, i, id) => { const k = z + ":" + id; if (seen.has(k)) return; seen.add(k); L.push({ z, i, id }); };
+  p.hand.forEach((id, i) => { if (ok(id, "hand")) add("hand", i, id); });
+  p.grave.forEach((id, i) => { if (ok(id, "grave")) add("grave", i, id); });
+  (p.manaZ || []).forEach((x, i) => { if (x && ok(x.c, "mana")) add("mana", i, x.c); });
+  p.mz.forEach((x, i) => { if (x && i !== from && !monCannotLeave(x) && ok(x.c, "field")) add("field", i, x.c); });
   if (!L.length){ go(st); return; }
-  const doIt = (st2, hj) => { const p2 = P(st2, s), id = p2.hand[hj]; if (!id || !p2.mz[from]){ go(st2); return; } p2.hand.splice(hj, 1); const old = card(p2.mz[from].c).name; const nm = evoPut(st2, s, from, id); nm.revealed = true; log(st2, s, `侵略！「${old}」の上に「${card(id).name}」を重ねた`); ev(st2, { type: "summon", s, z: from });
-    const T = monTrigList(st2, s, from, "summon").filter(x => hasTrig(x.c, "summon") || hasTrig(x.c, "enter")); if (T.length) runList(st2, T, go); else go(st2); };
-  if (isHumanHere(s)){ G.chooseQ.push({ ask: true, s, c: ac, fx: { kind: "__block", ask: "侵略する？（手札のモンスターを上に重ねて、そのまま攻撃する）" }, ctx: {}, then: null, pick1: [...L.map(j => ({ name: card(p.hand[j]).name, text: `ATK ${fmtN(baseAtk(card(p.hand[j])))}・「${ac.name}」の上に重ねる` })), { name: "しない", text: "このまま攻撃する" }], p1go: (st2, k) => { if (k < L.length) doIt(st2, L[k]); else go(st2); } }); return; }
-  const best = L.filter(j => cmpNum(baseAtk(card(p.hand[j])), atkOf(m)) > 0).sort((a, b) => cmpNum(baseAtk(card(p.hand[b])), baseAtk(card(p.hand[a]))))[0];
-  if (best != null) doIt(st, best); else go(st);
+  const ZN = { hand: "手札", grave: "墓地", mana: "マナゾーン", field: "場" };
+  const doIt = (st2, x) => { const p2 = P(st2, s); if (!p2.mz[from]){ go(st2); return; }
+    if (x.z === "hand"){ const k = p2.hand.indexOf(x.id); if (k < 0){ go(st2); return; } p2.hand.splice(k, 1); }
+    else if (x.z === "grave"){ const k = p2.grave.lastIndexOf(x.id); if (k < 0){ go(st2); return; } p2.grave.splice(k, 1); }
+    else if (x.z === "mana"){ const k = (p2.manaZ || []).findIndex(y => y && y.c === x.id); if (k < 0){ go(st2); return; } const y = p2.manaZ.splice(k, 1)[0]; if (!y.tap && p2.mana) p2.mana.cur = Math.max(0, p2.mana.cur - 1); manaSync(p2); }
+    else { const y = p2.mz[x.i]; if (!y || y.c !== x.id || monCannotLeave(y)){ go(st2); return; } leaveEquips(st2, y); p2.grave.push(...(y.mats || [])); sealsOut(st2, y); p2.mz[x.i] = null; ev(st2, { type: "destroy", s, z: x.i }); }
+    const sc = x.z !== "hand", old = card(p2.mz[from].c).name, nm = evoPut(st2, s, from, x.id); nm.revealed = true;
+    log(st2, s, `${sc ? "S級侵略" : "侵略"}！${sc ? ZN[x.z] + "から" : ""}「${old}」の上に「${card(x.id).name}」を重ねた`); ev(st2, { type: "summon", s, z: from });
+    const T = monTrigList(st2, s, from, "summon").filter(y => hasTrig(y.c, "summon") || hasTrig(y.c, "enter")); if (T.length) runList(st2, T, go); else go(st2); };
+  if (isHumanHere(s)){ G.chooseQ.push({ ask: true, s, c: ac, fx: { kind: "__block", ask: "侵略する？（上に重ねて、そのまま攻撃する）" }, ctx: {}, then: null, pick1: [...L.map(x => ({ name: card(x.id).name, text: `${ZN[x.z]}から・ATK ${fmtN(baseAtk(card(x.id)))}・「${ac.name}」の上に重ねる` })), { name: "しない", text: "このまま攻撃する" }], p1go: (st2, k) => { if (k < L.length) doIt(st2, L[k]); else go(st2); } }); return; }
+  const best = L.filter(x => cmpNum(baseAtk(card(x.id)), atkOf(m)) > 0).sort((a, b) => cmpNum(baseAtk(card(b.id)), baseAtk(card(a.id))))[0];
+  if (best) doIt(st, best); else go(st);
 }
 function atkChanceStep(st, s, from, then){
   const p = P(st, s), m = p.mz[from]; if (!m || st.winner){ then(st); return; }
