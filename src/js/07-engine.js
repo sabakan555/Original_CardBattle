@@ -1701,6 +1701,10 @@ function applyEffect(st, s, c, target, ctx = {}, fx = normFx(c)){
       let k = me.grave.lastIndexOf(c.id); if (k >= 0){ me.grave.splice(k, 1); manaSync(me); manaPut(st, s, c.id); log(st, s, `${src}：墓地の「${c.name}」をマナゾーンに置いた`); break; }
       k = ctx.inHand ? me.hand.indexOf(ctx.inHand) : -1; if (k >= 0){ const id = me.hand.splice(k, 1)[0]; manaSync(me); manaPut(st, s, id); log(st, s, `${src}：手札の「${card(id).name}」をマナゾーンに置いた`); break; }
       log(st, s, `${src}：このカードが見つからない`); break; }
+    // 盾を追加: 山札の上から n 枚を裏向きのままシールドに加える（シールドデッキのときだけ）
+    case "addShield": { if (!me.shieldOn){ log(st, s, `${src}：シールドのないデッキ`); break; }
+      const k = Math.min(Math.max(1, n || 1), me.deck.length); if (!k){ log(st, s, `${src}：山札がない`); break; }
+      me.shields.push(...me.deck.splice(0, k)); log(st, s, `${src}で山札の上から${k}枚をシールドに加えた（シールド${me.shields.length}枚）`); ev(st, { type: "shieldAdd", s, n: k }); break; }
     case "manaBoost": if (me.manaZ) manaFromDeck(st, s, n, src); else if (me.mana){ const add = Math.max(0, Math.min(n, MANA_LIMIT - me.mana.max)); me.mana.max += add; me.mana.cur += add; log(st, s, `${src}で最大マナを${add}増やした（${me.mana.cur}/${me.mana.max}）`); } else log(st, s, `${src}：マナを使わないデッキ`); break;
     case "manaHand": { if (!me.manaZ){ log(st, s, `${src}：マナゾーンのないルール`); break; } const id = me.hand[target]; if (id == null){ log(st, s, `${src}：手札がない`); break; } me.hand.splice(target, 1); manaSync(me); const tp = manaPut(st, s, id); log(st, s, `${src}：手札の「${card(id).name}」をマナゾーンに置いた${tp ? "（タップ）" : ""}`); break; }
     case "manaGrave": { if (!me.manaZ){ log(st, s, `${src}：マナゾーンのないルール`); break; } const L = me.grave.splice(Math.max(0, me.grave.length - Math.max(1, n || 1))); manaSync(me); L.forEach(id => manaPut(st, s, id)); log(st, s, L.length ? `${src}：墓地の${L.map(id => `「${card(id).name}」`).join("")}をマナゾーンに置いた` : `${src}：墓地にカードがない`); break; }

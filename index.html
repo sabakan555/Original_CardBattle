@@ -2295,6 +2295,7 @@ const OLD_TRIG = { open: "summon", win: "kill", lose: "destroyed" };
 const KINDS = {
   none:       { label: "なし" },
   heal:       { label: "自分のLPを回復", n: true, text: n => `自分のLPを${n}回復` },
+  addShield:  { label: "盾を追加する（山札の上から○枚をシールドに加える・シールドデッキ用）", n: true, text: n => `山札の上から${n > 1 ? n + "枚" : "1枚"}を《シールド》に加える` },
   dmg:        { label: "相手にダメージ", n: true, text: n => `相手に${n}ダメージ` },
   draw:       { label: "カードを引く", n: true, text: n => `カードを${n}枚引く` },
   oppDeckDraw:{ label: "相手の山札からカードを引く", n: true, text: n => `相手の山札の上からカードを${n}枚引く（引いたカードは自分のものになる）` },
@@ -5677,7 +5678,7 @@ const KIND_GROUPS = [
   { g: "debuff",  label: "相手を弱らせる（デバフ）", v: [["vuln", "弱体（受けるダメージ1.5倍）"], ["weak", "脱力（与えるダメージが減る）"], ["atkDown", "ATKを下げる"], ["atkDownTmp", "ATKを下げる（このターンだけ）"], ["atkDownAtk", "攻撃してきたモンスターのATKを下げる（罠・速攻魔法）"], ["charm", "魅了（攻撃できなくする）"], ["oppStrDown", "筋力を失わせる（相手の次のターンの終わりまで）"], ["oppNoAtk", "攻撃できなくする（相手の次のターンまで）"], ["oppNoUse", "魔法・罠を発動できなくする（相手の次のターンまで）"]] },
   { g: "hand",    label: "手札を捨てる・捨てさせる（ハンデス）", v: [["discard", "ランダムに捨てさせる"], ["discardPeek", "手札を見て、えらんで捨てさせる（ピーピングハンデス）"]] },
   { g: "buff",    label: "自分を強くする（バフ）", v: [["str", "筋力を得る（与えるダメージ+○）"], ["strTemp", "筋力を得る（このターンだけ）"], ["dex", "敏捷を得る（得るブロック+○）"], ["dexTemp", "敏捷を得る（このターンだけ）"], ["intang", "霊体（受けるダメージが1・○ターン）"], ["selfAtk", "このモンスターのATKを上げる"], ["atkMul", "このモンスターのATKを○倍"], ["atkUp", "自分のモンスターのATKを上げる（えらぶ・全体・ランダム）"], ["vulnBonus", "弱体の相手へのダメージ+○%（ずっと）"]] },
-  { g: "guard",   label: "守る・回復する（デバフを消す）", v: [["block", "ブロックを得る"], ["heal", "LPを回復する"], ["lpSwap", "自分と相手のLPを入れかえる"], ["plate", "プレート（ターンのおわりにブロック）"], ["barricade", "ブロックが消えなくなる（ずっと）"], ["firstBlock2", "毎ターン最初のブロックが2倍（ずっと）"], ["rageNow", "このターン、アタックを使うたびブロック"], ["thornsNow", "攻撃されたら反撃（次の自分のターンまで）"]] },
+  { g: "guard",   label: "守る・回復する（デバフを消す）", v: [["block", "ブロックを得る"], ["heal", "LPを回復する"], ["addShield", "盾を追加する（シールドデッキ用）"], ["lpSwap", "自分と相手のLPを入れかえる"], ["plate", "プレート（ターンのおわりにブロック）"], ["barricade", "ブロックが消えなくなる（ずっと）"], ["firstBlock2", "毎ターン最初のブロックが2倍（ずっと）"], ["rageNow", "このターン、アタックを使うたびブロック"], ["thornsNow", "攻撃されたら反撃（次の自分のターンまで）"]] },
   { g: "draw",    label: "カードを引く", v: [["draw", "○枚引く"], ["oppDeckDraw", "相手の山札から○枚引く"], ["drawTo", "手札が○枚になるまで引く"], ["drawUntil", "アタック以外を引くまで引く"]] },
   { g: "fetch",   label: "カードを手札に持ってくる", v: [["searchMon", "山札からモンスターを（えらぶ）"], ["searchMagic", "山札から魔法を（えらぶ）"], ["searchTrap", "山札から罠を（えらぶ）"], ["tagSearch", "タグのカードを山札から（えらぶ）"], ["tagGraveHand", "タグのカードを墓地から（えらぶ）"], ["revive", "墓地のモンスターを手札に"], ["graveHand", "墓地のカードを手札に（どのカードでも・えらぶ）"], ["graveAtkToHand", "墓地のランダムなアタックを手札に"]] },
   { g: "make",    label: "カードを生み出す・コピーする", v: [["copyHand", "このカードのコピーを手札に"], ["copyDeck", "このカードのコピーを山札に"], ["copyGrave", "このカードのコピーを墓地に"], ["copyLastAtk", "直前に使ったアタックのコピーを手札に"], ["genAttack", "ランダムなアタックを手札に"], ["genAttack0", "ランダムなアタックを手札に（このターンコスト0）"], ["genSkill", "ランダムなスキルを手札に"], ["genPower", "ランダムなパワーを手札に"], ["genNamed", "名前を指定したカード（トークンなど）を手札に"], ["tagGen", "タグのカードをランダムに生み出して手札に"], ["draft", "スパイア風カードを○枚から1枚えらんで墓地に"]] },
@@ -9661,6 +9662,10 @@ function applyEffect(st, s, c, target, ctx = {}, fx = normFx(c)){
       let k = me.grave.lastIndexOf(c.id); if (k >= 0){ me.grave.splice(k, 1); manaSync(me); manaPut(st, s, c.id); log(st, s, `${src}：墓地の「${c.name}」をマナゾーンに置いた`); break; }
       k = ctx.inHand ? me.hand.indexOf(ctx.inHand) : -1; if (k >= 0){ const id = me.hand.splice(k, 1)[0]; manaSync(me); manaPut(st, s, id); log(st, s, `${src}：手札の「${card(id).name}」をマナゾーンに置いた`); break; }
       log(st, s, `${src}：このカードが見つからない`); break; }
+    // 盾を追加: 山札の上から n 枚を裏向きのままシールドに加える（シールドデッキのときだけ）
+    case "addShield": { if (!me.shieldOn){ log(st, s, `${src}：シールドのないデッキ`); break; }
+      const k = Math.min(Math.max(1, n || 1), me.deck.length); if (!k){ log(st, s, `${src}：山札がない`); break; }
+      me.shields.push(...me.deck.splice(0, k)); log(st, s, `${src}で山札の上から${k}枚をシールドに加えた（シールド${me.shields.length}枚）`); ev(st, { type: "shieldAdd", s, n: k }); break; }
     case "manaBoost": if (me.manaZ) manaFromDeck(st, s, n, src); else if (me.mana){ const add = Math.max(0, Math.min(n, MANA_LIMIT - me.mana.max)); me.mana.max += add; me.mana.cur += add; log(st, s, `${src}で最大マナを${add}増やした（${me.mana.cur}/${me.mana.max}）`); } else log(st, s, `${src}：マナを使わないデッキ`); break;
     case "manaHand": { if (!me.manaZ){ log(st, s, `${src}：マナゾーンのないルール`); break; } const id = me.hand[target]; if (id == null){ log(st, s, `${src}：手札がない`); break; } me.hand.splice(target, 1); manaSync(me); const tp = manaPut(st, s, id); log(st, s, `${src}：手札の「${card(id).name}」をマナゾーンに置いた${tp ? "（タップ）" : ""}`); break; }
     case "manaGrave": { if (!me.manaZ){ log(st, s, `${src}：マナゾーンのないルール`); break; } const L = me.grave.splice(Math.max(0, me.grave.length - Math.max(1, n || 1))); manaSync(me); L.forEach(id => manaPut(st, s, id)); log(st, s, L.length ? `${src}：墓地の${L.map(id => `「${card(id).name}」`).join("")}をマナゾーンに置いた` : `${src}：墓地にカードがない`); break; }

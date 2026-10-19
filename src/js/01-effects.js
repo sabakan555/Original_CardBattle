@@ -38,6 +38,7 @@ const OLD_TRIG = { open: "summon", win: "kill", lose: "destroyed" };
 const KINDS = {
   none:       { label: "なし" },
   heal:       { label: "自分のLPを回復", n: true, text: n => `自分のLPを${n}回復` },
+  addShield:  { label: "盾を追加する（山札の上から○枚をシールドに加える・シールドデッキ用）", n: true, text: n => `山札の上から${n > 1 ? n + "枚" : "1枚"}を《シールド》に加える` },
   dmg:        { label: "相手にダメージ", n: true, text: n => `相手に${n}ダメージ` },
   draw:       { label: "カードを引く", n: true, text: n => `カードを${n}枚引く` },
   oppDeckDraw:{ label: "相手の山札からカードを引く", n: true, text: n => `相手の山札の上からカードを${n}枚引く（引いたカードは自分のものになる）` },
