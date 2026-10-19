@@ -603,6 +603,26 @@ const KIND_GROUPS = [
   { g: "ctr",     label: "カウンター（乗せる・取り除く）", v: [["ctrAdd", "カウンターを乗せる"], ["ctrDel", "カウンターを取り除く"]] },
   { g: "win",     label: "勝ち負け（勝利する・敗北回避）", v: [["win", "勝利する"], ["noLoseTurn", "このターン、自分は負けない（敗北回避）"], ["noLoseWhile", "このカードが場にいる限り、自分は負けない（敗北回避）"]] }
 ];
+// 「なにを」の大きな分け方（10こ）。中の細かい分け方（KIND_GROUPS）は「どれ」の見出しになる
+const SUPER_GROUPS = [
+  { g: "s_dmg",  label: "ダメージ・回復・守る", subs: ["dmg", "guard"] },
+  { g: "s_rm",   label: "破壊・除去・打ち消し", subs: ["destroy", "remove", "negate"] },
+  { g: "s_atk",  label: "ATK・能力・強くする", subs: ["atk", "buff", "ability", "equip", "spire"] },
+  { g: "s_weak", label: "弱らせる・しばる・デメリット", subs: ["debuff", "minus"] },
+  { g: "s_draw", label: "引く・手札をあやつる", subs: ["draw", "hand", "exhaust"] },
+  { g: "s_get",  label: "カードを持ってくる・生み出す・変える", subs: ["fetch", "make", "give", "transform"] },
+  { g: "s_sum",  label: "場に出す・踏み倒す", subs: ["summon", "free", "mass"] },
+  { g: "s_deck", label: "山札・墓地・マナ", subs: ["deck", "mana"] },
+  { g: "s_card", label: "コスト・カウンター・カードの書きかえ", subs: ["next", "ctr", "rewrite"] },
+  { g: "s_rule", label: "ターン・勝ち負け", subs: ["turn", "win"] },
+];
+const superOfSub = sg => (SUPER_GROUPS.find(x => x.subs.includes(sg)) || { g: "s_other" }).g;
+// 細かいグループ（kindGroups の答え）を、大きな分け方にまとめる（中が空の分け方は出さない）
+function superGroups(gs){
+  const out = SUPER_GROUPS.map(x => ({ g: x.g, label: x.label, subs: x.subs.map(sg => gs.find(y => y.g === sg)).filter(Boolean) })).filter(x => x.subs.length);
+  const rest = gs.filter(y => superOfSub(y.g) === "s_other"); if (rest.length) out.push({ g: "s_other", label: "そのほか", subs: rest });
+  return out;
+}
 // まとめた効果は、それぞれの定義（fxForm の groups）にしたがってグループの先頭に入れる
 // そのグループが本来のグループ（group({}) の答え）のまとめた効果を先に（えらんだときに最初に出る効果になる）
 { const add = {}; Object.entries(FX_FORMS).forEach(([k, F]) => (F.groups || []).forEach(g => (add[g] = add[g] || []).push({ k, l: F.menu || F.label, main: !!((F.group && F.group({}) === g) || (F.first || []).includes(g)) })));
@@ -669,8 +689,9 @@ function attachKindPicker(sel){
     const known = new Set(KIND_GROUPS.flatMap(x => x.v.map(y => y[0])));
     const groups = KIND_GROUPS.map(x => ({ ...x, v: x.v.filter(([k]) => avail.includes(k)) })).filter(x => x.v.length);
     avail.filter(k => !known.has(k)).forEach(k => groups.push({ g: "k_" + k, label: (KINDS[k] || {}).label || k, v: [[k, ""]] }));
-    sel._kp.groups = groups;
-    g.innerHTML = groups.map(x => `<option value="${x.g}">${x.label}</option>`).join("");
+    // 大きな分け方（10こ）にまとめる。中の細かい分け方は「どれ」の見出し
+    sel._kp.groups = superGroups(groups).map(x => ({ g: x.g, label: x.label, subs: x.subs, v: x.subs.flatMap(y => y.v).filter(([k], i, a) => a.findIndex(z => z[0] === k) === i) }));
+    g.innerHTML = sel._kp.groups.map(x => `<option value="${x.g}">${x.label}</option>`).join("");
   }
   const cur = sel._kp.groups.find(x => x.v.some(([k]) => k === sel.value)) || sel._kp.groups[0];
   if (cur) g.value = cur.g;
@@ -678,7 +699,8 @@ function attachKindPicker(sel){
 }
 function fillV(sel, want){
   const { g, v } = sel._kp, grp = sel._kp.groups.find(x => x.g === g.value); if (!grp) return;
-  v.innerHTML = grp.v.map(([k, l]) => `<option value="${k}">${l || (KINDS[k] || {}).label || k}</option>`).join("");
+  const seen = new Set(), o = ([k, l]) => seen.has(k) ? "" : (seen.add(k), `<option value="${k}">${l || (KINDS[k] || {}).label || k}</option>`);
+  v.innerHTML = grp.subs && grp.subs.length > 1 ? grp.subs.map(y => { const h = y.v.map(o).join(""); return h ? `<optgroup label="${esc(y.label)}">${h}</optgroup>` : ""; }).join("") : grp.v.map(o).join("");
   v.value = grp.v.some(([k]) => k === want) ? want : grp.v[0][0];
   const one = grp.v.length < 2; v.hidden = one; if (sel._kpWrap) sel._kpWrap.hidden = one;
 }
@@ -1015,8 +1037,9 @@ function renderBlocksUI(){
     const gs = sub ? kindGroups(kinds.filter(k => !KINDS[k].mod && k !== "win"), e.kind) : gFor(e, bi), has = x => x.v.some(([k]) => k === e.kind), g = (e._g && gs.find(x => x.g === e._g && has(x))) || gs.find(has) || gs[0];
     const tg = TARGETABLE[e.kind];
     return `<div class="bk-row${sub ? " bk-sub" : ""}" data-part="${part}" data-i="${j}"${sub ? ' data-sub="ge"' : ""}>${sub ? `<span class="note bk-subl">${sub === "rep" ? "上書きする効果" : "足す効果"}</span>` : `<span class="bk-no">${j + 1}</span>`}`
-      + `<select data-f="g" aria-label="なにをする">${gs.map(x => opt(x.g, x.label, g && g.g)).join("")}</select>`
-      + (g && famCollapse(g.v, e.kind).length > 1 ? `<select data-f="kind" aria-label="どれ">${famCollapse(g.v, e.kind).map(([k, l]) => opt(k, l || KINDS[k].label, e.kind)).join("")}</select>` : "")
+      + (() => { const sups = superGroups(gs), sup = sups.find(x => g && x.subs.some(y => y.g === g.g)) || sups[0]; if (!sup) return ""; const many = sup.subs.length > 1, cnt = sup.subs.reduce((t, y) => t + famCollapse(y.v, e.kind).length, 0);
+          return `<select data-f="g" aria-label="なにを">${sups.map(x => opt(x.g, x.label, sup.g)).join("")}</select>`
+            + (cnt > 1 ? `<select data-f="kind" aria-label="どれ">${sup.subs.map(y => { const o = famCollapse(y.v, e.kind).map(([k, l]) => opt(y.g + "|" + k, l || KINDS[k].label, g ? g.g + "|" + e.kind : "")).join(""); return many ? `<optgroup label="${esc(y.label)}">${o}</optgroup>` : o; }).join("")}</select>` : ""); })()
       + famSel(e, g ? g.v.map(x => x[0]) : [], opt)
       + (tg && !FX_FORMS[e.kind] ? toUI(e, opt) : "")
       + (FX_FORMS[e.kind] && FX_FORMS[e.kind].ui ? FX_FORMS[e.kind].ui(e, opt, (MK.blocks[bi] || {}).trig) : "")
@@ -1341,7 +1364,7 @@ function bkEvent(e, rerenderOnInput){
   const el = e.target.closest("[data-f]"); if (!el) return;
   if (el.dataset.f === "when"){ if (e.type === "change"){ $("#mkWhen").value = el.value; renderBlocksUI(); } return; }
   const bi = +el.closest(".bk").dataset.b, b = MK.blocks[bi]; if (!b) return;
-  const f = el.dataset.f, v = el.value;
+  const f = el.dataset.f; let v = el.value;
   if (f === "alt"){ if (el.checked){ b.alt = true; delete b.cont; } else delete b.alt; bkNormalize(); return renderBlocksUI(); }
   if (f === "cont"){ if (el.checked){ b.cont = true; delete b.alt; } else delete b.cont; bkNormalize(); return renderBlocksUI(); }
   if (f === "ap"){ b.ap = v === "game" || v === "free" ? v : "turn"; if (!b.an) b.an = 1; return renderBlocksUI(); }
@@ -1377,7 +1400,8 @@ function bkEvent(e, rerenderOnInput){
   }
   const list = bkList(b, part), x0 = list && list[j]; if (!x0) return;
   const sub = row.dataset.sub === "ge", x = sub ? (x0.ge = x0.ge || { kind: "draw", n: 1 }) : x0, put = o => { if (sub) x0.ge = o; else list[j] = o; };
-  if (f === "g"){ const g = (MK.easy && kindGroups(easyKinds()).find(q => q.g === v)) || kindGroups(mkKinds()).find(q => q.g === v); if (g){ const k0 = g.v[0][0], pre = FX_FORMS[k0] && FX_FORMS[k0].preset && FX_FORMS[k0].preset[g.g]; put(setG({ kind: k0, n: defN(k0), ...(pre || {}) }, g.g)); } return renderBlocksUI(); }
+  if (f === "g"){ const pick = gs => gs.find(q => q.g === v) || (superGroups(gs).find(q => q.g === v) || { subs: [] }).subs[0]; const g = (MK.easy && pick(kindGroups(easyKinds()))) || pick(kindGroups(mkKinds())); if (g){ const k0 = g.v[0][0], pre = FX_FORMS[k0] && FX_FORMS[k0].preset && FX_FORMS[k0].preset[g.g]; put(setG({ kind: k0, n: defN(k0), ...(pre || {}) }, g.g)); } return renderBlocksUI(); }
+  if (f === "kind" && String(v).includes("|")){ const [sg, k] = String(v).split("|"); setG(x, sg); v = k; }
   if (f === "kind"){ const pre = FX_FORMS[v] && FX_FORMS[v].preset && FX_FORMS[v].preset[x._g]; put(setG({ ...(pre || {}), kind: v, n: x.n != null && smallN(v) === smallN(x.kind) ? x.n : defN(v), to: x.to, ...(x.side ? { side: x.side } : {}), ...(x.tn ? { tn: x.tn } : {}), ...(x.times > 1 ? { times: x.times } : {}), ...(KINDS[v] && KINDS[v].name && x.into ? { into: x.into } : {}), ...(perOk(v) && x.per ? { per: x.per, pm: x.pm, hits: KINDS[v] && KINDS[v].n ? !!x.hits : true } : {}), ...(KINDS[v] && KINDS[v].mod && (x.ms || x.mt) ? { mt: x.mt, ms: x.ms, mpl: x.mpl, mc: x.mc, mn: x.mn, gk: x.gk, gn: x.gn, nm: x.nm, into: x.into, ge: x.ge } : {}) }, x._g)); return renderBlocksUI(); }
   if (FORM_F[f]){ put(formFix(fxNorm(FORM_F[f](x, v)), b.trig)); return renderBlocksUI(); }
   if (f === "ctn"){ x.ctn = Math.max(1, Math.min(10, Math.round(+v || 1))); return updateBkText(); }
