@@ -7,15 +7,15 @@ const RARITY = { common: "コモン", uncommon: "アンコモン", rare: "レア
 const rarityOf = c => c && RARITY[c.rarity] ? c.rarity : "common";
 const spireKind = c => { const t = cardType(c); if (c && c.sk && t === "magic") return c.persist ? "power" : c.sk === "attack" ? "attack" : "skill"; return t === "monster" ? "attack" : t === "trap" || (t === "magic" && c.persist) ? "power" : "skill"; };
 const typeLabel = c => { if (c && c.potionView) return "ポーション"; const t = cardType(c); if (t === "monster" && c && c.token) return "トークン"; if (t === "monster" && c && c.ex) return "EXモンスター"; return isQuick(c) ? "速攻魔法" : isField(c) ? "フィールド魔法" : isPersist(c) ? "永続" + TYPE_LABEL[t] : TYPE_LABEL[t]; };
-const TRIGS = { evolve: "エボルヴしたとき", ctrReach: "カウンターが○個以上になったとき", summon: "召喚したとき", ssummon: "出されたとき（特殊召喚）", attack: "攻撃するとき", kill: "戦闘で相手を破壊したとき", destroyed: "破壊されたとき", battleLose: "バトルに負けたとき", turnStart: "自分のターンのはじめ", turnEnd: "自分のターンの終わり", oppTurnStart: "相手のターンのはじめ", oppTurnEnd: "相手のターンの終わり", enter: "場に出たとき", while: "場にいる間", anyUse: "魔法・罠が発動したとき", cardUse: "カードが使われたとき", attach: "装備したとき", fuse: "このカードにフュージョンしたとき（手札で）", myFuse: "自分がフュージョンしたとき", use: "発動したとき", act: "起動（ボタンで使う）", oppAttack: "相手が攻撃してきたとき" };
-const MON_TRIGS = ["summon", "ssummon", "enter", "while", "act", "evolve", "ctrReach", "fuse", "myFuse", "anyUse", "cardUse", "attack", "oppAttack", "kill", "destroyed", "battleLose", "turnStart", "turnEnd", "oppTurnStart", "oppTurnEnd"];
+const TRIGS = { evolve: "エボルヴしたとき", ctrReach: "カウンターが○個以上になったとき", summon: "召喚したとき", ssummon: "出されたとき（特殊召喚）", attack: "攻撃するとき", kill: "戦闘で相手を破壊したとき", destroyed: "破壊されたとき", battleLose: "バトルに負けたとき", turnStart: "自分のターンのはじめ", turnEnd: "自分のターンの終わり", oppTurnStart: "相手のターンのはじめ", oppTurnEnd: "相手のターンの終わり", enter: "場に出たとき", while: "場にいる間", anyUse: "魔法・罠が発動したとき", cardUse: "カードが使われたとき", attach: "装備したとき", fuse: "このカードにフュージョンしたとき（手札で）", myFuse: "自分がフュージョンしたとき", use: "発動したとき", act: "起動（ボタンで使う）", oppAttack: "相手が攻撃してきたとき", clash: "交戦（攻撃するとき・攻撃されたとき）", manaPut: "自分のマナゾーンにカードが置かれたとき（上陸）" };
+const MON_TRIGS = ["summon", "ssummon", "enter", "while", "act", "evolve", "ctrReach", "fuse", "myFuse", "anyUse", "cardUse", "attack", "oppAttack", "clash", "manaPut", "kill", "destroyed", "battleLose", "turnStart", "turnEnd", "oppTurnStart", "oppTurnEnd"];
 // 攻撃に答える効果（攻撃を無効・攻撃モンスターを破壊など）: 罠のほか、「相手が攻撃してきたとき」の効果でも使える
 const ATK_REPLY = ["negate", "atkDownAtk", "dmgAtkAtk", "killAtk"];
 // 攻撃に答える効果か（「攻撃してきたモンスターを除去」もふくむ）
 const isAtkReply = fx => !!fx && (ATK_REPLY.includes(fx.kind) || !!(FX_FORMS[fx.kind] && FX_FORMS[fx.kind].atkReply && FX_FORMS[fx.kind].atkReply(fx)));
 const EQ_TRIGS = ["attach", "attack", "turnStart", "turnEnd", "oppTurnStart", "oppTurnEnd", "destroyed", "battleLose"];
 // 永続魔法・永続罠 (スパイア風 のパワー): stay face-up in the magic/trap zone; their effect fires on one of these
-const PERSIST_TRIG_LABEL = { use: "発動したとき", while: "場にある間", anyUse: "魔法・罠が発動したとき", oppAttack: "相手が攻撃してきたとき", turnStart: "自分のターンのはじめ", turnEnd: "自分のターンのおわり", oppTurnStart: "相手のターンのはじめ", oppTurnEnd: "相手のターンのおわり", mySummon: "自分がモンスターを召喚するたび", oppSummonT: "相手がモンスターを召喚するたび", anySummonT: "どちらかがモンスターを召喚するたび", myPut: "自分の場にモンスターが出されるたび（特殊召喚）", oppPut: "相手の場にモンスターが出されるたび（特殊召喚）", anyPut: "どちらかの場にモンスターが出されるたび（特殊召喚）", exhaust: "自分のカードが廃棄されるたび", monDestroyed: "モンスターが破壊されるたび", myLoseLp: "自分のターンにLPを失うたび", blockGain: "自分がブロックを得るたび", vulnApply: "相手に弱体を付与するたび", atkPlay: "自分がアタックを使うたび" };
+const PERSIST_TRIG_LABEL = { use: "発動したとき", while: "場にある間", anyUse: "魔法・罠が発動したとき", oppAttack: "相手が攻撃してきたとき", turnStart: "自分のターンのはじめ", turnEnd: "自分のターンのおわり", oppTurnStart: "相手のターンのはじめ", oppTurnEnd: "相手のターンのおわり", manaPut: "自分のマナゾーンにカードが置かれるたび（上陸）", mySummon: "自分がモンスターを召喚するたび", oppSummonT: "相手がモンスターを召喚するたび", anySummonT: "どちらかがモンスターを召喚するたび", myPut: "自分の場にモンスターが出されるたび（特殊召喚）", oppPut: "相手の場にモンスターが出されるたび（特殊召喚）", anyPut: "どちらかの場にモンスターが出されるたび（特殊召喚）", exhaust: "自分のカードが廃棄されるたび", monDestroyed: "モンスターが破壊されるたび", myLoseLp: "自分のターンにLPを失うたび", blockGain: "自分がブロックを得るたび", vulnApply: "相手に弱体を付与するたび", atkPlay: "自分がアタックを使うたび" };
 const PERSIST_TRIGS = Object.keys(PERSIST_TRIG_LABEL);
 // レリック (カード以外): always on; 「手に入れたとき」 + the same timings as 永続 cards
 const RELIC_TRIG_LABEL = { gain: "手に入れたとき", ...Object.fromEntries(Object.entries(PERSIST_TRIG_LABEL).filter(([k]) => k !== "use" && k !== "while")) };
@@ -208,8 +208,8 @@ const KINDS = {
   manaBreak:  { label: "相手のマナゾーンのカードを○枚墓地へ（マナ破壊）", n: true, text: n => `相手のマナゾーンのカードをランダムに${n}枚墓地へ置く` },
   manaBack:   { label: "自分のマナゾーンのカードを○枚手札に戻す（マナ回収）", n: true, text: n => `自分のマナゾーンのカードを${n}枚手札に戻す（コストが大きいものから）` },
   removeBoard:{ label: "場のカードを1枚えらんで除去（モンスター・魔法・罠・フィールド）", target: "board", text: (n, _, m) => `${RB_SIDE[m && m.rside] || RB_SIDE.op}の場のカード1枚をえらんで${RB_MODE[m && m.rm] || RB_MODE.destroy}` },
-  ctrAdd:     { label: "カウンターを乗せる", n: true, ctr: true, text: (n, _, m) => `${ctrWhereText(m)}に${ctrName(m && m.ctr)}を${n}個乗せる` },
-  ctrDel:     { label: "カウンターを取り除く", n: true, ctr: true, text: (n, _, m) => `${ctrWhereText(m)}の${ctrName(m && m.ctr)}を${n}個取り除く` },
+  ctrAdd:     { label: "カウンターを乗せる", n: true, ctr: true, text: (n, _, m) => m && m.ctr === CTR_ALL ? `${ctrWhereText(m)}に乗っているカウンターを、種類ごとに${n}個ずつ増やす（増殖）` : `${ctrWhereText(m)}に${ctrName(m && m.ctr)}を${n}個乗せる` },
+  ctrDel:     { label: "カウンターを取り除く", n: true, ctr: true, text: (n, _, m) => m && m.ctr === CTR_ALL ? `${ctrWhereText(m)}に乗っているカウンターを、種類ごとに${n}個ずつ取り除く` : `${ctrWhereText(m)}の${ctrName(m && m.ctr)}を${n}個取り除く` },
   dblNext:    { label: "次に使う○をもう1回使う（種類・名前でしぼれる・このターン）", n: true, text: (n, nm, m) => `このターン、次に使う${usedPfText(m || {})}${n > 1 ? `${n}枚` : ""}はもう1回発動する` },
   freeNext:   { label: "次に使う○のコストを0にする（種類・名前でしぼれる）", n: true, text: (n, nm, m) => `次に使う${usedPfText(m || {})}${n > 1 ? `${n}枚` : ""}のコストを0にする` },
   drawTo:     { label: "手札が○枚になるまで引く", n: true, text: n => `手札が${n}枚になるまでカードを引く` },
@@ -236,6 +236,8 @@ const EQ_AB = { none: "なし", twice: "1ターンに2回攻撃できる", direc
 const ABS = {
   twice:      { label: "1ターンに2回攻撃できる", kw: "2回攻撃" },
   haste:      { label: "速攻（出たターンから攻撃できる）", kw: "速攻" },
+  rush:       { label: "突進（出たターンから、相手のモンスターにだけ攻撃できる）", kw: "突進" },
+  first:      { label: "先制攻撃（バトルで相手を倒せるなら、先に倒して自分は破壊されない）", kw: "先制攻撃" },
   direct:     { label: "相手の場にモンスターがいても直接攻撃できる", kw: "直接攻撃" },
   guard:      { label: "戦闘では破壊されない", kw: "戦闘耐性" },
   noEffect:   { label: "効果では破壊されない", kw: "効果耐性" },
@@ -306,7 +308,7 @@ const KW_DESC = {
   "フュージョン": "自分のターンに1回、手札のこのカードに、（ ）のカードを手札から好きな枚数フュージョンできる。フュージョンしたカードは廃棄札になる。フュージョンした枚数で強くなるカードがある（使ったときの枚数が、そのカードにずっと残る）",
   "続唱": "コストを払って手札から使ったとき（モンスターの召喚・魔法の発動）、山札の上から、このカードよりコストが小さいモンスターか魔法が出るまでめくる。それをタダで使ってもよい。めくった残りはランダムな順で山札の下に置く（コストを使うデッキでだけ働く）",
   "ゴッドリンク": "左Gは右どなり、右Gは左どなりのゾーンに、リンクできるゴッドがいると、リンクして1体のモンスターとして扱う。ATKは合計、能力は全員ぶん、攻撃は合わせて1回（1体でも召喚酔いでなければ攻撃できる）。破壊されるときは、ATKが一番低いゴッド1体だけが場を離れる",
-  "2回攻撃": "1ターンに2回攻撃できる", "速攻": "出たターンから攻撃できる（召喚酔いしない）", "直接攻撃": "相手の場にモンスターがいても、相手に直接攻撃できる",
+  "2回攻撃": "1ターンに2回攻撃できる", "速攻": "出たターンから攻撃できる（召喚酔いしない）", "突進": "出たターンから攻撃できるが、相手のモンスターにだけ（直接攻撃はできない）", "先制攻撃": "バトルで相手を倒せるとき（ATKが同じか上・必殺）、先に倒すので自分は破壊されない。お互いに先制攻撃ならふつうのバトル", "交戦": "このモンスターが攻撃するとき・攻撃されたときの、どちらでも出る効果", "直接攻撃": "相手の場にモンスターがいても、相手に直接攻撃できる",
   "戦闘耐性": "戦闘では破壊されない", "効果耐性": "効果では破壊されない", "攻撃不可": "攻撃できない", "強者狙い": "相手の場で一番ATKが高いモンスターにしか攻撃できない",
   "挑発": "相手はこのモンスターにしか攻撃できず、効果の対象にもこのモンスターしか選べない", "鉄壁": "戦闘で受けるダメージが（ ）の数だけ減る",
   "貫通": "相手のモンスターを戦闘で倒したとき、ATKの差ではなく、このモンスターのATKぶん全部のダメージを相手に与える",
@@ -320,7 +322,7 @@ const KW_DESC = {
   "変身": "破壊・手札戻し・除外・マナ送りで場を離れるとき、かわりに（ ）のカードに変身して同じ場所に残る。装備・カウンターはそのまま、ATKの増減とダメージはリセット。生贄やコストで墓地へ送るときは変身しない",
   "成長": "（ ）の条件を満たすと、そのカードに変化する。攻撃の回数はそのターンのおわりに、ターンの数は自分のターンのはじめに数える",
   "フラッシュバック": "墓地からもう1回だけ使える（自分のターンに、手札の下に出るボタンから）。使ったあとは廃棄される",
-  "キッカー": "コストデッキで、コストに（ ）のマナを足して払うと「もし：キッカーを払った」の効果が出る",
+  "キッカー": "コストデッキで、コストに（ ）のマナを足して払うと「もし：キッカーを払った」の効果が出る", "エンハンス": "コストデッキで、（ ）のマナを足して払えるときは自動で払い、「もし：キッカーを払った」の効果が出る", "マナ武装": "自分のマナゾーンに、その属性のカードが決まった枚数以上あると出る効果", "上陸": "自分のマナゾーンにカードが置かれるたびに出る効果",
   "S・トリガー": "相手に直接攻撃を宣言されたとき、山札の一番上がこのカードなら、ダメージを受ける前にコストを払わずに使う（モンスターは召喚、魔法・罠は発動）"
 };
 const kwStr = a => `《${ABS[a.k].kw}》${ABS[a.k].kwx ? ABS[a.k].kwx(a.n || 0, a.name || "", a) : ""}`;
@@ -817,6 +819,19 @@ function handOutText(f){
 const GEN_WHAT = { named: "名前を指定したカード", self: "このカードのコピー", lastAtk: "直前に使ったアタックのコピー", pick: "手札1枚のコピー", random: "ランダムなスパイア風カード", tag: "タグのついたランダムなカード" };
 // タグのランダム: どの種類から（なし＝どれでも）
 const GEN_TK = { monster: "モンスター", magic: "魔法", trap: "罠" };
+/* ---- 山札の上を見る: 1つの効果「look」= 何枚見て（n）× 1枚をどこへ（keep）× のこりをどこへ（rest） ----
+   keep: top（山札の一番上）/ hand（手札に加える）。rest: bottom（山札の一番下）/ grave（墓地へ）/ top（そのまま上に戻す）
+   前の「山札の上を見て、1枚を一番上に・のこりを一番下に置く」（scry）はこの形で動く */
+const LOOK_KEEP = { top: "山札の一番上に置き", hand: "手札に加え" }, LOOK_REST = { bottom: "山札の一番下に置く", grave: "墓地へ送る" };
+fxForm("look", {
+  label: "山札の上を見る（並べかえ・諜報・えらんで手札へ）", menu: "山札の上を見る（1枚を上に／手札に、のこりを下に／墓地へ）", n: true, text: f => lookText(f),
+  groups: ["deck", "draw"], group: () => "deck",
+  legacy: { scry: { keep: "top", rest: "bottom" } },
+  fields: { keep: v => v === "hand" ? v : undefined, rest: v => v === "grave" ? v : undefined },
+  norm(f, L){ L = L || {}; const out = { ...f, n: Math.max(1, Math.min(10, Math.round(+f.n || 3))) }; const keep = L.keep || f.keep, rest = L.rest || f.rest; if (keep === "hand") out.keep = "hand"; else delete out.keep; if (rest === "grave") out.rest = "grave"; else delete out.rest; return out; },
+  tgt: () => "deckTop",
+});
+function lookText(f){ const r = fxNorm({ ...f, kind: "look" }), n = r.n || 3; return `山札の上から${n}枚を見て、1枚を${LOOK_KEEP[r.keep || "top"]}、のこりを${LOOK_REST[r.rest || "bottom"]}`; }
 const GEN_DEST = { hand: "手札", deck: "山札", grave: "墓地", field: "場" };
 const GEN_WHO = { me: "自分", op: "相手", both: "お互い" };
 fxForm("gen", {
@@ -1098,7 +1113,7 @@ function whenText(c){ const w = whenOf(c); return w ? `【${WHEN_LABEL[w]}に発
 // 融合モンスター: materials {m: "name"|"tag"|"any", v}
 function fusionMatText(x){ return x.m === "any" ? "モンスター" : x.m === "tag" ? `タグ「${x.v || "？"}」のモンスター` : `「${x.v || "？"}」`; }
 function fusionText(c){ return c && cardType(c) === "monster" && Array.isArray(c.fusion) && c.fusion.length ? `【融合】${c.fusion.map(fusionMatText).join("＋")}` : ""; }
-const spOptText = c => !c ? "" : [c.strig && cardType(c) !== "equip" ? "《S・トリガー》" : "", c.flashback && cardType(c) === "magic" ? "《フラッシュバック》" : "", (cardType(c) === "magic" || cardType(c) === "trap") && +c.kick > 0 ? `《キッカー》（${+c.kick}）` : ""].join("");
+const spOptText = c => !c ? "" : [c.strig && cardType(c) !== "equip" ? "《S・トリガー》" : "", c.flashback && cardType(c) === "magic" ? "《フラッシュバック》" : "", (cardType(c) === "magic" || cardType(c) === "trap") && +c.kick > 0 ? (c.kickAuto ? `《エンハンス》（${+c.kick}）` : `《キッカー》（${+c.kick}）`) : ""].join("");
 function fxText(c, detail = false){ const t = fxTextB(c, detail), k = c ? (cascadeOn(c) ? "《続唱》" + (c.cascT === "monster" ? "（モンスター）" : c.cascT === "magic" ? "（魔法）" : "") : "") + glKw(c) + hfKw(c) + (c.innate ? "《天賦》" : "") + (c.retain ? "《保留》" : "") + (c.ethereal ? "《エセリアル》" : "") + (c.sly ? "《スライ》" : "") : ""; return k ? k + (t ? (detail ? "。\n" : "。") + t : "") : t; }
 function fxTextB(c, detail = false){ return (c && c.token && cardType(c) !== "monster" ? "【トークン】" : "") + (c && c.ex && cardType(c) !== "monster" ? "【EX】" : "") + (c && !c.noUse ? whenText(c) : "") + [fieldAbilityText(c), fusionText(c) ? fusionText(c) + (isCf(c) ? "（自分の場の素材を墓地へ送れば、「融合」なしでEXデッキから出せる）" : "（「融合召喚」の効果でだけ出せる）") : "", sxText(c), twText(c), c && c.mland ? "【《土地》】発動できない。マナゾーンに置くと、置いたターンからマナとして使える（多色でもタップしない）" : c && c.noUse && (cardType(c) === "magic" || cardType(c) === "trap") ? "このカードは発動できない" : "", isPersist(c) ? "【永続】使ったあとも場に残る" : "", spOptText(c), isField(c) ? `【フィールド】お互いに1枚だけ場に置ける（新しいフィールドが出ると、前のフィールドは墓地へ）。${fieldMine(c) ? "効果は出した人にだけ効く" : "効果はお互いに効く"}` : "", useCondText(c), extraCostText(c), costMechText(c), dmEvoText(c), mugText(c), revoText(c), tribText(c), massText(c), anySumText(c), atkCondText(c), ssText(c), fxText0(c, detail)].filter(Boolean).join(detail ? "。\n" : "。"); }
 /* ================= effect blocks: いつ / もし / なにを / ちがったら =================
@@ -1125,7 +1140,7 @@ const COND_DEFS = {
   sameHand: { label: "手札のこのカードの枚数", who: "手札にこのカードが", unit: "枚", val: (st, s, c, ctx) => P(st, s).hand.filter(id => id === c.id).length + (ctx && ctx.fromHand ? 1 : 0) },
   card:     { label: "特定のカードがある" },
   costDeck: { label: "自分がコストデッキを使っている" },
-  attrMon:  { label: "場の○属性のモンスターの数", who: "", unit: "体", val: (st, s, c, ctx, x) => attrMonN(st, s, x && x.side, x && x.attr) },
+  attrMon:  { label: "場（かマナゾーン）の○属性のカードの数（マナ武装）", who: "", unit: "体", val: (st, s, c, ctx, x) => attrMonN(st, s, x && x.side, x && x.attr) },
   myLv:     { label: "このモンスターのレベル", who: "このモンスターのレベルが", unit: "", val: (st, s, c) => lvOf(c) },
   glOn:     { label: "このモンスターがGリンクしている（ゴッドリンク用）", gl: true },
   hfN:      { label: "このカードにフュージョンしたカードの枚数（フュージョン用）", who: "このカードにフュージョンしたカードが", unit: "枚", hf: true, val: (st, s, c, ctx) => hfCount(st, ctx) },
@@ -1158,7 +1173,7 @@ function hfCount(st, ctx){ if (ctx && ctx.hfN != null) return +ctx.hfN || 0; con
 // このカードにフュージョンした回数（1回に何枚フュージョンしても1回）
 function hfTimesOf(st, ctx){ if (ctx && ctx.hfTimes != null) return +ctx.hfTimes || 0; const m = ctx && ctx.mon ? monAt(st, ctx.mon) : null; return m && m.hfTimes || 0; }
 // 場の○属性のモンスターの数（side: me 自分 / op 相手 / any お互い）
-function attrMonN(st, s, side, attr){ const a = attr || "火"; let n = 0; for (const o of side === "op" ? [O(s)] : side === "any" ? [s, O(s)] : [s]) P(st, o).mz.forEach(m => { if (m && monAttrs(m).includes(a)) n++; }); return n; }
+function attrMonN(st, s, side, attr){ const a = attr || "火"; let n = 0; if (side === "mana") return (P(st, s).manaZ || []).filter(x => x && attrsOf(card(x.c)).includes(a)).length; for (const o of side === "op" ? [O(s)] : side === "any" ? [s, O(s)] : [s]) P(st, o).mz.forEach(m => { if (m && monAttrs(m).includes(a)) n++; }); return n; }
 const PER_DEFS = {
   hfN:      { label: "このカードにフュージョンしたカード", u: "1枚", hf: true, val: (st, s, c, t, ctx) => hfCount(st, ctx) },
   hfTimes:  { label: "このカードにフュージョンした回数", u: "1回", hf: true, val: (st, s, c, t, ctx) => hfTimesOf(st, ctx) },
@@ -1214,7 +1229,7 @@ function condPhrase(x){
   if (x.k === "ctr") return `${ctrAtText(x.cw)}の${ctrName(x.ctr)}が${x.n ?? 0}個${x.op in OPS ? OPS[x.op] : OPS.ge}`;
   if (x.k === "handF") return `手札の${usedPfText(x)}が${x.n ?? 0}枚${x.op in OPS ? OPS[x.op] : OPS.ge}`;
   if (x.k === "drawn") return `引いたカードのうち${usedPfText(x)}が${x.n ?? 0}枚${x.op in OPS ? OPS[x.op] : OPS.ge}`;
-  if (x.k === "attrMon") return `${{ me: "自分の場の", op: "相手の場の" }[x.side] || "場の"}${x.attr || "火"}属性のモンスターが${x.n ?? 0}体${x.op in OPS ? OPS[x.op] : OPS.ge}`;
+  if (x.k === "attrMon") return x.side === "mana" ? `【マナ武装】自分のマナゾーンに${x.attr || "火"}属性のカードが${x.n ?? 0}枚${x.op in OPS ? OPS[x.op] : OPS.ge}` : `${{ me: "自分の場の", op: "相手の場の" }[x.side] || "場の"}${x.attr || "火"}属性のモンスターが${x.n ?? 0}体${x.op in OPS ? OPS[x.op] : OPS.ge}`;
   const d = COND_DEFS[x.k]; return `${d.who}${x.n ?? 0}${d.unit}${x.op in OPS ? OPS[x.op] : OPS.ge}`;
 }
 const condsText = b => b.conds && b.conds.length ? b.conds.map(condPhrase).join(b.join === "or" ? "か、" : "、かつ") + "なら、" : "";

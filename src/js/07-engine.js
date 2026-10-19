@@ -881,7 +881,7 @@ function useBlockedWhy(st, s, c, win){
 const atkLocked = (st, s) => (P(st, s).noAtkUntil || 0) >= st.turnNo;
 function canAttack(st, s, i){
   const m = P(st, s).mz[i];
-  return !!m && !sealedM(m) && !atkLocked(st, s) && !((m.noAtkTurn || 0) >= st.turnNo) && !m.attacked && st.turnNo > 1 && (!sick(st, s, i) || m.rushTurn === st.turnNo) && !hasAb(st, s, i, "noAttack") && !charmActive(st, m) && atkCondOk(st, s, i);
+  return !!m && !sealedM(m) && !atkLocked(st, s) && !((m.noAtkTurn || 0) >= st.turnNo) && !m.attacked && st.turnNo > 1 && (!sick(st, s, i) || m.rushTurn === st.turnNo || hasAb(st, s, i, "rush")) && !hasAb(st, s, i, "noAttack") && !charmActive(st, m) && atkCondOk(st, s, i);
 }
 // 攻撃の条件: this monster can only attack while these hold
 function useCostVar(c, st, s){ return !!(c && st && s && P(st, s).mana && Array.isArray(c.atkCondsCost)); }
@@ -1149,6 +1149,18 @@ FX_FORMS.atk.auto = (st, s, opts, fx) => {
   if (fx.op === "set") { const T = P(st, fx.side === "me" ? s : O(s)), sg = fx.side === "me" ? 1 : -1, v = o => { const m = T.mz[+o]; const a = m ? atkOf(m) : 0; return sg * ((+fx.n || 0) - (isFinite(a) ? a : 1e9)); }; return opts.slice().sort((a, b) => v(b) - v(a))[0]; }
   if (fx.side === "me" && (fx.op === "add" || fx.op === "mul")) { const own = P(st, s); return opts.slice().sort((a, b) => cmpNum(atkOf(own.mz[+b]), atkOf(own.mz[+a])))[0]; }
 };
+/* ---- 山札の上を見る（look） ---- */
+function applyLook(st, s, c, target, ctx, f, n, src){
+  const me = P(st, s), N = Math.max(1, ctx.scryN || f.n || 3), top = me.deck.splice(0, N), k = +target, keep = top[k];
+  if (!top.length){ log(st, s, `${src}：山札がない`); return; }
+  if (keep == null){ me.deck.unshift(...top); return; }
+  const rest = top.filter((_, i) => i !== k);
+  if (f.rest === "grave") me.grave.push(...rest); else me.deck.push(...rest);
+  if (f.keep === "hand") me.hand.push(keep); else me.deck.unshift(keep);
+  log(st, s, `${src}：山札の上を${top.length}枚見て、${f.keep === "hand" ? `「${card(keep).name}」を手札に加え` : "1枚を一番上に置き"}${rest.length ? `、${rest.length}枚を${f.rest === "grave" ? "墓地へ送った" : "一番下に置いた"}` : "た"}`);
+}
+FX_FORMS.look.run = applyLook;
+FX_FORMS.look.auto = (st, s, opts) => { const D = P(st, s).deck, val = id => { const x = card(id); return (cardType(x) === "monster" ? baseAtk(x) || 0 : 300) + (costOf(x) || 0) * 100; }; return opts.slice().sort((a, b) => val(D[b]) - val(D[a]))[0]; };
 /* ---- 相手がえらぶ ----
    chooser（ふつうは効果を使った人の相手）が、えらべるもの（labels）から1つえらぶ。cb(st, えらんだ番号)
    この画面の人がえらぶ: ボタン / オンラインで相手の画面: st.askQ で答えを待つ / CPU: auto(なければ先頭) */
@@ -1496,10 +1508,10 @@ function applyEffect(st, s, c, target, ctx = {}, fx = normFx(c)){
     case "ctrAdd": case "ctrDel": {
       const id = fx.ctr, d = fx.kind === "ctrDel" ? -n : n, cw = CTR_CW[fx.cw] ? fx.cw : "pick";
       if (!id || !n) break;
-      if (cw === "self"){ const r = ctx.mon; if (r && monAt(st, r)) ctrMon(st, r.s, r.i, id, d, src, s); else log(st, s, `${src}：このモンスターが場にいない`); }
-      else if (cw === "pick" || cw === "rand"){ if (typeof target === "string" && target.startsWith("m:")) ctrMon(st, OS, +target.slice(2), id, d, src, s); }
-      else if (cw === "all"){ opT.mz.filter(m => m && !fxImmune(st, s, m)).map(m => m.u).filter(u => u != null).forEach(u => { const i = opT.mz.findIndex(m => m && m.u === u); if (i >= 0) ctrMon(st, OS, i, id, d, src, s); }); }
-      else ctrPl(st, OS, id, d, src, s);
+      if (cw === "self"){ const r = ctx.mon; if (r && monAt(st, r)) ctrMonEach(st, r.s, r.i, id, d, src, s); else log(st, s, `${src}：このモンスターが場にいない`); }
+      else if (cw === "pick" || cw === "rand"){ if (typeof target === "string" && target.startsWith("m:")) ctrMonEach(st, OS, +target.slice(2), id, d, src, s); }
+      else if (cw === "all"){ opT.mz.filter(m => m && !fxImmune(st, s, m)).map(m => m.u).filter(u => u != null).forEach(u => { const i = opT.mz.findIndex(m => m && m.u === u); if (i >= 0) ctrMonEach(st, OS, i, id, d, src, s); }); }
+      else ctrPlEach(st, OS, id, d, src, s);
       break;
     }
     // 場のカードを指定して除去（破壊・手札に戻す・除外）
@@ -1718,7 +1730,7 @@ function runEffect(st, s, c, ctx = {}, then, fx = normFx(c)){
   // 合成: 手札のカード → 付けるモンスターの順にえらぶ
   if (fx.kind === "synth"){ if (!ctx.hit) ctx = { ...ctx, hit: {} }; const h = ctx.hit; h.synthId = null; runEffect(st, s, c, ctx, st2 => { if (!h.synthId){ then && then(st2); return; } runEffect(st2, s, c, ctx, then, { kind: "synthTo" }); }, { kind: "synthHand" }); return; }
   if (fx.kind === "draft" && !ctx.draft) ctx = { ...ctx, draft: draftPick(fx.n, P(st, s).spc) };
-  if (fx.kind === "scry") ctx = { ...ctx, scryN: Math.max(1, fx.n || 3) };
+  if (fx.kind === "scry" || fx.kind === "look") ctx = { ...ctx, scryN: Math.max(1, fx.n || 3) };
   if (KINDS[fx.kind] && KINDS[fx.kind].tag) ctx = { ...ctx, tagName: fx.into || "" };
   if (SIDED_KINDS.has(fx.kind)) ctx = { ...ctx, side: fx.side === "me" ? "me" : null };
   if (FX_FORMS[fx.kind]) ctx = { ...ctx, form: fx };
@@ -2052,7 +2064,16 @@ function chargeWhy(st, s, hi){
   return "";
 }
 // マナゾーンに置く（多色はタップして置く。土地はタップしない）
-function manaPut(st, s, id, tapIn){ const p = P(st, s), c = card(id), tap = tapIn != null ? tapIn : attrsOf(c).length >= 2 && !c.mland; p.manaZ.push({ c: id, tap }); p.mana.max = p.manaZ.length; if (!tap) p.mana.cur += 1; return tap; }
+function manaPut(st, s, id, tapIn){ const p = P(st, s), c = card(id), tap = tapIn != null ? tapIn : attrsOf(c).length >= 2 && !c.mland; p.manaZ.push({ c: id, tap }); p.mana.max = p.manaZ.length; if (!tap) p.mana.cur += 1; landfall(st, s); return tap; }
+// 上陸: マナゾーンにカードが置かれるたび（自分のモンスター・装備・永続・レリック）。効果がまたマナを置いても5段まで
+function landfall(st, s){
+  if (st.winner || (st._landDepth || 0) >= 5) return;
+  const L = []; P(st, s).mz.forEach((m, i) => { if (m) monTrigList(st, s, i, "manaPut").forEach(x => { if (x.s === s && hasTrig(x.c, "manaPut")) L.push(x); }); });
+  const PL = persistList(st, s, "manaPut", {}); PL.forEach(x => log(st, s, `${x.c.relicView ? "レリック" : "永続"}「${x.c.name}」の効果！`));
+  if (!L.length && !PL.length) return;
+  st._landDepth = (st._landDepth || 0) + 1;
+  runList(st, L.concat(PL), st2 => { st2._landDepth = Math.max(0, (st2._landDepth || 1) - 1); });
+}
 function manaCharge(st, s, hi){
   if (chargeWhy(st, s, hi)) return false;
   const p = P(st, s); manaSync(p); const id = p.hand.splice(hi, 1)[0], tap = manaPut(st, s, id); p.charged = true;
@@ -2268,7 +2289,7 @@ function activate(st, s, from, i, ctx = {}){
   if (!pay(st, s, c)) return false;
   if (revNow){ revAtk(st, s).revUsed = true; const n = Math.max(0, +c.revG || 0); (p.revDebt = p.revDebt || []).push({ n, name: c.name }); log(st, s, `逆転劇！「${c.name}」をタダで発動（次の自分のターンのはじめにマナを${n}払う。払えなければ負け）`); }
   // キッカー: 人は「キッカーも払って発動」で、CPUは払えるときはいつも払う
-  { const kk = Math.max(0, +c.kick || 0); if (kk && p.mana && (ctx.kick || (ctx.kick == null && typeof G !== "undefined" && G && G.mode === "cpu" && s !== G.slot)) && p.mana.cur >= kk){ p.mana.cur -= kk; ctx = { ...ctx, kicked: true }; log(st, s, `「${c.name}」：キッカー${kk}を払った！`); } }
+  { const kk = Math.max(0, +c.kick || 0); if (kk && p.mana && (ctx.kick || c.kickAuto || (ctx.kick == null && typeof G !== "undefined" && G && G.mode === "cpu" && s !== G.slot)) && p.mana.cur >= kk){ p.mana.cur -= kk; ctx = { ...ctx, kicked: true }; log(st, s, `「${c.name}」：${c.kickAuto ? "エンハンス" : "キッカー"}${kk}を払った！`); } }
   if (c.costX){ ctx = { ...ctx, x: p.lastPaid || 0 }; log(st, s, `「${c.name}」：X = ${p.lastPaid || 0}`); }
   if (from === "hand"){ p.hand.splice(i, 1); const hn = hfTake(p, id), hx = hfTakeX(p, id); if (hn) ctx = { ...ctx, hfN: hn }; if (hx) ctx = { ...ctx, hfTimes: hx }; }
   else if (from === "grave") p.grave.splice(i, 1);
@@ -2469,7 +2490,7 @@ function evolveMon(st, s, i){
   return true;
 }
 // エボルヴしたターン: 出たばかりでも、相手のモンスターになら攻撃できる（突進）
-const rushOnly = (st, s, i) => { const m = P(st, s).mz[i]; return !!m && m.rushTurn === st.turnNo && sick(st, s, i); };
+const rushOnly = (st, s, i) => { const m = P(st, s).mz[i]; return !!m && (m.rushTurn === st.turnNo || hasAb(st, s, i, "rush")) && sick(st, s, i); };
 
 /* ---- 革命チェンジ（デュエマ風）: 条件に合うモンスターが攻撃するとき、手札のこのカードと入れかえる ---- */
 function revoHit(ac, r){ const w = String(r && r.name || "").trim(); if (!w || !ac) return false; if (r.match === "tag") return tagsOf(ac).includes(w); if (r.match === "exact") return normQ(ac.name || "").trim() === normQ(w).trim(); return normQ(ac.name || "").includes(normQ(w)); }
@@ -2535,7 +2556,7 @@ function declareAttack(st, s, from, to, noRevo){
 }
 function attackGo(st, s, from){
   const go = st2 => attackResponse(st2, s);
-  const L = monTrigList(st, s, from, "attack").filter(x => hasTrig(x.c, "attack"));
+  const L = monTrigList(st, s, from, "attack").filter(x => hasTrig(x.c, "attack")).concat(monTrigList(st, s, from, "clash").filter(x => x.s === s && hasTrig(x.c, "clash")));
   const reply = st2 => { const pd = st2.pending; if (!pd || pd.type !== "attack" || pd.by !== s || st2.winner) return; const R = oppAttackList(st2, O(s), { attack: { by: s, from } }); if (R.length) runList(st2, R, go); else go(st2); };
   if (L.length) runList(st, L, reply); else reply(st);
 }
@@ -2556,6 +2577,8 @@ function attackResponse(st, s){
 function oppAttackList(st, d, actx){
   const L = [];
   P(st, d).mz.forEach((m, i) => { if (m) monTrigList(st, d, i, "oppAttack").forEach(x => { if (x.s === d && hasTrig(x.c, "oppAttack")) L.push({ ...x, ctx: { ...x.ctx, ...actx } }); }); });
+  // 交戦: 攻撃されたモンスター
+  { const pd = st.pending; if (pd && pd.type === "attack" && typeof pd.to === "number" && P(st, d).mz[pd.to]) monTrigList(st, d, pd.to, "clash").forEach(x => { if (x.s === d && hasTrig(x.c, "clash")) L.push({ ...x, ctx: { ...x.ctx, ...actx } }); }); }
   const PL = persistList(st, d, "oppAttack", actx); PL.forEach(x => log(st, d, `${x.c.relicView ? "レリック" : "永続"}「${x.c.name}」の効果！`));
   return L.concat(PL);
 }
@@ -2633,13 +2656,21 @@ function resolveAttack(st){
     // damage to a player is cut by the losing monster's 鉄壁-type ability
     const hurt = (s2, i2, x) => { const cut = abN(st, s2, i2, "dmgCut"), y = x === Infinity ? x : Math.max(0, x - cut); dealDmg(st, s2, y); if (y > 0 && hasAb(st, s2, i2, "reflect")){ log(st, s2, `「${card(P(st, s2).mz[i2].c).name}」の反射！ ${nm(st, O(s2))}にも${y === Infinity ? "" : fmtN(y)}ダメージ`); dealDmg(st, O(s2), y); } return [y, cut]; };
     const losers = [];
-    // 貫通: 差ではなくATKぶん全部 ／ 吸収: 与えたぶん回復
-    if (a > d){ const pc = hasAb(st, A, pd.from, "pierce"), [y, cut] = hurt(D, pd.to, battleHit(st, A, pd.from, pc ? a : a - d)); log(st, A, `バトル ${fmtN(a)} vs ${fmtN(d)}：${nm(st, D)} に ${fmtN(y)} ダメージ${pc ? "（貫通）" : ""}${cut ? `（${cut}へった）` : ""}`); drain(st, A, pd.from, y); losers.push([D, pd.to, dm.u]); }
-    else if (a < d){ const pc = hasAb(st, D, pd.to, "pierce"), [y, cut] = hurt(A, pd.from, battleHit(st, D, pd.to, pc ? d : d - a)); log(st, A, `バトル ${fmtN(a)} vs ${fmtN(d)}：${nm(st, A)} に ${fmtN(y)} ダメージ${pc ? "（貫通）" : ""}${cut ? `（${cut}へった）` : ""}`); drain(st, D, pd.to, y); losers.push([A, pd.from, am.u]); }
-    else { log(st, A, `バトル ${fmtN(a)} vs ${fmtN(d)}：相打ち！`); losers.push([A, pd.from, am.u], [D, pd.to, dm.u]); }
-    if (hasAb(st, A, pd.from, "bane") && !losers.some(l => l[0] === D)){ losers.push([D, pd.to, dm.u]); log(st, A, `「${card(am.c).name}」の必殺！`); }
-    if (hasAb(st, D, pd.to, "bane") && !losers.some(l => l[0] === A)){ losers.push([A, pd.from, am.u]); log(st, D, `「${card(dm.c).name}」の必殺！`); }
-    const W = a > d ? [A, pd.from, am.u] : a < d ? [D, pd.to, dm.u] : null;
+    // 先制攻撃: 片方だけが持っていて、相手を倒せる（ATKが同じか上・必殺）なら、先に倒して自分は無事
+    const fsA = hasAb(st, A, pd.from, "first") && !hasAb(st, D, pd.to, "first"), fsD = hasAb(st, D, pd.to, "first") && !hasAb(st, A, pd.from, "first");
+    const pre = fsA && (a >= d || hasAb(st, A, pd.from, "bane")) ? A : fsD && (d >= a || hasAb(st, D, pd.to, "bane")) ? D : null;
+    if (pre === A && a <= d){ log(st, A, `「${card(am.c).name}」の先制攻撃！ 先に「${card(dm.c).name}」を倒した`); losers.push([D, pd.to, dm.u]); }
+    else if (pre === D && d <= a){ log(st, D, `「${card(dm.c).name}」の先制攻撃！ 先に「${card(am.c).name}」を倒した`); losers.push([A, pd.from, am.u]); }
+    else {
+      // 貫通: 差ではなくATKぶん全部 ／ 吸収: 与えたぶん回復
+      if (a > d){ const pc = hasAb(st, A, pd.from, "pierce"), [y, cut] = hurt(D, pd.to, battleHit(st, A, pd.from, pc ? a : a - d)); log(st, A, `バトル ${fmtN(a)} vs ${fmtN(d)}：${nm(st, D)} に ${fmtN(y)} ダメージ${pc ? "（貫通）" : ""}${cut ? `（${cut}へった）` : ""}`); drain(st, A, pd.from, y); losers.push([D, pd.to, dm.u]); }
+      else if (a < d){ const pc = hasAb(st, D, pd.to, "pierce"), [y, cut] = hurt(A, pd.from, battleHit(st, D, pd.to, pc ? d : d - a)); log(st, A, `バトル ${fmtN(a)} vs ${fmtN(d)}：${nm(st, A)} に ${fmtN(y)} ダメージ${pc ? "（貫通）" : ""}${cut ? `（${cut}へった）` : ""}`); drain(st, D, pd.to, y); losers.push([A, pd.from, am.u]); }
+      else { log(st, A, `バトル ${fmtN(a)} vs ${fmtN(d)}：相打ち！`); losers.push([A, pd.from, am.u], [D, pd.to, dm.u]); }
+      if (hasAb(st, A, pd.from, "bane") && !losers.some(l => l[0] === D)){ losers.push([D, pd.to, dm.u]); log(st, A, `「${card(am.c).name}」の必殺！`); }
+      if (hasAb(st, D, pd.to, "bane") && !losers.some(l => l[0] === A)){ losers.push([A, pd.from, am.u]); log(st, D, `「${card(dm.c).name}」の必殺！`); }
+      if (pre){ const k = losers.findIndex(l => l[0] === pre); if (k >= 0){ losers.splice(k, 1); log(st, pre, `「${card((pre === A ? am : dm).c).name}」の先制攻撃！ 先に倒したので破壊されない`); } }
+    }
+    const W = pre === A ? [A, pd.from, am.u] : pre === D ? [D, pd.to, dm.u] : a > d ? [A, pd.from, am.u] : a < d ? [D, pd.to, dm.u] : null;
     // "when it loses a battle" effects first, then the losers are destroyed
     const L = [].concat(...losers.map(([s2, i2]) => monTrigList(st, s2, i2, "battleLose")));
     runList(st, L, st2 => {

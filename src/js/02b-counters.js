@@ -75,6 +75,19 @@ function ctrCount(st, s, ctx, id, w){
 const ctrReachHit = (b, ctx) => { const e = ctx && ctx.ctrEv; if (!e) return false; const n = Math.max(1, b.rn || 1); return b.rc === e.id && (b.rw === "me" ? "me" : "self") === e.w && e.before < n && e.after >= n; };
 function ctrReachFire(st, L){ const L2 = L.filter(x => blocksOf(x.c).some(b => b.trig === "ctrReach" && ctrReachHit(b, x.ctx))); if (L2.length) runList(st, L2); }
 // モンスター (o,i) のカウンターを d 個ふやす（マイナスなら取り除く）。by = ログを出すプレイヤー
+// 「乗っているカウンターすべて（種類ごと）」: 増殖など
+const CTR_ALL = "*";
+function ctrMonEach(st, o, i, id, d, src, by){
+  if (id !== CTR_ALL) return ctrMon(st, o, i, id, d, src, by);
+  const m = P(st, o).mz[i]; if (!m) return 0; const ids = [...Object.keys(m.ctr || {}), ...(m.dmg ? [CTR_DMG] : [])];
+  if (!ids.length){ log(st, by, `${src}：「${card(m.c).name}」にはカウンターが乗っていない`); return 0; }
+  let t = 0; ids.forEach(k => { if (P(st, o).mz[i] === m) t += ctrMon(st, o, i, k, d, src, by); }); return t;
+}
+function ctrPlEach(st, o, id, d, src, by){
+  if (id !== CTR_ALL) return ctrPl(st, o, id, d, src, by);
+  const ids = Object.keys(P(st, o).ctr || {}); if (!ids.length){ log(st, by, `${src}：${P(st, o).name}にはカウンターが乗っていない`); return 0; }
+  let t = 0; ids.forEach(k => { t += ctrPl(st, o, k, d, src, by); }); return t;
+}
 function ctrMon(st, o, i, id, d, src, by){
   const m = P(st, o).mz[i]; if (!m || !d || !id) return 0;
   const nm = card(m.c).name, before = ctrOfM(m, id), after = Math.max(0, before + d);
@@ -175,7 +188,7 @@ const ctrSel = (f, cur) => `<select data-f="${f}" aria-label="カウンター">$
 
 /* ---- カードが使っているカウンター ---- */
 function cardCtrIds(c){
-  const out = new Set(), eff = e => { if (!e) return; if (KINDS[e.kind] && KINDS[e.kind].ctr && e.ctr) out.add(e.ctr); if (e.per === "ctr" && e.pctr) out.add(e.pctr); if (e.ge) eff(e.ge); };
+  const out = new Set(), eff = e => { if (!e) return; if (KINDS[e.kind] && KINDS[e.kind].ctr && e.ctr && e.ctr !== CTR_ALL) out.add(e.ctr); if (e.per === "ctr" && e.pctr) out.add(e.pctr); if (e.ge) eff(e.ge); };
   blocksOf(c).forEach(b => {
     [...b.then, ...b.else, ...(b.dieBr || []).flatMap(x => x.then)].forEach(eff);
     b.conds.forEach(x => { if (x.k === "ctr" && x.ctr) out.add(x.ctr); });
@@ -360,7 +373,8 @@ function ctrIconFrom(file){
 function ctrEffUI(e, opt, wh){
   const mon = typeof MK !== "undefined" && (MK.type === "monster" || MK.type === "equip"); let cw = CTR_CW[e.cw] ? e.cw : wh ? "all" : "pick";
   if (wh && cw === "pick") cw = "all"; if (wh) e.cw = cw;
-  return ctrSel("ctr", e.ctr) + `<select data-f="cw" aria-label="どこに">${Object.entries(CTR_CW).filter(([k]) => (k !== "self" || mon || cw === "self") && (!wh || k !== "pick")).map(([k, l]) => opt(k, l, cw)).join("")}</select>`
+  const cs = e.ctr === CTR_ALL ? `<select data-f="ctr" aria-label="カウンター">${ctrOptsHTML("")}<option value="*" selected>乗っているカウンターすべて（増殖）</option></select>` : ctrSel("ctr", e.ctr).replace("</select>", `<option value="*">乗っているカウンターすべて（増殖）</option></select>`);
+  return cs + `<select data-f="cw" aria-label="どこに">${Object.entries(CTR_CW).filter(([k]) => (k !== "self" || mon || cw === "self") && (!wh || k !== "pick")).map(([k, l]) => opt(k, l, cw)).join("")}</select>`
     + (cw === "rand" ? `<input type="number" data-f="ctn" min="1" max="10" value="${esc(e.ctn || 1)}" aria-label="何回" style="width:60px"><span class="note">回</span>` : "")
     + (cw === "self" ? "" : `<select data-f="side" aria-label="自分か相手か">${opt("op", "相手", e.side === "me" ? "me" : "op")}${opt("me", "自分", e.side === "me" ? "me" : "op")}</select>`);
 }
