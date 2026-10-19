@@ -115,7 +115,7 @@ function cpuStep(st, s){
     for (const [i, c] of mons){
       if (isDmEvo(c)){ const B = evoBases(st, s, c).filter(j => cmpNum(atkOf(p.mz[j]), baseAtk(c)) < 0); if (B.length && summon(st, s, i, B.sort((a, b) => cmpNum(atkOf(p.mz[a]), atkOf(p.mz[b])))[0])) return; continue; }
       const need = tribOf(c, st, s);
-      if (!need){ if (freeZone(p.mz) >= 0){ summon(st, s, i); return; } continue; }
+      if (!need){ if (freeZone(p.mz, p) >= 0){ summon(st, s, i); return; } continue; }
       // 生贄召喚: only when the weakest ones it gives up are all weaker than it
       const mine = p.mz.map((m, j) => m && !monCannotLeave(m) && (!c.tribTag || hasTag(m.c, c.tribTag)) ? j : -1).filter(j => j >= 0).sort((a, b) => cmpNum(atkOf(p.mz[a]), atkOf(p.mz[b])));
       if (mine.length < need) continue;
@@ -126,13 +126,13 @@ function cpuStep(st, s){
   // 2a. エボルヴ（一番強いモンスターから）
   { const ev2 = p.mz.map((m, i) => m && !evoWhy(st, s, i) ? i : -1).filter(i => i >= 0).sort((a, b) => cmpNum(atkOf(p.mz[b]), atkOf(p.mz[a]))); if (ev2.length && Math.random() < .8){ evolveMon(st, s, ev2[0]); return; } }
   // 2b. 起動効果（使えるときはだいたい使う）
-  for (let i = 0; i < ZONES; i++){ if (p.mz[i] && !actWhy(st, s, i) && Math.random() < .7){ activateMon(st, s, i); return; } }
+  for (let i = 0; i < p.mz.length; i++){ if (p.mz[i] && !actWhy(st, s, i) && Math.random() < .7){ activateMon(st, s, i); return; } }
   // 3. set traps
   const ti = p.hand.findIndex(id => cardType(card(id)) === "trap");
-  if (ti >= 0 && freeZone(p.sz) >= 0){ setCard(st, s, ti); return; }
+  if (ti >= 0 && freeZone(p.sz, p) >= 0){ setCard(st, s, ti); return; }
   // 4. attack
   if (st.turnNo > 1){
-    for (let i = 0; i < ZONES; i++){
+    for (let i = 0; i < p.mz.length; i++){
       const m = p.mz[i]; if (!m || !canAttack(st, s, i)) continue;
       const T = atkTargets(st, s, i), opMons = T.L;
       if (T.direct){ declareAttack(st, s, i, "direct"); return; }
@@ -235,8 +235,8 @@ function testAct(k){
   act(st => {
     const pm = P(st, me), po = P(st, O(me));
     if (k === "hand" || k === "again"){ pm.hand.push(id); log(st, me, `（テスト）「${c.name}」を手札に加えた`); return; }
-    if (k === "meField" || k === "opField"){ const s = k === "meField" ? me : O(me), p = P(st, s), z = freeZone(p.mz); if (z < 0){ toast("モンスターゾーンがいっぱいです"); return false; } const m = mkMon(st, id); m.born = 0; p.mz[z] = m; log(st, me, `（テスト）「${c.name}」を${s === me ? "自分" : "相手"}の場に置いた`); return; }
-    if (k === "opSet"){ const z = freeZone(po.sz); if (z < 0){ toast("魔法・罠ゾーンがいっぱいです"); return false; } st.un = (st.un || 0) + 1; po.sz[z] = { c: id, turn: st.turnNo - 1, face: false, u: st.un }; log(st, me, `（テスト）相手の場に「${c.name}」をセットした`); return; }
+    if (k === "meField" || k === "opField"){ const s = k === "meField" ? me : O(me), p = P(st, s), z = freeZone(p.mz, p); if (z < 0){ toast("モンスターゾーンがいっぱいです"); return false; } const m = mkMon(st, id); m.born = 0; p.mz[z] = m; log(st, me, `（テスト）「${c.name}」を${s === me ? "自分" : "相手"}の場に置いた`); return; }
+    if (k === "opSet"){ const z = freeZone(po.sz, po); if (z < 0){ toast("魔法・罠ゾーンがいっぱいです"); return false; } st.un = (st.un || 0) + 1; po.sz[z] = { c: id, turn: st.turnNo - 1, face: false, u: st.un }; log(st, me, `（テスト）相手の場に「${c.name}」をセットした`); return; }
     if (k === "mana"){ if (pm.mana){ pm.mana.max = Math.max(pm.mana.max, 10); pm.mana.cur = Math.max(pm.mana.cur, 10); log(st, me, "（テスト）マナを満タンにした"); } return; }
     if (k === "lp"){ pm.lp = po.lp = START_LP; log(st, me, "（テスト）お互いのLPを1000にもどした"); return; }
     if (k === "refresh"){ st.summoned = false; pm.mz.forEach(m => { if (m){ m.attacked = false; m.atkCount = 0; m.actT = null; m.born = Math.min(m.born, st.turnNo - 1); } }); log(st, me, "（テスト）召喚・攻撃・起動効果をもう一度できるようにした"); return; }
@@ -264,6 +264,7 @@ function renderBoard0(){
   recordResult();
   exAutoReturn();
   const st = G.st, me = G.slot, op = O(me), pm = P(st, me), po = P(st, op);
+  zonePad(pm); zonePad(po);
   const myTurn = st.turn === me, free = canAct(st, me);
   const sel = G.sel, atkFrom = G.atkFrom;
   const dropKind = dropTarget(st, me);
@@ -308,7 +309,7 @@ function renderBoard0(){
   let acts = "", hint = "", handActs = "";
   // フラッシュバック: 自分のターンに、墓地の魔法をもう1回使えるボタン
   const gsActs = !G.spectate && canAct(st, me) ? [...new Set(pm.grave)].filter(id => { const c = card(id); return cardType(c) === "monster" && c.graveSum; }).map(id => { const c = card(id), gi = pm.grave.lastIndexOf(id), why = graveSumWhy(st, me, gi); return `<button class="mg" data-gsum="${gi}" ${why ? "disabled" : ""}>墓地から出す「${esc(c.name)}」${pm.mana ? `（マナ${+c.graveSum.n || 0}）` : ""}${why ? `（${esc(why)}）` : ""}</button>`; }).join("") : "";
-  const fbActs = !G.spectate && canAct(st, me) ? [...new Set(pm.grave)].filter(id => { const c = card(id); return cardType(c) === "magic" && c.flashback; }).map(id => { const c = card(id), gi = pm.grave.lastIndexOf(id), why = useWhyShort(st, me, c), ok = canPay(st, me, c) && !(isPersist(c) && freeZone(pm.sz) < 0) && !why; return `<button class="mg" data-fb="${gi}" ${ok ? "" : "disabled"}>墓地から発動「${esc(c.name)}」${why ? `（${esc(why)}）` : ok ? "" : "（使えない）"}</button>`; }).join("") : "";
+  const fbActs = !G.spectate && canAct(st, me) ? [...new Set(pm.grave)].filter(id => { const c = card(id); return cardType(c) === "magic" && c.flashback; }).map(id => { const c = card(id), gi = pm.grave.lastIndexOf(id), why = useWhyShort(st, me, c), ok = canPay(st, me, c) && !(isPersist(c) && freeZone(pm.sz, pm) < 0) && !why; return `<button class="mg" data-fb="${gi}" ${ok ? "" : "disabled"}>墓地から発動「${esc(c.name)}」${why ? `（${esc(why)}）` : ok ? "" : "（使えない）"}</button>`; }).join("") : "";
   if (st.winner){
     hint = `<span class="big">${st.winner === "draw" ? "引き分け" : G.spectate ? `${esc(nm(st, st.winner))} の勝ち！` : st.winner === me ? "あなたの勝ち！" : "あなたの負け…"}</span><br>${esc(st.why)}`;
     const rm = st.rematch || {};
@@ -342,16 +343,16 @@ function renderBoard0(){
         if (twOf(c)){ const sp = card(c.id + "~tw"), why = twinWhy(st, me, sel.i); acts += `<button class="mg" data-act="twin" ${why ? "disabled" : ""}>魔法「${esc(sp.name)}」として使う${why ? `（${esc(why)}）` : ""}</button>`; }
         const tn = tribOf(c, st, me), mineN = pm.mz.filter(m => m && !monCannotLeave(m) && (!c.tribTag || hasTag(m.c, c.tribTag))).length;
         if (isDmEvo(c)){ const B = evoBases(st, me, c), ok = canSummonNow(st, me) && afford && B.length > 0; acts += `<button class="primary" data-act="summon" ${ok ? "" : "disabled"}>進化する${!canSummonNow(st, me) ? "（このターンは召喚ずみ）" : !B.length ? `（進化元がいない）` : short}</button>`; if (ok) hint = `自分の${DM_EVO_W(c.dmEvo)}モンスターの上に重ねて出します（出たターンから攻撃できる）`; }
-        else if (!(ss && ss.only)){ const ms = massOf(c), msOk = pm.grave.length >= ms, ok = canSummonNow(st, me) && afford && msOk && (tn ? mineN >= tn : freeZone(pm.mz) >= 0); acts += `<button class="primary" data-act="summon" ${ok ? "" : "disabled"}>${tn ? "生贄召喚する" : ms ? `召喚する（質量${ms}）` : "召喚する"}${!canSummonNow(st, me) ? "（このターンは召喚ずみ）" : !msOk ? `（墓地のカードが${ms}枚いる）` : tn && mineN < tn ? `（生贄が${tn}体いる）` : short}</button>`; if (ok) hint = tn ? `自分のモンスター${tn}体を生贄にして召喚します` : "光っているモンスターゾーンをクリックしても召喚できます"; }
+        else if (!(ss && ss.only)){ const ms = massOf(c), msOk = pm.grave.length >= ms, ok = canSummonNow(st, me) && afford && msOk && (tn ? mineN >= tn : freeZone(pm.mz, pm) >= 0); acts += `<button class="primary" data-act="summon" ${ok ? "" : "disabled"}>${tn ? "生贄召喚する" : ms ? `召喚する（質量${ms}）` : "召喚する"}${!canSummonNow(st, me) ? "（このターンは召喚ずみ）" : !msOk ? `（墓地のカードが${ms}枚いる）` : tn && mineN < tn ? `（生贄が${tn}体いる）` : short}</button>`; if (ok) hint = tn ? `自分のモンスター${tn}体を生贄にして召喚します` : "光っているモンスターゾーンをクリックしても召喚できます"; }
         else hint = "このカードは特殊召喚でしか出せません";
         if (ss){ const why = ssBlock(st, me, sel.i); acts += `<button class="mg" data-act="ssummon" ${why ? "disabled" : ""}>特殊召喚する${why ? `（${why}）` : ""}</button>`; }
       }
       if (!afford && t !== "monster") hint = `今は使えません${short}${c.frame === "spire" ? "" : "。セットはできます"}`;
       else if (t === "magic" || t === "trap") hint = "光っている魔法・罠ゾーンをクリックしてもセットできます";
       else if (t === "monster" && afford) hint = "光っているモンスターゾーンをクリックしても召喚できます";
-      if (t === "magic"){ const full = isPersist(c) && freeZone(pm.sz) < 0, why = useWhyShort(st, me, c); acts += `<button class="mg" data-act="activateHand" ${afford && !full && !why ? "" : "disabled"}>発動する${full ? "（魔法・罠ゾーンがいっぱい）" : why ? `（${why}）` : short}</button>`; if (+c.kick > 0 && pm.mana && !c.kickAuto) acts += `<button class="mg" data-act="activateHandKick" ${afford && !full && !why && pm.mana.cur >= effCost(st, me, c) + +c.kick ? "" : "disabled"}>キッカー${+c.kick}も払って発動</button>`; }
+      if (t === "magic"){ const full = isPersist(c) && freeZone(pm.sz, pm) < 0, why = useWhyShort(st, me, c); acts += `<button class="mg" data-act="activateHand" ${afford && !full && !why ? "" : "disabled"}>発動する${full ? "（魔法・罠ゾーンがいっぱい）" : why ? `（${why}）` : short}</button>`; if (+c.kick > 0 && pm.mana && !c.kickAuto) acts += `<button class="mg" data-act="activateHandKick" ${afford && !full && !why && pm.mana.cur >= effCost(st, me, c) + +c.kick ? "" : "disabled"}>キッカー${+c.kick}も払って発動</button>`; }
       if (t === "equip" && afford){ const any = ["a", "b"].some(o => P(st, o).mz.some((m, j) => m && canEquipOn(st, pm.hand[sel.i], o, j))); hint = any ? `光っているモンスターをクリックして装備（相手のでもOK）。装備コスト ${eqCostOf(c)}` : "装備できるモンスターがいません（キャパが足りない）"; }
-      if (t !== "monster" && t !== "equip" && c.frame !== "spire") acts += `<button class="${t === "trap" ? "tr" : ""}" data-act="set" ${freeZone(pm.sz) < 0 ? "disabled" : ""}>セットする</button>`;
+      if (t !== "monster" && t !== "equip" && c.frame !== "spire") acts += `<button class="${t === "trap" ? "tr" : ""}" data-act="set" ${freeZone(pm.sz, pm) < 0 ? "disabled" : ""}>セットする</button>`;
       if (hfOf(c)){ const why = hfWhy(st, me, sel.i), n = (pm.hf || {})[c.id] || 0; acts += `<button class="mg" data-act="hfuse" ${why ? "disabled" : ""}>フュージョンする${why ? `（${why}）` : ""}${n ? `［いま${n}枚］` : ""}</button>`; }
       if (c.cycle){ const why = cycleWhy(st, me, sel.i), n = +c.cycle.n || 0; acts += `<button data-act="cycle" ${why ? "disabled" : ""}>サイクリング${n > 0 && pm.mana ? `（マナ${n}）` : ""}${why ? `（${why}）` : ""}</button>`; }
       if (c.cryst && t === "monster"){ const why = crystWhy(st, me, sel.i); acts += `<button class="mg" data-act="cryst" ${why ? "disabled" : ""}>結晶で置く（${pm.mana ? `マナ${+c.cryst.n || 0}・` : ""}カウントダウン${+c.cryst.k || 2}）${why ? `（${why}）` : ""}</button>`; }
@@ -376,7 +377,7 @@ function renderBoard0(){
   if (!st.winner && manualOn() && sel && (sel.z === "mz" || sel.z === "sz")){
     const X = sel.s === "me" ? pm : po, z = X[sel.z][sel.i];
     if (z && (sel.s === "me" || sel.z === "mz" || z.face)){
-      manual = `<div class="row" style="justify-content:center;gap:6px"><span class="note">手動：「${esc(card(z.c).name)}」</span>${sel.z === "mz" ? `<button class="small" data-man="atk" data-d="-50">ATK−50</button><button class="small" data-man="atk" data-d="50">ATK+50</button>${eqsOf(z).map((e, k) => `<button class="small" data-man="uneq" data-k="${k}">「${esc(card(e.c).name)}」を外す</button>`).join("")}` : ""}<button class="small danger" data-man="grave">墓地へ送る</button>${sel.s === "me" ? `<button class="small" data-man="hand">手札に戻す</button>` : ""}${sel.s === "me" && sel.z === "mz" ? `<button class="small" data-man="give" ${po.mz.some(x => !x) ? "" : "disabled title=\"相手の場がいっぱい\""}>相手の場に送る</button>` : ""}</div>`;
+      manual = `<div class="row" style="justify-content:center;gap:6px"><span class="note">手動：「${esc(card(z.c).name)}」</span>${sel.z === "mz" ? `<button class="small" data-man="atk" data-d="-50">ATK−50</button><button class="small" data-man="atk" data-d="50">ATK+50</button>${eqsOf(z).map((e, k) => `<button class="small" data-man="uneq" data-k="${k}">「${esc(card(e.c).name)}」を外す</button>`).join("")}` : ""}<button class="small danger" data-man="grave">墓地へ送る</button>${sel.s === "me" ? `<button class="small" data-man="hand">手札に戻す</button>` : ""}${sel.s === "me" && sel.z === "mz" ? `<button class="small" data-man="give" ${po.mz.some(x => !x) || po.nolim ? "" : "disabled title=\"相手の場がいっぱい\""}>相手の場に送る</button>` : ""}</div>`;
     }
   }
   if (G.spectate && !st.winner){ hint = `観戦中：${esc(pm.name)} vs ${esc(po.name)}`; acts = `<button class="ghost" data-act="leave">観戦をやめる</button>`; manual = ""; }
@@ -385,13 +386,16 @@ function renderBoard0(){
   const logHTML = st.log.slice(-60).reverse().map(l => `<li>${l.s ? `<b>${esc(nm(st, l.s))}</b>：` : ""}${logLinks(esc(l.m))}</li>`).join("");
   const prev = G.prevLp || {}; G.prevLp = { me: pm.lp, op: po.lp };
   const manaBox = (p, who) => p.manaZ ? manaZoneHTML(p, who) : p.mana ? `<div class="manabar" title="${who}のマナ"><span class="lbl">${who}のマナ</span><b>${p.mana.cur}<small>/${p.mana.max}</small></b><span class="gems">${Array.from({ length: Math.max(p.mana.max, p.mana.cur) }, (_, k) => `<i class="${k < p.mana.cur ? "" : "off"}"></i>`).join("")}${Array.from({ length: Math.max(0, MAX_MANA - Math.max(p.mana.max, p.mana.cur)) }, () => `<i class="lock"></i>`).join("")}</span></div>` : "";
-  const lpBox = (p, key) => `<div id="lp-${key}" data-lp="${key}" class="lp ${p.lp <= 300 ? "low" : ""} ${prev[key] != null && p.lp < prev[key] ? "hurt" : ""}"><small>LP</small><b>${p.lp}</b></div>`;
+  // シールドデッキ: LPのかわりにシールドの枚数と、裏向きのシールド
+  const shieldBox = (p, key) => p.shieldOn ? `<div class="shieldz" data-shd="${key}" title="シールド（ブレイクされると手札へ。0枚のときに直接攻撃を受けると負け）"><span class="lbl">シールド</span><span class="shs">${(p.shields || []).map(() => `<i></i>`).join("") || `<span class="note">なし</span>`}</span><b>${(p.shields || []).length}</b></div>` : "";
+  const lpv = (p, key) => p.shieldOn ? `<span class="lpv shd ${(p.shields || []).length ? "" : "low"}" title="シールドの枚数"><small>シールド</small>${(p.shields || []).length}</span>` : `<span class="lpv ${p.lp <= 300 ? "low" : ""}" data-lp="${key}"><small>LP</small>${p.lp}</span>`;
+  const lpBox = (p, key) => p.shieldOn ? `<div id="lp-${key}" class="lp shd ${(p.shields || []).length ? "" : "low"}"><small>シールド</small><b>${(p.shields || []).length}</b></div>` : `<div id="lp-${key}" data-lp="${key}" class="lp ${p.lp <= 300 ? "low" : ""} ${prev[key] != null && p.lp < prev[key] ? "hurt" : ""}"><small>LP</small><b>${p.lp}</b></div>`;
 
   $("#board").innerHTML = `
   <div class="board">
     <div class="table">
-      ${manaBox(po, esc(po.name))}${blockBox(po, esc(po.name))}
-      <div class="mstat"><span class="who">${esc(po.name)}</span><span>山札 ${po.deck.length}</span>${(po.ex || []).length ? `<span>EX ${po.ex.length}</span>` : ""}<button class="chip" data-grave="op:grave">墓地 ${po.grave.length}</button>${(po.exile || []).length ? `<button class="chip" data-grave="op:exile">廃棄 ${po.exile.length}</button>` : ""}<span class="lpv ${po.lp <= 300 ? "low" : ""}" data-lp="op"><small>LP</small>${po.lp}</span>${noLoseBy(st, O(me)) ? `<span class="nolose" title="「${esc(noLoseBy(st, O(me)))}」の効果で負けない">負けない</span>` : ""}</div>
+      ${manaBox(po, esc(po.name))}${blockBox(po, esc(po.name))}${shieldBox(po, "op")}
+      <div class="mstat"><span class="who">${esc(po.name)}</span><span>山札 ${po.deck.length}</span>${(po.ex || []).length ? `<span>EX ${po.ex.length}</span>` : ""}<button class="chip" data-grave="op:grave">墓地 ${po.grave.length}</button>${(po.exile || []).length ? `<button class="chip" data-grave="op:exile">廃棄 ${po.exile.length}</button>` : ""}${lpv(po, "op")}${noLoseBy(st, O(me)) ? `<span class="nolose" title="「${esc(noLoseBy(st, O(me)))}」の効果で負けない">負けない</span>` : ""}</div>
       <div class="ohand">${backHTML("xs", "", po.sleeve)}<span class="cnt-x">×${po.hand.length - (exTempOk(po) ? 1 : 0)}</span><span class="lbl">手札（${esc(po.name)}）</span></div>
       <span class="zlabel">相手の魔法・罠ゾーン</span>
       <div class="zones">${zoneHTML(op, "sz")}</div>
@@ -415,12 +419,12 @@ function renderBoard0(){
       <span class="zlabel">自分の魔法・罠ゾーン</span>
       <div class="zones">${zoneHTML(me, "sz")}</div>
       ${standingEqHTML(st, me, true)}
-      <div class="mstat"><span class="who">${esc(pm.name)}${G.spectate ? "" : "（あなた）"}</span><button class="chip" data-grave="me:deck">山札 ${pm.deck.length}</button>${(pm.ex || []).length ? `<button class="chip exchip" data-exopen>EX ${pm.ex.length}</button>` : ""}<button class="chip" data-grave="me:grave">墓地 ${pm.grave.length}</button>${(pm.exile || []).length ? `<button class="chip" data-grave="me:exile">廃棄 ${pm.exile.length}</button>` : ""}<span class="lpv ${pm.lp <= 300 ? "low" : ""}" data-lp="me"><small>LP</small>${pm.lp}</span>${noLoseBy(st, me) ? `<span class="nolose" title="「${esc(noLoseBy(st, me))}」の効果で負けない">負けない</span>` : ""}</div>
+      <div class="mstat"><span class="who">${esc(pm.name)}${G.spectate ? "" : "（あなた）"}</span><button class="chip" data-grave="me:deck">山札 ${pm.deck.length}</button>${(pm.ex || []).length ? `<button class="chip exchip" data-exopen>EX ${pm.ex.length}</button>` : ""}<button class="chip" data-grave="me:grave">墓地 ${pm.grave.length}</button>${(pm.exile || []).length ? `<button class="chip" data-grave="me:exile">廃棄 ${pm.exile.length}</button>` : ""}${lpv(pm, "me")}${noLoseBy(st, me) ? `<span class="nolose" title="「${esc(noLoseBy(st, me))}」の効果で負けない">負けない</span>` : ""}</div>
       <span class="zlabel">手札</span>
       <div class="hand">${handHTML}</div>
       ${handActs ? `<div class="actions hand-acts">${handActs}</div>` : ""}
       ${fbActs || gsActs ? `<div class="actions hand-acts fb-acts">${fbActs}${gsActs}</div>` : ""}
-      ${manaBox(pm, "あなた")}${blockBox(pm, "あなた")}
+      ${shieldBox(pm, "me")}${manaBox(pm, "あなた")}${blockBox(pm, "あなた")}
     </div>
     <aside class="side">
       <div class="box" style="display:flex;flex-direction:column;gap:12px">

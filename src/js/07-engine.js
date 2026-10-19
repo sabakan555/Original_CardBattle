@@ -290,7 +290,7 @@ function playTopCard(st, s, src, ex, then, extra){
   const c = card(id), t = cardType(c);
   // モンスターは召喚扱いで場に出る（召喚権を使わない・残っていなくても出せる）
   if (t === "monster"){
-    const z = freeZone(p.mz);
+    const z = freeZone(p.mz, p);
     if (z < 0){ p.grave.push(id); log(st, s, `${src}で山札の一番上の「${c.name}」をめくった（場がいっぱいなので墓地へ）`); then && then(st); return; }
     p.mz[z] = mkMon(st, id); ev(st, { type: "summon", s, z }); log(st, s, `${src}で山札の一番上の「${c.name}」をプレイ！（召喚扱いで場に出た）`);
     runCard(st, s, c, "summon", { zone: z, mon: { s, i: z, u: p.mz[z].u } }, st2 => enterFire(st2, s, "summon", st3 => onCardUsed(st3, s, c, then, (P(st3, s).mz[z] || {}).u)));
@@ -298,7 +298,7 @@ function playTopCard(st, s, src, ex, then, extra){
   }
   if (t !== "magic" && t !== "trap"){ p.grave.push(id); log(st, s, `${src}で山札の一番上の「${c.name}」をめくった（プレイできないので墓地へ）`); then && then(st); return; }
   log(st, s, `${src}で山札の一番上の「${c.name}」をプレイ！`); ev(st, { type: "spell", s, c: id }); countPlay(st, s, c);
-  const pz = isPersist(c) && !ex ? freeZone(p.sz) : -1;
+  const pz = isPersist(c) && !ex ? freeZone(p.sz, p) : -1;
   if (isField(c) && !ex) placeField(st, s, id);
   else if (pz >= 0){ st.un = (st.un || 0) + 1; p.sz[pz] = { c: id, turn: st.turnNo, face: true, u: st.un }; }
   else if (ex || exhausts(c)) exileCard(st, s, id, src);
@@ -356,7 +356,7 @@ function fusionPlan(st, s, fc){
   const rank = { name: 0, tag: 1, any: 2 }, mats = [...fc.fusion].sort((a, b) => (rank[a.m] ?? 0) - (rank[b.m] ?? 0)), used = new Set(), out = [];
   const rec = k => { if (k >= mats.length) return true; for (let j = 0; j < pool.length; j++){ if (used.has(j) || !fusionMatOk(pool[j].id, mats[k])) continue; used.add(j); out.push(pool[j]); if (rec(k + 1)) return true; used.delete(j); out.pop(); } return false; };
   if (!rec(0)) return null;
-  if (freeZone(p.mz) < 0 && !out.some(x => x.from === "mz")) return null;
+  if (freeZone(p.mz, p) < 0 && !out.some(x => x.from === "mz")) return null;
   return out;
 }
 // シンクロ・エクシーズ: 自分の場のモンスターを素材にして、EXデッキから出す
@@ -413,7 +413,7 @@ function sxSummon(st, s, id, picks){
   if (x.k === "xyz") L.forEach(i => { const m = p.mz[i]; leaveEquips(st, m); sealsOut(st, m); if (!m.cp) (m.owner && m.owner !== s ? P(st, m.owner).grave : mats).push(m.c); mats.push(...(m.mats || [])); p.mz[i] = null; ev(st, { type: "destroy", s, z: i }); });
   else L.forEach(i => sendToGrave(st, s, i));
   ev(st, { type: "fusion", s, mats: matIds, c: id, lbl: how + "！" });
-  const z = freeZone(p.mz), paid = `${names}を${x.k === "xyz" ? "重ねて" : "墓地へ送って"}`;
+  const z = freeZone(p.mz, p), paid = `${names}を${x.k === "xyz" ? "重ねて" : "墓地へ送って"}`;
   if (sumWin(st, s, id)){
     st.chain = [{ s, c: id, summon: true, special: true, z, ctx: { zone: z }, mats }];
     log(st, s, `${paid}、「${c.name}」（ATK ${fmtN(baseAtk(c))}）を${how}しようとしている…`);
@@ -436,7 +436,7 @@ function fusionPlanFrom(st, s, fc, picks){
   if (!isFusion(fc) || pool.length !== fc.fusion.length || new Set(pool.map(x => x.from + x.i)).size !== pool.length) return null;
   const used = new Set(), rec = k => { if (k >= fc.fusion.length) return true; for (let j = 0; j < pool.length; j++){ if (used.has(j) || !fusionMatOk(pool[j].id, fc.fusion[k])) continue; used.add(j); if (rec(k + 1)) return true; used.delete(j); } return false; };
   if (!rec(0)) return null;
-  if (freeZone(p.mz) < 0 && !pool.some(x => x.from === "mz")) return null;
+  if (freeZone(p.mz, p) < 0 && !pool.some(x => x.from === "mz")) return null;
   return pool;
 }
 function transformAt(st, s, k, into, src, srcCard, fxo){
@@ -451,7 +451,7 @@ function autoPlayCard(st, s, id){
   { const why = useCondWhy(st, s, c); if (why){ p.hand.push(id); log(st, s, `「${c.name}」は発動条件を満たさないため手札へ：${why}`); return; } }
   if (isField(c) && st.field && cannotLeave(st.field.c)){ p.hand.push(id); log(st, s, `場から離れないフィールドがあるため「${c.name}」は手札へ`); return; }
   log(st, s, `「${c.name}」を自動で使った！`); ev(st, { type: "spell", s, c: id }); countPlay(st, s, c);
-  const pz = isPersist(c) ? freeZone(p.sz) : -1;
+  const pz = isPersist(c) ? freeZone(p.sz, p) : -1;
   if (isField(c)) placeField(st, s, id);
   else if (pz >= 0){ st.un = (st.un || 0) + 1; p.sz[pz] = { c: id, turn: st.turnNo, face: true, u: st.un }; }
   else if (exhausts(c) || corrupted(st, s, c)) exileCard(st, s, id, `「${c.name}」`);
@@ -486,6 +486,8 @@ function dealDmg(st, s, n){
   const p = P(st, s);
   // ダメージを跳ね返す: このターン受けるダメージは相手へ（跳ね返されたダメージはもう跳ね返らない）
   if (n > 0 && (p.reflectUntil || 0) >= st.turnNo && !dealDmg.busy){ log(st, s, `${p.name}は${n === Infinity ? "" : fmtN(n) + "の"}ダメージを跳ね返した！`); dealDmg.busy = true; try { dealDmg(st, O(s), n); } finally { dealDmg.busy = false; } return; }
+  // シールドデッキ: LPのかわりに、ダメージ1回でシールド1枚（300ごとにもう1枚）をブレイク
+  if (p.shieldOn){ if (n > 0) breakShields(st, s, n === Infinity ? p.shields.length : 1 + Math.floor(n / 300), "ダメージ"); return; }
   if (n === Infinity){ p.lp = Math.min(0, p.lp); return; }
   if (n > 0 && p.vuln > 0){ n = Math.floor(n * (1.5 + (P(st, O(s)).vulnBonus || 0) / 100)); log(st, s, `弱体で${n}ダメージに！`); }
   if (n > 1 && p.intang > 0){ n = 1; log(st, s, `霊体でダメージが1になった`); }
@@ -521,7 +523,7 @@ function checkEnd(st){
   lpTrack(st);
   if (st.winner) return;
   ctrAuraSync(st);
-  const la = st.players.a.lp, lb = st.players.b.lp, na = la <= 0 ? noLoseBy(st, "a") : "", nb = lb <= 0 ? noLoseBy(st, "b") : "", xa = la <= 0 && !na, xb = lb <= 0 && !nb;
+  const la = st.players.a.shieldOn ? 1 : st.players.a.lp, lb = st.players.b.shieldOn ? 1 : st.players.b.lp, na = la <= 0 ? noLoseBy(st, "a") : "", nb = lb <= 0 ? noLoseBy(st, "b") : "", xa = la <= 0 && !na, xb = lb <= 0 && !nb;
   if (xa && xb){ st.winner = "draw"; st.why = "両者LP0"; }
   else if (xa){ st.winner = "b"; st.why = `${nm(st, "a")} のLPが0になった`; }
   else if (xb){ st.winner = "a"; st.why = `${nm(st, "b")} のLPが0になった`; }
@@ -562,7 +564,12 @@ function drawN(st, s, n, why, from = s){
 }
 // 切り札を引いたら演出（引いた人にだけ見える）
 function aceDrew(st, s, ids){ (ids || []).forEach(id => { if (aceOn(card(id), "draw")) ev(st, { type: "ace", s, c: id, draw: true }); }); }
-function freeZone(arr){ return arr.findIndex(x => !x); }
+// 空いているゾーン（なければ -1）。盤面上限なしのデッキ（p.nolim）は、いっぱいならゾーンを1つふやす
+function freeZone(arr, p){ const i = arr.findIndex(x => !x); if (i >= 0 || !p || !p.nolim) return i; arr.push(null); return arr.length - 1; }
+// 盤面上限なし: いつも空きゾーンを1つ見せる（置く場所をえらべるように）
+function zonePad(p){ if (!p || !p.nolim) return; for (const k of ["mz", "sz"]){ const a = p[k]; if (a && !a.some(x => !x)) a.push(null); } }
+// 盤面上限なし: ターンのはじめに、右はしのあまった空きゾーンをつめる（5つより少なくはしない）
+function zoneTrim(p){ if (!p || !p.nolim) return; for (const k of ["mz", "sz"]){ const a = p[k]; while (a && a.length > ZONES && !a[a.length - 1] && a.slice(0, -1).some(x => !x)) a.pop(); } }
 // 場のモンスターを手札・除外に送る（破壊ではないので「破壊されたとき」は出ない）。装備と質量は墓地へ、コピーは消える
 function leaveEquips(st, m){
   eqsOf(m).forEach(e => { const p = P(st, e.o); if (cannotLeave(e.c)) (p.standingEq || (p.standingEq = [])).push(e); else p.grave.push(e.c); });
@@ -591,19 +598,19 @@ function moveMonOut(st, o, i, to, opt = {}){
 // 質量を場に出す: モンスターはモンスターゾーンへ、魔法・罠は魔法・罠ゾーンに伏せて。copy = コピー（やられても本体は墓地に行かない）
 function putOut(st, s, id, copy){
   const p = P(st, s), c = card(id);
-  if (cardType(c) === "monster"){ const z = freeZone(p.mz); if (z < 0) return false; p.mz[z] = mkMon(st, id); if (copy) p.mz[z].cp = true; ev(st, { type: "summon", s, z }); trigger(st, s, c, "ssummon", { zone: z, mon: { s, i: z, u: p.mz[z].u } }); enterFire(st, s, "put"); return true; }
+  if (cardType(c) === "monster"){ const z = freeZone(p.mz, p); if (z < 0) return false; p.mz[z] = mkMon(st, id); if (copy) p.mz[z].cp = true; ev(st, { type: "summon", s, z }); trigger(st, s, c, "ssummon", { zone: z, mon: { s, i: z, u: p.mz[z].u } }); enterFire(st, s, "put"); return true; }
   if (cardType(c) === "equip") return false;
-  const z = freeZone(p.sz); if (z < 0) return false; st.un = (st.un || 0) + 1; p.sz[z] = { c: id, turn: st.turnNo, face: false, u: st.un, ...(copy ? { cp: true } : {}) }; return true;
+  const z = freeZone(p.sz, p); if (z < 0) return false; st.un = (st.un || 0) + 1; p.sz[z] = { c: id, turn: st.turnNo, face: false, u: st.un, ...(copy ? { cp: true } : {}) }; return true;
 }
 // ナナシ（anySum）: 自分のターンのはじめ、墓地に質量が足りていれば、手札・山札・墓地のどこからでも召喚できる
 function anySumFind(st, s){
-  const p = P(st, s); if (freeZone(p.mz) < 0) return null;
+  const p = P(st, s); if (freeZone(p.mz, p) < 0) return null;
   for (const where of ["hand", "deck", "grave"]) for (let j = 0; j < p[where].length; j++){ const c = card(p[where][j]); if (c && c.anySum && cardType(c) === "monster" && p.grave.length - (where === "grave" ? 1 : 0) >= massOf(c)) return { id: p[where][j], where, j }; }
   return null;
 }
 function anySumDo(st, s, id){
   const p = P(st, s), x = anySumFind(st, s); if (!x || x.id !== id) return;
-  p[x.where].splice(x.j, 1); const ms = massOf(card(id)), mats = p.grave.splice(0, ms), z = freeZone(p.mz);
+  p[x.where].splice(x.j, 1); const ms = massOf(card(id)), mats = p.grave.splice(0, ms), z = freeZone(p.mz, p);
   p.mz[z] = mkMon(st, id); if (mats.length) p.mz[z].mats = mats;
   log(st, s, `「${card(id).name}」を${{ hand: "手札", deck: "山札", grave: "墓地" }[x.where]}から召喚した！（墓地の${mats.length}枚を質量に）`); ev(st, { type: "summon", s, z });
   trigger(st, s, card(id), "ssummon", { zone: z, mon: { s, i: z, u: p.mz[z].u } });
@@ -643,7 +650,7 @@ function mugCands(st, s){
     const c = card(id), g = mugOf(c); if (!g) return;
     const fAll = p.mz.map((m, i) => m && !monCannotLeave(m) && !m.cp && !hiddenMon(st, s, i) && revoHit(card(m.c), g) ? i : -1).filter(i => i >= 0).sort((a, b) => cmpNum(atkOf(p.mz[a]), atkOf(p.mz[b]))), f = fAll.slice(0, g.nf);
     const gAll = p.grave.map((x, k) => !(where === "grave" && k === j) && revoHit(card(x), g) ? k : -1).filter(k => k >= 0), gr = gAll.slice(0, g.ng);
-    if (f.length < g.nf || gr.length < g.ng || (!f.length && freeZone(p.mz) < 0)) return;
+    if (f.length < g.nf || gr.length < g.ng || (!f.length && freeZone(p.mz, p) < 0)) return;
     if (out.some(o => o.id === id)) return;
     out.push({ where, j, id, f, g: gr, fAll, gAll, nf: g.nf, ng: g.ng });
   }));
@@ -665,7 +672,7 @@ function mugDo(st, s, x){
   if (x.where === "hand") p.hand.splice(x.j, 1);
   gIds.forEach(id => under.push({ c: id, o: s }));
   x.f.forEach(i => { const m = p.mz[i]; if (!m) return; under.push(...(m.evoU || [])); m.evoU = []; leaveEquips(st, m); p.grave.push(...(m.mats || [])); sealsOut(st, m); p.mz[i] = null; if (!m.cp) under.push({ c: m.c, o: m.owner || s }); ev(st, { type: "destroy", s, z: i }); });
-  const z = x.f.length ? x.f[0] : freeZone(p.mz); if (z < 0) return false;
+  const z = x.f.length ? x.f[0] : freeZone(p.mz, p); if (z < 0) return false;
   const nm = mkMon(st, x.id); nm.evoU = under; p.mz[z] = nm;
   log(st, s, `無月の門！${under.map(u => `「${card(u.c).name}」`).join("")}の上に「${c.name}」を${x.where === "hand" ? "手札" : "墓地"}から召喚した`);
   ev(st, { type: "summon", s, z });
@@ -736,12 +743,12 @@ function targetOptions(st, s, kind, ctx = {}){
   if (KINDS[kind] && KINDS[kind].mod && !ctx.modPick) return null;
   if (t === "hand") return P(st, s).hand.map((_, i) => i);
   if (t === "oppHand") return P(st, O(s)).hand.map((_, i) => i);
-  if (t === "tagPick" && kind === "manaSummon"){ const p = P(st, s); if (!p.manaZ || freeZone(p.mz) < 0) return []; const tag = ctx.tagName || ""; return [...new Set(p.manaZ.map(x => x.c))].filter(id => cardType(card(id)) === "monster" && !isEx(card(id)) && (!tag || hasTag(id, tag))); }
+  if (t === "tagPick" && kind === "manaSummon"){ const p = P(st, s); if (!p.manaZ || freeZone(p.mz, p) < 0) return []; const tag = ctx.tagName || ""; return [...new Set(p.manaZ.map(x => x.c))].filter(id => cardType(card(id)) === "monster" && !isEx(card(id)) && (!tag || hasTag(id, tag))); }
   if (t === "tagPick" && kind === "fusion"){ const p = P(st, s); return [...new Set(p.ex || [])].filter(id => isFusion(card(id)) && fusionPlan(st, s, card(id))); }
   if (t === "tagPick"){
     const p = P(st, s), tag = ctx.tagName || "", fromEx = kind === "exSummon" || kind === "tagSummonEx", src = fromEx ? (p.ex || []) : /Hand$/.test(kind) && kind !== "tagGraveHand" ? p.hand : /Deck$|tagSearch/.test(kind) ? p.deck : p.grave;
     const summ = /^tagSummon/.test(kind) || kind === "exSummon";
-    if (summ && freeZone(p.mz) < 0) return [];
+    if (summ && freeZone(p.mz, p) < 0) return [];
     return [...new Set(src.filter(id => (kind === "exSummon" || hasTag(id, tag)) && (!summ || cardType(card(id)) === "monster") && !(fromEx && (isFusion(card(id)) || sxOf(card(id))))))];
   }
   if (t === "graveAny") return [...new Set(P(st, s).grave)].filter(id => S.cards.has(id));
@@ -749,7 +756,7 @@ function targetOptions(st, s, kind, ctx = {}){
   if (t === "oppGrave") return [...new Set(P(st, O(s)).grave)].filter(id => S.cards.has(id));
   if (t === "deckTop") return P(st, s).deck.slice(0, Math.max(1, ctx.scryN || 3)).map((_, i) => i);
   if (t === "grave"){
-    if (kind === "reborn" && freeZone(P(st, s).mz) < 0) return [];
+    if (kind === "reborn" && freeZone(P(st, s).mz, P(st, s)) < 0) return [];
     return [...new Set(P(st, s).grave.filter(id => cardType(card(id)) === "monster"))];
   }
   return null;
@@ -801,7 +808,7 @@ function enterFire(st, o, kind, then){
 }
 // 場にモンスターを出す（効果・特殊召喚）。出せたらゾーン番号、場がいっぱいなら -1
 function putMon(st, o, id, opt = {}){
-  const p = P(st, o), z = freeZone(p.mz); if (z < 0) return -1;
+  const p = P(st, o), z = freeZone(p.mz, p); if (z < 0) return -1;
   p.mz[z] = mkMon(st, id); if (opt.copy) p.mz[z].cp = true; if (opt.mats && opt.mats.length) p.mz[z].mats = opt.mats;
   ev(st, { type: "summon", s: o, z });
   if (opt.log) log(st, opt.by || o, opt.log);
@@ -846,7 +853,8 @@ function glGroup(st, s, i){
 }
 // ゴッドを出すゾーン: リンクできるとなりがあればそこ、なければ左から空いているところ
 function glZone(st, s, id){
-  const p = P(st, s), c = card(id), free = p.mz.map((m, z) => m ? -1 : z).filter(z => z >= 0); if (!free.length) return -1;
+  const p = P(st, s), c = card(id); let free = p.mz.map((m, z) => m ? -1 : z).filter(z => z >= 0);
+  if (!free.length){ if (!p.nolim) return -1; p.mz.push(null); free = [p.mz.length - 1]; }
   if (!glOf(c)) return free[0];
   const nb = z => (z > 0 && p.mz[z - 1] && !sealedM(p.mz[z - 1]) && glPair(monCard(p.mz[z - 1]), c)) || (z < p.mz.length - 1 && p.mz[z + 1] && !sealedM(p.mz[z + 1]) && glPair(c, monCard(p.mz[z + 1])));
   const z = free.find(nb); return z == null ? free[0] : z;
@@ -1079,7 +1087,7 @@ function leaveMorph(st, s, i){
    相手の場がいっぱいなら移せない。orDestroy のとき（デメリット効果）はかわりに破壊する */
 function giveMon(st, s, i, src, opt = {}){
   const me = P(st, s), op = P(st, O(s)), m = me.mz[i]; if (!m) return false;
-  const nm2 = card(m.c).name, z = freeZone(op.mz);
+  const nm2 = card(m.c).name, z = freeZone(op.mz, op);
   if (z < 0){
     if (opt.orDestroy){ log(st, s, `${src}：相手の場がいっぱいなので、「${nm2}」は移せずに破壊される`); destroyMonster(st, s, i, src); return true; }
     log(st, s, `${src}：相手の場がいっぱいで「${nm2}」を送れない`); return false;
@@ -1352,7 +1360,7 @@ function applyGen(st, s, c, target, ctx, f, n, src){
     for (const id of ids){
       const t = cardType(card(id));
       if (t === "monster"){ if (putMon(st, o, id) < 0) break; k++; }
-      else if (t === "magic" || t === "trap"){ const z = freeZone(p.sz); if (z < 0) break; st.un = (st.un || 0) + 1; p.sz[z] = { c: id, turn: st.turnNo, face: false, u: st.un }; k++; }
+      else if (t === "magic" || t === "trap"){ const z = freeZone(p.sz, p); if (z < 0) break; st.un = (st.un || 0) + 1; p.sz[z] = { c: id, turn: st.turnNo, face: false, u: st.un }; k++; }
       else { log(st, s, `${src}：装備は場に出せない`); break; }
     }
     log(st, s, k ? `${src}で${nm}を${k}枚${whose}の場に出した` : `${src}：${whose}の場がいっぱいで出せない`);
@@ -1366,8 +1374,8 @@ const feSrc = (p, from) => from === "mana" ? (p.manaZ || []).map(x => x.c) : fro
 // 持ってこられるカード（同じカードは1つ）
 function fetchCands(st, s, c, f, ctx = {}){
   const p = P(st, s);
-  if (f.what === "self"){ const id = ctx.inHand || (c && c.id); return id && p.hand.includes(id) && cardType(card(id)) === "monster" && freeZone(p.mz) >= 0 ? [id] : []; }
-  if (f.dest === "field" && freeZone(p.mz) < 0) return [];
+  if (f.what === "self"){ const id = ctx.inHand || (c && c.id); return id && p.hand.includes(id) && cardType(card(id)) === "monster" && freeZone(p.mz, p) >= 0 ? [id] : []; }
+  if (f.dest === "field" && freeZone(p.mz, p) < 0) return [];
   return [...new Set(feSrc(p, f.from))].filter(id => { const x = card(id), t = cardType(x);
     if (f.what === "mon" && t !== "monster") return false; if (f.what === "magic" && t !== "magic") return false; if (f.what === "trap" && t !== "trap") return false;
     if (f.what === "atk" && !isAttackCard(x)) return false; if (f.what === "tag" && !hasTag(id, f.into || ctx.tagName || "")) return false;
@@ -1386,7 +1394,7 @@ function applyFetch(st, s, c, target, ctx, f, n, src){
   const picks = f.what === "self" ? fetchCands(st, s, c, f, ctx).slice(0, 1) : f.pick === "one" ? (target != null ? [target] : []) : null;
   let k = 0;
   const one = id => {
-    if (f.dest === "field" && freeZone(p.mz) < 0) return false;
+    if (f.dest === "field" && freeZone(p.mz, p) < 0) return false;
     if (!fetchTake(st, s, f, id)) return false;
     if (f.dest === "hand"){ p.hand.push(id); log(st, s, `${src}で${where}から「${card(id).name}」を手札に加えた${f.from === "deck" ? "（山札はシャッフル）" : ""}`); }
     else putMon(st, s, id, { log: `${src}で${where}から「${card(id).name}」を場に出した（特殊召喚）`, by: s });
@@ -1563,7 +1571,7 @@ function applyEffect(st, s, c, target, ctx = {}, fx = normFx(c)){
       // コピーは魔法・罠ゾーンの1枠にまとめてストックする（何枚でも1枠）
       const k = Math.floor(f.mats.length / 2); if (!k) break;
       let zi = me.sz.findIndex(z => z && z.fcp && z.c === f.c);
-      if (zi < 0){ zi = freeZone(me.sz); if (zi >= 0){ st.un = (st.un || 0) + 1; me.sz[zi] = { c: f.c, face: true, turn: st.turnNo, u: st.un, fcp: true, stack: 0, mats: [] }; } }
+      if (zi < 0){ zi = freeZone(me.sz, me); if (zi >= 0){ st.un = (st.un || 0) + 1; me.sz[zi] = { c: f.c, face: true, turn: st.turnNo, u: st.un, fcp: true, stack: 0, mats: [] }; } }
       if (zi < 0){ log(st, s, `${src}：魔法・罠ゾーンに空きがない`); break; }
       const z = me.sz[zi]; z.mats = (z.mats || []).concat(f.mats.splice(0, k)); z.stack = (z.stack || 0) + k; ev(st, { type: "spell", s, c: f.c });
       log(st, s, `${src}：質量${k}枚が「${card(f.c).name}」のコピーになって、魔法・罠ゾーンにストックされた（ストック${z.stack}枚・のこりの質量 ${f.mats.length}枚）`); break; }
@@ -1655,7 +1663,7 @@ function applyEffect(st, s, c, target, ctx = {}, fx = normFx(c)){
     case "drawUntil": { let k = 0, last = null; while (k < 12 && !me.noDraw){ if (!me.deck.length) refill(st, s); if (!me.deck.length) break; last = me.deck.shift(); me.hand.push(last); k++; if (!isAttackCard(card(last))) break; } log(st, s, `${src}でカードを${k}枚引いた${last && !isAttackCard(card(last)) ? `（「${card(last).name}」で止まった）` : ""}`); break; }
     // このカード以外すべて: お互いの場のモンスター・魔法・罠・フィールドを破壊（このカード自身と、このカードが付いているモンスターはのこす）
     case "stealMon": case "stealMonTmp": {
-      const m = opT.mz[target], z = freeZone(me.mz); if (!m || OS === s) break;
+      const m = opT.mz[target], z = freeZone(me.mz, me); if (!m || OS === s) break;
       if (z < 0){ log(st, s, `${src}：場がいっぱいでうばえない`); break; }
       opT.mz[target] = null; me.mz[z] = m; m.owner = m.owner || OS; m.attacked = false; m.atkCount = 0; m.born = 0;
       if (fx.kind === "stealMonTmp") m.retBy = st.turn; else delete m.retBy;
@@ -1674,7 +1682,7 @@ function applyEffect(st, s, c, target, ctx = {}, fx = normFx(c)){
       plan.filter(x => x.from === "hand").map(x => x.i).sort((a, b) => b - a).forEach(i => me.grave.push(me.hand.splice(i, 1)[0]));
       plan.filter(x => x.from === "mz").forEach(x => sendToGrave(st, s, x.i));
       ev(st, { type: "fusion", s, mats: plan.map(x => x.id), c: target });
-      ex.splice(k, 1); const z = freeZone(me.mz); me.mz[z] = mkMon(st, target); ev(st, { type: "summon", s, z });
+      ex.splice(k, 1); const z = freeZone(me.mz, me); me.mz[z] = mkMon(st, target); ev(st, { type: "summon", s, z });
       log(st, s, `${src}：${names}を融合！「${fc.name}」を融合召喚した`);
       trigger(st, s, fc, "ssummon", { zone: z, mon: { s, i: z, u: me.mz[z].u } }); enterFire(st, s, "put");
       break;
@@ -1823,7 +1831,7 @@ function castFree(st, s, id, src, then){
     return;
   }
   if (isField(c) && st.field && cannotLeave(st.field.c)){ p.hand.push(id); log(st, s, `${src}：場から離れないフィールドがあるため「${c.name}」は手札へ`); then && then(st); return; }
-  const pz = isPersist(c) ? freeZone(p.sz) : -1;
+  const pz = isPersist(c) ? freeZone(p.sz, p) : -1;
   if (isPersist(c) && pz < 0){ p.deck.push(id); log(st, s, `${src}：魔法・罠ゾーンがいっぱいなので「${c.name}」は山札の下へ`); then && then(st); return; }
   log(st, s, `${src}で「${c.name}」をタダで発動！`); ev(st, { type: "spell", s, c: id }); countPlay(st, s, c);
   if (isField(c)) placeField(st, s, id);
@@ -2030,7 +2038,7 @@ function slyFire(st, s, ids){
   if ((ids || []).length) P(st, s).discNow = (P(st, s).discNow || 0) + ids.length;
   (ids || []).forEach(id => { const c = card(id); if (!c || !c.sly || useCondWhy(st, s, c)) return;
     // マッドネス: モンスターは墓地から特殊召喚
-    if (cardType(c) === "monster"){ const p = P(st, s), k = p.grave.lastIndexOf(id); if (k < 0 || freeZone(p.mz) < 0) return; p.grave.splice(k, 1); putMon(st, s, id, { log: `マッドネス！ 捨てられた「${c.name}」がタダで場に出た` }); return; }
+    if (cardType(c) === "monster"){ const p = P(st, s), k = p.grave.lastIndexOf(id); if (k < 0 || freeZone(p.mz, p) < 0) return; p.grave.splice(k, 1); putMon(st, s, id, { log: `マッドネス！ 捨てられた「${c.name}」がタダで場に出た` }); return; }
     if (cardType(c) !== "magic" && cardType(c) !== "trap") return;
     log(st, s, `スライ！ 捨てられた「${c.name}」をタダで使った`); ev(st, { type: "spell", s, c: id }); countPlay(st, s, c); runCard(st, s, c, "use", { sly: true }); });
 }
@@ -2136,16 +2144,16 @@ function cycleCard(st, s, hi){
   p.hand.splice(hi, 1); p.grave.push(id); log(st, s, `「${c.name}」をサイクリング（捨てて1枚引く）`);
   slyFire(st, s, [id]); drawN(st, s, 1, `「${c.name}」のサイクリング`); checkEnd(st); return true;
 }
-function graveSumWhy(st, s, gi){ const p = P(st, s), c = card(p.grave[gi]); if (!c || !c.graveSum || cardType(c) !== "monster") return "墓地から出せない"; if (st.turn !== s) return "自分のターンだけ"; if (freeZone(p.mz) < 0) return "場がいっぱい"; return manaWhy(st, s, +c.graveSum.n || 0); }
+function graveSumWhy(st, s, gi){ const p = P(st, s), c = card(p.grave[gi]); if (!c || !c.graveSum || cardType(c) !== "monster") return "墓地から出せない"; if (st.turn !== s) return "自分のターンだけ"; if (freeZone(p.mz, p) < 0) return "場がいっぱい"; return manaWhy(st, s, +c.graveSum.n || 0); }
 function graveSummon(st, s, gi){
   if (graveSumWhy(st, s, gi)) return false;
   const p = P(st, s), id = p.grave[gi], c = card(id); payMana(st, s, +c.graveSum.n || 0, `「${c.name}」`);
   p.grave.splice(gi, 1); putMon(st, s, id, { log: `「${c.name}」が墓地から場に出た！` }); checkEnd(st); return true;
 }
-function crystWhy(st, s, hi){ const p = P(st, s), c = card(p.hand[hi]); if (!c || !c.cryst || cardType(c) !== "monster") return "結晶がない"; if (st.turn !== s) return "自分のターンだけ"; if (freeZone(p.sz) < 0) return "魔法・罠ゾーンがいっぱい"; return manaWhy(st, s, +c.cryst.n || 0); }
+function crystWhy(st, s, hi){ const p = P(st, s), c = card(p.hand[hi]); if (!c || !c.cryst || cardType(c) !== "monster") return "結晶がない"; if (st.turn !== s) return "自分のターンだけ"; if (freeZone(p.sz, p) < 0) return "魔法・罠ゾーンがいっぱい"; return manaWhy(st, s, +c.cryst.n || 0); }
 function crystPlace(st, s, hi){
   if (crystWhy(st, s, hi)) return false;
-  const p = P(st, s), id = p.hand[hi], c = card(id), z = freeZone(p.sz); payMana(st, s, +c.cryst.n || 0, `「${c.name}」の結晶`);
+  const p = P(st, s), id = p.hand[hi], c = card(id), z = freeZone(p.sz, p); payMana(st, s, +c.cryst.n || 0, `「${c.name}」の結晶`);
   p.hand.splice(hi, 1); st.un = (st.un || 0) + 1; p.sz[z] = { c: id, turn: st.turnNo, face: true, u: st.un, cryst: true, cd: Math.max(1, +c.cryst.k || 2) };
   log(st, s, `「${c.name}」を結晶として置いた（カウントダウン${p.sz[z].cd}）`); ev(st, { type: "spell", s, c: id }); return true;
 }
@@ -2264,7 +2272,7 @@ function ssBlock(st, s, hi){
   if (ss.cost === "tribute" && p.mz.filter(m => m && !monCannotLeave(m)).length < ss.cn) return "墓地へ送るモンスターが足りない";
   if (ss.cost === "discard" && p.hand.length - 1 < ss.cn) return "捨てる手札が足りない";
   if (ss.cost === "lp" && p.lp <= ss.cn) return "LPが足りない";
-  if (ss.cost !== "tribute" && freeZone(p.mz) < 0) return "場がいっぱい";
+  if (ss.cost !== "tribute" && freeZone(p.mz, p) < 0) return "場がいっぱい";
   return "";
 }
 const canSpecial = (st, s, hi) => st.turn === s && !st.pending && !st.winner && !ssBlock(st, s, hi);
@@ -2290,7 +2298,7 @@ function specialSummon(st, s, hi, picks = []){
   const gone = ss.cost === "discard" ? picks.map(i => p.hand[i]) : [];
   [hi, ...(ss.cost === "discard" ? picks : [])].sort((a, b) => b - a).forEach(i => p.hand.splice(i, 1));
   if (gone.length){ p.grave.push(...gone); paid = `手札を${gone.length}枚捨てて`; }
-  const z = freeZone(p.mz);
+  const z = freeZone(p.mz, p);
   if (z < 0){ p.grave.push(id); log(st, s, `場がいっぱいで「${c.name}」は出られなかった`); return true; }
   // the opponent may answer with a cancel, just like a normal summon (the cost stays paid)
   if (sumWin(st, s, id)){
@@ -2309,7 +2317,7 @@ function specialSummon(st, s, hi, picks = []){
   return true;
 }
 function setCard(st, s, hi, zi){
-  const p = P(st, s), id = p.hand[hi], z = (zi != null && !p.sz[zi]) ? zi : freeZone(p.sz);
+  const p = P(st, s), id = p.hand[hi], z = (zi != null && !p.sz[zi]) ? zi : freeZone(p.sz, p);
   // スパイア風 cards can't be set (no keeping cards past the end of the turn)
   if (z < 0 || cardType(card(id)) === "monster" || cardType(card(id)) === "equip" || card(id).frame === "spire") return false;
   p.hand.splice(hi, 1); p.sz[z] = { c: id, turn: st.turnNo };
@@ -2333,7 +2341,7 @@ function activate(st, s, from, i, ctx = {}){
   if (from === "hand" && t !== "magic") return false;
   if (from === "grave" && (t !== "magic" || !c.flashback)) return false;
   if (useBlockedWhy(st, s, c)) return false;
-  const keep = isPersist(c), pz = keep ? (from === "sz" ? i : freeZone(p.sz)) : -1;
+  const keep = isPersist(c), pz = keep ? (from === "sz" ? i : freeZone(p.sz, p)) : -1;
   if (keep && pz < 0) return false;
   const fms = isField(c) ? massOf(c) : 0; if (fms && p.grave.length < fms) return false;
   const revNow = from === "hand" && revOk(st, s, c);
@@ -2453,7 +2461,7 @@ function resolveChain(st, resume){
 }
 function afterChain(st){
   checkEnd(st);
-  const pd = st.pending; if (!pd || st.winner) return;
+  const pd = st.pending; if (!pd || st.winner){ if (!pd && !st.winner && st.strigQ) strigStep(st); return; }
   if (pd.type === "attack" && pd.strigResume){
     delete pd.strigResume;
     // ターンを飛ばす効果は、保留中の直接攻撃を終えてからターン終了へ進む。
@@ -2690,10 +2698,15 @@ function drain(st, s, i, y){ const m = P(st, s).mz[i]; if (!m || !(y > 0) || !is
 function sTrigger(st, s){
   const attack = st.pending;
   if (!attack || attack.type !== "attack" || attack.to !== "direct" || attack.by === s || attack.negated) return false;
-  const p = P(st, s), id = p.deck[0]; if (!id) return false;
+  const p = P(st, s), id = p.deck[0]; if (!id || p.shieldOn) return false;
   const c = card(id), t = cardType(c);
   if (!c || !c.strig || (t !== "monster" && t !== "magic" && t !== "trap") || c.noUse) return false;
   p.deck.shift(); log(st, s, `S・トリガー！ 山札の一番上の「${c.name}」をダメージを受ける前にタダで使う！`);
+  return strigCast(st, s, id);
+}
+// S・トリガーのカード id（山札・シールドからもう取り出してある）をタダで使う。使えなければ手札へ。チェーンを始めたら true
+function strigCast(st, s, id){
+  const p = P(st, s), c = card(id), t = cardType(c);
   if (useCondWhy(st, s, c) || (t !== "monster" && useBlockedWhy(st, s, c))){ p.hand.push(id); log(st, s, `「${c.name}」はいま発動できないので手札に加えた`); return false; }
   if (t === "monster"){
     const z = glZone(st, s, id);
@@ -2703,7 +2716,7 @@ function sTrigger(st, s){
     pushChain(st, s, id, { strig: true }, `S・トリガー「${c.name}」の召喚`, { summon: true, cast: false, z });
     return true;
   }
-  const keep = isPersist(c), pz = keep ? freeZone(p.sz) : -1;
+  const keep = isPersist(c), pz = keep ? freeZone(p.sz, p) : -1;
   if (keep && pz < 0){ p.hand.push(id); log(st, s, `魔法・罠ゾーンがいっぱいなので「${c.name}」は手札に加えた`); return false; }
   countPlay(st, s, c);
   if (isField(c)) placeField(st, s, id);
@@ -2713,6 +2726,34 @@ function sTrigger(st, s){
   ev(st, { type: "spell", s, c: id });
   pushChain(st, s, id, { strig: true }, `S・トリガー「${c.name}」`, keep ? { pz, pu: p.sz[pz].u } : isField(c) && st.field ? { fu: st.field.u } : null);
   return true;
+}
+/* ---- シールド（デュエマ式のシールドデッキ）: p.shieldOn, p.shields = [カード]（裏向き） ---- */
+// ブレイクする枚数: 1枚（ブレイカーならその枚数）。シールドデッキでない人のモンスターは、ATK300ごとにもう1枚
+function breakCount(st, A, from){
+  const m = P(st, A).mz[from]; let n = Math.max(1, abN(st, A, from, "breaker") || 1);
+  if (m && !P(st, A).shieldOn){ const a = atkOf(m); n += a === Infinity ? 999 : isFinite(a) && a > 0 ? Math.floor(a / 300) : 0; }
+  return n;
+}
+// D のシールドを n 枚ブレイク: 手札に加えて、S・トリガーはあとで（strigStep）タダで使う
+function breakShields(st, D, n, why){
+  const p = P(st, D); if (!p.shieldOn || !p.shields) return 0;
+  const k = Math.min(Math.max(0, n), p.shields.length); if (!k) return 0;
+  const got = p.shields.splice(p.shields.length - k, k); p.hand.push(...got);
+  log(st, D, `${why}で${p.name}のシールドを${k}枚ブレイク！（のこり${p.shields.length}枚）`);
+  ev(st, { type: "shieldBreak", s: D, n: k });
+  const L = got.filter(id => { const c = card(id), t = cardType(c); return c && c.strig && !c.noUse && (t === "monster" || t === "magic" || t === "trap"); });
+  if (L.length) (st.strigQ = st.strigQ || []).push(...L.map(id => ({ s: D, c: id })));
+  return k;
+}
+// ブレイクしたシールドのS・トリガーを1枚ずつ使う（チェーンが終わるたびに afterChain から続きへ）
+function strigStep(st){
+  while (st.strigQ && st.strigQ.length && !st.pending && !st.winner && !(st.chain && st.chain.length)){
+    const x = st.strigQ.shift(), p = P(st, x.s), j = p.hand.lastIndexOf(x.c); if (!st.strigQ.length) delete st.strigQ;
+    if (j < 0) continue;
+    p.hand.splice(j, 1); log(st, x.s, `S・トリガー！ シールドから「${card(x.c).name}」をタダで使う！`);
+    if (strigCast(st, x.s, x.c)) return;
+  }
+  if (st.strigQ && !st.strigQ.length) delete st.strigQ;
 }
 // 成長: when "end" → 攻撃の回数（ターンのおわり）、"start" → むかえたターンの数（ターンのはじめ）
 function evolveCheck(st, s, when){
@@ -2732,6 +2773,17 @@ function resolveAttack(st){
   if (pd.negated){ checkEnd(st); return; }
   if (!am){ log(st, A, "攻撃モンスターがいなくなった"); checkEnd(st); return; }
   if (P(st, D).thorns > 0){ monDmg(st, A, pd.from, P(st, D).thorns, "炎の障壁（反撃）"); if (!P(st, A).mz[pd.from]){ checkEnd(st); return; } }
+  if (pd.to === "direct" && P(st, D).shieldOn){
+    const sh = P(st, D).shields || [];
+    if (!sh.length){
+      const nl = noLoseBy(st, D);
+      if (nl) log(st, D, `シールドが0枚でダイレクトアタックを受けたけど、「${nl}」の効果でゲームに負けない！`);
+      else { log(st, A, `「${card(am.c).name}」のダイレクトアタックが決まった！`); st.winner = A; st.why = `${nm(st, D)} はシールドが0枚のときにダイレクトアタックを受けた`; }
+      checkEnd(st); return;
+    }
+    breakShields(st, D, breakCount(st, A, pd.from), `「${card(am.c).name}」の攻撃`);
+    checkEnd(st); strigStep(st); return;
+  }
   if (pd.to === "direct"){
     const a = battleHit(st, A, pd.from, atkOf(am)); dealDmg(st, D, a); log(st, A, `${nm(st, D)} に直接 ${fmtN(a)} ダメージ！`);
     drain(st, A, pd.from, a);
@@ -2742,7 +2794,7 @@ function resolveAttack(st){
     if (!dm){ log(st, A, "攻撃対象がいなくなった"); checkEnd(st); return; }
     const a = atkOf(am), d = atkOf(dm);
     // damage to a player is cut by the losing monster's 鉄壁-type ability
-    const hurt = (s2, i2, x) => { const cut = abN(st, s2, i2, "dmgCut"), y = x === Infinity ? x : Math.max(0, x - cut); dealDmg(st, s2, y); if (y > 0 && hasAb(st, s2, i2, "reflect")){ log(st, s2, `「${card(P(st, s2).mz[i2].c).name}」の反射！ ${nm(st, O(s2))}にも${y === Infinity ? "" : fmtN(y)}ダメージ`); dealDmg(st, O(s2), y); } return [y, cut]; };
+    const hurt = (s2, i2, x) => { if (P(st, s2).shieldOn) return [0, 0]; const cut = abN(st, s2, i2, "dmgCut"), y = x === Infinity ? x : Math.max(0, x - cut); dealDmg(st, s2, y); if (y > 0 && hasAb(st, s2, i2, "reflect")){ log(st, s2, `「${card(P(st, s2).mz[i2].c).name}」の反射！ ${nm(st, O(s2))}にも${y === Infinity ? "" : fmtN(y)}ダメージ`); dealDmg(st, O(s2), y); } return [y, cut]; };
     const losers = [];
     // 先制攻撃: 片方だけが持っていて、相手を倒せる（ATKが同じか上・必殺）なら、先に倒して自分は無事
     const fsA = hasAb(st, A, pd.from, "first") && !hasAb(st, D, pd.to, "first"), fsD = hasAb(st, D, pd.to, "first") && !hasAb(st, A, pd.from, "first");
@@ -2813,11 +2865,11 @@ function passTurn(st, s){
       if (ep.weak > 0){ ep.weak--; if (!ep.weak) log(st, s, `${ep.name}の脱力がとけた`); }
       ep.mz.forEach(m => { if (m && m.weak > 0){ m.weak--; if (!m.weak) log(st, s, `「${card(m.c).name}」の脱力がとけた`); } }); }
     for (const o of ["a", "b"]) P(st, o).mz.forEach(m => { if (m && m.tmpBy === s){ m.tmp = 0; m.tmpBy = null; } if (m && m.strTBy === s){ m.strT = 0; m.strTBy = null; } });
-    for (const o of ["a", "b"]) P(st, o).mz.forEach((m, i) => { if (!m || m.retBy !== s) return; const back = m.owner, B = P(st, back); const z = freeZone(B.mz); if (z < 0 && monCannotLeave(m)) return; delete m.retBy; P(st, o).mz[i] = null;
+    for (const o of ["a", "b"]) P(st, o).mz.forEach((m, i) => { if (!m || m.retBy !== s) return; const back = m.owner, B = P(st, back); const z = freeZone(B.mz, B); if (z < 0 && monCannotLeave(m)) return; delete m.retBy; P(st, o).mz[i] = null;
       if (z >= 0){ B.mz[z] = m; delete m.owner; log(st, back, `「${card(m.c).name}」が持ち主の場に戻った`); } else { leaveEquips(st, m); B.grave.push(m.c, ...(m.mats || [])); sealsOut(st, m); log(st, back, `「${card(m.c).name}」は戻る場所がなく墓地へ`); } });
     const xt = P(st, s).extraTurns > 0; if (xt) P(st, s).extraTurns--;
     st.turn = xt ? s : O(s); st.turnNo++; st.summoned = false;
-    const np = P(st, st.turn);
+    const np = P(st, st.turn); zoneTrim(st.players.a); zoneTrim(st.players.b);
     np.mz.forEach(m => { if (m) m.age = (m.age || 0) + 1; }); evolveCheck(st, st.turn, "start");
     if (np.intang > 0){ np.intang--; if (!np.intang) log(st, st.turn, `${np.name}の霊体がとけた`); }
     if (np.vuln > 0){ np.vuln--; if (!np.vuln) log(st, st.turn, `${np.name}の弱体がとけた`); }

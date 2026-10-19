@@ -6,7 +6,7 @@ $("#cpuDeckSel").addEventListener("change", e => ls.set("cb_cpudeck", e.target.v
 function cpuDeckOptions(){ return [...builtinDecks(), ...S.decks.filter(d => d && Array.isArray(d.cards) && d.cards.length)]; }
 function renderCpuDeckSel(){
   const sel = $("#cpuDeckSel"), want = ls.get("cb_cpudeck", "auto"), mine = myDecks(), others = S.decks.filter(d => d && Array.isArray(d.cards) && d.cards.length && !isMine(d, "owner"));
-  const opt = d => `<option value="${esc(d.id)}">${esc(d.name)}${d.mana && !d.builtin ? (d.mz ? "【デュエマ式】" : "【コスト】") : ""}（${d.cards.length}枚）${d.builtin || isMine(d, "owner") ? "" : "／" + esc(d.owner || "？")}</option>`;
+  const opt = d => `<option value="${esc(d.id)}">${esc(d.name)}${d.mana && !d.builtin ? (d.mz ? "【デュエマ式】" : "【コスト】") : ""}${d.shield && !d.spire ? "【シールド】" : ""}${d.nolim ? "【上限なし】" : ""}（${d.cards.length}枚）${d.builtin || isMine(d, "owner") ? "" : "／" + esc(d.owner || "？")}</option>`;
   sel.innerHTML = `<option value="auto">おまかせ（自分と同じルールのサンプル）</option><optgroup label="はじめからあるデッキ">${builtinDecks().map(opt).join("")}</optgroup>`
     + (mine.length ? `<optgroup label="自分のデッキ">${mine.map(opt).join("")}</optgroup>` : "")
     + (others.length ? `<optgroup label="みんなのデッキ">${others.map(opt).join("")}</optgroup>` : "");
@@ -19,6 +19,9 @@ function chosenManaRule(){ const el = $("#manaRule"), v = el ? el.value : "grow"
 function chosenMana(){ const id = $("#deckSel").value; const d = allDeckOptions().find(x => x.id === id); return deckManaVal(d); }
 const deckSpireVal = d => d && d.spire ? (d.spc === "silent" ? "silent" : true) : false;
 function chosenSpire(){ const id = $("#deckSel").value; const d = allDeckOptions().find(x => x.id === id); return deckSpireVal(d); }
+// デッキのルール: シールドデッキ（デュエマ式）・盤面上限なし
+const deckOptVal = d => ({ shield: !!(d && d.shield && !d.spire), nolim: !!(d && d.nolim) });
+function chosenOpt(){ const id = $("#deckSel").value; return deckOptVal(allDeckOptions().find(x => x.id === id)); }
 function chosenDeckIds(){
   const id = $("#deckSel").value; const d = allDeckOptions().find(x => x.id === id) || starterDeck();
   return d.cards.filter(c => S.cards.has(c) && (!S.tradesReady || owns(c) || (Array.isArray(d.borrow) && d.borrow.includes(c))));
@@ -35,7 +38,7 @@ function deckOk(ids){
 function renderPlay(){
   if (document.activeElement !== $("#pname")) $("#pname").value = S.name;
   const opts = allDeckOptions(); const want = ls.get("cb_deck", "starter");
-  $("#deckSel").innerHTML = opts.map(d => `<option value="${esc(d.id)}">${esc(d.name)}${d.mana && !d.builtin ? (d.mz ? "【デュエマ式】" : "【コスト】") : ""}（${d.cards.length}枚）</option>`).join("");
+  $("#deckSel").innerHTML = opts.map(d => `<option value="${esc(d.id)}">${esc(d.name)}${d.mana && !d.builtin ? (d.mz ? "【デュエマ式】" : "【コスト】") : ""}${d.shield && !d.spire ? "【シールド】" : ""}${d.nolim ? "【上限なし】" : ""}（${d.cards.length}枚）</option>`).join("");
   $("#deckSel").value = opts.some(d => d.id === want) ? want : "starter";
   if (document.activeElement !== $("#cpuDeckSel")) renderCpuDeckSel();
   $("#offlineNote").hidden = !!S.db;
@@ -55,12 +58,16 @@ function renderPlay(){
 $("#rejoin").addEventListener("click", e => { if (e.target.closest("#btnRejoin")){ const l = ls.get("cb_last3", null); if (l) joinRoom(l.code); } });
 
 function isEx(c){ return !!(c && (c.ex || c.psychic || sxOf(c))); }
-function newPlayer(deckIds, name, mana, spire){
+function newPlayer(deckIds, name, mana, spire, opt){
   const deck = shuffle(deckIds.filter(id => !isEx(card(id)))); deck.splice(0, deck.length, ...innateTop(deck)); const hand = deck.splice(0, 5), ex = deckIds.filter(id => isEx(card(id)));
   const p = { name: name || S.name, lp: START_LP, deck, hand, grave: [], mz: Array(ZONES).fill(null), sz: Array(ZONES).fill(null), mana: mana ? { max: 0, cur: 0 } : null, ...(mana === "zone" || mana === "land" ? { manaZ: [], charged: false, ...(mana === "land" ? { landOnly: true } : {}) } : {}), sleeve: name ? null : (mySleeve() || null), deckIds: [...deckIds], ex };
   // スパイアデッキ: the altar starts on the field, and the deck never runs out (the graveyard is shuffled back in)
   // スパイアデッキ: the opening hand is drawn only after the relic is picked (若葉 can change any card of the deck)
   if (spire){ p.spire = true; p.relicPick = neowChoices(); p.deck = innateTop(shuffle([...p.hand, ...p.deck])); p.hand = []; p.openHand = 5; if (!p.mana) p.mana = { max: 0, cur: 0 }; p.spc = spire === "silent" ? "silent" : null; p.relics = [p.spc ? "snake" : "blood"]; if (p.spc) p.openHand += 2; p.sz[0] = { c: p.spc ? SPIRE_ALTAR_S.id : SPIRE_ALTAR.id, turn: 0, face: true, u: -1 }; }
+  // シールドデッキ（デュエマ式）: 山札の上から5枚を裏向きのシールドに。LPは使わない
+  if (opt && opt.shield && !spire){ p.shieldOn = true; p.shields = p.deck.splice(0, 5); }
+  // 盤面上限なし: ゾーンがいっぱいでも、ふやして置ける
+  if (opt && opt.nolim) p.nolim = true;
   return p;
 }
 // 選択の祭壇 (face-up): turn start → draw up to 5 cards, turn end → the whole hand goes to the graveyard
@@ -257,7 +264,7 @@ function startingField(st){
       const c = card(id), t = cardType(c), src = [p.deck, p.hand, p.ex || []].find(a => a.includes(id));
       if (!src) return;
       if (t === "monster"){
-        const z = freeZone(p.mz); if (z < 0) return;
+        const z = freeZone(p.mz, p); if (z < 0) return;
         p.mz[z] = mkMon(st, id); p.mz[z].born = 0;
       } else if (t === "equip"){
         st.un = (st.un || 0) + 1; (p.standingEq || (p.standingEq = [])).push({ c: id, o: s, u: st.un });
@@ -265,7 +272,7 @@ function startingField(st){
         if (st.field) return; // Only one starting field can occupy the shared zone.
         placeField(st, s, id);
       } else {
-        const z = freeZone(p.sz); if (z < 0) return;
+        const z = freeZone(p.sz, p); if (z < 0) return;
         st.un = (st.un || 0) + 1;
         p.sz[z] = { c: id, turn: 0, face: !!(c.persist || c.cannotLeave) && t !== "trap", u: st.un };
       }
@@ -286,7 +293,7 @@ function startState(pa, pb){
 $("#btnCreate").addEventListener("click", async () => {
   const ids = chosenDeckIds(); if (!deckOk(ids)) return;
   const code = makeCode();
-  const st = { v: 3, started: false, players: { a: newPlayer(ids, null, chosenMana(), chosenSpire()) }, log: [], createdAt: Date.now(), updatedAt: Date.now(), hidden: $("#roomPrivate").checked, manaRule: chosenManaRule() };
+  const st = { v: 3, started: false, players: { a: newPlayer(ids, null, chosenMana(), chosenSpire(), chosenOpt()) }, log: [], createdAt: Date.now(), updatedAt: Date.now(), hidden: $("#roomPrivate").checked, manaRule: chosenManaRule() };
   try{ await S.db.doc("rooms/" + code).set(st); } catch(e){ writeErr(e); return; }
   startOnline(code, "a", st);
 });
@@ -300,7 +307,7 @@ async function joinRoom(code){
     if (mySlot && st.players && st.players[mySlot]){ startOnline(code, mySlot, st); return; }
     if (st.players && st.players.b){ toast("この部屋はもう2人そろっています"); return; }
     const ids = chosenDeckIds(); if (!deckOk(ids)) return;
-    const full = applyManaRule(startState(st.players.a, newPlayer(ids, null, chosenMana(), chosenSpire())), st.manaRule);
+    const full = applyManaRule(startState(st.players.a, newPlayer(ids, null, chosenMana(), chosenSpire(), chosenOpt())), st.manaRule);
     full.updatedAt = Date.now(); full.hidden = !!st.hidden;
     await S.db.doc("rooms/" + code).set(full);
     startOnline(code, "b", full);
@@ -326,7 +333,7 @@ $("#btnCpu").addEventListener("click", () => {
   const cid = $("#cpuDeckSel").value, cd = cid && cid !== "auto" ? cpuDeckOptions().find(d => d.id === cid) : null;
   const cpuMana = cd ? deckManaVal(cd) : chosenMana(), cpuIds = (cd || (cpuMana ? sampleManaDeck() : starterDeck())).cards.filter(id => S.cards.has(id));
   if ((!(cd && cd.spire) && cpuIds.length < MIN_DECK) || (!(cd && cd.spire) && !cpuIds.some(id => cardType(S.cards.get(id)) === "monster"))){ toast("CPUのデッキのカードが足りません。別のデッキをえらんでね"); return; }
-  G = { mode: "cpu", slot: "a", st: applyManaRule(startState(newPlayer(ids, null, chosenMana(), chosenSpire()), newPlayer(cpuIds, cd ? `CPU（${cd.name}）` : "CPU", cpuMana, deckSpireVal(cd))), chosenManaRule()), sel: null, atkFrom: null, chooseQ: [], evSeen: 0 };
+  G = { mode: "cpu", slot: "a", st: applyManaRule(startState(newPlayer(ids, null, chosenMana(), chosenSpire(), chosenOpt()), newPlayer(cpuIds, cd ? `CPU（${cd.name}）` : "CPU", cpuMana, deckSpireVal(cd), deckOptVal(cd))), chosenManaRule()), sel: null, atkFrom: null, chooseQ: [], evSeen: 0 };
   autoRelic(G.st, "b");
   after(false);
 });
@@ -339,7 +346,7 @@ function allCardsOf(st, s){
 }
 function freshFrom(st, s){
   const p = P(st, s), ids = p.deckIds && p.deckIds.length ? p.deckIds : allCardsOf(st, s);
-  const n = newPlayer(ids, p.name, p.manaZ ? (p.landOnly ? "land" : "zone") : !!p.mana, p.spire ? (p.spc === "silent" ? "silent" : true) : false); n.sleeve = p.sleeve || null; return n;
+  const n = newPlayer(ids, p.name, p.manaZ ? (p.landOnly ? "land" : "zone") : !!p.mana, p.spire ? (p.spc === "silent" ? "silent" : true) : false, { shield: !!p.shieldOn, nolim: !!p.nolim }); n.sleeve = p.sleeve || null; return n;
 }
 function resetLocal(){ Object.assign(G, { costPick: null, potPick: null, sel: null, atkFrom: null, chooseQ: [], evSeen: 0, recorded: false, prevLp: null, eqPlace: null, ssPick: null, sxPick: null, view: null, graveHand: false, detailOpen: false, detailBack: null, lastDetail: null }); renderDetail(null); }
 function rematch(){

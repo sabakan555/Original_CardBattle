@@ -1616,3 +1616,10 @@ div.f{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:13px}
 .lph-lp{color:var(--muted);font-variant-numeric:tabular-nums}
 .lph-w{min-width:0;overflow-wrap:anywhere}
 @media (max-width:560px){.lph-row{grid-template-columns:30px 64px 1fr}.lph-w{grid-column:1/-1}}
+/* シールド（デュエマ式のシールドデッキ） */
+.shieldz{display:flex;align-items:center;gap:10px;justify-content:center;align-self:center;margin-top:6px;padding:4px 16px;border-radius:999px;border:2px solid #3a4470;background:#151a33;color:#c9d2ff;font-weight:700}
+.shieldz .lbl{font-size:12px;color:#8d96c4}
+.shieldz .shs{display:flex;gap:4px;flex-wrap:wrap}
+.shieldz .shs i{display:block;width:14px;height:20px;border-radius:3px;border:1.5px solid #9fb2ff;background:linear-gradient(135deg,#2b3a8a,#5b3a9a)}
+.shieldz b{font-size:18px}
+.lpv.shd,.lp.shd{color:#9fb2ff}
