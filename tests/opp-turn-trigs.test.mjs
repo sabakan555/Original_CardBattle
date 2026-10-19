@@ -40,7 +40,7 @@ function harness(st) {
     persistList: (st, s, trig) => st[s].sz.filter(c => c.trigs.includes(trig)).map(c => ({ s, c, trig })),
     runList: (st, L, then) => { L.forEach(x => ran.push([x.s, x.c.name, x.trig])); then && then(st); },
     runTimers: () => {}, runBoons: () => {}, etherealEnd: () => {}, altarTurn: () => {},
-    fieldCard: () => null, anySumAsk: (st, who, then) => then && then(st), log: () => {},
+    fieldCard: () => null, cdTick: () => [], anySumAsk: (st, who, then) => then && then(st), log: () => {},
   };
   vm.runInNewContext(declaration(engineSource, "function fireTurn") + "; api = { fireTurn };", context);
   return { fire: (who, trig) => context.api.fireTurn(st, who, trig, null), ran };

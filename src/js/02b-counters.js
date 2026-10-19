@@ -405,7 +405,21 @@ const ctrBanner = f => f && f.ctr ? `<div class="ctr-on">${ctrChip(f.ctr, "")}<b
 function mkCostMech(save){
   const g = id => document.getElementById(id); if (!g("mkSbCost")) return {};
   const sb = Math.max(0, Math.min(20, Math.round(+g("mkSbCost").value || 0))), gzName = g("mkGzName").value.trim(), rvName = g("mkRevoName").value.trim(), deName = g("mkDmEvoName") ? g("mkDmEvoName").value.trim() : "", mgName = g("mkMugName") ? g("mkMugName").value.trim() : "";
-  return { sbCost: sb || null, gz: g("mkGz").checked && g("mkGzWhere").value === "none" ? { where: "none" } : g("mkGz").checked && gzName ? { where: g("mkGzWhere").value, match: g("mkGzMatch").value, name: gzName.slice(0, 40), cnt: Math.max(1, Math.min(20, Math.round(+g("mkGzCnt").value || 1))) } : null, delve: g("mkDelve").checked || null, revG: g("mkRevG") && g("mkRevG").checked && (typeof MK === "undefined" || MK.type === "magic") ? Math.max(0, Math.min(20, Math.round(+g("mkRevGN").value || 0))) : null, revo: g("mkRevo").checked && rvName && (typeof MK === "undefined" || MK.type === "monster") ? { match: g("mkRevoMatch").value, name: rvName.slice(0, 40) } : null, dmEvo: g("mkDmEvo") && g("mkDmEvo").checked && deName && (typeof MK === "undefined" || MK.type === "monster") ? { match: g("mkDmEvoMatch").value, name: deName.slice(0, 40) } : null, mugetsu: g("mkMug") && g("mkMug").checked && mgName && (typeof MK === "undefined" || MK.type === "monster") && (+g("mkMugF").value || 0) + (+g("mkMugG").value || 0) > 0 ? { match: g("mkMugMatch").value, name: mgName.slice(0, 40), nf: Math.max(0, Math.min(5, Math.round(+g("mkMugF").value || 0))), ng: Math.max(0, Math.min(10, Math.round(+g("mkMugG").value || 0))) } : null };
+  const nv = (id, lo, hi, d) => Math.max(lo, Math.min(hi, Math.round(+(g(id) ? g(id).value : d) || 0)));
+  const mt = id => g(id) && ["tag", "part", "exact"].includes(g(id).value) ? g(id).value : "tag", tx = id => g(id) ? g(id).value.trim().slice(0, 40) : "";
+  const more = { cycle: g("mkCycle") && g("mkCycle").checked ? { n: nv("mkCycleN", 0, 20, 1) } : null,
+    invade: g("mkInvade") && g("mkInvade").checked && tx("mkInvadeName") ? { match: mt("mkInvadeMatch"), name: tx("mkInvadeName") } : null,
+    atkChance: g("mkAch") && g("mkAch").checked && tx("mkAchName") ? { match: mt("mkAchMatch"), name: tx("mkAchName") } : null,
+    graveSum: g("mkGSum") && g("mkGSum").checked ? { n: nv("mkGSumN", 0, 20, 3) } : null,
+    cryst: g("mkCryst") && g("mkCryst").checked ? { n: nv("mkCrystN", 0, 20, 1), k: nv("mkCrystK", 1, 9, 2) } : null,
+    countdown: g("mkCd") && g("mkCd").checked ? nv("mkCdK", 1, 9, 3) : null,
+    psychic: g("mkPsy") && g("mkPsy").checked || null,
+    tax: g("mkTax") && g("mkTax").checked ? { n: nv("mkTaxN", 1, 9, 1), what: ["any", "magic", "monster", "trap"].includes(g("mkTaxWhat").value) ? g("mkTaxWhat").value : "any" } : null };
+  const t = typeof MK !== "undefined" ? MK.type : "";
+  if (t !== "monster"){ more.invade = null; more.graveSum = null; more.cryst = null; more.psychic = null; }
+  if (t !== "magic") more.atkChance = null;
+  if (t !== "magic" && t !== "trap") more.countdown = null;
+  return { ...more, sbCost: sb || null, gz: g("mkGz").checked && g("mkGzWhere").value === "none" ? { where: "none" } : g("mkGz").checked && gzName ? { where: g("mkGzWhere").value, match: g("mkGzMatch").value, name: gzName.slice(0, 40), cnt: Math.max(1, Math.min(20, Math.round(+g("mkGzCnt").value || 1))) } : null, delve: g("mkDelve").checked || null, revG: g("mkRevG") && g("mkRevG").checked && (typeof MK === "undefined" || MK.type === "magic") ? Math.max(0, Math.min(20, Math.round(+g("mkRevGN").value || 0))) : null, revo: g("mkRevo").checked && rvName && (typeof MK === "undefined" || MK.type === "monster") ? { match: g("mkRevoMatch").value, name: rvName.slice(0, 40) } : null, dmEvo: g("mkDmEvo") && g("mkDmEvo").checked && deName && (typeof MK === "undefined" || MK.type === "monster") ? { match: g("mkDmEvoMatch").value, name: deName.slice(0, 40) } : null, mugetsu: g("mkMug") && g("mkMug").checked && mgName && (typeof MK === "undefined" || MK.type === "monster") && (+g("mkMugF").value || 0) + (+g("mkMugG").value || 0) > 0 ? { match: g("mkMugMatch").value, name: mgName.slice(0, 40), nf: Math.max(0, Math.min(5, Math.round(+g("mkMugF").value || 0))), ng: Math.max(0, Math.min(10, Math.round(+g("mkMugG").value || 0))) } : null };
 }
 // G・ゼロ: 条件なしなら名前の欄はかくす／カード名のときは名前の候補を出す
 // コストの欄: チェックを入れたときだけ細かい設定を出す・カードの種類で使えない行はかくす
@@ -413,8 +427,9 @@ function syncCostUI(){
   document.querySelectorAll(".cost-sub[data-sub]").forEach(el => { const cb = document.getElementById(el.dataset.sub); el.hidden = !!cb && !cb.checked; });
   const t = typeof MK !== "undefined" ? MK.type : "", r1 = document.getElementById("revGLine"), r2 = document.getElementById("revoLine"), r3 = document.getElementById("dmEvoLine"), r4 = document.getElementById("mugLine"), g = document.getElementById("costSpGrp");
   if (r1) r1.hidden = t !== "magic"; if (r2) r2.hidden = t !== "monster"; if (r3) r3.hidden = t !== "monster"; if (r4) r4.hidden = t !== "monster"; if (g) g.hidden = !!(r1 && r1.hidden && r2 && r2.hidden);
+  { const vis = (id, on) => { const el = document.getElementById(id); if (el) el.hidden = !on; }; vis("invadeLine", t === "monster"); vis("gsumLine", t === "monster"); vis("crystLine", t === "monster"); vis("psyLine", t === "monster"); vis("achLine", t === "magic"); vis("cdLine", t === "magic" || t === "trap"); vis("cycleLine", t !== "equip" || true); }
 }
-["mkGz", "mkRevG", "mkRevo", "mkDmEvo", "mkMug"].forEach(id => { const el = document.getElementById(id); if (el) el.addEventListener("change", syncCostUI); });
+["mkGz", "mkRevG", "mkRevo", "mkDmEvo", "mkMug", "mkCycle", "mkInvade", "mkAch", "mkGSum", "mkCryst", "mkCd", "mkPsy", "mkTax"].forEach(id => { const el = document.getElementById(id); if (el) el.addEventListener("change", syncCostUI); });
 function syncGz(){ const g = id => document.getElementById(id); if (!g("mkGzWhere")) return; const none = g("mkGzWhere").value === "none"; document.querySelectorAll(".gz-c").forEach(el => { el.hidden = none; }); const m = g("mkGzMatch").value; g("mkGzName").setAttribute("list", m === "tag" ? "tagNames" : "cardNames"); g("mkGzName").placeholder = m === "tag" ? "例: 竜" : m === "exact" ? "カード名" : "名前に入る文字"; }
 ["mkGzWhere", "mkGzMatch"].forEach(id => { const el = document.getElementById(id); if (el) el.addEventListener("change", syncGz); });
 function setCostMech(c){
@@ -422,6 +437,15 @@ function setCostMech(c){
   g("mkSbCost").value = String(c && +c.sbCost > 0 ? +c.sbCost : 0);
   const gz = c && c.gz; g("mkGz").checked = !!(gz && (gz.name || gz.where === "none")); g("mkGzWhere").value = gz && ["field", "grave", "hand", "none"].includes(gz.where) ? gz.where : "field"; g("mkGzMatch").value = gz && ["tag", "part", "exact"].includes(gz.match) ? gz.match : "tag"; g("mkGzName").value = gz ? gz.name || "" : ""; g("mkGzCnt").value = String(gz ? Math.max(1, +gz.cnt || 1) : 1); syncGz(); setTimeout(syncCostUI);
   g("mkDelve").checked = !!(c && c.delve); if (g("mkRevG")){ g("mkRevG").checked = !!(c && c.revG != null); g("mkRevGN").value = String(c && c.revG != null ? Math.max(0, +c.revG || 0) : 3); }
+  { const on = (id, v) => { if (g(id)) g(id).checked = !!v; }, val = (id, v) => { if (g(id)) g(id).value = String(v); };
+    on("mkCycle", c && c.cycle); val("mkCycleN", c && c.cycle ? +c.cycle.n || 0 : 1);
+    on("mkInvade", c && c.invade && c.invade.name); val("mkInvadeMatch", c && c.invade && c.invade.match || "tag"); val("mkInvadeName", c && c.invade ? c.invade.name || "" : "");
+    on("mkAch", c && c.atkChance && c.atkChance.name); val("mkAchMatch", c && c.atkChance && c.atkChance.match || "tag"); val("mkAchName", c && c.atkChance ? c.atkChance.name || "" : "");
+    on("mkGSum", c && c.graveSum); val("mkGSumN", c && c.graveSum ? +c.graveSum.n || 0 : 3);
+    on("mkCryst", c && c.cryst); val("mkCrystN", c && c.cryst ? +c.cryst.n || 0 : 1); val("mkCrystK", c && c.cryst ? +c.cryst.k || 2 : 2);
+    on("mkCd", c && c.countdown); val("mkCdK", c && c.countdown ? +c.countdown : 3);
+    on("mkPsy", c && c.psychic);
+    on("mkTax", c && c.tax); val("mkTaxN", c && c.tax ? +c.tax.n || 1 : 1); val("mkTaxWhat", c && c.tax && c.tax.what || "any"); }
   const rv = c && c.revo; g("mkRevo").checked = !!(rv && rv.name); g("mkRevoMatch").value = rv && ["tag", "part", "exact"].includes(rv.match) ? rv.match : "tag"; g("mkRevoName").value = rv ? rv.name || "" : "";
   const de = c && c.dmEvo; if (g("mkDmEvo")){ g("mkDmEvo").checked = !!(de && de.name); g("mkDmEvoMatch").value = de && ["tag", "part", "exact"].includes(de.match) ? de.match : "tag"; g("mkDmEvoName").value = de ? de.name || "" : ""; syncDmEvo(); }
   const mg = c && c.mugetsu; if (g("mkMug")){ g("mkMug").checked = !!(mg && mg.name); g("mkMugMatch").value = mg && ["tag", "part", "exact"].includes(mg.match) ? mg.match : "tag"; g("mkMugName").value = mg ? mg.name || "" : "魔導具"; g("mkMugF").value = String(mg ? Math.max(0, +mg.nf || 0) : 2); g("mkMugG").value = String(mg ? Math.max(0, +mg.ng || 0) : 2); syncMug(); }
@@ -430,4 +454,4 @@ function syncDmEvo(){ const g = id => document.getElementById(id); if (!g("mkDmE
 (() => { const el = document.getElementById("mkDmEvoMatch"); if (el) el.addEventListener("change", syncDmEvo); })();
 function syncMug(){ const g = id => document.getElementById(id); if (!g("mkMugMatch")) return; const m = g("mkMugMatch").value; g("mkMugName").setAttribute("list", m === "tag" ? "tagNames" : "cardNames"); }
 (() => { const el = document.getElementById("mkMugMatch"); if (el) el.addEventListener("change", syncMug); })();
-["mkSbCost", "mkGz", "mkGzWhere", "mkGzMatch", "mkGzName", "mkGzCnt", "mkDelve", "mkRevG", "mkRevGN", "mkRevo", "mkRevoMatch", "mkRevoName", "mkDmEvo", "mkDmEvoMatch", "mkDmEvoName", "mkMug", "mkMugMatch", "mkMugName", "mkMugF", "mkMugG"].forEach(id => { const el = document.getElementById(id); if (el){ el.addEventListener("input", () => { if (typeof updateBkText === "function") updateBkText(); }); el.addEventListener("change", () => { if (typeof updateBkText === "function") updateBkText(); }); } });
+["mkCycle", "mkCycleN", "mkInvade", "mkInvadeMatch", "mkInvadeName", "mkAch", "mkAchMatch", "mkAchName", "mkGSum", "mkGSumN", "mkCryst", "mkCrystN", "mkCrystK", "mkCd", "mkCdK", "mkPsy", "mkTax", "mkTaxN", "mkTaxWhat", "mkSbCost", "mkGz", "mkGzWhere", "mkGzMatch", "mkGzName", "mkGzCnt", "mkDelve", "mkRevG", "mkRevGN", "mkRevo", "mkRevoMatch", "mkRevoName", "mkDmEvo", "mkDmEvoMatch", "mkDmEvoName", "mkMug", "mkMugMatch", "mkMugName", "mkMugF", "mkMugG"].forEach(id => { const el = document.getElementById(id); if (el){ el.addEventListener("input", () => { if (typeof updateBkText === "function") updateBkText(); }); el.addEventListener("change", () => { if (typeof updateBkText === "function") updateBkText(); }); } });

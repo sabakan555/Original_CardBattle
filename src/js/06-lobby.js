@@ -54,7 +54,7 @@ function renderPlay(){
 }
 $("#rejoin").addEventListener("click", e => { if (e.target.closest("#btnRejoin")){ const l = ls.get("cb_last3", null); if (l) joinRoom(l.code); } });
 
-function isEx(c){ return !!(c && (c.ex || sxOf(c))); }
+function isEx(c){ return !!(c && (c.ex || c.psychic || sxOf(c))); }
 function newPlayer(deckIds, name, mana, spire){
   const deck = shuffle(deckIds.filter(id => !isEx(card(id)))); deck.splice(0, deck.length, ...innateTop(deck)); const hand = deck.splice(0, 5), ex = deckIds.filter(id => isEx(card(id)));
   const p = { name: name || S.name, lp: START_LP, deck, hand, grave: [], mz: Array(ZONES).fill(null), sz: Array(ZONES).fill(null), mana: mana ? { max: 0, cur: 0 } : null, ...(mana === "zone" || mana === "land" ? { manaZ: [], charged: false, ...(mana === "land" ? { landOnly: true } : {}) } : {}), sleeve: name ? null : (mySleeve() || null), deckIds: [...deckIds], ex };

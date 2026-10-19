@@ -15,7 +15,7 @@ const ATK_REPLY = ["negate", "atkDownAtk", "dmgAtkAtk", "killAtk"];
 const isAtkReply = fx => !!fx && (ATK_REPLY.includes(fx.kind) || !!(FX_FORMS[fx.kind] && FX_FORMS[fx.kind].atkReply && FX_FORMS[fx.kind].atkReply(fx)));
 const EQ_TRIGS = ["attach", "attack", "turnStart", "turnEnd", "oppTurnStart", "oppTurnEnd", "destroyed", "battleLose"];
 // 永続魔法・永続罠 (スパイア風 のパワー): stay face-up in the magic/trap zone; their effect fires on one of these
-const PERSIST_TRIG_LABEL = { use: "発動したとき", while: "場にある間", anyUse: "魔法・罠が発動したとき", oppAttack: "相手が攻撃してきたとき", turnStart: "自分のターンのはじめ", turnEnd: "自分のターンのおわり", oppTurnStart: "相手のターンのはじめ", oppTurnEnd: "相手のターンのおわり", manaPut: "自分のマナゾーンにカードが置かれるたび（上陸）", mySummon: "自分がモンスターを召喚するたび", oppSummonT: "相手がモンスターを召喚するたび", anySummonT: "どちらかがモンスターを召喚するたび", myPut: "自分の場にモンスターが出されるたび（特殊召喚）", oppPut: "相手の場にモンスターが出されるたび（特殊召喚）", anyPut: "どちらかの場にモンスターが出されるたび（特殊召喚）", exhaust: "自分のカードが廃棄されるたび", monDestroyed: "モンスターが破壊されるたび", myLoseLp: "自分のターンにLPを失うたび", blockGain: "自分がブロックを得るたび", vulnApply: "相手に弱体を付与するたび", atkPlay: "自分がアタックを使うたび" };
+const PERSIST_TRIG_LABEL = { use: "発動したとき", while: "場にある間", anyUse: "魔法・罠が発動したとき", oppAttack: "相手が攻撃してきたとき", turnStart: "自分のターンのはじめ", turnEnd: "自分のターンのおわり", oppTurnStart: "相手のターンのはじめ", oppTurnEnd: "相手のターンのおわり", cdEnd: "カウントダウンが0になったとき", manaPut: "自分のマナゾーンにカードが置かれるたび（上陸）", mySummon: "自分がモンスターを召喚するたび", oppSummonT: "相手がモンスターを召喚するたび", anySummonT: "どちらかがモンスターを召喚するたび", myPut: "自分の場にモンスターが出されるたび（特殊召喚）", oppPut: "相手の場にモンスターが出されるたび（特殊召喚）", anyPut: "どちらかの場にモンスターが出されるたび（特殊召喚）", exhaust: "自分のカードが廃棄されるたび", monDestroyed: "モンスターが破壊されるたび", myLoseLp: "自分のターンにLPを失うたび", blockGain: "自分がブロックを得るたび", vulnApply: "相手に弱体を付与するたび", atkPlay: "自分がアタックを使うたび" };
 const PERSIST_TRIGS = Object.keys(PERSIST_TRIG_LABEL);
 // レリック (カード以外): always on; 「手に入れたとき」 + the same timings as 永続 cards
 const RELIC_TRIG_LABEL = { gain: "手に入れたとき", ...Object.fromEntries(Object.entries(PERSIST_TRIG_LABEL).filter(([k]) => k !== "use" && k !== "while")) };
@@ -23,7 +23,7 @@ const RELIC_TRIGS = Object.keys(RELIC_TRIG_LABEL);
 const cannotLeave = id => !!(card(id) && card(id).cannotLeave);
 const monCannotLeave = m => !!(m && (cannotLeave(m.c) || (m.evoU || []).some(x => cannotLeave(x.c))));
 const fieldAbilityText = c => c ? [c.startOnField ? "《ゲーム開始時に場へ置く》" : "", c.cannotLeave ? "《場から離れない》" : "", c.noNeg ? "《打ち消されない》" : ""].filter(Boolean).join("。") : "";
-const isPersist = c => !!(c && (c.persist || c.cannotLeave) && !c.field && (cardType(c) === "magic" || cardType(c) === "trap"));
+const isPersist = c => !!(c && (c.persist || c.cannotLeave || +c.countdown > 0) && !c.field && (cardType(c) === "magic" || cardType(c) === "trap"));
 // フィールド魔法: お互いに1枚だけ（場に1枚）。新しいフィールドが出ると、前のフィールドは持ち主の墓地へ。効果はどちらのプレイヤーにも効く
 const isField = c => !!(c && c.field && cardType(c) === "magic");
 const FIELD_TRIG_LABEL = { use: "出したとき", turnStart: "それぞれのターンのはじめ", turnEnd: "それぞれのターンのおわり", while: "場にある間", anyUse: "魔法・罠が発動したとき" };
@@ -322,7 +322,7 @@ const KW_DESC = {
   "変身": "破壊・手札戻し・除外・マナ送りで場を離れるとき、かわりに（ ）のカードに変身して同じ場所に残る。装備・カウンターはそのまま、ATKの増減とダメージはリセット。生贄やコストで墓地へ送るときは変身しない",
   "成長": "（ ）の条件を満たすと、そのカードに変化する。攻撃の回数はそのターンのおわりに、ターンの数は自分のターンのはじめに数える",
   "フラッシュバック": "墓地からもう1回だけ使える（自分のターンに、手札の下に出るボタンから）。使ったあとは廃棄される",
-  "キッカー": "コストデッキで、コストに（ ）のマナを足して払うと「もし：キッカーを払った」の効果が出る", "エンハンス": "コストデッキで、（ ）のマナを足して払えるときは自動で払い、「もし：キッカーを払った」の効果が出る", "マナ武装": "自分のマナゾーンに、その属性のカードが決まった枚数以上あると出る効果", "上陸": "自分のマナゾーンにカードが置かれるたびに出る効果",
+  "キッカー": "コストデッキで、コストに（ ）のマナを足して払うと「もし：キッカーを払った」の効果が出る", "エンハンス": "コストデッキで、（ ）のマナを足して払えるときは自動で払い、「もし：キッカーを払った」の効果が出る", "マナ武装": "自分のマナゾーンに、その属性のカードが決まった枚数以上あると出る効果", "マッドネス": "このモンスターが手札から捨てられたとき、コストを払わずに特殊召喚される", "サイクリング": "手札からこのカードを捨てて、カードを1枚引ける（マナがいるときもある）", "侵略": "決まったモンスターが攻撃するとき、手札からその上に重ねて出し、そのまま攻撃する", "アタック・チャンス": "決まったモンスターが攻撃するとき、手札からこの魔法をタダで使える", "結晶": "安いコストで魔法・罠ゾーンに置き、カウントダウンが0になると場に出る", "カウントダウン": "自分のターンのはじめに1減り、0になると破壊される", "超次元": "EXデッキに入り、場を離れるとEXデッキに戻るモンスター", "アクセラレート": "モンスターのコストが払えないときだけ、魔法側として使える", "上陸": "自分のマナゾーンにカードが置かれるたびに出る効果",
   "S・トリガー": "相手に直接攻撃を宣言されたとき、山札の一番上がこのカードなら、ダメージを受ける前にコストを払わずに使う（モンスターは召喚、魔法・罠は発動）"
 };
 const kwStr = a => `《${ABS[a.k].kw}》${ABS[a.k].kwx ? ABS[a.k].kwx(a.n || 0, a.name || "", a) : ""}`;
@@ -1086,7 +1086,8 @@ const payDiscOf = c => c && c.payDisc > 0 ? Math.round(+c.payDisc) : 0;
 // 「手札をすべて捨てる」 (payDisc -1): the rest of the hand goes, however many that is (0 is fine too)
 const payDiscAll = c => !!(c && +c.payDisc === -1);
 const payMaxOf = c => c && c.payMax > 0 ? Math.round(+c.payMax) : 0;
-// スペルブースト（コスト）・G・ゼロ・探査
+// スペルブースト（コスト）・G・ゼロ・探査（＋そのほかの使い方）
+const twOf0 = c => c && c.tw && typeof c.tw === "object" && !c.twOf && cardType(c) === "monster" ? c.tw : null;
 function costMechText(c){
   if (!c) return ""; const L = [];
   if (+c.sbCost > 0) L.push(`【スペルブースト】手札にある間、自分が魔法を使うたびに、このカードのコスト−${c.sbCost}`);
@@ -1094,6 +1095,16 @@ function costMechText(c){
   else if (c.gz && String(c.gz.name || "").trim()){ const g = c.gz, n = Math.max(1, +g.cnt || 1); L.push(`【G・ゼロ】自分の${WHERE[g.where] || WHERE.field}に${g.match === "part" ? `名前に「${g.name}」が入ったカード` : g.match === "exact" ? `「${g.name}」` : `タグ「${g.name}」のカード`}が${n > 1 ? n + "枚以上" : ""}あれば、コストを払わずに使える`); }
   if (c.revG != null && cardType(c) === "magic") L.push(`【逆転劇 ${+c.revG || 0}】相手のモンスターが自分に直接攻撃するとき、その攻撃中に1回、手札からこのカードをコストを払わずに使ってよい。そうしたら、次の自分のターンのはじめにマナを${+c.revG || 0}払う。払えなければ、自分はゲームに負ける`);
   if (c.delve) L.push("【探査】マナで払いきれないぶん、自分の墓地のカードを1枚除外するごとにコスト−1");
+  const hit = r => r && r.match === "exact" ? `「${r.name}」` : r && r.match === "part" ? `名前に「${r.name}」が入った` : `タグ「${r && r.name}」の`;
+  if (c.cycle) L.push(`【サイクリング ${+c.cycle.n || 0}】手札からこのカードを捨てて、カードを1枚引く${+c.cycle.n > 0 ? `（マナ${+c.cycle.n}）` : ""}`);
+  if (c.invade && c.invade.name && cardType(c) === "monster") L.push(`【侵略】自分の${hit(c.invade)}モンスターが攻撃するとき、手札からこのカードをそのモンスターの上に重ねて出してよい（そのまま攻撃する）`);
+  if (c.atkChance && c.atkChance.name && cardType(c) === "magic") L.push(`【アタック・チャンス】自分の${hit(c.atkChance)}モンスターが攻撃するとき、手札からこのカードをコストを払わずに使ってよい`);
+  if (c.graveSum && cardType(c) === "monster") L.push(`【墓地から】自分のターンに、マナを${+c.graveSum.n || 0}払って、墓地からこのカードを特殊召喚できる`);
+  if (c.cryst && cardType(c) === "monster") L.push(`【結晶 ${+c.cryst.n || 0}】マナを${+c.cryst.n || 0}払って、魔法・罠ゾーンにカウントダウン${+c.cryst.k || 2}で置ける。0になったら場に出る`);
+  if (c.countdown && (cardType(c) === "magic" || cardType(c) === "trap")) L.push(`【カウントダウン ${+c.countdown}】自分のターンのはじめに1減る。0になったら破壊される`);
+  if (c.psychic && cardType(c) === "monster") L.push("【超次元】EXデッキに入る。場を離れるときは、かわりにEXデッキに戻る");
+  if (c.tax && +c.tax.n > 0) L.push(`【コスト増加】このカードが場にある間、相手の${{ magic: "魔法", monster: "モンスター", trap: "罠" }[c.tax.what] || "カード"}のコスト+${+c.tax.n}`);
+  { const t = twOf0(c); if (t && t.accel) L.push("【アクセラレート】モンスターのコストが払えないときだけ、魔法側として使える"); }
   return L.join("。");
 }
 // 革命チェンジ
@@ -1114,7 +1125,7 @@ function whenText(c){ const w = whenOf(c); return w ? `【${WHEN_LABEL[w]}に発
 function fusionMatText(x){ return x.m === "any" ? "モンスター" : x.m === "tag" ? `タグ「${x.v || "？"}」のモンスター` : `「${x.v || "？"}」`; }
 function fusionText(c){ return c && cardType(c) === "monster" && Array.isArray(c.fusion) && c.fusion.length ? `【融合】${c.fusion.map(fusionMatText).join("＋")}` : ""; }
 const spOptText = c => !c ? "" : [c.strig && cardType(c) !== "equip" ? "《S・トリガー》" : "", c.flashback && cardType(c) === "magic" ? "《フラッシュバック》" : "", (cardType(c) === "magic" || cardType(c) === "trap") && +c.kick > 0 ? (c.kickAuto ? `《エンハンス》（${+c.kick}）` : `《キッカー》（${+c.kick}）`) : ""].join("");
-function fxText(c, detail = false){ const t = fxTextB(c, detail), k = c ? (cascadeOn(c) ? "《続唱》" + (c.cascT === "monster" ? "（モンスター）" : c.cascT === "magic" ? "（魔法）" : "") : "") + glKw(c) + hfKw(c) + (c.innate ? "《天賦》" : "") + (c.retain ? "《保留》" : "") + (c.ethereal ? "《エセリアル》" : "") + (c.sly ? "《スライ》" : "") : ""; return k ? k + (t ? (detail ? "。\n" : "。") + t : "") : t; }
+function fxText(c, detail = false){ const t = fxTextB(c, detail), k = c ? (cascadeOn(c) ? "《続唱》" + (c.cascT === "monster" ? "（モンスター）" : c.cascT === "magic" ? "（魔法）" : "") : "") + glKw(c) + hfKw(c) + (c.innate ? "《天賦》" : "") + (c.retain ? "《保留》" : "") + (c.ethereal ? "《エセリアル》" : "") + (c.sly ? (cardType(c) === "monster" ? "《マッドネス》" : "《スライ》") : "") : ""; return k ? k + (t ? (detail ? "。\n" : "。") + t : "") : t; }
 function fxTextB(c, detail = false){ return (c && c.token && cardType(c) !== "monster" ? "【トークン】" : "") + (c && c.ex && cardType(c) !== "monster" ? "【EX】" : "") + (c && !c.noUse ? whenText(c) : "") + [fieldAbilityText(c), fusionText(c) ? fusionText(c) + (isCf(c) ? "（自分の場の素材を墓地へ送れば、「融合」なしでEXデッキから出せる）" : "（「融合召喚」の効果でだけ出せる）") : "", sxText(c), twText(c), c && c.mland ? "【《土地》】発動できない。マナゾーンに置くと、置いたターンからマナとして使える（多色でもタップしない）" : c && c.noUse && (cardType(c) === "magic" || cardType(c) === "trap") ? "このカードは発動できない" : "", isPersist(c) ? "【永続】使ったあとも場に残る" : "", spOptText(c), isField(c) ? `【フィールド】お互いに1枚だけ場に置ける（新しいフィールドが出ると、前のフィールドは墓地へ）。${fieldMine(c) ? "効果は出した人にだけ効く" : "効果はお互いに効く"}` : "", useCondText(c), extraCostText(c), costMechText(c), dmEvoText(c), mugText(c), revoText(c), tribText(c), massText(c), anySumText(c), atkCondText(c), ssText(c), fxText0(c, detail)].filter(Boolean).join(detail ? "。\n" : "。"); }
 /* ================= effect blocks: いつ / もし / なにを / ちがったら =================
    c.blocks = [{ trig, conds: [{k, op, n | name, where, match | text}], join: "and"|"or", then: [{kind, n, to}], else: [...] }]
@@ -1323,7 +1334,7 @@ function blocksOf(c){
   if (!c) return [];
   if (Array.isArray(c.blocks)) return c.blocks.filter(b => b && typeof b === "object").map(b => ({
     trig: normTrig(c, b.trig), join: b.join === "or" ? "or" : "and", roll: b.roll === "die" || b.roll === "coin" || b.roll === "gj" || b.roll === "pgj" ? b.roll : "", faces: Math.max(2, Math.min(100, Math.round(+b.faces || 6))), ...(b.roll === "coin" && +b.coins > 1 ? { coins: Math.min(10, Math.round(+b.coins)) } : {}), delay: Math.max(0, Math.min(9, Math.round(+b.delay || 0))), ...(b.delayDie ? { delayDie: true } : {}),
-    ...(b.trig === "act" ? { ap: b.ap === "game" || b.ap === "free" ? b.ap : "turn", an: Math.max(1, Math.min(9, Math.round(+b.an || 1))) } : {}),
+    ...(b.trig === "act" ? { ap: b.ap === "game" || b.ap === "free" ? b.ap : "turn", an: Math.max(1, Math.min(9, Math.round(+b.an || 1))), ...(b.aq ? { aq: true } : {}) } : {}),
     ...(+b.lim > 0 && b.trig !== "act" && b.trig !== "while" ? { lim: Math.min(9, Math.round(+b.lim)) } : {}),
     ...(b.trig === "ctrReach" ? { rc: String(b.rc || ctrDefault()), rn: Math.max(1, Math.min(99, Math.round(+b.rn || 1))), rw: b.rw === "me" ? "me" : "self" } : {}),
     ...(b.trig === "act" && b.cost && b.cost.id && +b.cost.n > 0 ? { cost: { id: String(b.cost.id), n: Math.min(99, Math.round(+b.cost.n)), w: b.cost.w === "me" || b.cost.w === "field" ? b.cost.w : "self" } } : {}),
