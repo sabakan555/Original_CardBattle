@@ -907,7 +907,7 @@ const TRIG_HELP = { summon: "手札から召喚したとき（効果で出した
 // 「1ターンに○度だけ」がいらないタイミング（もともと1回しか出ない）
 // 「場にいる間」では見られない条件（カードを使ったその瞬間・キッカー）
 const WHILE_NG_CONDS = ["used", "kicked"];
-const NO_LIM = ["summon", "ssummon", "enter", "destroyed", "evolve", "turnStart", "turnEnd", "use", "attach"];
+const NO_LIM = ["summon", "ssummon", "enter", "destroyed", "evolve", "turnStart", "turnEnd", "oppTurnStart", "oppTurnEnd", "use", "attach"];
 // フラッシュバック（魔法だけ）・S・トリガー・キッカー
 function mkSpOpts(){ const sp = MK.type === "magic" || MK.type === "trap", k = Math.max(0, Math.min(99, Math.round(+$("#mkKick").value || 0))); return { ...(sp && MK.type === "magic" && $("#mkFlash").checked ? { flashback: true } : {}), ...(MK.kind !== "potion" && MK.kind !== "relic" && MK.type !== "equip" && $("#mkStrig").checked ? { strig: true } : {}), ...(sp && k ? { kick: k } : {}) }; }
 // 要求質量: モンスターは召喚のとき、フィールド魔法は発動のとき
