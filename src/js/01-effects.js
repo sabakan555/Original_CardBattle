@@ -28,10 +28,19 @@ const isPersist = c => !!(c && (c.persist || c.cannotLeave) && !c.field && (card
 const isField = c => !!(c && c.field && cardType(c) === "magic");
 const FIELD_TRIG_LABEL = { use: "出したとき", turnStart: "それぞれのターンのはじめ", turnEnd: "それぞれのターンのおわり", while: "場にある間", anyUse: "魔法・罠が発動したとき" };
 const FIELD_TRIGS = Object.keys(FIELD_TRIG_LABEL);
-// 「効果は出した人にだけ効く」フィールド（例: 空集合）: ターンのはじめ・おわりは出した人のターンだけ
-const fieldMine = c => !!(c && c.fieldMine && isField(c));
+// フィールドの効果がだれに効くか: "both"（お互い）／"mine"（出した人だけ・例: 空集合）／"opp"（出した人の相手だけ）
+const FIELD_SIDE_LABEL = { both: "お互い", mine: "自分のみ", opp: "相手のみ" };
+const fieldSide = c => !isField(c) ? "both" : c.fieldMine ? "mine" : c.fieldOpp ? "opp" : "both";
+const fieldMine = c => fieldSide(c) === "mine";
+// 場のフィールドの効果を、プレイヤー s が使うか（お互いなら両方）
+const fieldFor = (st, s) => { if (!st || !st.field) return false; const sd = fieldSide(card(st.field.c)); return sd === "both" || (sd === "mine" ? st.field.o === s : st.field.o !== s); };
+// フィールドの効果を使う側（お互い・自分のみ→出した人、相手のみ→その相手）
+const fieldUser = st => st && st.field ? (fieldSide(card(st.field.c)) === "opp" ? (st.field.o === "a" ? "b" : "a") : st.field.o) : null;
 const FIELD_MINE_LABEL = { ...FIELD_TRIG_LABEL, turnStart: "自分のターンのはじめ", turnEnd: "自分のターンのおわり" };
-const fieldTrigLabel = (c, trig) => (fieldMine(c) ? FIELD_MINE_LABEL : FIELD_TRIG_LABEL)[trig];
+const FIELD_OPP_LABEL = { ...FIELD_TRIG_LABEL, turnStart: "相手のターンのはじめ", turnEnd: "相手のターンのおわり", while: "場にある間（相手に効く）", anyUse: "相手が魔法・罠を発動したとき" };
+const fieldTrigLabel = (c, trig) => ({ mine: FIELD_MINE_LABEL, opp: FIELD_OPP_LABEL }[fieldSide(c)] || FIELD_TRIG_LABEL)[trig];
+// 「相手のみ」のフィールドは相手の立場で効果を使うので、カードの文は出した人から見て「自分」と「相手」を入れかえる
+const swapSelfOpp = s => String(s).replace(/自分|相手/g, w => w === "自分" ? "相手" : "自分");
 const EQ_TRIG_LABEL = { attack: "装備したモンスターが攻撃するとき", destroyed: "装備したモンスターが破壊されたとき", battleLose: "装備したモンスターがバトルに負けたとき" };
 const trigLabel = (t, k) => (t === "equip" && EQ_TRIG_LABEL[k]) || TRIGS[k];
 const OLD_TRIG = { open: "summon", win: "kill", lose: "destroyed" };
@@ -1086,7 +1095,7 @@ function fusionMatText(x){ return x.m === "any" ? "モンスター" : x.m === "t
 function fusionText(c){ return c && cardType(c) === "monster" && Array.isArray(c.fusion) && c.fusion.length ? `【融合】${c.fusion.map(fusionMatText).join("＋")}` : ""; }
 const spOptText = c => !c ? "" : [c.strig && cardType(c) !== "equip" ? "《S・トリガー》" : "", c.flashback && cardType(c) === "magic" ? "《フラッシュバック》" : "", (cardType(c) === "magic" || cardType(c) === "trap") && +c.kick > 0 ? `《キッカー》（${+c.kick}）` : ""].join("");
 function fxText(c, detail = false){ const t = fxTextB(c, detail), k = c ? (cascadeOn(c) ? "《続唱》" + (c.cascT === "monster" ? "（モンスター）" : c.cascT === "magic" ? "（魔法）" : "") : "") + glKw(c) + hfKw(c) + (c.innate ? "《天賦》" : "") + (c.retain ? "《保留》" : "") + (c.ethereal ? "《エセリアル》" : "") + (c.sly ? "《スライ》" : "") : ""; return k ? k + (t ? (detail ? "。\n" : "。") + t : "") : t; }
-function fxTextB(c, detail = false){ return (c && c.token && cardType(c) !== "monster" ? "【トークン】" : "") + (c && c.ex && cardType(c) !== "monster" ? "【EX】" : "") + (c && !c.noUse ? whenText(c) : "") + [fieldAbilityText(c), fusionText(c) ? fusionText(c) + (isCf(c) ? "（自分の場の素材を墓地へ送れば、「融合」なしでEXデッキから出せる）" : "（「融合召喚」の効果でだけ出せる）") : "", sxText(c), twText(c), c && c.mland ? "【《土地》】発動できない。マナゾーンに置くと、置いたターンからマナとして使える（多色でもタップしない）" : c && c.noUse && (cardType(c) === "magic" || cardType(c) === "trap") ? "このカードは発動できない" : "", isPersist(c) ? "【永続】使ったあとも場に残る" : "", spOptText(c), isField(c) ? `【フィールド】お互いに1枚だけ場に置ける（新しいフィールドが出ると、前のフィールドは墓地へ）。${fieldMine(c) ? "効果は出した人にだけ効く" : "効果はお互いに効く"}` : "", useCondText(c), extraCostText(c), costMechText(c), dmEvoText(c), mugText(c), revoText(c), tribText(c), massText(c), anySumText(c), atkCondText(c), ssText(c), fxText0(c, detail)].filter(Boolean).join(detail ? "。\n" : "。"); }
+function fxTextB(c, detail = false){ return (c && c.token && cardType(c) !== "monster" ? "【トークン】" : "") + (c && c.ex && cardType(c) !== "monster" ? "【EX】" : "") + (c && !c.noUse ? whenText(c) : "") + [fieldAbilityText(c), fusionText(c) ? fusionText(c) + (isCf(c) ? "（自分の場の素材を墓地へ送れば、「融合」なしでEXデッキから出せる）" : "（「融合召喚」の効果でだけ出せる）") : "", sxText(c), twText(c), c && c.mland ? "【《土地》】発動できない。マナゾーンに置くと、置いたターンからマナとして使える（多色でもタップしない）" : c && c.noUse && (cardType(c) === "magic" || cardType(c) === "trap") ? "このカードは発動できない" : "", isPersist(c) ? "【永続】使ったあとも場に残る" : "", spOptText(c), isField(c) ? `【フィールド】お互いに1枚だけ場に置ける（新しいフィールドが出ると、前のフィールドは墓地へ）。${({ mine: "効果は出した人にだけ効く", opp: "効果は出した人の相手にだけ効く" })[fieldSide(c)] || "効果はお互いに効く"}` : "", useCondText(c), extraCostText(c), costMechText(c), dmEvoText(c), mugText(c), revoText(c), tribText(c), massText(c), anySumText(c), atkCondText(c), ssText(c), fxText0(c, detail)].filter(Boolean).join(detail ? "。\n" : "。"); }
 /* ================= effect blocks: いつ / もし / なにを / ちがったら =================
    c.blocks = [{ trig, conds: [{k, op, n | name, where, match | text}], join: "and"|"or", then: [{kind, n, to}], else: [...] }]
    Older cards (c.fx + c.combo) are read as blocks too, so everything below runs on blocks. */
@@ -1359,7 +1368,8 @@ function blockText(c, b, detail = false){
   let s = (b.cont ? "さらに、" : limHead(head, b)) + (b.necro > 0 ? `【ネクロマンス${b.necro}】` : "") + (b.delayDie ? "" : delayText(b.delay)) + (b.roll === "die" ? `サイコロ${b.faces && b.faces !== 6 ? `（${b.faces}面）` : ""}を振る。` : b.roll === "coin" ? (b.coins > 1 ? `コインを${b.coins}回投げる。` : "コインを投げる。") : b.roll === "gj" ? "ガチンコ・ジャッジする。" : b.roll === "pgj" ? "パワーガチンコ・ジャッジする。" : "") + (b.delayDie ? `出た目の数のターン後の、${c && c.ctrCard ? "乗っている側" : "自分"}のターンのはじめに：` : "") + condsText(b) + (b.then.length ? (b.one && b.then.length > 1 ? (b.oneN > 1 ? `次の中から${b.oneN}回えらぶ（同じものをえらんでもよい）：` : "次の効果から1つえらんで発動する：") + (detail ? "\n" : "") + b.then.map(e => effsText(c, [e])).join(detail ? "\nまたは、" : "、または、") : effsText(c, b.then, detail)) + (br ? (detail ? "。\n" : "。") : "") : br ? "" : "なにもしない") + brText;
   if (b.conds.length && b.else.length) s += `。${detail ? "\n" : ""}そうでなければ、${effsText(c, b.else, detail)}`;
   if (b.grant){ const pre = head + delayText(b.delay), g = b.grant; s = pre + boonText(g) + `「自分のターンの${g.at === "turnStart" ? "はじめ" : "おわり"}に、${s.slice(pre.length)}」`; }
-  if (isField(c) && !fieldMine(c)) s = s.replace(/(自分|相手)のモンスターすべて/g, "お互いのモンスターすべて");
+  if (isField(c) && fieldSide(c) === "both") s = s.replace(/(自分|相手)のモンスターすべて/g, "お互いのモンスターすべて");
+  if (isField(c) && fieldSide(c) === "opp" && b.trig !== "use" && !b.grant){ const h = b.cont ? "さらに、" : limHead(head, b); if (s.startsWith(h)) s = h + swapSelfOpp(s.slice(h.length)); }
   if (b.trig === "while") s = s.replace("このカードが場にいる限り、自分はゲームに負けない", "自分はゲームに負けない");
   return s;
 }

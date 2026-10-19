@@ -90,7 +90,7 @@ function staticAttrs(m){
   try{
     const srcs = [];
     for (const o of ["a", "b"]){ const p = P(st, o); p.mz.forEach((x, i) => { if (x) srcs.push({ o, c: monCard(x), mon: x, ctx: { zone: i, mon: { s: o, i, u: x.u } } }); }); p.sz.forEach((z, i) => { if (z && z.face && (isPersist(card(z.c)) || z.fcp)) srcs.push({ o, c: card(z.c), mon: null, ctx: { pz: i } }); }); }
-    if (st.field) srcs.push({ o: st.field.o, c: card(st.field.c), mon: null, ctx: { field: true } });
+    if (st.field) srcs.push({ o: fieldUser(st), c: card(st.field.c), mon: null, ctx: { field: true } });
     srcs.forEach(src => blocksOf(src.c).forEach(b => {
       if (b.trig !== "while") return;
       const plain = (b.conds || []).filter(x => x.k !== "ask"), ok = !plain.length || (b.join === "or" ? plain.some(x => condMet(st, src.o, src.c, x, src.ctx)) : plain.every(x => condMet(st, src.o, src.c, x, src.ctx)));
@@ -110,7 +110,7 @@ function dieWinBy(st, s, c, v){
   const p = P(st, s), srcs = [];
   p.mz.forEach((x, i) => { if (x) srcs.push({ c: monCard(x), ctx: { zone: i, mon: { s, i, u: x.u } } }); });
   p.sz.forEach((z, i) => { if (z && z.face && (isPersist(card(z.c)) || z.fcp)) srcs.push({ c: card(z.c), ctx: { pz: i } }); });
-  if (st.field && (st.field.o === s || !card(st.field.c).fieldMine)) srcs.push({ c: card(st.field.c), ctx: { field: true } });
+  if (fieldFor(st, s)) srcs.push({ c: card(st.field.c), ctx: { field: true } });
   const nm = normQ(c && c.name || "").trim();
   for (const x of srcs) for (const b of blocksOf(x.c)){
     if (b.trig !== "while") continue;
@@ -135,7 +135,7 @@ function ctrAuraSync(st){
       const p = P(st, o), srcs = [];
       p.mz.forEach((x, i) => { if (x) srcs.push({ c: monCard(x), u: x.u, mon: x, ctx: { zone: i, mon: { s: o, i, u: x.u } } }); });
       p.sz.forEach((z, i) => { if (z && z.face && (isPersist(card(z.c)) || z.fcp)) srcs.push({ c: card(z.c), u: z.u, mon: null, ctx: { pz: i } }); });
-      if (st.field && st.field.o === o) srcs.push({ c: card(st.field.c), u: "f" + st.field.u, mon: null, ctx: { field: true } });
+      if (st.field && fieldUser(st) === o) srcs.push({ c: card(st.field.c), u: "f" + st.field.u, mon: null, ctx: { field: true } });
       srcs.forEach(src => { if (src.mon && sealedM(src.mon)) return; blocksOf(src.c).forEach((b, bi) => {
         if (b.trig !== "while") return;
         const plain = b.conds.filter(x => x.k !== "ask"), ok = !plain.length || (b.join === "or" ? plain.some(x => condMet(st, o, src.c, x, src.ctx)) : plain.every(x => condMet(st, o, src.c, x, src.ctx)));
@@ -167,7 +167,7 @@ function staticAbs(st, s, m){
   staticAbs.busy = true;
   try{
     const srcs = [];
-    for (const o of ["a", "b"]){ const p = P(st, o); p.mz.forEach((x, i) => { if (x && !sealedM(x)) srcs.push({ o, c: monCard(x), mon: x, ctx: { zone: i, mon: { s: o, i, u: x.u } } }); }); p.sz.forEach((z, i) => { if (z && z.face && (isPersist(card(z.c)) || z.fcp)) srcs.push({ o, c: card(z.c), mon: null, ctx: { pz: i } }); }); if (st.field && (!card(st.field.c).fieldMine || st.field.o === o)) srcs.push({ o, c: card(st.field.c), mon: null, ctx: { field: true } }); }
+    for (const o of ["a", "b"]){ const p = P(st, o); p.mz.forEach((x, i) => { if (x && !sealedM(x)) srcs.push({ o, c: monCard(x), mon: x, ctx: { zone: i, mon: { s: o, i, u: x.u } } }); }); p.sz.forEach((z, i) => { if (z && z.face && (isPersist(card(z.c)) || z.fcp)) srcs.push({ o, c: card(z.c), mon: null, ctx: { pz: i } }); }); if (fieldFor(st, o)) srcs.push({ o, c: card(st.field.c), mon: null, ctx: { field: true } }); }
     srcs.forEach(src => blocksOf(src.c).forEach(b => {
       if (b.trig !== "while") return;
       const plain = b.conds.filter(x => x.k !== "ask"), ok = !plain.length || (b.join === "or" ? plain.some(x => condMet(st, src.o, src.c, x, src.ctx)) : plain.every(x => condMet(st, src.o, src.c, x, src.ctx)));
@@ -189,7 +189,7 @@ function staticAtk(m){
   staticAtk.busy = true;
   try{
     const srcs = [];
-    for (const o of ["a", "b"]){ const p = P(st, o); p.mz.forEach((x, i) => { if (x) srcs.push({ o, c: monCard(x), mon: x, ctx: { zone: i, mon: { s: o, i, u: x.u } } }); }); p.sz.forEach((z, i) => { if (z && z.face && (isPersist(card(z.c)) || z.fcp)) srcs.push({ o, c: card(z.c), mon: null, ctx: { pz: i } }); }); if (st.field && (!card(st.field.c).fieldMine || st.field.o === o)) srcs.push({ o, c: card(st.field.c), mon: null, ctx: { field: true } }); }
+    for (const o of ["a", "b"]){ const p = P(st, o); p.mz.forEach((x, i) => { if (x) srcs.push({ o, c: monCard(x), mon: x, ctx: { zone: i, mon: { s: o, i, u: x.u } } }); }); p.sz.forEach((z, i) => { if (z && z.face && (isPersist(card(z.c)) || z.fcp)) srcs.push({ o, c: card(z.c), mon: null, ctx: { pz: i } }); }); if (fieldFor(st, o)) srcs.push({ o, c: card(st.field.c), mon: null, ctx: { field: true } }); }
     srcs.forEach(src => blocksOf(src.c).forEach(b => {
       if (b.trig !== "while") return;
       const plain = b.conds.filter(x => x.k !== "ask"), ok = !plain.length || (b.join === "or" ? plain.some(x => condMet(st, src.o, src.c, x, src.ctx)) : plain.every(x => condMet(st, src.o, src.c, x, src.ctx)));
@@ -535,7 +535,7 @@ function noLoseBy(st, s){
   const srcs = [];
   p.mz.forEach((m, i) => { if (m) srcs.push({ c: monCard(m), ctx: { zone: i, mon: { s, i, u: m.u } } }); });
   p.sz.forEach((z, i) => { if (z && z.face && (isPersist(card(z.c)) || z.fcp)) srcs.push({ c: card(z.c), ctx: { pz: i } }); });
-  if (st.field && st.field.o === s) srcs.push({ c: card(st.field.c), ctx: { field: true } });
+  if (st.field && fieldUser(st) === s) srcs.push({ c: card(st.field.c), ctx: { field: true } });
   for (const x of srcs) for (const b of blocksOf(x.c)){
     let L = b.then || [];
     if (b.trig === "while"){ const plain = (b.conds || []).filter(y => y.k !== "ask"), ok = !plain.length || (b.join === "or" ? plain.some(y => condMet(st, s, x.c, y, x.ctx)) : plain.every(y => condMet(st, s, x.c, y, x.ctx))); L = (ok ? b.then : b.else) || []; }
@@ -1002,7 +1002,7 @@ function fireTurn(st, who, trig, then, timersDone, boonsDone){
   const L = [];
   for (const o of ["a", "b"]) P(st, o).mz.forEach((m, i) => { if (m) monTrigList(st, o, i, trig).forEach(x => { if (x.s === who && hasTrig(x.c, trig)) L.push(x); }); });
   const PL = persistList(st, who, trig, {}); PL.forEach(x => log(st, who, `${x.c.relicView ? "レリック" : "永続"}「${x.c.name}」の効果！`));
-  const fc = fieldCard(st), FL = fc && (trig === "turnStart" || trig === "turnEnd") && hasTrig(fc, trig) && (!fc.fieldMine || st.field.o === who) ? [{ s: who, c: fc, trig, ctx: { field: true } }] : [];
+  const fc = fieldCard(st), FL = fc && (trig === "turnStart" || trig === "turnEnd") && hasTrig(fc, trig) && fieldFor(st, who) ? [{ s: who, c: fc, trig, ctx: { field: true } }] : [];
   FL.forEach(x => log(st, who, `フィールド「${x.c.name}」の効果！`));
   runList(st, L.concat(PL, FL), trig === "turnStart" ? st2 => anySumAsk(st2, who, then) : then);
 }
@@ -2271,7 +2271,7 @@ function onCardUsed(st, user, c, then, exU){
     p.mz.forEach((m, i) => { if (!m) return; const mc = card(m.c), ctx = { used, zone: i, mon: { s: o, i, u: m.u } }; if (sp && hasTrig(mc, "anyUse")) L.push({ s: o, c: mc, trig: "anyUse", ctx }); if (m.u !== exU && hasTrig(mc, "cardUse")) L.push({ s: o, c: mc, trig: "cardUse", ctx }); });
     if (!sp) continue;
     persistList(st, o, "anyUse", { used }).forEach(x => L.push(x));
-    if (o === user && fieldCard(st) && hasTrig(fieldCard(st), "anyUse") && (!fieldCard(st).fieldMine || st.field.o === user)) L.push({ s: user, c: fieldCard(st), trig: "anyUse", ctx: { used, field: true } });
+    if (o === user && fieldCard(st) && hasTrig(fieldCard(st), "anyUse") && fieldFor(st, user)) L.push({ s: user, c: fieldCard(st), trig: "anyUse", ctx: { used, field: true } });
     [...new Set(p.hand)].forEach(id => { const hc = card(id); if (cardType(hc) === "monster" && hasTrig(hc, "anyUse")) L.push({ s: o, c: hc, trig: "anyUse", ctx: { used, inHand: id } }); });
   }
   if (!L.length){ then && then(st); return; }
