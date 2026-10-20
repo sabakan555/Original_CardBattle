@@ -4,6 +4,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#191c33">
+<link rel="icon" type="image/png" href="icons/favicon-48.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="カードバトル">
 <title>カードバトルしようぜ</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -35,10 +43,25 @@
   <div class="showcase" id="showcase" aria-live="polite"></div>
   <div class="home-foot">
     <button class="me-chip" data-go="me" title="マイページをひらく"><span class="av" id="meAv"></span><span class="nm" id="meName">Player</span></button>
-    <button class="tut-home" data-tut="battle">はじめての人へ ▶ 練習バトル</button>
+    <div class="home-acts">
+      <button class="tut-home" data-tut="battle">はじめての人へ ▶ 練習バトル</button>
+      <button class="install-btn" id="btnInstall" type="button" hidden>アプリとして入れる</button>
+    </div>
     <button class="guide-btn" data-go="rules" aria-label="Guide（ルール）"><span class="en">Guide</span><span class="jp">ルール</span></button>
   </div>
 </section>
+<div class="pop-install" id="iosInstall" role="dialog" aria-modal="true" aria-labelledby="iosInstallH" hidden>
+  <div class="box">
+    <h2 id="iosInstallH">ホーム画面に追加する</h2>
+    <ol>
+      <li>Safariの下（iPadは上）にある<b>共有ボタン</b>（四角から矢印が出ているマーク）を押す</li>
+      <li>メニューの<b>「ホーム画面に追加」</b>を押す</li>
+      <li>右上の<b>「追加」</b>を押すと、ホーム画面にアイコンが出る</li>
+    </ol>
+    <p class="note">Safari以外（LINEやXの中のブラウザなど）では追加できないので、Safariで開いてね。</p>
+    <button class="primary" type="button" data-iosclose>わかった</button>
+  </div>
+</div>
 <div class="sheet" id="sheet">
   <header class="top">
     <button class="logo-btn" data-go="home" title="タイトルにもどる">ORIGINAL CARD BATTLE<small>みんなでカード描いてバトルしようぜの会</small></button>

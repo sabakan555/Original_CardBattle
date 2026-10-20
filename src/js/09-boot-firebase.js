@@ -187,3 +187,23 @@ async function boot(){
   subscribeData(); refreshPack(); renderAll();
 }
 boot();
+
+/* ================= アプリ（PWA）: サービスワーカーの登録と「アプリとして入れる」ボタン ================= */
+// サイト（manifest があるページ）でだけ動く。アーティファクトなどでは何もしない
+(() => {
+  if (!document.querySelector('link[rel="manifest"]')) return;
+  if ("serviceWorker" in navigator) addEventListener("load", () => { navigator.serviceWorker.register("sw.js").catch(() => {}); });
+  const btn = document.getElementById("btnInstall"), ios = document.getElementById("iosInstall"); if (!btn) return;
+  const standalone = () => matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  let deferred = null;
+  addEventListener("beforeinstallprompt", e => { e.preventDefault(); deferred = e; btn.hidden = standalone(); });
+  addEventListener("appinstalled", () => { deferred = null; btn.hidden = true; toast("アプリとして入れました。ホーム画面やアプリ一覧から開けます"); });
+  if (isIOS && !standalone()) btn.hidden = false;
+  btn.addEventListener("click", async () => {
+    if (deferred){ deferred.prompt(); try{ await deferred.userChoice; }catch(e){} deferred = null; btn.hidden = true; return; }
+    if (isIOS && ios){ ios.hidden = false; const b = ios.querySelector("[data-iosclose]"); if (b) b.focus(); return; }
+    toast("このブラウザでは、メニューの「アプリをインストール」から入れられます");
+  });
+  if (ios){ ios.addEventListener("click", e => { if (e.target === ios || e.target.closest("[data-iosclose]")) ios.hidden = true; }); addEventListener("keydown", e => { if (e.key === "Escape") ios.hidden = true; }); }
+})();

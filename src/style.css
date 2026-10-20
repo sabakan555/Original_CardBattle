@@ -1730,3 +1730,13 @@ div.f{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:13px}
 .fxshd .shd-c .card{--w:clamp(64px,18vw,140px)}
 .fxshd .lbl{white-space:nowrap}
 @media (max-width:640px){.fxshd .lbl{font-size:20px}.fxshd .shd-row{gap:6px}}
+
+/* ---- アプリ（PWA）: インストールボタンとiPhoneの案内 ---- */
+.home-acts{display:flex;flex-direction:column;align-items:flex-start;gap:8px}
+.install-btn{padding:6px 14px;border-radius:999px;font-size:13px;font-weight:700;background:rgba(39,44,82,.9);color:var(--ink);border:1px solid var(--accent);box-shadow:none}
+.pop-install{position:fixed;inset:0;z-index:20;display:grid;place-items:center;padding:16px;background:rgba(10,12,28,.7)}
+.pop-install .box{max-width:380px;display:flex;flex-direction:column;gap:10px}
+.pop-install h2{font-size:19px;margin:0}
+.pop-install ol{margin:0;padding-left:1.3em;display:flex;flex-direction:column;gap:6px;line-height:1.55}
+.pop-install button{align-self:flex-end}
+@media (display-mode:standalone){.install-btn{display:none!important}}

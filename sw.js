@@ -1,0 +1,42 @@
+// アプリ（PWA）用のサービスワーカー
+// - ページ本体（index.html・config）はネット優先: つながっていれば、いつも最新を取りに行く。オフラインのときだけ保存しておいた分を出す
+// - フォント・画像・アイコンは保存したものを先に出して、うしろで新しくする
+// - Firebase やパックの抽選サーバーなど、ほかのサイトへの通信にはさわらない（Google Fonts だけ保存する）
+const CACHE = "ocb-v1";
+const CORE = ["./", "./index.html", "./config.js", "./pack-config.js", "./manifest.webmanifest", "./icons/icon-192.png", "./icons/icon-512.png", "./icons/apple-touch-icon.png", "./icons/favicon-48.png"];
+
+self.addEventListener("install", e => {
+  e.waitUntil(caches.open(CACHE).then(c => Promise.all(CORE.map(u => c.add(u).catch(() => {})))).then(() => self.skipWaiting()));
+});
+self.addEventListener("activate", e => {
+  e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim()));
+});
+
+const FRESH = /\/(index\.html|config\.js|pack-config\.js|manifest\.webmanifest)?$/;
+async function networkFirst(req){
+  const c = await caches.open(CACHE);
+  try{
+    const r = await fetch(req);
+    if (r && r.ok) c.put(req, r.clone());
+    return r;
+  }catch(err){
+    return (await c.match(req, { ignoreSearch: true })) || (req.mode === "navigate" ? c.match("./index.html") : Response.error());
+  }
+}
+async function staleWhileRevalidate(req, e){
+  const c = await caches.open(CACHE), hit = await c.match(req);
+  const net = fetch(req).then(r => { if (r && (r.ok || r.type === "opaque")) c.put(req, r.clone()); return r; }).catch(() => null);
+  if (hit){ e.waitUntil(net); return hit; }
+  return (await net) || Response.error();
+}
+
+self.addEventListener("fetch", e => {
+  const req = e.request; if (req.method !== "GET") return;
+  const u = new URL(req.url);
+  if (u.origin === location.origin){
+    if (req.mode === "navigate" || FRESH.test(u.pathname)) e.respondWith(networkFirst(req));
+    else if (/\.(woff2?|png|jpe?g|webp|gif|svg)$/.test(u.pathname)) e.respondWith(staleWhileRevalidate(req, e));
+    return;
+  }
+  if (u.hostname === "fonts.googleapis.com" || u.hostname === "fonts.gstatic.com") e.respondWith(staleWhileRevalidate(req, e));
+});

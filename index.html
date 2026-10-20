@@ -4,6 +4,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#191c33">
+<link rel="icon" type="image/png" href="icons/favicon-48.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="カードバトル">
 <title>カードバトルしようぜ</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1742,6 +1750,16 @@ div.f{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:13px}
 .fxshd .shd-c .card{--w:clamp(64px,18vw,140px)}
 .fxshd .lbl{white-space:nowrap}
 @media (max-width:640px){.fxshd .lbl{font-size:20px}.fxshd .shd-row{gap:6px}}
+
+/* ---- アプリ（PWA）: インストールボタンとiPhoneの案内 ---- */
+.home-acts{display:flex;flex-direction:column;align-items:flex-start;gap:8px}
+.install-btn{padding:6px 14px;border-radius:999px;font-size:13px;font-weight:700;background:rgba(39,44,82,.9);color:var(--ink);border:1px solid var(--accent);box-shadow:none}
+.pop-install{position:fixed;inset:0;z-index:20;display:grid;place-items:center;padding:16px;background:rgba(10,12,28,.7)}
+.pop-install .box{max-width:380px;display:flex;flex-direction:column;gap:10px}
+.pop-install h2{font-size:19px;margin:0}
+.pop-install ol{margin:0;padding-left:1.3em;display:flex;flex-direction:column;gap:6px;line-height:1.55}
+.pop-install button{align-self:flex-end}
+@media (display-mode:standalone){.install-btn{display:none!important}}
 </style>
 <style>html,body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
 </head>
@@ -1767,10 +1785,25 @@ div.f{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:13px}
   <div class="showcase" id="showcase" aria-live="polite"></div>
   <div class="home-foot">
     <button class="me-chip" data-go="me" title="マイページをひらく"><span class="av" id="meAv"></span><span class="nm" id="meName">Player</span></button>
-    <button class="tut-home" data-tut="battle">はじめての人へ ▶ 練習バトル</button>
+    <div class="home-acts">
+      <button class="tut-home" data-tut="battle">はじめての人へ ▶ 練習バトル</button>
+      <button class="install-btn" id="btnInstall" type="button" hidden>アプリとして入れる</button>
+    </div>
     <button class="guide-btn" data-go="rules" aria-label="Guide（ルール）"><span class="en">Guide</span><span class="jp">ルール</span></button>
   </div>
 </section>
+<div class="pop-install" id="iosInstall" role="dialog" aria-modal="true" aria-labelledby="iosInstallH" hidden>
+  <div class="box">
+    <h2 id="iosInstallH">ホーム画面に追加する</h2>
+    <ol>
+      <li>Safariの下（iPadは上）にある<b>共有ボタン</b>（四角から矢印が出ているマーク）を押す</li>
+      <li>メニューの<b>「ホーム画面に追加」</b>を押す</li>
+      <li>右上の<b>「追加」</b>を押すと、ホーム画面にアイコンが出る</li>
+    </ol>
+    <p class="note">Safari以外（LINEやXの中のブラウザなど）では追加できないので、Safariで開いてね。</p>
+    <button class="primary" type="button" data-iosclose>わかった</button>
+  </div>
+</div>
 <div class="sheet" id="sheet">
   <header class="top">
     <button class="logo-btn" data-go="home" title="タイトルにもどる">ORIGINAL CARD BATTLE<small>みんなでカード描いてバトルしようぜの会</small></button>
@@ -12631,6 +12664,26 @@ async function boot(){
   subscribeData(); refreshPack(); renderAll();
 }
 boot();
+
+/* ================= アプリ（PWA）: サービスワーカーの登録と「アプリとして入れる」ボタン ================= */
+// サイト（manifest があるページ）でだけ動く。アーティファクトなどでは何もしない
+(() => {
+  if (!document.querySelector('link[rel="manifest"]')) return;
+  if ("serviceWorker" in navigator) addEventListener("load", () => { navigator.serviceWorker.register("sw.js").catch(() => {}); });
+  const btn = document.getElementById("btnInstall"), ios = document.getElementById("iosInstall"); if (!btn) return;
+  const standalone = () => matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  let deferred = null;
+  addEventListener("beforeinstallprompt", e => { e.preventDefault(); deferred = e; btn.hidden = standalone(); });
+  addEventListener("appinstalled", () => { deferred = null; btn.hidden = true; toast("アプリとして入れました。ホーム画面やアプリ一覧から開けます"); });
+  if (isIOS && !standalone()) btn.hidden = false;
+  btn.addEventListener("click", async () => {
+    if (deferred){ deferred.prompt(); try{ await deferred.userChoice; }catch(e){} deferred = null; btn.hidden = true; return; }
+    if (isIOS && ios){ ios.hidden = false; const b = ios.querySelector("[data-iosclose]"); if (b) b.focus(); return; }
+    toast("このブラウザでは、メニューの「アプリをインストール」から入れられます");
+  });
+  if (ios){ ios.addEventListener("click", e => { if (e.target === ios || e.target.closest("[data-iosclose]")) ios.hidden = true; }); addEventListener("keydown", e => { if (e.key === "Escape") ios.hidden = true; }); }
+})();
 })();
 </script>
 

@@ -4,6 +4,7 @@
 
 - `index.html` … 公開されるゲーム本体（**直接は編集しない**。下の `src/` から作られる）
 - `config.js` … Firebaseの接続設定（公開されても問題ない情報）
+- `manifest.webmanifest`・`sw.js`・`icons/` … アプリ（PWA）として入れるための設定。`sw.js` はページ本体をネット優先で取りに行くので、ふだんの更新はmainにpushするだけで届く
 - `src/` … ゲームのソース（ここを直す）
   - `page.html` … 画面の骨組み（HTML）
   - `style.css` … 見た目
