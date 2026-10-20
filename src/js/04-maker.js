@@ -601,6 +601,7 @@ const KIND_GROUPS = [
   { g: "equip",   label: "装備を動かす", v: [["moveEquips", "別のモンスターに付けかえる"], ["equipsToHand", "ほかの装備を手札に戻す"]] },
   { g: "minus",   label: "デメリット（自分が損する・しばり）", v: [["loseLp", "LPを失う（ブロックでは防げない）"], ["oppHeal", "相手のLPを回復する"], ["oppDraw", "相手にカードを○枚引かせる"], ["selfDisc", "手札をえらんで捨てる"], ["selfDiscRand", "手札をランダムに捨てる"], ["selfDiscAll", "手札をすべて捨てる"], ["thisNoAtk", "このモンスターは攻撃できない（このターン）"], ["thisTopOnly", "一番ATKが高い相手にしか攻撃できない"], ["selfNoAtk", "自分のモンスターは攻撃できない（このターン）"], ["destroyOwn", "自分のモンスター1体を破壊"], ["destroyThis", "このモンスターを破壊"], ["giveThis", "このモンスターを相手の場に移す"], ["destroyOwnAll", "自分のモンスターをすべて破壊"], ["selfAtkDown", "このモンスターのATKダウン"], ["myAtkDown", "自分のモンスター1体のATKダウン"], ["myAtkDownAll", "自分のモンスターすべてのATKダウン"], ["oppStr", "相手が筋力を得る"], ["noDraw", "このターンもう引けない"]] },
   { g: "ctr",     label: "カウンター（乗せる・取り除く）", v: [["ctrAdd", "カウンターを乗せる"], ["ctrDel", "カウンターを取り除く"]] },
+  { g: "shield",  label: "シールド・タップ（デュエマ式・シールドデッキ用）", v: [["addShield", "盾を追加する（山札の上から○枚）"], ["shieldToHand", "シールド回収（自分のシールドを手札に）"], ["shieldSwap", "シールド交換（手札1枚と入れかえ）"], ["shieldBurn", "シールド焼却（相手のシールドを墓地へ）"], ["shieldSend", "シールド送り（相手のモンスターをシールドへ）"], ["strigLock", "トリガー封じ（このターン相手はS・トリガー不可）"], ["brkLock", "ブレイク封鎖（1回に1枚まで）"], ["tapMon", "相手のモンスター1体をタップ"], ["tapAll", "相手のモンスターをすべてタップ"], ["untapMon", "自分のモンスター1体をアンタップ"], ["untapAll", "自分のモンスターをすべてアンタップ"]] },
   { g: "win",     label: "勝ち負け（勝利する・敗北回避）", v: [["win", "勝利する"], ["noLoseTurn", "このターン、自分は負けない（敗北回避）"], ["noLoseWhile", "このカードが場にいる限り、自分は負けない（敗北回避）"]] }
 ];
 // 「なにを」の大きな分け方（10こ）。中の細かい分け方（KIND_GROUPS）は「どれ」の見出しになる
@@ -615,6 +616,7 @@ const SUPER_GROUPS = [
   { g: "s_deck", label: "山札・墓地・マナ", subs: ["deck", "mana"] },
   { g: "s_card", label: "コスト・カウンター・カードの書きかえ", subs: ["next", "ctr", "rewrite"] },
   { g: "s_rule", label: "ターン・勝ち負け", subs: ["turn", "win"] },
+  { g: "s_shd",  label: "シールド・タップ（デュエマ式）", subs: ["shield"] },
 ];
 const superOfSub = sg => (SUPER_GROUPS.find(x => x.subs.includes(sg)) || { g: "s_other" }).g;
 // 細かいグループ（kindGroups の答え）を、大きな分け方にまとめる（中が空の分け方は出さない）
@@ -925,7 +927,7 @@ function bkMoreOpen(b, bi){
   return `<details class="bk-more" data-bmore="${bi}"${on.length || BK_MORE.has(b) ? " open" : ""}><summary>くわしい設定（回数・サイコロ・時間差など）${on.length ? `<span class="bk-more-on">：${esc(on.join("・"))}</span>` : ""}</summary><div class="bk-grid">`;
 }
 // いつ: まぎらわしいタイミングの説明
-const TRIG_HELP = { summon: "手札から召喚したとき（効果で出したときは出ない）", ssummon: "効果などで特殊召喚したとき", enter: "召喚でも特殊召喚でも、場に出たとき", destroyed: "効果でもバトルでも、破壊されたとき", battleLose: "バトルで負けたとき（相打ちもふくむ・破壊される前に出る）", kill: "このモンスターがバトルで相手のモンスターを破壊したとき", cardUse: "このモンスターが場にいる間、カードが使われるたび（モンスターの召喚・魔法・罠・装備）。「もし」で自分が使ったときだけ、などにしぼれる", anyUse: "魔法か罠が発動するたび（モンスターの召喚では出ない）", oppAttack: "相手のモンスターが攻撃してきたとき（どのモンスターへの攻撃でも）" };
+const TRIG_HELP = { brk: "このモンスターの直接攻撃で、相手のシールドを1枚以上ブレイクしたとき（焼却・効果で墓地に置いたときは出ない）", shieldBrk: "自分のシールドが1枚以上ブレイクされたとき（攻撃でもダメージでも。焼却・回収では出ない）", summon: "手札から召喚したとき（効果で出したときは出ない）", ssummon: "効果などで特殊召喚したとき", enter: "召喚でも特殊召喚でも、場に出たとき", destroyed: "効果でもバトルでも、破壊されたとき", battleLose: "バトルで負けたとき（相打ちもふくむ・破壊される前に出る）", kill: "このモンスターがバトルで相手のモンスターを破壊したとき", cardUse: "このモンスターが場にいる間、カードが使われるたび（モンスターの召喚・魔法・罠・装備）。「もし」で自分が使ったときだけ、などにしぼれる", anyUse: "魔法か罠が発動するたび（モンスターの召喚では出ない）", oppAttack: "相手のモンスターが攻撃してきたとき（どのモンスターへの攻撃でも）" };
 // 「1ターンに○度だけ」がいらないタイミング（もともと1回しか出ない）
 // 「場にいる間」では見られない条件（カードを使ったその瞬間・キッカー）
 const WHILE_NG_CONDS = ["used", "kicked"];
@@ -1312,7 +1314,7 @@ function removeUI(e, opt, trig){
     + `<select data-f="rZone" aria-label="なにを">${zones.map(k => opt(k, RM_ZONE[k], e.zone)).join("")}</select>`
     + (e.zone === "field" ? "" : `<select data-f="rWho" aria-label="どれを">${whos.map(k => opt(k, k === "this" && mon ? "このモンスター" : RM_WHO[k], who)).join("")}</select>`)
     + (e.zone !== "field" && (who === "pick" || who === "random" || who === "oppPick") ? fCount(e, opt, e.zone === "mon" ? (who === "random" ? "回" : "体") : (who === "random" ? "回" : "枚")) : "")
-    + `<select data-f="rHow" aria-label="どうどかす">${Object.keys(RM_HOW).map(k => opt(k, { destroy: "破壊する", hand: "手札に戻す", exile: "除外する", deck: "山札に戻す", grave: "墓地へ送る（破壊ではない）" }[k], e.how)).join("")}</select>`
+    + `<select data-f="rHow" aria-label="どうどかす">${Object.keys(RM_HOW).map(k => opt(k, { destroy: "破壊する", hand: "手札に戻す", exile: "除外する", deck: "山札に戻す", grave: "墓地へ送る（破壊ではない）", shield: "シールドに置く（シールド送り）" }[k], e.how)).join("")}</select>`
     + (e.how === "deck" ? `<select data-f="rPos" aria-label="山札のどこ">${Object.keys(RM_POS).map(k => opt(k, { top: "一番上に", bottom: "一番下に", shuffle: "混ぜてシャッフル" }[k], e.pos || "shuffle")).join("")}</select>` : "");
 }
 function toUI(e, opt){

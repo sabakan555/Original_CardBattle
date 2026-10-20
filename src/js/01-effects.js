@@ -7,15 +7,15 @@ const RARITY = { common: "コモン", uncommon: "アンコモン", rare: "レア
 const rarityOf = c => c && RARITY[c.rarity] ? c.rarity : "common";
 const spireKind = c => { const t = cardType(c); if (c && c.sk && t === "magic") return c.persist ? "power" : c.sk === "attack" ? "attack" : "skill"; return t === "monster" ? "attack" : t === "trap" || (t === "magic" && c.persist) ? "power" : "skill"; };
 const typeLabel = c => { if (c && c.potionView) return "ポーション"; const t = cardType(c); if (t === "monster" && c && c.token) return "トークン"; if (t === "monster" && c && c.ex) return "EXモンスター"; return isQuick(c) ? "速攻魔法" : isField(c) ? "フィールド魔法" : isPersist(c) ? "永続" + TYPE_LABEL[t] : TYPE_LABEL[t]; };
-const TRIGS = { evolve: "エボルヴしたとき", ctrReach: "カウンターが○個以上になったとき", summon: "召喚したとき", ssummon: "出されたとき（特殊召喚）", attack: "攻撃するとき", kill: "戦闘で相手を破壊したとき", destroyed: "破壊されたとき", battleLose: "バトルに負けたとき", turnStart: "自分のターンのはじめ", turnEnd: "自分のターンの終わり", oppTurnStart: "相手のターンのはじめ", oppTurnEnd: "相手のターンの終わり", enter: "場に出たとき", while: "場にいる間", anyUse: "魔法・罠が発動したとき", cardUse: "カードが使われたとき", attach: "装備したとき", fuse: "このカードにフュージョンしたとき（手札で）", myFuse: "自分がフュージョンしたとき", use: "発動したとき", act: "起動（ボタンで使う）", oppAttack: "相手が攻撃してきたとき", clash: "交戦（攻撃するとき・攻撃されたとき）", manaPut: "自分のマナゾーンにカードが置かれたとき（上陸）" };
-const MON_TRIGS = ["summon", "ssummon", "enter", "while", "act", "evolve", "ctrReach", "fuse", "myFuse", "anyUse", "cardUse", "attack", "oppAttack", "clash", "manaPut", "kill", "destroyed", "battleLose", "turnStart", "turnEnd", "oppTurnStart", "oppTurnEnd"];
+const TRIGS = { evolve: "エボルヴしたとき", ctrReach: "カウンターが○個以上になったとき", summon: "召喚したとき", ssummon: "出されたとき（特殊召喚）", attack: "攻撃するとき", kill: "戦闘で相手を破壊したとき", destroyed: "破壊されたとき", battleLose: "バトルに負けたとき", turnStart: "自分のターンのはじめ", turnEnd: "自分のターンの終わり", oppTurnStart: "相手のターンのはじめ", oppTurnEnd: "相手のターンの終わり", enter: "場に出たとき", while: "場にいる間", anyUse: "魔法・罠が発動したとき", cardUse: "カードが使われたとき", attach: "装備したとき", fuse: "このカードにフュージョンしたとき（手札で）", myFuse: "自分がフュージョンしたとき", use: "発動したとき", act: "起動（ボタンで使う）", oppAttack: "相手が攻撃してきたとき", clash: "交戦（攻撃するとき・攻撃されたとき）", manaPut: "自分のマナゾーンにカードが置かれたとき（上陸）", brk: "このモンスターがシールドをブレイクしたとき", shieldBrk: "自分のシールドがブレイクされたとき" };
+const MON_TRIGS = ["summon", "ssummon", "enter", "while", "act", "evolve", "ctrReach", "fuse", "myFuse", "anyUse", "cardUse", "attack", "oppAttack", "clash", "manaPut", "brk", "shieldBrk", "kill", "destroyed", "battleLose", "turnStart", "turnEnd", "oppTurnStart", "oppTurnEnd"];
 // 攻撃に答える効果（攻撃を無効・攻撃モンスターを破壊など）: 罠のほか、「相手が攻撃してきたとき」の効果でも使える
 const ATK_REPLY = ["negate", "atkDownAtk", "dmgAtkAtk", "killAtk"];
 // 攻撃に答える効果か（「攻撃してきたモンスターを除去」もふくむ）
 const isAtkReply = fx => !!fx && (ATK_REPLY.includes(fx.kind) || !!(FX_FORMS[fx.kind] && FX_FORMS[fx.kind].atkReply && FX_FORMS[fx.kind].atkReply(fx)));
 const EQ_TRIGS = ["attach", "attack", "turnStart", "turnEnd", "oppTurnStart", "oppTurnEnd", "destroyed", "battleLose"];
 // 永続魔法・永続罠 (スパイア風 のパワー): stay face-up in the magic/trap zone; their effect fires on one of these
-const PERSIST_TRIG_LABEL = { use: "発動したとき", while: "場にある間", anyUse: "魔法・罠が発動したとき", oppAttack: "相手が攻撃してきたとき", turnStart: "自分のターンのはじめ", turnEnd: "自分のターンのおわり", oppTurnStart: "相手のターンのはじめ", oppTurnEnd: "相手のターンのおわり", cdEnd: "カウントダウンが0になったとき", manaPut: "自分のマナゾーンにカードが置かれるたび（上陸）", mySummon: "自分がモンスターを召喚するたび", oppSummonT: "相手がモンスターを召喚するたび", anySummonT: "どちらかがモンスターを召喚するたび", myPut: "自分の場にモンスターが出されるたび（特殊召喚）", oppPut: "相手の場にモンスターが出されるたび（特殊召喚）", anyPut: "どちらかの場にモンスターが出されるたび（特殊召喚）", exhaust: "自分のカードが廃棄されるたび", monDestroyed: "モンスターが破壊されるたび", myLoseLp: "自分のターンにLPを失うたび", blockGain: "自分がブロックを得るたび", vulnApply: "相手に弱体を付与するたび", atkPlay: "自分がアタックを使うたび" };
+const PERSIST_TRIG_LABEL = { use: "発動したとき", while: "場にある間", anyUse: "魔法・罠が発動したとき", oppAttack: "相手が攻撃してきたとき", turnStart: "自分のターンのはじめ", turnEnd: "自分のターンのおわり", oppTurnStart: "相手のターンのはじめ", oppTurnEnd: "相手のターンのおわり", cdEnd: "カウントダウンが0になったとき", manaPut: "自分のマナゾーンにカードが置かれるたび（上陸）", mySummon: "自分がモンスターを召喚するたび", oppSummonT: "相手がモンスターを召喚するたび", anySummonT: "どちらかがモンスターを召喚するたび", myPut: "自分の場にモンスターが出されるたび（特殊召喚）", oppPut: "相手の場にモンスターが出されるたび（特殊召喚）", anyPut: "どちらかの場にモンスターが出されるたび（特殊召喚）", exhaust: "自分のカードが廃棄されるたび", monDestroyed: "モンスターが破壊されるたび", myLoseLp: "自分のターンにLPを失うたび", blockGain: "自分がブロックを得るたび", vulnApply: "相手に弱体を付与するたび", atkPlay: "自分がアタックを使うたび", shieldBrk: "自分のシールドがブレイクされるたび" };
 const PERSIST_TRIGS = Object.keys(PERSIST_TRIG_LABEL);
 // レリック (カード以外): always on; 「手に入れたとき」 + the same timings as 永続 cards
 const RELIC_TRIG_LABEL = { gain: "手に入れたとき", ...Object.fromEntries(Object.entries(PERSIST_TRIG_LABEL).filter(([k]) => k !== "use" && k !== "while")) };
@@ -39,6 +39,16 @@ const KINDS = {
   none:       { label: "なし" },
   heal:       { label: "自分のLPを回復", n: true, text: n => `自分のLPを${n}回復` },
   addShield:  { label: "盾を追加する（山札の上から○枚をシールドに加える・シールドデッキ用）", n: true, text: n => `山札の上から${n > 1 ? n + "枚" : "1枚"}を《シールド》に加える` },
+  shieldToHand: { label: "シールド回収（自分のシールドを○枚手札に加える・ブレイクではない）", n: true, text: n => `自分の《シールド》を${n > 1 ? n + "枚" : "1枚"}手札に加える（ブレイクではないので、S・トリガーは使えない）` },
+  shieldSwap: { label: "シールド交換（手札1枚とシールド1枚を入れかえる）", target: "hand", text: () => `自分の手札を1枚えらんで《シールド》に置き、かわりにランダムな《シールド》1枚を手札に加える` },
+  shieldBurn: { label: "シールド焼却（相手のシールドを○枚墓地に置く・ブレイクではない）", n: true, text: n => `相手の《シールド》を${n > 1 ? n + "枚" : "1枚"}墓地に置く（ブレイクではないので、S・トリガーは使えない）` },
+  shieldSend: { label: "シールド送り（相手のモンスター1体を持ち主のシールドに置く）", target: "opp", text: () => `相手のモンスター1体を持ち主の《シールド》に置く（シールドデッキでなければ墓地へ）` },
+  tapMon:     { label: "相手のモンスター1体をタップする", target: "opp", text: () => `相手のモンスター1体を《タップ》する` },
+  tapAll:     { label: "相手のモンスターをすべてタップする", text: () => `相手のモンスターをすべて《タップ》する` },
+  untapMon:   { label: "自分のモンスター1体をアンタップする", target: "mine", text: () => `自分のモンスター1体をアンタップする` },
+  untapAll:   { label: "自分のモンスターをすべてアンタップする", text: () => `自分のモンスターをすべてアンタップする` },
+  strigLock:  { label: "トリガー封じ（このターン、相手はS・トリガーを使えない）", text: () => `このターン、相手は《S・トリガー》を使えない` },
+  brkLock:    { label: "ブレイク封鎖（次の相手のターンの終わりまで、1回に1枚までしかブレイクされない）", text: () => `次の相手のターンの終わりまで、自分の《シールド》は1回に1枚までしかブレイクされない` },
   dmg:        { label: "相手にダメージ", n: true, text: n => `相手に${n}ダメージ` },
   draw:       { label: "カードを引く", n: true, text: n => `カードを${n}枚引く` },
   oppDeckDraw:{ label: "相手の山札からカードを引く", n: true, text: n => `相手の山札の上からカードを${n}枚引く（引いたカードは自分のものになる）` },
@@ -264,6 +274,12 @@ const ABS = {
   bayB:       { label: "モンスターをマナにする（自分の場の攻撃していないモンスター1体を1マナとして、コストの支払いに使える。使ったモンスターはこのターン攻撃できない）", only: "mon", kw: "マナ化" },
   breaker:    { label: "ブレイカー（シールドデッキの相手に直接攻撃したとき、シールドを○枚ブレイクする。2ならW・ブレイカー）", only: "mon", n: 2, kw: "ブレイカー", kwf: n => brkName(n), kwx: n => brkName(n) === "ブレイカー" ? `（${n}枚）` : "" },
   blocker:    { label: "ブロッカー（相手が攻撃してきたとき、代わりに攻撃を受けられる・1ターンに1回）", only: "mon", kw: "ブロッカー" },
+  exLife:     { label: "EXライフ（出たとき、山札の上から1枚をこのモンスターのシールドにする。場を離れるとき、かわりにそのシールドを墓地へ）", only: "mon", kw: "EXライフ" },
+  noBreak:    { label: "シールドをブレイクできない（シールドデッキの相手に直接攻撃しても、シールドは減らない）", only: "mon", kw: "ブレイクできない" },
+  burnBrk:    { label: "シールド焼却（直接攻撃したとき、シールドをブレイクするかわりに墓地へ。S・トリガーは使えない）", only: "mon", kw: "シールド焼却" },
+  saver:      { label: "シールド・セイバー（自分のシールドがブレイクされるとき、かわりにこのモンスターが破壊される）", only: "mon", kw: "シールド・セイバー" },
+  vigil:      { label: "警戒（攻撃してもタップしない）", only: "mon", kw: "警戒" },
+  unblock:    { label: "ブロックされない（相手のブロッカーに止められない）", only: "mon", kw: "ブロックされない" },
   justDiver:  { label: "ジャストダイバー（出てから次の自分のターンまで、攻撃も効果の対象もされない）", only: "mon", kw: "ジャストダイバー" },
   ward:       { label: "護法（相手がこのモンスターを効果の対象にするとき、LPを払わないと効果が消える）", only: "mon", n: 200, kw: "護法", kwx: n => `（LP${n}）` },
   evolve:     { label: "エボルヴ（エボルヴポイントを使って、ATKアップ＋そのターン相手のモンスターに攻撃できる）", only: "mon", n: 200, kw: "エボルヴ", kwx: n => `（ATK+${n}）` },
@@ -328,6 +344,13 @@ const KW_DESC = {
   "S・トリガー": "シールドデッキでは、ブレイクされたシールドがこのカードなら、コストを払わずに使う（モンスターは召喚、魔法・罠は発動）。シールドデッキでないときは、相手に直接攻撃を宣言されたとき、山札の一番上がこのカードなら、ダメージを受ける前にコストを払わずに使う",
   "タップ": "シールドデッキのモンスターは、攻撃・ブロックするとタップ（横向き）になり、自分のターンのはじめにアンタップにもどる。アンタップのあいだは、突進を持つモンスターにしか攻撃されない。タップ中はブロックできない",
   "シールド": "シールドデッキのルール。ゲーム開始時に山札の上から5枚を裏向きで置く。相手のモンスターは場にモンスターがいても直接攻撃できる。直接攻撃を受けるとシールドがブレイクされて手札に加わる（S・トリガーならタダで使える）。シールドが0枚のときに直接攻撃を受けると負け。LPは使わない（ダメージはシールドのブレイクになる）。モンスターは《タップ》する",
+  "EXライフ": "シールドデッキ用。このモンスターが場に出たとき、山札の上から1枚をこのモンスターのシールドとしてシールドに加える。このモンスターが場を離れるとき（破壊・手札戻し・除外・シールド送りなど）、かわりにそのシールドを墓地に置いて場に残る。そのシールドがもうない（ブレイクされた）ときは、ふつうに場を離れる。シールドデッキでないときはなにもしない",
+  "ブレイクできない": "シールドデッキの相手に直接攻撃しても、シールドをブレイクしない（相手のシールドが0枚なら、ふつうに勝てる）",
+  "シールド焼却": "このモンスターが直接攻撃したとき、シールドをブレイクするかわりに、その枚数を墓地に置く。ブレイクではないので、相手はS・トリガーを使えず、「ブレイクされたとき」も出ない",
+  "シールド・セイバー": "自分のシールドがブレイクされるとき、かわりにこのモンスターが破壊される（1体につき1枚ぶん守る。自動で使う）",
+  "警戒": "シールドデッキのモンスターでも、攻撃したときにタップしない（ブロックしたときはタップする）",
+  "ブロックされない": "相手のブロッカーは、このモンスターの攻撃をブロックできない",
+  "トリガー封じ": "このターン、相手はS・トリガーを使えない（ブレイクされたカードはそのまま手札に入る）",
   "ブレイカー": "シールドデッキの相手に直接攻撃したとき、シールドを書かれた枚数ブレイクする",
   "W・ブレイカー": "シールドデッキの相手に直接攻撃したとき、シールドを2枚ブレイクする",
   "T・ブレイカー": "シールドデッキの相手に直接攻撃したとき、シールドを3枚ブレイクする",
@@ -722,12 +745,12 @@ function atkText(f){
 const RM_ZONE = { mon: "モンスター", st: "魔法・罠", field: "フィールド魔法", any: "場のカード", mana: "マナゾーンのカード", anyMana: "場とマナゾーンのカード" };
 // 場のカード（モンスター・魔法罠・待機中の装備）を含むか / マナゾーンのカードを含むか
 const rmBoard = z => z === "any" || z === "anyMana", rmMana = z => z === "mana" || z === "anyMana";
-const RM_HOW = { destroy: "破壊", hand: "手札に戻す", exile: "除外", deck: "山札に戻す", grave: "墓地へ送る" };
+const RM_HOW = { destroy: "破壊", hand: "手札に戻す", exile: "除外", deck: "山札に戻す", grave: "墓地へ送る", shield: "シールドに置く" };
 const RM_POS = { top: "一番上", bottom: "一番下", shuffle: "シャッフル" };
 const RM_TO = new Set(["one", "two", "random", "n", "all", "this", "others", "attacker", "oppPick"]);
 fxForm("remove", {
   label: "場から除去する", menu: "場から除去する（破壊・手札に戻す・除外・山札・墓地）", target: "board", text: f => removeText(f),
-  targetable: ["one", "two", "random", "all"], sided: true, groups: ["destroy", "remove"], group: () => "destroy",
+  targetable: ["one", "two", "random", "all"], sided: true, groups: ["destroy", "remove", "shield"], group: () => "destroy", preset: { shield: { how: "shield" } },
   atkReply: f => f.to === "attacker", noMf: e => e.zone !== "mon" && e.zone !== "any",
   fix(e){ if (e.to === "attacker" && e.zone !== "mon") e.zone = "mon"; if (e.to === "others") e.zone = "any"; fixPickN(e); },
   // 前からある14種類（removeBoard の rside・rm もこの形に直す）
@@ -738,7 +761,7 @@ fxForm("remove", {
     destroySt: { zone: "st" }, destroyStRand: { zone: "st", to: "random", tnFromN: true }, destroyStAll: { zone: "st", to: "all" },
     destroyField: { zone: "field" },
     bounce: { zone: "mon", how: "hand" }, bounceAll: { zone: "mon", to: "all", how: "hand" },
-    banishMon: { zone: "mon", how: "exile" }, killAtk: { zone: "mon", to: "attacker" },
+    banishMon: { zone: "mon", how: "exile" }, killAtk: { zone: "mon", to: "attacker" }, shieldSend: { zone: "mon", how: "shield" },
     removeBoard: { zone: "any", fromRb: true },
   },
   fields: {
@@ -767,12 +790,12 @@ function removeText(f){
   const r = fxNorm({ ...f, kind: "remove" }), unit = r.zone === "mon" ? "体" : "枚", sd = r.side === "me" ? "自分の" : r.side === "both" ? "お互いの" : "相手の", pl = RM_ZONE[r.zone], tn = Math.max(1, Math.round(+r.tn || 1));
   if (r.to === "oppPick"){
     const whose = r.side === "me" ? "こちらの" : r.side === "both" ? "お互いの" : "自分の";
-    const vv = r.how === "hand" ? "持ち主の手札に戻す" : r.how === "exile" ? "除外する" : r.how === "grave" ? "墓地へ送る" : r.how === "deck" ? (r.pos === "top" ? "持ち主の山札の一番上に置く" : r.pos === "bottom" ? "持ち主の山札の一番下に置く" : "持ち主の山札に戻してシャッフルする") : "破壊する";
+    const vv = r.how === "hand" ? "持ち主の手札に戻す" : r.how === "exile" ? "除外する" : r.how === "shield" ? "持ち主の《シールド》に置く（シールドデッキでなければ墓地へ）" : r.how === "grave" ? "墓地へ送る" : r.how === "deck" ? (r.pos === "top" ? "持ち主の山札の一番上に置く" : r.pos === "bottom" ? "持ち主の山札の一番下に置く" : "持ち主の山札に戻してシャッフルする") : "破壊する";
     return `相手は${whose}${pl}を${tn}${unit}えらび、それを${vv}`;
   }
   const w = r.zone === "field" ? "場のフィールド魔法" : r.to === "this" ? (r.zone === "mon" ? "このモンスター" : "このカード") : r.to === "attacker" ? "攻撃してきたモンスター" : r.to === "others" ? "このカード以外の、お互いの場のカードすべて"
     : r.to === "all" ? `${sd}${pl}すべて` : r.to === "random" ? `ランダムな${sd}${pl}${tn > 1 ? tn + unit : "1" + unit}` : r.to === "two" ? `${sd}${pl}ちがう2${unit}` : r.to === "n" && tn > 1 ? `${sd}${pl}${tn}${unit}` : `${sd}${pl}1${unit}`;
-  const v = r.how === "hand" ? "持ち主の手札に戻す" : r.how === "exile" ? "除外する" : r.how === "grave" ? "墓地へ送る" : r.how === "deck" ? (r.pos === "top" ? "持ち主の山札の一番上に置く" : r.pos === "bottom" ? "持ち主の山札の一番下に置く" : "持ち主の山札に戻してシャッフルする") : "破壊する";
+  const v = r.how === "hand" ? "持ち主の手札に戻す" : r.how === "exile" ? "除外する" : r.how === "shield" ? "持ち主の《シールド》に置く（シールドデッキでなければ墓地へ）" : r.how === "grave" ? "墓地へ送る" : r.how === "deck" ? (r.pos === "top" ? "持ち主の山札の一番上に置く" : r.pos === "bottom" ? "持ち主の山札の一番下に置く" : "持ち主の山札に戻してシャッフルする") : "破壊する";
   return `${w}を${v}`;
 }
 /* ---- 手札をどかす: 1つの効果「handOut」= だれの手札（side）× どれを（to・n・only）× どこへ（how） ----
@@ -1187,7 +1210,9 @@ const COND_DEFS = {
   drawn:    { label: "直前の効果で引いたカードのうち○の枚数", who: "引いたカードが", unit: "枚", val: (st, s, c, ctx, x) => (P(st, s).lastDrawn || []).filter(id => usedMatch(card(id), x && x.pf, x && x.pfn)).length },
   played:   { label: "連携：このターン使ったカードの枚数（このカードもふくむ）", who: "このターン使ったカードが", unit: "枚", val: (st, s) => P(st, s).playedNow || 0 },
   maxMana:  { label: "覚醒：自分の最大マナ", who: "自分の最大マナが", unit: "", val: (st, s) => { const m = P(st, s).mana; return m ? m.max : 0; } },
-  mass:     { label: "このモンスターの質量の数", who: "このモンスターの質量が", unit: "枚", val: (st, s, c, ctx) => { const m = ctx && ctx.mon && monAt(st, ctx.mon); return m ? (m.mats || []).length : 0; } }
+  mass:     { label: "このモンスターの質量の数", who: "このモンスターの質量が", unit: "枚", val: (st, s, c, ctx) => { const m = ctx && ctx.mon && monAt(st, ctx.mon); return m ? (m.mats || []).length : 0; } },
+  myShield: { label: "自分のシールドの枚数（シールドデッキでなければ0）", who: "自分のシールドが", unit: "枚", val: (st, s) => (P(st, s).shields || []).length },
+  oppShield:{ label: "相手のシールドの枚数（シールドデッキでなければ0）", who: "相手のシールドが", unit: "枚", val: (st, s) => (P(st, O(s)).shields || []).length }
 };
 const OPS = { ge: "以上", le: "以下", eq: "" };
 // 「○1つにつき」: what a number can grow with (ダメージ / ブロック / マナ / 回復, or the number of hits)
@@ -1225,7 +1250,9 @@ const PER_DEFS = {
   sbN:      { label: "このカードのスペルブーストの回数", u: "1回", val: (st, s, c) => c ? ((P(st, s).sbLast || {})[c.id] || 0) : 0 },
   die:      { label: "サイコロの出た目", u: "1", val: (st, s, c, t, ctx) => ctx && ctx.roll && ctx.roll.kind === "die" ? ctx.roll.v : 0 },
   heads:    { label: "コインの表", u: "1枚", val: (st, s, c, t, ctx) => ctx && ctx.roll && ctx.roll.kind === "coin" ? ctx.roll.v : 0 },
-  tails:    { label: "コインの裏", u: "1枚", val: (st, s, c, t, ctx) => ctx && ctx.roll && ctx.roll.kind === "coin" ? (ctx.roll.n || 1) - ctx.roll.v : 0 }
+  tails:    { label: "コインの裏", u: "1枚", val: (st, s, c, t, ctx) => ctx && ctx.roll && ctx.roll.kind === "coin" ? (ctx.roll.n || 1) - ctx.roll.v : 0 },
+  myShield: { label: "自分のシールド", u: "1枚", val: (st, s) => (P(st, s).shields || []).length },
+  oppShield:{ label: "相手のシールド", u: "1枚", val: (st, s) => (P(st, O(s)).shields || []).length }
 };
 const PER_OK = { dmg: true, block: true, manaNow: true, heal: true, draw: true, oppDeckDraw: true, mill: true, discard: true, vuln: true, weak: true, loseLp: true, oppHeal: true, atkUp: true, selfAtk: true, atkAll: true, atkDown: true, str: true, oppDraw: true, exhaustRand: true, manaMax: true, plate: true };
 // 「ふえる」はほぼすべての効果で使える（数のない効果は「○1つにつき、もう1回」）

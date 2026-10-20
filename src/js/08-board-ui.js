@@ -292,7 +292,7 @@ function renderBoard0(){
       return zcap(cardHTML(sc, `${cls} isset`, attrs, { ...mOpt(s), done: late ? "次ターン〜" : w ? WHEN_SHORT[w] : "" }), sc);
     }
     const es = eqsOf(z), cap = eqCapOf(card(z.c));
-    const eqB = [es.length ? `装備${es.length} ${eqUsed(z)}/${cap}` : "", (z.mats || []).length ? `${isXyz(card(z.c)) ? "素材" : "質量"}${z.mats.length}` : "", (z.evoU || []).length ? `重ね${z.evoU.length}` : ""].filter(Boolean).join(" ");
+    const eqB = [es.length ? `装備${es.length} ${eqUsed(z)}/${cap}` : "", exLifeHas(st, s, z) ? "EXライフ" : "", (z.mats || []).length ? `${isXyz(card(z.c)) ? "素材" : "質量"}${z.mats.length}` : "", (z.evoU || []).length ? `重ね${z.evoU.length}` : ""].filter(Boolean).join(" ");
     const ttl = es.length ? ` title="${esc("装備（左から）：" + es.map(e => card(e.c).name).join("→"))}"` : "";
     const atkr = atkNow && atkNow.by === s && atkNow.from === i, atkd = atkNow && atkNow.by !== s && atkNow.to === i;
     const stt0 = atkr ? "攻撃中！" : atkd ? "狙われている" : "";
