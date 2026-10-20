@@ -42,7 +42,7 @@ function renderPlay(){
   $("#deckSel").value = opts.some(d => d.id === want) ? want : "starter";
   if (document.activeElement !== $("#cpuDeckSel")) renderCpuDeckSel();
   $("#offlineNote").hidden = !!S.db;
-  if (!S.db) $("#offlineNote").textContent = S.connecting ? "サーバーに接続中…（10秒ほどかかることがあります）" : (S.connErr ? "⚠ " + S.connErr + "。" : "サーバーにつながっていません。") + "いまはこのブラウザだけに保存され、CPU練習ができます。";
+  if (!S.db) $("#offlineNote").innerHTML = esc(S.connecting ? "サーバーに接続中…（10秒ほどかかることがあります）" : (S.connErr ? "⚠ " + S.connErr + "。" : "サーバーにつながっていません。") + "いまはこのブラウザだけに保存され、CPU練習ができます。") + (S.connecting ? "" : ` <button type="button" class="small" data-reconnect>もう一度つなぐ</button>`);
   $("#btnCreate").disabled = $("#btnJoin").disabled = !S.db;
   const lastG = ls.get("cb_last3", null), rj = $("#rejoin");
   if (S.db && lastG && Date.now() - lastG.t < 6 * 3600e3){ rj.hidden = false; rj.innerHTML = `<button class="small" id="btnRejoin">部屋 ${esc(lastG.code)} にもどる</button><span class="note">前回の対戦のつづき</span>`; }

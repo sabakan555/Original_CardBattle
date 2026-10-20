@@ -123,9 +123,9 @@ async function connectFirebase2(){
   // accepts either window.FIREBASE_CONFIG or the "const firebaseConfig = {...}" block pasted as-is from the Firebase console
   const cfg = window.FIREBASE_CONFIG || (typeof firebaseConfig !== "undefined" ? firebaseConfig : null);
   if (!cfg){ S.connErr = "config.js に Firebase の設定が見つかりません"; return; }
-  if (!window.firebase){ S.connErr = "Firebase の読みこみに失敗しました（広告ブロッカーなどの拡張機能を止めて再読み込みしてね）"; return; }
+  if (!window.firebase){ S.connErr = navigator.onLine === false ? "オフラインです（電波が戻ると自動でつながります）" : "Firebase の読みこみに失敗しました（広告ブロッカーなどの拡張機能を止めて、もう一度つないでね）"; return; }
   try{
-    firebase.initializeApp(cfg);
+    if (!(firebase.apps && firebase.apps.length)) firebase.initializeApp(cfg);
     const fs = firebase.firestore();
     try{ fs.settings({ ignoreUndefinedProperties: true, merge: true }); }catch(e){}
     // keep a copy of the cards in this browser, so reopening the page shows them right away
@@ -207,3 +207,30 @@ boot();
   });
   if (ios){ ios.addEventListener("click", e => { if (e.target === ios || e.target.closest("[data-iosclose]")) ios.hidden = true; }); addEventListener("keydown", e => { if (e.key === "Escape") ios.hidden = true; }); }
 })();
+
+/* ================= つなぎ直し: オフラインで起動したアプリが、電波が戻ったら自動でオンラインになる ================= */
+// Firebase の読みこみ（スクリプト）がまだなら読みこんでから、もう一度つなぐ
+const FB_SDK_OK = { "firebase-app-compat": () => !!window.firebase, "firebase-auth-compat": () => !!(window.firebase && firebase.auth), "firebase-firestore-compat": () => !!(window.firebase && firebase.firestore) };
+function loadFirebaseSdk(){
+  const L = [...document.querySelectorAll('script[src*="/firebasejs/"]')].map(s => s.src);
+  return L.reduce((p, u) => p.then(() => { const k = Object.keys(FB_SDK_OK).find(n => u.includes(n)); if (k && FB_SDK_OK[k]()) return; return new Promise((res, rej) => { const s = document.createElement("script"); s.src = u; s.onload = res; s.onerror = rej; document.head.appendChild(s); }); }), Promise.resolve());
+}
+let reconnBusy = false, reconnTries = 0;
+async function reconnect(manual){
+  if (S.db || S.connecting || reconnBusy) return;
+  if (!manual && navigator.onLine === false) return;
+  reconnBusy = true;
+  try{
+    if (!FB_SDK_OK["firebase-firestore-compat"]() || !FB_SDK_OK["firebase-auth-compat"]()) await loadFirebaseSdk();
+    S.connErr = ""; S.authErr = "";
+    await connectFirebase();
+    if (S.db){ reconnTries = 0; subscribeData(); refreshPack(); toast("オンラインになりました"); }
+    else if (manual) toast("まだつながりません。電波を確認して、もう一度ためしてね");
+  }catch(e){ S.connErr = S.connErr || "Firebase を読みこめませんでした（電波を確認してね）"; if (manual) toast("まだつながりません。電波を確認して、もう一度ためしてね"); }
+  finally{ reconnBusy = false; renderAll(); }
+}
+addEventListener("online", () => reconnect());
+document.addEventListener("visibilitychange", () => { if (!document.hidden) reconnect(); });
+// 電波があるのにつながっていないときは、しばらく自動でためす（20秒ごと・6回まで。あとは上のきっかけかボタンで）
+setInterval(() => { if (!S.db && reconnTries < 6 && navigator.onLine !== false && !S.connecting && !reconnBusy){ reconnTries++; reconnect(); } }, 20000);
+document.addEventListener("click", e => { if (e.target.closest && e.target.closest("[data-reconnect]")) reconnect(true); });

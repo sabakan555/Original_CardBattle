@@ -1,7 +1,7 @@
 // アプリ（PWA）用のサービスワーカー
 // - ページ本体（index.html・config）はネット優先: つながっていれば、いつも最新を取りに行く。オフラインのときだけ保存しておいた分を出す
 // - フォント・画像・アイコンは保存したものを先に出して、うしろで新しくする
-// - Firebase やパックの抽選サーバーなど、ほかのサイトへの通信にはさわらない（Google Fonts だけ保存する）
+// - Firebase のデータやパックの抽選サーバーへの通信にはさわらない（Google Fonts と Firebase のスクリプトだけ保存する）
 const CACHE = "ocb-v1";
 const CORE = ["./", "./index.html", "./config.js", "./pack-config.js", "./manifest.webmanifest", "./icons/icon-192.png", "./icons/icon-512.png", "./icons/apple-touch-icon.png", "./icons/favicon-48.png"];
 
@@ -38,5 +38,6 @@ self.addEventListener("fetch", e => {
     else if (/\.(woff2?|png|jpe?g|webp|gif|svg)$/.test(u.pathname)) e.respondWith(staleWhileRevalidate(req, e));
     return;
   }
-  if (u.hostname === "fonts.googleapis.com" || u.hostname === "fonts.gstatic.com") e.respondWith(staleWhileRevalidate(req, e));
+  // Google Fonts と Firebase の読みこみ（スクリプト）は保存しておく: オフラインで起動しても、電波が戻ったらすぐつなげるように
+  if (u.hostname === "fonts.googleapis.com" || u.hostname === "fonts.gstatic.com" || (u.hostname === "www.gstatic.com" && u.pathname.startsWith("/firebasejs/"))) e.respondWith(staleWhileRevalidate(req, e));
 });
