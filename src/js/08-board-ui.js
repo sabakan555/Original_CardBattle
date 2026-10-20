@@ -805,7 +805,7 @@ document.addEventListener("keydown", e => { if (e.key === "Escape" && G && G.det
 document.addEventListener("click", e => {
   if (!G || !G.detailOpen) return;
   const t = e.target;
-  if (t.closest && (t.closest("#detailPop") || t.closest(".card[data-z]") || t.closest("[data-cid]") || t.closest("[data-cname]"))) return;
+  if (t.closest && (t.closest("#detailPop") || t.closest("[data-act=mdetail]") || t.closest(".card[data-z]") || t.closest("[data-cid]") || t.closest("[data-cname]"))) return;
   G.detailOpen = false; renderDetail(null);
 });
 

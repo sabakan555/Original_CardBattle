@@ -1226,7 +1226,8 @@ nav.tabs button{position:relative}
 /* ---- スマホの対戦画面（640px以下）: 1画面に収める・相手のバー・扇形の手札・操作シート ---- */
 .mbar,.mdock,.mend{display:none}
 @media (max-width:640px){
-  body.in-battle header.top{display:none}
+  body.in-battle header.top{margin:0}
+  body.in-battle header.top .logo-btn{display:none}
   body.in-battle{padding-bottom:calc(236px + env(safe-area-inset-bottom,0px))}
   body.in-battle #navTog{top:calc(8px + env(safe-area-inset-top,0px));bottom:auto!important;z-index:8}
   body.in-battle #toast{bottom:calc(240px + env(safe-area-inset-bottom,0px))}
@@ -1290,7 +1291,7 @@ nav.tabs button{position:relative}
   .zcap b{color:var(--accent)}
   .zones{row-gap:16px;margin-bottom:12px}
   body.in-battle nav.tabs{transform:translateY(110%);transition:transform .2s}
-  body.in-battle.navopen nav.tabs{transform:none}
+  body.in-battle.navopen nav.tabs{transform:none;z-index:9}
   #navTog{display:block;position:fixed;right:10px;bottom:calc(10px + env(safe-area-inset-bottom,0px));z-index:7;padding:6px 12px;font-size:13px;border-radius:99px;background:rgba(14,16,36,.92)}
   body.in-battle.navopen #navTog{bottom:calc(70px + env(safe-area-inset-bottom,0px))}
   body.in-battle #toast{bottom:calc(56px + env(safe-area-inset-bottom,0px))}
@@ -11949,7 +11950,7 @@ document.addEventListener("keydown", e => { if (e.key === "Escape" && G && G.det
 document.addEventListener("click", e => {
   if (!G || !G.detailOpen) return;
   const t = e.target;
-  if (t.closest && (t.closest("#detailPop") || t.closest(".card[data-z]") || t.closest("[data-cid]") || t.closest("[data-cname]"))) return;
+  if (t.closest && (t.closest("#detailPop") || t.closest("[data-act=mdetail]") || t.closest(".card[data-z]") || t.closest("[data-cid]") || t.closest("[data-cname]"))) return;
   G.detailOpen = false; renderDetail(null);
 });
 
