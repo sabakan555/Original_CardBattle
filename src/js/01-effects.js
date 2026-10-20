@@ -1066,6 +1066,25 @@ function lockText(f){
   return when + (l.what === "atk" ? `${w}のモンスターは攻撃できない` : l.what === "use" ? `${w}は魔法・罠を発動できない` : `${w}はこれ以上カードを引けない`);
 }
 
+/* ---- ターンを飛ばす: 1つの効果「skip」= なにを（what: rest このターンの残り / draw ドローステップ / main メインステップ / battle バトルステップ）× だれの（who: me 自分 / op 相手） ----
+   rest はいまのターンの残りを飛ばす（だれのターンでも）。draw・main・battle は、その人の「次のターン」の一部を飛ばす（いまがその人のターンなら、その次のその人のターン）
+   ドローステップ＝ターンのはじめに1枚引く／メインステップ＝手札のカードを使う（召喚・セット・発動など）／バトルステップ＝モンスターで攻撃する */
+const SKIP_WHAT = { rest: "このターンの残り", draw: "ドローステップ", main: "メインステップ", battle: "バトルステップ" };
+const SKIP_HELP = { draw: "ターンのはじめにカードを引かない", main: "手札のカードを使えない（召喚・セット・発動など）", battle: "モンスターで攻撃できない" };
+fxForm("skip", {
+  label: "ターンを飛ばす（このターンの残り・ドロー・メイン・バトルステップ）", menu: "ターンを飛ばす（このターンの残り・ドロー・メイン・バトルステップ）", text: f => skipText(f),
+  groups: ["turn", "debuff", "minus"], group: e => e.what === "rest" || !e.what ? "turn" : e.who === "me" ? "minus" : "debuff", preset: { debuff: { what: "battle" }, minus: { what: "draw", who: "me" } }, first: ["turn"],
+  // 前からある「このターンの残りを飛ばす」
+  legacy: { skipTurn: { what: "rest" } },
+  fields: { what: v => SKIP_WHAT[v] ? v : "rest", who: v => v === "me" ? "me" : undefined },
+  norm(f, L){ L = L || {}; const what = SKIP_WHAT[L.what || f.what] ? L.what || f.what : "rest"; const out = { ...f, what }; if (what !== "rest" && (L.who || f.who) === "me") out.who = "me"; else delete out.who; delete out.n; return out; },
+});
+function skipText(f){
+  const k = fxNorm({ ...f, kind: "skip" });
+  if (k.what === "rest") return "このターンの残りを飛ばす";
+  return `${k.who === "me" ? "自分" : "相手"}の次のターンの${SKIP_WHAT[k.what]}を飛ばす（${SKIP_HELP[k.what]}）`;
+}
+
 /* ---- LPを増やす・減らす: 1つの効果「lp」= だれの（who: me・op・both）× 回復する／失う（op: heal・lose） ----
    失うはブロックでは防げない（ダメージではない）。失うと「LPを失うたび」などが起きる */
 fxForm("lp", {

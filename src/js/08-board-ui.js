@@ -74,6 +74,8 @@ function manaZoneHTML(p, who){
 }
 function cpuStep(st, s){
   const p = P(st, s), op = P(st, O(s));
+  // メインステップが飛ばされているときは、手札・場の起動効果などは使わずに攻撃へ
+  if (!mainSkipped(st, s)){
   // マナチャージ: 土地があれば土地、なければすぐには使えない重いカードから
   if (p.manaZ && !p.charged && p.hand.length && (p.hand.length > 1 || p.manaZ.length < 5)){ const L = p.hand.map((id, i) => i).filter(i => !chargeWhy(st, s, i)); if (L.length){ const lands = L.filter(i => card(p.hand[i]).mland), pick = lands.length ? lands[0] : L.sort((a, b) => cmpNum(costOf(card(p.hand[b])), costOf(card(p.hand[a]))))[0]; if (manaCharge(st, s, pick)) return; } }
   if (p.spire && cpuPotion(st, s, "main")) return;
@@ -130,6 +132,7 @@ function cpuStep(st, s){
   // 3. set traps
   const ti = p.hand.findIndex(id => cardType(card(id)) === "trap");
   if (ti >= 0 && freeZone(p.sz, p) >= 0){ setCard(st, s, ti); return; }
+  }
   // 4. attack
   if (st.turnNo > 1){
     for (let i = 0; i < p.mz.length; i++){
@@ -149,11 +152,11 @@ function cpuStep(st, s){
 // equip mode: a selected equip card (hand, or activating a set one) waits for a monster click
 function equipMode(st, me){
   if (!canAct(st, me)) return null;
-  if (G.sel && G.sel.z === "hand" && cardType(card(P(st, me).hand[G.sel.i])) === "equip" && canPay(st, me, card(P(st, me).hand[G.sel.i]))) return { from: "hand", i: G.sel.i, id: P(st, me).hand[G.sel.i] };
+  if (G.sel && G.sel.z === "hand" && !mainSkipped(st, me) && cardType(card(P(st, me).hand[G.sel.i])) === "equip" && canPay(st, me, card(P(st, me).hand[G.sel.i]))) return { from: "hand", i: G.sel.i, id: P(st, me).hand[G.sel.i] };
   return null;
 }
 function dropTarget(st, me){
-  if (!G.sel || G.sel.z !== "hand" || !canAct(st, me)) return null;
+  if (!G.sel || G.sel.z !== "hand" || !canAct(st, me) || mainSkipped(st, me)) return null;
   const t = cardType(card(P(st, me).hand[G.sel.i]));
   if (t === "monster" && isDmEvo(card(P(st, me).hand[G.sel.i]))) return null;
   if (t === "monster") return canSummonNow(st, me) && canPay(st, me, card(P(st, me).hand[G.sel.i])) && !(ssOf(card(P(st, me).hand[G.sel.i])) || {}).only ? "mz" : null;
@@ -371,8 +374,9 @@ function renderBoard0(){
     else hint = noMons ? "相手の場にモンスターがいない！" : AT.top ? "一番ATKが高いモンスターにしか攻撃できない！（光っているモンスター）" : tt.length ? "このモンスターにしか攻撃できない！（光っているモンスター）" : canDirect ? "攻撃する相手モンスターをえらぶか、直接攻撃！" : "攻撃する相手モンスターをえらんでね";
     if (G.atkTo == null) acts = (canDirect ? `<button class="primary" data-act="direct">直接攻撃！</button>` : "") + `<button class="ghost" data-act="cancelAtk">やめる</button>`;
   } else {
-    hint = st.turnNo === 1 ? "先攻の1ターン目は攻撃できません" : "カードをえらんで行動しよう";
-    if (sel && sel.z === "hand"){
+    hint = st.turnNo === 1 ? "先攻の1ターン目は攻撃できません" : mainSkipped(st, me) && stepSkipped(st, me, "battle") ? "メインステップとバトルステップが飛ばされています。ターンを終えよう" : mainSkipped(st, me) ? "メインステップが飛ばされています（手札のカードは使えない）" : stepSkipped(st, me, "battle") ? "バトルステップが飛ばされています（攻撃できない）" : "カードをえらんで行動しよう";
+    if (sel && sel.z === "hand" && mainSkipped(st, me)) hint = "メインステップが飛ばされているので、このターンは手札のカードを使えません";
+    else if (sel && sel.z === "hand"){
       const a0 = acts.length;
       if (pm.manaZ){ const cw = chargeWhy(st, me, sel.i); acts += `<button class="ghost" data-act="charge" ${cw ? "disabled" : ""}>マナに置く${cw ? `（${cw}）` : ""}</button>`; }
       const c = card(pm.hand[sel.i]), t = cardType(c);

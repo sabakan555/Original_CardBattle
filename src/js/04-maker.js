@@ -590,7 +590,7 @@ const KIND_GROUPS = [
   { g: "atk",     label: "ATKをあやつる（＋・−・○にする・入れかえる・元に戻す）", v: [["atkSet", "ATKを○にする（0もOK・自分/相手・えらぶ/全体/ランダム）"], ["atkZero", "相手のモンスターのATKを0にする"], ["atkSwap", "このモンスターと相手のモンスターのATKを入れかえる"], ["atkReset", "モンスターのATKを元の数字に戻す"]] },
   { g: "next",    label: "次に使うカード・手札のコスト・コピー", v: [["dblNext", "次に使う○をもう1回使う"], ["freeNext", "次に使う○のコストを0"], ["setCost", "手札のカードのコストを○にする"], ["copyPick", "手札を1枚えらんでコピーを加える"]] },
   { g: "ability", label: "能力を付与する・消す（成長・2回攻撃・ブロッカーなど）", v: [["giveAttr", "属性を付与する・変える（相手・自分のモンスター）"], ["dieWin", "サイコロの当たりの目を増やす（場にいる間）"], ["giveAb", "モンスターに能力を付与する"], ["loseAb", "モンスターの能力を消す"]] },
-  { g: "turn",    label: "ターンを追加する", v: [["extraTurn", "追加ターン（このターンのあと、もう一度自分のターン）"]] },
+  { g: "turn",    label: "ターンをあやつる（追加・飛ばす）", v: [["extraTurn", "追加ターン（このターンのあと、もう一度自分のターン）"]] },
   { g: "mana",    label: "マナ", v: [["manaNow", "マナを回復（このターン）"], ["manaMax", "最大マナを増やす"], ["manaDrain", "相手のマナを減らす"], ["selfMana", "このカードをマナゾーンに置く"], ["manaSummon", "マナゾーンからモンスターを場に出す"], ["manaBoost", "山札の上をマナゾーンに置く（マナ加速）"], ["manaHand", "手札をマナゾーンに置く"], ["manaGrave", "墓地のカードをマナゾーンに置く"], ["manaBreak", "相手のマナゾーンのカードを墓地へ（マナ破壊）"], ["manaBack", "マナゾーンのカードを手札に戻す（マナ回収）"]] },
   { g: "deck",    label: "山札・墓地をあやつる", v: [["mill", "山札の上から○枚を墓地に送る"], ["millBoth", "お互いの山札の上を墓地へ"], ["graveShuf", "墓地をすべて山札に戻してシャッフル"], ["graveShufOpp", "相手の墓地をすべて山札に戻してシャッフル"], ["graveShufBoth", "お互いの墓地をすべて山札に戻してシャッフル"], ["stealGrave", "相手の墓地のカードを自分の墓地へ移す"], ["scry", "山札の上を見て、1枚を上に・のこりを下に"], ["graveToTop", "墓地のカードを山札の一番上に"]] },
   { g: "exhaust", label: "カードを廃棄する", v: [["exhaustHand", "手札から○枚えらんで"], ["exhaustRand", "手札からランダムに○枚"], ["exhaustAll", "手札をすべて"], ["exhaustNonAtk", "手札のアタック以外をすべて"]] },
@@ -1175,6 +1175,8 @@ const FORM_F = {
   rPos: (x, v) => ({ ...x, pos: v }),
   lWho: (x, v) => ({ ...x, who: v || undefined, ...(v === "this" ? { what: "atk" } : {}) }),
   lWhat: (x, v) => ({ ...x, what: v }),
+  kWhat: (x, v) => ({ ...x, what: v }),
+  kWho: (x, v) => ({ ...x, who: v === "me" ? "me" : undefined }),
   pWho: (x, v) => ({ ...x, who: v || undefined }),
   pOp: (x, v) => ({ ...x, op: v === "lose" || v === "leave" ? v : undefined }),
   dAct: (x, v) => ({ ...x, act: v }),
@@ -1222,6 +1224,12 @@ function lockUI(e, opt){
   return `<select data-f="lWho" aria-label="だれが">${whos.map(([k, l]) => opt(k, l, who)).join("")}</select>`
     + (who === "this" ? `<span class="note">攻撃できない</span>` : `<select data-f="lWhat" aria-label="なにを">${Object.keys(LOCK_WHAT).map(k => opt(k, { atk: "攻撃できない", use: "魔法・罠を発動できない", draw: "カードを引けない" }[k], e.what)).join("")}</select>`);
 }
+// 読む順: 相手の → 次のターンの → バトルステップを → 飛ばす（このターンの残りは だれの をえらばない）
+function skipUI(e, opt){
+  const what = e.what || "rest";
+  return (what === "rest" ? "" : `<select data-f="kWho" aria-label="だれの">${opt("", "相手の次のターンの", e.who || "")}${opt("me", "自分の次のターンの", e.who || "")}</select>`)
+    + `<select data-f="kWhat" aria-label="なにを">${Object.keys(SKIP_WHAT).map(k => opt(k, k === "rest" ? "このターンの残りを飛ばす" : `${SKIP_WHAT[k]}を飛ばす（${SKIP_HELP[k]}）`, what)).join("")}</select>`;
+}
 // 読む順: 自分の → LPを → 100 → 回復する／失う
 function lpUI(e, opt){
   return `<select data-f="pWho" aria-label="だれの">${opt("", "自分の", e.who || "")}${opt("op", "相手の", e.who || "")}${opt("both", "お互いの", e.who || "")}</select><span class="note">LPを</span>`
@@ -1240,7 +1248,7 @@ function deckGraveUI(e, opt){
 Object.assign(FX_FORMS.atk, { ui: (e, opt, trig) => atkUI(e, opt, trig) }); Object.assign(FX_FORMS.remove, { ui: (e, opt, trig) => removeUI(e, opt, trig) });
 Object.assign(FX_FORMS.handOut, { ui: (e, opt) => handOutUI(e, opt) }); Object.assign(FX_FORMS.look, { ui: (e, opt) => lookUI(e, opt) }); Object.assign(FX_FORMS.gen, { ui: (e, opt) => genUI(e, opt) }); Object.assign(FX_FORMS.fetch, { ui: (e, opt) => fetchUI(e, opt) });
 Object.assign(FX_FORMS.status, { ui: (e, opt) => statusUI(e, opt) }); Object.assign(FX_FORMS.cleanse, { ui: (e, opt) => cleanseUI(e, opt) });
-Object.assign(FX_FORMS.lock, { ui: (e, opt) => lockUI(e, opt) }); Object.assign(FX_FORMS.lp, { ui: (e, opt) => lpUI(e, opt) }); Object.assign(FX_FORMS.deckGrave, { ui: (e, opt) => deckGraveUI(e, opt) });
+Object.assign(FX_FORMS.lock, { ui: (e, opt) => lockUI(e, opt) }); Object.assign(FX_FORMS.skip, { ui: (e, opt) => skipUI(e, opt) }); Object.assign(FX_FORMS.lp, { ui: (e, opt) => lpUI(e, opt) }); Object.assign(FX_FORMS.deckGrave, { ui: (e, opt) => deckGraveUI(e, opt) });
 // 読む順: 相手の → 弱体を → プレイヤーに（○体・○回）→ 得る/失う → 数 → いつまで
 function statusUI(e, opt){
   const me = e.side === "me", sd = me ? "自分" : "相手", sp = $("#mkFrame").value === "spire", mon = MK.type === "monster", pl = e.st === "vuln" || e.st === "weak";

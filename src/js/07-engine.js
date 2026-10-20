@@ -477,7 +477,9 @@ function monDmg(st, s, i, n, src){
 const potionChips = (p, mine) => (p.potions || []).map((k, i) => [k, i, potionDef(k)]).filter(x => x[2]).map(([k, i, d]) => mine ? `<button class="bst pot" data-potion="${i}" title="${esc(d.text)}" ${G && G.st && canAct(G.st, G.slot) ? "" : "disabled"}>${d.img ? `<img alt="" src="${d.img}">` : "🧪"}${esc(d.name)}</button>` : `<span class="bst pot" title="${esc(d.text)}">${d.img ? `<img alt="" src="${d.img}">` : "🧪"}${esc(d.name)}</span>`).join("");
 // the row under each player: relics, 筋力 / 脱力 / ブロック…, and ポーション (full width, so the name and LP keep their room)
 const potRow = (p, mine, noPots) => { const h = statChips(p) + (noPots ? "" : potionChips(p, mine)); return h ? `<div class="pots">${h}</div>` : ""; };
-const lockChips = p => { const tn = typeof G !== "undefined" && G && G.st ? G.st.turnNo : null; if (tn == null) return ""; return ((p.noAtkUntil || 0) >= tn ? `<span class="bst wk" title="効果で、このターンはモンスターが攻撃できない">攻撃できない</span>` : "") + ((p.noUseUntil || 0) >= tn ? `<span class="bst wk" title="相手の効果で、魔法・罠を発動できない">発動できない</span>` : ""); };
+const lockChips = p => { const tn = typeof G !== "undefined" && G && G.st ? G.st.turnNo : null; if (tn == null) return ""; return ((p.noAtkUntil || 0) >= tn ? `<span class="bst wk" title="効果で、このターンはモンスターが攻撃できない">攻撃できない</span>` : "") + ((p.noUseUntil || 0) >= tn ? `<span class="bst wk" title="相手の効果で、魔法・罠を発動できない">発動できない</span>` : "")
+  + (p.skipNow && p.skipNow.no === tn ? (p.skipNow.main ? `<span class="bst wk" title="このターンは手札のカードを使えない（召喚・セット・発動など）">メイン飛ばし中</span>` : "") + (p.skipNow.battle ? `<span class="bst wk" title="このターンはモンスターで攻撃できない">バトル飛ばし中</span>` : "") : "")
+  + (p.skipNext ? ["draw", "main", "battle"].filter(k => p.skipNext[k]).map(k => `<span class="bst wk" title="次のターンの${SKIP_WHAT[k]}を飛ばす">次の${SKIP_WHAT[k].replace("ステップ", "")}を飛ばす</span>`).join("") : ""); };
 const timerChips = p => (p.timers || []).map(t => { const c = t.c && hasCard(t.c) ? card(t.c) : null, tx = c ? blockText(c, { ...t.b, delay: 0 }) : ""; return `<span class="bst tmrc" title="${esc(`「${t.name}」：あと${t.left}回の自分のターンのはじめで効果が出る${tx ? "（" + tx + "）" : ""}`)}">${clockSVG(t.left)}${esc(t.name)}</span>`; }).join("");
 const boonChips = p => (p.boons || []).map(t => { const c = t.c && hasCard(t.c) ? card(t.c) : { id: t.c, name: t.name, type: "magic" }, tx = blockText(c, { ...t.b, delay: 0, grant: null }); return `<span class="bst boon" title="${esc(`付与された効果「${t.name}」：自分のターンの${t.at === "turnStart" ? "はじめ" : "おわり"}に、${tx}${t.dur ? `（あと${t.left}回）` : "（ずっと）"}`)}">✦${esc(t.name)}${t.dur ? `<small>×${t.left}</small>` : ""}</span>`; }).join("");
 const statChips = p => ctrChipsP(p) + lockChips(p) + timerChips(p) + boonChips(p) + Object.entries(p.free || {}).filter(([, v]) => v > 0).map(([k, v]) => `<span class="bst free" title="次に使うこの種類のカードはコスト0">次の${SPIRE_LABEL[k]}0コスト${v > 1 ? "×" + v : ""}</span>`).join("") + (p.relics || []).map(k => relicDef(k)).filter(Boolean).map(d => `<span class="bst rel" title="${esc(d.text)}">${d.img ? `<img alt="" src="${d.img}">` : ""}${esc(d.name)}</span>`).join("") + (p.block ? `<span class="bst blk" title="次の自分のターンのはじめまで、受けるダメージを先に引き受ける">ブロック ${p.block}</span>` : "") + (p.vuln > 0 ? `<span class="bst vul" title="受けるダメージが1.5倍">弱体 ${p.vuln}</span>` : "") + (p.str ? `<span class="bst str" title="カードで与えるダメージ（1回ごと）と、自分のモンスターがプレイヤーに与える戦闘ダメージが${p.str > 0 ? "+" : "−"}${Math.abs(p.str)}">筋力 ${p.str}</span>` : "") + (p.dex ? `<span class="bst str" title="カードで得るブロックが${p.dex > 0 ? "+" : "−"}${Math.abs(p.dex)}">敏捷 ${p.dex}</span>` : "") + (p.dblNext || []).map(e => `<span class="bst pw" title="このターン、次に使うこのカードはもう1回発動する">次の${esc(usedPfText(e))}×2</span>`).join("") + (p.freeNext || []).map(e => `<span class="bst free" title="次に使うこのカードはコスト0">次の${esc(usedPfText(e))}0コスト</span>`).join("") + (p.intang > 0 ? `<span class="bst blk" title="受けるダメージが1になる（自分のターンのはじめに1減る）">霊体 ${p.intang}</span>` : "") + (p.weak > 0 ? `<span class="bst wk" title="カードで与えるダメージが0.75倍">脱力 ${p.weak}</span>` : "")
@@ -889,7 +891,7 @@ function useBlockedWhy(st, s, c, win){
   if (st && s && isField(c) && massOf(c) && P(st, s).grave.length < massOf(c)) return `墓地が足りません（要求質量${massOf(c)}）`;
   return "";
 }
-const atkLocked = (st, s) => (P(st, s).noAtkUntil || 0) >= st.turnNo;
+const atkLocked = (st, s) => (P(st, s).noAtkUntil || 0) >= st.turnNo || stepSkipped(st, s, "battle");
 function canAttack(st, s, i){
   const m = P(st, s).mz[i];
   return !!m && !sealedM(m) && !atkLocked(st, s) && !((m.noAtkTurn || 0) >= st.turnNo) && !m.attacked && st.turnNo > 1 && (!sick(st, s, i) || m.rushTurn === st.turnNo || hasAb(st, s, i, "rush")) && !hasAb(st, s, i, "noAttack") && !charmActive(st, m) && atkCondOk(st, s, i);
@@ -1039,7 +1041,7 @@ function persistFire(st, s, trig, ctx, then){
 // stick equip hand[hi] of player s onto monster (ts,ti) at position pos (default: rightmost)
 function equip(st, s, hi, ts, ti, pos, disc){
   const p = P(st, s), id = p.hand[hi], c = card(id);
-  if (!id || cardType(c) !== "equip") return false;
+  if (!id || cardType(c) !== "equip" || mainSkipped(st, s)) return false;
   const m = P(st, ts).mz[ti]; if (!m) return false;
   if (!canEquipOn(st, id, ts, ti) || !pay(st, s, c)) return false;
   p.hand.splice(hi, 1);
@@ -1458,6 +1460,19 @@ function applyLock(st, s, c, target, ctx, f, n, src){
   log(st, s, `${src}：${when}、${p.name}は${f.what === "atk" ? "攻撃" : "魔法・罠を発動"}できない`);
 }
 FX_FORMS.lock.run = applyLock;
+/* ---- ターンを飛ばす（skip） ----
+   rest: いま解決中のものを終えてから、このターンを終える（requestTurnEnd）
+   draw・main・battle: その人の次のターンに印（skipNext）をつけておき、ターンのはじめに skipNow にうつす */
+function applySkip(st, s, c, target, ctx, f, n, src){
+  if (f.what === "rest"){ requestTurnEnd(st, s, c); return; }
+  const o = f.who === "me" ? s : O(s), p = P(st, o);
+  p.skipNext = { ...(p.skipNext || {}), [f.what]: true };
+  log(st, s, `${src}：${p.name}の次のターンの${SKIP_WHAT[f.what]}を飛ばす`);
+}
+FX_FORMS.skip.run = applySkip;
+// いまのターン、その人のメイン・バトルステップが飛ばされているか
+const stepSkipped = (st, s, what) => { const k = st && P(st, s).skipNow; return !!(k && k[what] && k.no === st.turnNo && st.turn === s); };
+const mainSkipped = (st, s) => stepSkipped(st, s, "main");
 
 /* ---- LP（lp） ---- */
 function applyLp(st, s, c, target, ctx, f, n, src){
@@ -1576,7 +1591,6 @@ function applyEffect(st, s, c, target, ctx = {}, fx = normFx(c)){
       if (zi < 0){ log(st, s, `${src}：魔法・罠ゾーンに空きがない`); break; }
       const z = me.sz[zi]; z.mats = (z.mats || []).concat(f.mats.splice(0, k)); z.stack = (z.stack || 0) + k; ev(st, { type: "spell", s, c: f.c });
       log(st, s, `${src}：質量${k}枚が「${card(f.c).name}」のコピーになって、魔法・罠ゾーンにストックされた（ストック${z.stack}枚・のこりの質量 ${f.mats.length}枚）`); break; }
-    case "skipTurn": requestTurnEnd(st, s, c); break;
     case "reflectDmg": me.reflectUntil = st.turnNo; log(st, s, `${src}：このターン、${me.name}が受けるダメージは相手に跳ね返る！`); break;
     case "extraTurn": me.extraTurns = (me.extraTurns || 0) + (n || 1); log(st, s, `${src}：このターンのあと、もう${(n || 1) > 1 ? (n || 1) + "回" : "1回"}自分のターン！`); break;
     case "dblAtk": me.dblAtk = (me.dblAtk || 0) + (n || 1); log(st, s, `${src}：次に使うアタックをもう1回プレイする`); break;
@@ -2111,7 +2125,7 @@ function manaCivWhy(st, s, c){
 }
 function chargeWhy(st, s, hi){
   const p = P(st, s), c = card(p.hand[hi]); if (!p.manaZ) return "マナゾーンのないルール";
-  if (st.turn !== s || st.pending || st.winner) return "自分のターンだけ"; if (p.charged) return "このターンはもう置いた";
+  if (st.turn !== s || st.pending || st.winner) return "自分のターンだけ"; if (mainSkipped(st, s)) return "メインステップが飛ばされている"; if (p.charged) return "このターンはもう置いた";
   if (!c) return "カードがない"; if (p.exTemp && p.exTemp.i === hi) return "EXデッキのカード";
   if ((p.landOnly || st.manaRule === "land") && !c.mland) return "土地しか置けない";
   return "";
@@ -2161,12 +2175,12 @@ function pay(st, s, c){
   if (m){ m.cur -= k; if (p.manaZ){ manaTap(p, Math.max(0, manaFree(p).length - Math.max(0, Math.min(m.cur, p.manaZ.length))), attrsOf(c)); manaSync(p); } } p.lastPaid = k; return true;
 }
 // ツインパクト: 手札の hi 番目を魔法として使う
-function twinWhy(st, s, hi){ const p = P(st, s), id = p.hand[hi], c = card(id); if (!twOf(c)) return "ツインパクトではない"; if (twOf(c).accel && p.mana && canPay(st, s, c)) return "アクセラレートは、モンスターのコストが払えないときだけ"; const sp = card(id + "~tw"); return useBlockedWhy(st, s, sp) || (canPay(st, s, sp) ? "" : costWhy(st, s, sp) || "マナが足りない"); }
+function twinWhy(st, s, hi){ const p = P(st, s), id = p.hand[hi], c = card(id); if (!twOf(c)) return "ツインパクトではない"; if (mainSkipped(st, s)) return "メインステップが飛ばされている"; if (twOf(c).accel && p.mana && canPay(st, s, c)) return "アクセラレートは、モンスターのコストが払えないときだけ"; const sp = card(id + "~tw"); return useBlockedWhy(st, s, sp) || (canPay(st, s, sp) ? "" : costWhy(st, s, sp) || "マナが足りない"); }
 function castTwin(st, s, hi, ctx = {}){ const p = P(st, s), id = p.hand[hi]; if (!twOf(card(id)) || twinWhy(st, s, hi)) return false; p.hand[hi] = id + "~tw"; if (activate(st, s, "hand", hi, ctx)) return true; if (p.hand[hi] === id + "~tw") p.hand[hi] = id; return false; }
 /* ---- そのほかの使い方: サイクリング・墓地から出る・結晶 ---- */
 const manaWhy = (st, s, n) => { const p = P(st, s); return n > 0 && p.mana && p.mana.cur < n ? "マナが足りない" : ""; };
 const payMana = (st, s, n, why) => { const p = P(st, s); if (n > 0 && p.mana){ p.mana.cur -= n; log(st, s, `${why}でマナを${n}払った（${p.mana.cur}/${p.mana.max}）`); } };
-function cycleWhy(st, s, hi){ const c = card(P(st, s).hand[hi]); if (!c || !c.cycle) return "サイクリングがない"; if (st.turn !== s) return "自分のターンだけ"; return manaWhy(st, s, +c.cycle.n || 0); }
+function cycleWhy(st, s, hi){ const c = card(P(st, s).hand[hi]); if (!c || !c.cycle) return "サイクリングがない"; if (st.turn !== s) return "自分のターンだけ"; if (mainSkipped(st, s)) return "メインステップが飛ばされている"; return manaWhy(st, s, +c.cycle.n || 0); }
 function cycleCard(st, s, hi){
   if (cycleWhy(st, s, hi)) return false;
   const p = P(st, s), id = p.hand[hi], c = card(id); payMana(st, s, +c.cycle.n || 0, `「${c.name}」のサイクリング`);
@@ -2179,7 +2193,7 @@ function graveSummon(st, s, gi){
   const p = P(st, s), id = p.grave[gi], c = card(id); payMana(st, s, +c.graveSum.n || 0, `「${c.name}」`);
   p.grave.splice(gi, 1); putMon(st, s, id, { log: `「${c.name}」が墓地から場に出た！` }); checkEnd(st); return true;
 }
-function crystWhy(st, s, hi){ const p = P(st, s), c = card(p.hand[hi]); if (!c || !c.cryst || cardType(c) !== "monster") return "結晶がない"; if (st.turn !== s) return "自分のターンだけ"; if (freeZone(p.sz, p) < 0) return "魔法・罠ゾーンがいっぱい"; return manaWhy(st, s, +c.cryst.n || 0); }
+function crystWhy(st, s, hi){ const p = P(st, s), c = card(p.hand[hi]); if (!c || !c.cryst || cardType(c) !== "monster") return "結晶がない"; if (st.turn !== s) return "自分のターンだけ"; if (mainSkipped(st, s)) return "メインステップが飛ばされている"; if (freeZone(p.sz, p) < 0) return "魔法・罠ゾーンがいっぱい"; return manaWhy(st, s, +c.cryst.n || 0); }
 function crystPlace(st, s, hi){
   if (crystWhy(st, s, hi)) return false;
   const p = P(st, s), id = p.hand[hi], c = card(id), z = freeZone(p.sz, p); payMana(st, s, +c.cryst.n || 0, `「${c.name}」の結晶`);
@@ -2209,7 +2223,7 @@ function withDiscard(c, hi, go){
 function hfOpts(st, s, hi){ const p = P(st, s), g = hfOf(card(p.hand[hi])); return g ? p.hand.map((id, j) => j).filter(j => j !== hi && hfMatch(g, card(p.hand[j]))) : []; }
 function hfWhy(st, s, hi){
   const p = P(st, s), c = card(p.hand[hi]); if (!hfOf(c)) return "フュージョンできないカード";
-  if (st.turn !== s || st.pending || st.winner) return "自分のターンだけ";
+  if (st.turn !== s || st.pending || st.winner) return "自分のターンだけ"; if (mainSkipped(st, s)) return "メインステップが飛ばされている";
   if (p.hfT && p.hfT.no === st.turnNo && p.hfT.ids.includes(c.id)) return "このターンはもうフュージョンした";
   if (!hfOpts(st, s, hi).length) return "フュージョンできる手札がない";
   return "";
@@ -2246,7 +2260,7 @@ function hfMove(p, from, to, st){
 }
 // フュージョンした回数も同じように受けとる
 function hfTakeX(p, id){ const n = (p.hfX || {})[id] || 0; if (p.hfX && p.hfX[id] != null){ const o = { ...p.hfX }; delete o[id]; p.hfX = o; } return n; }
-function canSummonNow(st, s){ return P(st, s).mana ? true : !st.summoned; }
+function canSummonNow(st, s){ if (mainSkipped(st, s)) return false; return P(st, s).mana ? true : !st.summoned; }
 function canAct(st, s){ return !(G && G.spectate) && st.turn === s && !st.pending && !st.askQ && !st.winner && !(G && G.chooseQ.length); }
 // mats: 質量にする墓地の場所（なければ古い順に自動）
 function summon(st, s, hi, zi, disc, trib, mats){
@@ -2304,7 +2318,7 @@ function ssBlock(st, s, hi){
   if (ss.cost !== "tribute" && freeZone(p.mz, p) < 0) return "場がいっぱい";
   return "";
 }
-const canSpecial = (st, s, hi) => st.turn === s && !st.pending && !st.winner && !ssBlock(st, s, hi);
+const canSpecial = (st, s, hi) => st.turn === s && !st.pending && !st.winner && !mainSkipped(st, s) && !ssBlock(st, s, hi);
 // a monster (and whatever is stuck on it) goes to the graveyard without being "destroyed"
 function sendToGrave(st, s, i){
   const p = P(st, s), m = p.mz[i]; if (!m || monCannotLeave(m)) return false;
@@ -2348,7 +2362,7 @@ function specialSummon(st, s, hi, picks = []){
 function setCard(st, s, hi, zi){
   const p = P(st, s), id = p.hand[hi], z = (zi != null && !p.sz[zi]) ? zi : freeZone(p.sz, p);
   // スパイア風 cards can't be set (no keeping cards past the end of the turn)
-  if (z < 0 || cardType(card(id)) === "monster" || cardType(card(id)) === "equip" || card(id).frame === "spire") return false;
+  if (z < 0 || mainSkipped(st, s) || cardType(card(id)) === "monster" || cardType(card(id)) === "equip" || card(id).frame === "spire") return false;
   p.hand.splice(hi, 1); p.sz[z] = { c: id, turn: st.turnNo };
   log(st, s, `魔法・罠ゾーンにカードをセット`);
   return true;
@@ -2367,7 +2381,7 @@ function activate(st, s, from, i, ctx = {}){
   if (from === "sz" && p.sz[i].fcp) return false;
   const c = card(id), t = cardType(c);
   if (t === "monster" || t === "equip") return false;
-  if (from === "hand" && t !== "magic") return false;
+  if (from === "hand" && (t !== "magic" || mainSkipped(st, s))) return false;
   if (from === "grave" && (t !== "magic" || !c.flashback)) return false;
   if (useBlockedWhy(st, s, c)) return false;
   const keep = isPersist(c), pz = keep ? (from === "sz" ? i : freeZone(p.sz, p)) : -1;
@@ -2960,9 +2974,14 @@ function passTurn(st, s){
     if (np.revDebt && np.revDebt.length){ const L = np.revDebt; np.revDebt = []; for (const d of L){ const n = +d.n || 0; if (!np.mana || np.mana.cur >= n){ if (np.mana && n){ np.mana.cur -= n; } log(st, st.turn, `逆転劇「${d.name}」のコストでマナを${n}払った${np.mana ? `（${np.mana.cur}/${np.mana.max}）` : ""}`); } else { st.winner = O(st.turn); st.why = `${np.name} は逆転劇「${d.name}」のマナ${n}を払えなかった`; log(st, st.turn, `逆転劇「${d.name}」のマナ${n}を払えない…ゲームに負けた`); return; } } }
     checkEnd(st); if (st.winner) return;
     refill(st, st.turn);
+    // 前のターンに飛ばされたステップ: ドローはここで飛ばし、メイン・バトルはこのターンのあいだ印をのこす
+    const sk = np.skipNext; delete np.skipNext; delete np.skipNow;
+    if (sk && (sk.main || sk.battle)){ np.skipNow = { no: st.turnNo, ...(sk.main ? { main: true } : {}), ...(sk.battle ? { battle: true } : {}) }; log(st, st.turn, `このターンは${[sk.main && "メインステップ", sk.battle && "バトルステップ"].filter(Boolean).join("と")}を飛ばす`); }
+    if (sk && sk.draw) log(st, st.turn, "ドローステップを飛ばした（カードを引かない）");
+    else {
     if (!np.deck.length && !np.spire){ const nl = noLoseBy(st, st.turn); if (nl) log(st, st.turn, `引くカードがないけど、「${nl}」の効果でゲームに負けない！`); else { st.winner = s; st.why = `${np.name} の山札がなくなった`; log(st, st.turn, "引くカードがない！"); return; } }
     np.deck = innateTop(np.deck);
-    if (np.deck.length){ np.hand.push(np.deck.shift()); aceDrew(st, st.turn, np.hand.slice(-1)); }
+    if (np.deck.length){ np.hand.push(np.deck.shift()); aceDrew(st, st.turn, np.hand.slice(-1)); } }
     if ((np.nextGive || []).length){ const L = np.nextGive; np.nextGive = []; L.forEach(g => { for (let r = 0; r < g.n; r++) np.hand.push(g.id); log(st, st.turn, `「${card(g.id).name}」のコピーを${g.n}枚手札に加えた`); }); }
     ctrTick(st, st.turn, "start"); checkEnd(st); if (st.winner) return;
     // online: the new player's own screen runs their turn-start effects (so they can choose targets)
