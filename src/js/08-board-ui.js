@@ -382,7 +382,8 @@ function renderBoard0(){
   }
   if (G.spectate && !st.winner){ hint = `観戦中：${esc(pm.name)} vs ${esc(po.name)}`; acts = `<button class="ghost" data-act="leave">観戦をやめる</button>`; manual = ""; }
   const last = st.log[st.log.length - 1];
-  const handHTML = G.spectate ? (pm.hand.map(() => backHTML("", "", pm.sleeve)).join("") || `<p class="muted">手札なし</p>`) : pm.hand.map((id, i) => cardHTML(symView(st, me, card(id)), `pick ${sel && sel.z === "hand" && sel.i === i ? "sel" : ""} ${pm.exTemp && pm.exTemp.i === i && pm.exTemp.id === id ? "ex-temp" : ""} ${pm.mana && !canPay(st, me, card(id)) && cardType(card(id)) !== "trap" ? "dim" : ""}`, `data-z="hand" data-s="me" data-i="${i}" tabindex="0" role="button"`, mOpt(me))).join("") || `<p class="muted">手札なし</p>`;
+  const handCard = (id, i) => cardHTML(symView(st, me, card(id)), `pick ${sel && sel.z === "hand" && sel.i === i ? "sel" : ""} ${pm.exTemp && pm.exTemp.i === i && pm.exTemp.id === id ? "ex-temp" : ""} ${pm.mana && !canPay(st, me, card(id)) && cardType(card(id)) !== "trap" ? "dim" : ""}`, `data-z="hand" data-s="me" data-i="${i}" tabindex="0" role="button"`, mOpt(me));
+  const handHTML = G.spectate ? (pm.hand.map(() => backHTML("", "", pm.sleeve)).join("") || `<p class="muted">手札なし</p>`) : pm.hand.map(handCard).join("") || `<p class="muted">手札なし</p>`;
   const logHTML = st.log.slice(-60).reverse().map(l => `<li>${l.s ? `<b>${esc(nm(st, l.s))}</b>：` : ""}${logLinks(esc(l.m))}</li>`).join("");
   const prev = G.prevLp || {}; G.prevLp = { me: pm.lp, op: po.lp };
   const manaBox = (p, who) => p.manaZ ? manaZoneHTML(p, who) : p.mana ? `<div class="manabar" title="${who}のマナ"><span class="lbl">${who}のマナ</span><b>${p.mana.cur}<small>/${p.mana.max}</small></b><span class="gems">${Array.from({ length: Math.max(p.mana.max, p.mana.cur) }, (_, k) => `<i class="${k < p.mana.cur ? "" : "off"}"></i>`).join("")}${Array.from({ length: Math.max(0, MAX_MANA - Math.max(p.mana.max, p.mana.cur)) }, () => `<i class="lock"></i>`).join("")}</span></div>` : "";
@@ -390,15 +391,43 @@ function renderBoard0(){
   const shieldBox = (p, key) => p.shieldOn ? `<div class="shieldz" data-shd="${key}" title="シールド（ブレイクされると手札へ。0枚のときに直接攻撃を受けると負け）"><span class="lbl">シールド</span><span class="shs">${(p.shields || []).map(() => `<i></i>`).join("") || `<span class="note">なし</span>`}</span><b>${(p.shields || []).length}</b></div>` : "";
   const lpv = (p, key) => p.shieldOn ? `<span class="lpv shd ${(p.shields || []).length ? "" : "low"}" title="シールドの枚数"><small>シールド</small>${(p.shields || []).length}</span>` : `<span class="lpv ${p.lp <= 300 ? "low" : ""}" data-lp="${key}"><small>LP</small>${p.lp}</span>`;
   const lpBox = (p, key) => p.shieldOn ? `<div id="lp-${key}" class="lp shd ${(p.shields || []).length ? "" : "low"}"><small>シールド</small><b>${(p.shields || []).length}</b></div>` : `<div id="lp-${key}" data-lp="${key}" class="lp ${p.lp <= 300 ? "low" : ""} ${prev[key] != null && p.lp < prev[key] ? "hurt" : ""}"><small>LP</small><b>${p.lp}</b></div>`;
+  // ---- スマホ（640px以下）: 相手のバー・選んだカードの操作シート・扇形の手札・丸いターン終了（PCではCSSでかくす） ----
+  const mAT = atkFrom != null && !st.winner ? atkTargets(st, me, atkFrom) : null, mDir = !!(mAT && mAT.direct);
+  const mShd = p => p.shieldOn ? `<span class="mb-shd" aria-hidden="true">${(p.shields || []).map(() => "<i></i>").join("")}</span>` : "";
+  const mbar = `<div class="mbar ${mDir ? "aimd" : ""}" ${mDir ? `data-act="direct"` : ""}><div class="mb-l"><span class="mb-who">${esc(po.name)}</span><span class="mb-sub">手札 ${po.hand.length}・山札 ${po.deck.length}</span><button type="button" class="chip" data-grave="op:grave">墓地 ${po.grave.length}</button></div>${mShd(po)}${lpv(po, "op")}${mDir ? `<button type="button" class="mb-direct" data-act="direct">ここをタップで直接攻撃</button>` : ""}</div>`;
+  const mSelC = (() => {
+    if (atkFrom != null) return pm.mz[atkFrom] ? { c: monCard(pm.mz[atkFrom]), m: pm.mz[atkFrom], s: me } : null;
+    if (!sel) return null;
+    if (sel.z === "hand"){ const id = pm.hand[sel.i]; return id && !G.spectate ? { c: symView(st, me, card(id)), s: me } : null; }
+    const X = sel.s === "me" ? pm : po, z = X[sel.z] && X[sel.z][sel.i]; if (!z) return null;
+    if (sel.z === "sz" && !z.face && (sel.s !== "me" || G.spectate)) return null;
+    return sel.z === "mz" ? { c: monCard(z), m: z, s: sel.s === "me" ? me : op } : { c: card(z.c), s: sel.s === "me" ? me : op };
+  })();
+  const mHead = mSelC ? `<div class="ms-head">${cardHTML(mSelC.c, "xs", "", mOpt(mSelC.s))}<div class="ms-info"><b>${esc(mSelC.c.name)}</b><span>${esc(typeLabel(mSelC.c))}</span></div>${mSelC.m ? `<span class="ms-atk">ATK ${fmtN(atkOf(mSelC.m))}</span>` : cardType(mSelC.c) === "monster" ? `<span class="ms-atk">ATK ${fmtN(baseAtk(mSelC.c))}</span>` : ""}</div>` : "";
+  let mExtra = "";
+  if (sel && sel.z === "mz" && sel.s === "me" && atkFrom == null && pm.mz[sel.i] && !G.spectate && !st.winner){
+    const z = pm.mz[sel.i];
+    if (hasTrig(monCard(z), "act")){ const no = actWhy(st, me, sel.i); mExtra += `<button type="button" data-actmon="${sel.i}" ${no ? "disabled" : ""}>能力${no ? `（${esc(no)}）` : ""}</button>`; }
+    if (hasAb(st, me, sel.i, "evolve") && !z.evolved){ const no = evoWhy(st, me, sel.i); mExtra += `<button type="button" data-evomon="${sel.i}" ${no ? "disabled" : ""}>エボルヴ${no ? `（${esc(no)}）` : ""}</button>`; }
+  }
+  const mActs = acts.replace(`<button data-act="endTurn">ターン終了</button>`, "");
+  const mSheetOn = !!(st.winner || G.spectate || atkFrom != null || mSelC);
+  const mHint = atkFrom != null && !st.winner ? (mDir ? "光っている相手のモンスターか、上の相手のバーをタップして攻撃" : "光っている相手のモンスターをタップして攻撃") : hint;
+  const msheet = `<div class="msheet"><div class="ms-grip" aria-hidden="true"></div>${mHead}<div class="ms-hint">${mHint}</div><div class="ms-acts">${mActs}${mExtra}${mSelC && atkFrom == null ? `<button type="button" class="ghost" data-act="mdetail">詳細</button>` : ""}${!st.winner && !G.spectate && sel && atkFrom == null ? `<button type="button" class="ghost" data-act="mclose">とじる</button>` : ""}</div></div>`;
+  const mN = pm.hand.length, mR = Math.min(6, 36 / Math.max(1, mN)), mY = Math.min(2.5, 15 / Math.max(1, mN));
+  const mhand = `<div class="hand mhand" style="--n:${mN};--d:${Math.max(1, mN - 1)}">${G.spectate ? pm.hand.map(() => backHTML("", "", pm.sleeve)).join("") : pm.hand.map((id, i) => { const k = i - (mN - 1) / 2; return `<div class="hslot" style="--r:${(k * mR).toFixed(1)}deg;--y:${(k * k * mY).toFixed(1)}px">${handCard(id, i)}</div>`; }).join("")}${mN ? "" : `<p class="muted">手札なし</p>`}</div>`;
+  const mdock = `<div class="mdock ${mSheetOn ? "sheet" : ""}">${mSheetOn ? msheet : `${fbActs || gsActs ? `<div class="mfb">${fbActs}${gsActs}</div>` : ""}${mN && myTurn && free ? `<div class="mhint">タップで選ぶ ・ 上にスワイプで使う</div>` : ""}${mhand}`}</div>`;
+  const mEnd = !st.winner && !G.spectate && myTurn && free && atkFrom == null ? `<button type="button" class="mend" data-act="endTurn">ターン<br>終了</button>` : "";
 
   $("#board").innerHTML = `
   <div class="board">
     <div class="table">
+      ${mbar}
       ${manaBox(po, esc(po.name))}${blockBox(po, esc(po.name))}${shieldBox(po, "op")}
-      <div class="mstat"><span class="who">${esc(po.name)}</span><span>山札 ${po.deck.length}</span>${(po.ex || []).length ? `<span>EX ${po.ex.length}</span>` : ""}<button class="chip" data-grave="op:grave">墓地 ${po.grave.length}</button>${(po.exile || []).length ? `<button class="chip" data-grave="op:exile">廃棄 ${po.exile.length}</button>` : ""}${lpv(po, "op")}${noLoseBy(st, O(me)) ? `<span class="nolose" title="「${esc(noLoseBy(st, O(me)))}」の効果で負けない">負けない</span>` : ""}</div>
+      <div class="mstat op"><span class="who">${esc(po.name)}</span><span>山札 ${po.deck.length}</span>${(po.ex || []).length ? `<span>EX ${po.ex.length}</span>` : ""}<button class="chip" data-grave="op:grave">墓地 ${po.grave.length}</button>${(po.exile || []).length ? `<button class="chip" data-grave="op:exile">廃棄 ${po.exile.length}</button>` : ""}${lpv(po, "op")}${noLoseBy(st, O(me)) ? `<span class="nolose" title="「${esc(noLoseBy(st, O(me)))}」の効果で負けない">負けない</span>` : ""}</div>
       <div class="ohand">${backHTML("xs", "", po.sleeve)}<span class="cnt-x">×${po.hand.length - (exTempOk(po) ? 1 : 0)}</span><span class="lbl">手札（${esc(po.name)}）</span></div>
       <span class="zlabel">相手の魔法・罠ゾーン</span>
-      <div class="zones">${zoneHTML(op, "sz")}</div>
+      <div class="zones st">${zoneHTML(op, "sz")}</div>
       ${standingEqHTML(st, op, false)}
       <span class="zlabel">相手のモンスターゾーン</span>
       <div class="zones">${zoneHTML(op, "mz")}</div>
@@ -411,13 +440,14 @@ function renderBoard0(){
         ${(st.recent || []).length ? `<div class="recent"><span class="note">最近使われたカード</span><div class="rc-list">${st.recent.slice().reverse().map(r => `<div class="rc ${r.s === me ? "mine" : "theirs"}">${cardHTML(card(r.c), "xs pick", `data-cid="${esc(r.c)}" data-where="${r.s === me ? "あなた" : esc(P(st, r.s).name)}が使った" tabindex="0" role="button"`, mOpt(r.s))}<small>${r.s === me ? "あなた" : esc(P(st, r.s).name)}</small></div>`).join("")}</div></div>` : ""}
         <div id="turnTimer" class="turn-timer">${timerHTML()}</div>
         <div class="msg">${hint}</div>
+        ${mEnd}
         <div class="actions">${acts}</div>
         ${manual}
       </div>
       <span class="zlabel">自分のモンスターゾーン</span>
       <div class="zones">${zoneHTML(me, "mz")}</div>
       <span class="zlabel">自分の魔法・罠ゾーン</span>
-      <div class="zones">${zoneHTML(me, "sz")}</div>
+      <div class="zones st">${zoneHTML(me, "sz")}</div>
       ${standingEqHTML(st, me, true)}
       <div class="mstat"><span class="who">${esc(pm.name)}${G.spectate ? "" : "（あなた）"}</span><button class="chip" data-grave="me:deck">山札 ${pm.deck.length}</button>${(pm.ex || []).length ? `<button class="chip exchip" data-exopen>EX ${pm.ex.length}</button>` : ""}<button class="chip" data-grave="me:grave">墓地 ${pm.grave.length}</button>${(pm.exile || []).length ? `<button class="chip" data-grave="me:exile">廃棄 ${pm.exile.length}</button>` : ""}${lpv(pm, "me")}${noLoseBy(st, me) ? `<span class="nolose" title="「${esc(noLoseBy(st, me))}」の効果で負けない">負けない</span>` : ""}</div>
       <span class="zlabel">手札</span>
@@ -425,6 +455,7 @@ function renderBoard0(){
       ${handActs ? `<div class="actions hand-acts">${handActs}</div>` : ""}
       ${fbActs || gsActs ? `<div class="actions hand-acts fb-acts">${fbActs}${gsActs}</div>` : ""}
       ${shieldBox(pm, "me")}${manaBox(pm, "あなた")}${blockBox(pm, "あなた")}
+      ${mdock}
     </div>
     <aside class="side">
       <div class="box" style="display:flex;flex-direction:column;gap:12px">
@@ -716,6 +747,8 @@ function battleChrome(peekOn){
   pb.hidden = !peekOn;
   const inB = !!(G && G.st && G.st.started && S.tab === "play");
   document.body.classList.toggle("in-battle", inB);
+  // スマホ: 対戦がはじまったら、盤面が見えるように一番上へ
+  if (inB && !document.body.dataset.mtop && mobUI()){ document.body.dataset.mtop = "1"; scrollTo(0, 0); } if (!inB) delete document.body.dataset.mtop;
   let nb = $("#navTog"); if (!nb){ nb = document.createElement("button"); nb.id = "navTog"; nb.className = "ghost"; nb.textContent = "≡ メニュー"; nb.addEventListener("click", () => document.body.classList.toggle("navopen")); document.body.appendChild(nb); }
   nb.hidden = !inB; if (!inB) document.body.classList.remove("navopen");
 }
@@ -960,7 +993,22 @@ $("#overlay").addEventListener("click", e => {
 });
 $("#overlay").addEventListener("keydown", e => { const h = e.target.closest("[role=button]"); if (h && (e.key === "Enter" || e.key === " ")){ e.preventDefault(); h.click(); } });
 
+// スマホ（640px以下）の対戦画面: 手札を上にスワイプで使う（召喚・発動・セット）
+const mobUI = () => { try{ return matchMedia("(max-width:640px)").matches; }catch(e){ return false; } };
+let mSwipe = null, mSwipeAt = 0;
+$("#board").addEventListener("pointerdown", e => { const h = e.target.closest(".mhand [data-z=hand]"); mSwipe = h && mobUI() ? { i: +h.dataset.i, x: e.clientX, y: e.clientY, el: h } : null; });
+$("#board").addEventListener("pointermove", e => { if (!mSwipe) return; const dy = Math.min(0, e.clientY - mSwipe.y); mSwipe.el.style.transform = dy < -8 ? `translateY(${dy}px)` : ""; });
+$("#board").addEventListener("pointercancel", () => { if (mSwipe) mSwipe.el.style.transform = ""; mSwipe = null; });
+$("#board").addEventListener("pointerup", e => {
+  const s = mSwipe; mSwipe = null; if (!s) return; s.el.style.transform = "";
+  if (e.clientY - s.y > -60 || Math.abs(e.clientX - s.x) > 90) return;
+  mSwipeAt = Date.now(); if (!G || !G.st || !canAct(G.st, G.slot)) return;
+  G.sel = { z: "hand", s: "me", i: s.i }; G.atkFrom = null; G.atkTo = null; renderAll();
+  const b = ["summon", "activateHand", "ssummon", "set"].map(k => document.querySelector(`#board .msheet [data-act="${k}"]:not([disabled])`)).find(Boolean);
+  if (b) b.click(); else toast("このカードはいま使えない（タップするとくわしく見られる）");
+});
 $("#board").addEventListener("click", e => {
+  if (Date.now() - mSwipeAt < 450 && e.target.closest(".mhand")) return;
   if (e.target.closest("[data-field]") && G && G.st && G.st.field){ openCardView("field", [G.st.field.c], 0); return; }
   if (!G) return;
   const st = G.st, me = G.slot;
@@ -984,7 +1032,7 @@ $("#board").addEventListener("click", e => {
       if (eqsOf(P(st, ts).mz[i]).length){ G.eqPlace = { hi: em.i, s: ts, i }; renderAll(); return; }
       G.sel = null; withDiscard(card(em.id), em.i, d => act(st => equip(st, me, em.i, ts, i, null, d))); return;
     }
-    if (G.atkFrom != null && s === "op" && z === "mz" && P(st, O(me)).mz[i]){ const AT = atkTargets(st, me, G.atkFrom); if (!AT.L.includes(i)){ toast(AT.top && !AT.taunt ? "このモンスターは、相手の一番ATKが高いモンスターにしか攻撃できない" : "このモンスターには攻撃できない（ほかに狙わなきゃいけないモンスターがいる）"); return; } if (G.atkTo !== i){ G.atkTo = i; renderAll(); return; } const from = G.atkFrom; G.atkFrom = null; G.atkTo = null; G.sel = null; act(st => declareAttack(st, me, from, i)); return; }
+    if (G.atkFrom != null && s === "op" && z === "mz" && P(st, O(me)).mz[i]){ const AT = atkTargets(st, me, G.atkFrom); if (!AT.L.includes(i)){ toast(AT.top && !AT.taunt ? "このモンスターは、相手の一番ATKが高いモンスターにしか攻撃できない" : "このモンスターには攻撃できない（ほかに狙わなきゃいけないモンスターがいる）"); return; } if (G.atkTo !== i && !mobUI()){ G.atkTo = i; renderAll(); return; } const from = G.atkFrom; G.atkFrom = null; G.atkTo = null; G.sel = null; act(st => declareAttack(st, me, from, i)); return; }
     const occupied = z === "hand" || P(st, s === "me" ? me : O(me))[z][i];
     if (!occupied){
       const dk = s === "me" ? dropTarget(st, me) : null;
@@ -992,7 +1040,7 @@ $("#board").addEventListener("click", e => {
       return;
     }
     const same = G.sel && G.sel.z === z && G.sel.s === s && G.sel.i === i;
-    G.sel = same ? null : { z, s, i }; G.atkFrom = null; openDetail([z, s, i]); renderAll(); return;
+    G.sel = same ? null : { z, s, i }; G.atkFrom = null; if (!mobUI()) openDetail([z, s, i]); renderAll(); return;
   }
   if (e.target.closest("[data-exopen]")){ G.exView = true; renderAll(); return; }
   const gv = e.target.closest("[data-grave]");
@@ -1037,6 +1085,8 @@ $("#board").addEventListener("click", e => {
   if (k === "draw"){ act(st => drawN(st, me, 1, "（手動）")); return; }
   if (k === "graveHand"){ G.graveHand = true; renderAll(); return; }
   if (k === "manualOn" || k === "manualOff"){ ls.set("cb_manualPanel", k === "manualOn"); const o = document.getElementById("optManual"); if (o) o.checked = k === "manualOn"; renderAll(); return; }
+  if (k === "mdetail"){ const x = G.atkFrom != null ? ["mz", "me", G.atkFrom] : sel ? [sel.z, sel.s, sel.i] : null; if (x){ G.detailBottom = false; openDetail(x); } return; }
+  if (k === "mclose"){ G.sel = null; G.atkFrom = null; G.atkTo = null; renderAll(); return; }
   if (!canAct(st, me)) return;
   if (k === "endTurn"){ G.sel = null; G.atkFrom = null; G.eqPlace = null; act(st => { exReturn(st); return endTurn(st, me); }); return; }
   if (k === "cancelAtk"){ G.atkFrom = null; G.atkTo = null; renderAll(); return; }
