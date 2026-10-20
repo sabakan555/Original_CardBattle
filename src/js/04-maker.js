@@ -25,11 +25,20 @@ function composite(){
   if (MK.mode === "photo"){ cx.strokeStyle = "rgba(224,83,58,.9)"; cx.lineWidth = 6; cx.setLineDash([14, 10]); cx.strokeRect(3, 3, cv.width - 6, cv.height - 6); cx.setLineDash([]); }
 }
 MK.frameless = false;
+// 枠を変えてキャンバスが低くなったとき、はみ出た下の部分の線をここに取っておく
+// （高い枠に戻したら見切れていた線が戻る。前は捨てていたので真っ白になっていた）
+const inkHold = document.createElement("canvas"); inkHold.width = ink.width; inkHold.height = 0;
+function clearInkHold(){ inkHold.height = 0; }
 // キャンバスの高さを変える（横は560のまま。描いた線はそのまま、写真は入るように拡大しなおす）
 function resizeCv(H){
   if (cv.height === H) return;
-  const keep = document.createElement("canvas"); keep.width = ink.width; keep.height = ink.height; keep.getContext("2d").drawImage(ink, 0, 0);
+  // 取っておき = いま見えている部分（消しゴム・クリアも反映）＋ それより下の、前に見切れた部分
+  const keep = document.createElement("canvas"); keep.width = ink.width; keep.height = Math.max(ink.height, inkHold.height);
+  const kx = keep.getContext("2d");
+  if (inkHold.height > ink.height) kx.drawImage(inkHold, 0, ink.height, inkHold.width, inkHold.height - ink.height, 0, ink.height, inkHold.width, inkHold.height - ink.height);
+  kx.drawImage(ink, 0, 0);
   cv.height = H; ink.height = H; ik.drawImage(keep, 0, 0);
+  inkHold.height = keep.height; inkHold.getContext("2d").drawImage(keep, 0, 0);
   if (photo){ const nb = Math.max(cv.width / photo.img.width, cv.height / photo.img.height); photo.s *= nb / photo.base; photo.base = nb; }
   undoStack = []; MK.artDirty = true;
 }
@@ -74,7 +83,7 @@ function syncRarity(){ const sp = $("#mkFrame").value === "spire", r = $("#mkRar
 $("#mkRarity").addEventListener("change", syncRarity); $("#mkSpc").addEventListener("change", syncRarity);
 function syncFrame(){ { const ec = $("#editCard"); ec.classList.remove("dmg-l", "dmg-r", "dmg-lr"); const g = $("#mkFrame").value === "dm" && typeof mkGlVal === "function" ? mkGlVal() : null; if (g) ec.classList.add(glFrameCls({ type: "monster", gl: g })); } if (typeof updateSecs === "function") setTimeout(updateSecs); setTimeout(fitCanvas); $("#editCard").classList.toggle("mtg", $("#mkFrame").value === "mtg"); $("#editCard").classList.toggle("fut", $("#mkFrame").value === "future"); $("#editCard").classList.toggle("ygo", $("#mkFrame").value === "ygo"); $("#editCard").classList.toggle("dm", $("#mkFrame").value === "dm"); $("#editCard").classList.toggle("dot", $("#mkFrame").value === "dot"); $("#editCard").classList.toggle("dfld", MK.type === "magic" && $("#mkField").checked); $("#editCard").classList.toggle("socra", $("#mkFrame").value === "socra"); $("#editCard").classList.toggle("spire", $("#mkFrame").value === "spire"); syncRarity(); $("#flAlphaRow").hidden = !MK.frameless || $("#mkFrame").value === "future"; if ($("#mkFrame").value === "spire" && MK.frameless) setFrameless(false); $("#mkFrameless").closest("label").hidden = $("#mkFrame").value === "spire"; if (typeof syncTypeNames === "function") syncTypeNames(); if (MK.deck) syncCost(); $("#capRow").hidden = MK.type !== "monster" || $("#mkFrame").value !== "socra"; }
 $("#mkFrame").addEventListener("change", () => { if ($("#mkFrame").value === "future" && !MK.frameless) setFrameless(true); syncFrame(); syncFont(); });
-function clearCanvas(){ ik.clearRect(0, 0, ink.width, ink.height); photo = null; setMode("draw"); composite(); }
+function clearCanvas(){ ik.clearRect(0, 0, ink.width, ink.height); clearInkHold(); photo = null; setMode("draw"); composite(); }
 $("#swatches").innerHTML = COLORS.map(c => `<button class="sw" style="background:${c}" data-c="${c}" aria-label="色 ${c}" aria-pressed="${c === pen.color}"></button>`).join("");
 $("#sizes").innerHTML = SIZES.map(([l, s]) => `<button data-s="${s}" aria-pressed="${s === pen.size}">${l}</button>`).join("");
 $("#swatches").addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return; pen.color = b.dataset.c; pen.erase = false; syncTools(); });
