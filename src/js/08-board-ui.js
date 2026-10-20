@@ -245,7 +245,45 @@ function testAct(k){
 }
 document.addEventListener("click", e => { if (e.target.closest && e.target.closest("[data-testmode]")) startTest(null); });
 const ACT_ICON = `<svg viewBox="0 0 40 40" aria-hidden="true"><path d="M20 3l3.6 9.2 9.4-3.3-4.3 9 8.3 5.6-9.7 1.6.6 9.9L20 30.4 12.1 35l.6-9.9-9.7-1.6 8.3-5.6-4.3-9 9.4 3.3z" fill="#fde7c9" stroke="#e08a00" stroke-width="1.5" stroke-linejoin="round"/></svg>`;
-function renderBoard(){ const r = renderBoard0(); glJoin(); return r; }
+function renderBoard(){ const r = renderBoard0(); glJoin(); atkArrow(); return r; }
+// いま攻撃できる自分のモンスター（自分のターン・動けるときだけ）
+const atkReady = (st, me) => st.turn === me && canAct(st, me) && !st.winner && !(G && G.spectate) ? P(st, me).mz.map((m, i) => m && canAttack(st, me, i) ? i : -1).filter(i => i >= 0) : [];
+/* ---- 攻撃の矢印（アリーナ風）: 攻撃中（相手の攻撃も）・攻撃先をえらんでいる間。PCではマウスについてくる ---- */
+const visEl = L => L.map(q => document.querySelector(q)).find(e => e && e.getClientRects().length && getComputedStyle(e).visibility !== "hidden") || null;
+function atkArrow(){
+  const old = document.getElementById("atkArrow"); if (old) old.remove();
+  if (!G || !G.st || !G.st.started || S.tab !== "play" || G.st.winner) return;
+  const st = G.st, me = G.slot, p0 = st.pending, pd = p0 && (p0.type === "attack" ? p0 : p0.type === "chain" && p0.resume && p0.resume.type === "attack" ? p0.resume : null);
+  let A = null, T = null, pt = null;
+  if (pd && !pd.negated){ A = [pd.by, pd.from]; T = pd.to === "direct" ? O(pd.by) : [O(pd.by), pd.to]; }
+  else if (G.atkFrom != null){ A = [me, G.atkFrom]; if (G.atkTo != null) T = [O(me), G.atkTo]; else if (G.atkPtr) pt = G.atkPtr; }
+  if (!A) return;
+  const ae = zoneEl(A[0], "mz", A[1]); if (!ae) return;
+  let te = null;
+  if (Array.isArray(T)) te = zoneEl(T[0], "mz", T[1]);
+  else if (T) te = T === me ? visEl(["#board .table>.mstat:not(.op)", "#lp-me"]) : visEl(["#board .mbar", "#board .table>.mstat.op", "#lp-op"]);
+  const a = ae.getBoundingClientRect(), x1 = a.left + a.width / 2, y1 = a.top + a.height / 2;
+  let x2, y2; if (te){ const b = te.getBoundingClientRect(); x2 = b.left + b.width / 2; y2 = b.top + b.height / 2; } else if (pt){ x2 = pt.x; y2 = pt.y; } else return;
+  arrowSVG("atkArrow", x1, y1, x2, y2, A[0] !== me);
+}
+// 矢印を1本描く（id がちがえば同時に出せる）
+function arrowSVG(id, x1, y1, x2, y2, theirs){
+  const dx = x2 - x1, dy = y2 - y1; if (Math.hypot(dx, dy) < 24) return null;
+  const old = document.getElementById(id); if (old) old.remove();
+  const cx = (x1 + x2) / 2 - dy * .18, cy = (y1 + y2) / 2 + dx * .18;
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg"); svg.id = id; svg.setAttribute("class", "atkarrow" + (theirs ? " theirs" : "")); svg.setAttribute("aria-hidden", "true");
+  svg.innerHTML = `<defs><marker id="${id}H" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="4" markerHeight="4" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" class="ah"/></marker></defs><path class="ab" d="M${x1} ${y1}Q${cx} ${cy} ${x2} ${y2}"/><path class="al" d="M${x1} ${y1}Q${cx} ${cy} ${x2} ${y2}" marker-end="url(#${id}H)"/>`;
+  document.body.appendChild(svg); return svg;
+}
+// 攻撃の演出のあいだだけ出る矢印（CPU・相手の攻撃も見えるように）
+function arrowFlash(a, t, theirs){
+  const A = a.getBoundingClientRect(), T = t.getBoundingClientRect();
+  const svg = arrowSVG("atkFlash", A.left + A.width / 2, A.top + A.height / 2, T.left + T.width / 2, T.top + T.height / 2, theirs); if (!svg) return;
+  setTimeout(() => { if (svg.isConnected){ svg.classList.add("fade"); setTimeout(() => svg.remove(), 260); } }, 1000);
+}
+let atkArrowRaf = 0; const atkArrowSoon = () => { if (atkArrowRaf) return; atkArrowRaf = requestAnimationFrame(() => { atkArrowRaf = 0; atkArrow(); }); };
+addEventListener("scroll", atkArrowSoon, { passive: true }); addEventListener("resize", atkArrowSoon);
+document.addEventListener("pointermove", e => { if (e.pointerType !== "mouse" || !G || G.atkFrom == null || G.atkTo != null) return; G.atkPtr = { x: e.clientX, y: e.clientY }; atkArrowSoon(); });
 // ゴッドリンク: リンクしている2〜3枚を、ゾーンのすきまをつめて1枚のようにくっつける（「G・リンク」の帯も1本にまとめる）
 function glJoin(){
   const root = document.getElementById("board"); if (!root) return;
@@ -284,7 +322,8 @@ function renderBoard0(){
     if (!z) return `<div class="slot ${mine && dropKind === kind ? "drop" : ""}" ${attrs}></div>`;
     const selected = sel && sel.z === kind && sel.s === (mine ? "me" : "op") && sel.i === i;
     const aimed = atkFrom != null && G.atkTo === i && !mine && kind === "mz";
-    const cls = `pick ${selected ? "sel" : ""} ${isTarget ? "target" : ""} ${aimed ? "aim" : ""}`;
+    const canA = mine && kind === "mz" && atkReady(st, me).includes(i) && atkFrom == null;
+    const cls = `pick ${selected ? "sel" : ""} ${isTarget ? "target" : ""} ${aimed ? "aim" : ""} ${canA ? (G.atkMode ? "can atkable" : "can") : ""}`;
     if (kind === "sz"){
       if (z.face){ const zc = card(z.c), cd = z.cryst ? z.cd : zc && +zc.countdown > 0 ? (z.cd != null ? z.cd : +zc.countdown) : null; return zcap(cardHTML(zc, cls, attrs, { ...mOpt(s), ...(z.fcp ? { done: `ストック×${z.stack || 1}` } : cd != null ? { done: `${z.cryst ? "結晶・" : ""}カウントダウン${cd}` } : {}) }), zc); }
       if (!mine || G.spectate) return backHTML(cls, attrs, P(st, s).sleeve);
@@ -302,7 +341,7 @@ function renderBoard0(){
     const evH = mine && !G.spectate && hasAb(st, s, i, "evolve") && !z.evolved, evNo = evH ? evoWhy(st, s, i) : "";
     const sealN = (z.seals || []).length;
     const rsx = !sealN && (hasAb(st, s, i, "noEffect") || hasAb(st, s, i, "unaffected") || hasAb(st, s, i, "ward") || hiddenMon(st, s, i)), rsxT = [hasAb(st, s, i, "unaffected") ? "相手の効果を受けない" : "", hasAb(st, s, i, "noEffect") ? "効果では破壊されない" : "", hasAb(st, s, i, "ward") ? "護法" : "", jdOn(st, s, i) ? "ジャストダイバー中" : hiddenMon(st, s, i) ? "隠密中" : ""].filter(Boolean).join("・");
-    return glBadge(st, s, i, (h => sealN ? h.replace(/<\/div>$/, `<span class="sealx" title="封印 ${sealN}（ないものとして扱う。持ち主が同じタグのモンスターを出すと1つはがれる）">封印${sealN > 1 ? " " + sealN : ""}</span></div>`) : h)((h => rsx ? h.replace(/<\/div>$/, `<span class="rsx" role="img" aria-label="除去耐性：${rsxT}" title="${rsxT}"></span></div>`) : h)((h => evH ? h.replace(/<\/div>$/, `<button type="button" class="evobtn" data-evomon="${i}" ${evNo ? "disabled" : ""} title="${esc(evNo || `エボルヴする（エボルヴポイント あと${EVO_MAX - (P(st, s).evoUsed || 0)}）`)}" aria-label="「${esc(card(z.c).name)}」をエボルヴさせる">エボルヴ</button></div>`) : h)((h => actH ? h.replace(/<\/div>$/, `<button type="button" class="actbtn" data-actmon="${i}" ${actNo ? "disabled" : ""} title="${actNo ? esc(actNo) : "能力を発動する"}" aria-label="「${esc(card(z.c).name)}」の能力を発動する">${ACT_ICON}</button></div>`) : h)(zcap(cardHTML((A => A.join() === attrsOf(card(z.c)).join() ? card(z.c) : { ...card(z.c), attrs: A })(monAttrs(z)), cls + zz + zx + (z.tap ? " tapped" : "") + (actH ? (actNo ? " actable actused" : " actable") : "") + (atkr ? " attacking" : "") + (atkd ? " atk-tgt" : ""), attrs + (zz ? ` title="召喚酔い：次の自分のターンから攻撃できる"` : ttl), { mod: modOf(z), done: stt, eq: eqB, dmg: z.dmg || 0, ctr: z.ctr, vuln: z.vuln || 0, weak: z.weak || 0, ...mOpt(s) }), card(z.c), z))))));
+    return glBadge(st, s, i, (h => sealN ? h.replace(/<\/div>$/, `<span class="sealx" title="封印 ${sealN}（ないものとして扱う。持ち主が同じタグのモンスターを出すと1つはがれる）">封印${sealN > 1 ? " " + sealN : ""}</span></div>`) : h)((h => rsx ? h.replace(/<\/div>$/, `<span class="rsx" role="img" aria-label="除去耐性：${rsxT}" title="${rsxT}"></span></div>`) : h)((h => evH ? h.replace(/<\/div>$/, `<button type="button" class="evobtn" data-evomon="${i}" ${evNo ? "disabled" : ""} title="${esc(evNo || `エボルヴする（エボルヴポイント あと${EVO_MAX - (P(st, s).evoUsed || 0)}）`)}" aria-label="「${esc(card(z.c).name)}」をエボルヴさせる">エボルヴ</button></div>`) : h)((h => actH ? h.replace(/<\/div>$/, `<button type="button" class="actbtn" data-actmon="${i}" ${actNo ? "disabled" : ""} title="${actNo ? esc(actNo) : "能力を発動する"}" aria-label="「${esc(card(z.c).name)}」の能力を発動する">${ACT_ICON}</button></div>`) : h)(zcap(cardHTML((A => A.join() === attrsOf(card(z.c)).join() ? card(z.c) : { ...card(z.c), attrs: A })(monAttrs(z)), cls + zz + zx + (z.tap || z.rest ? " tapped" : "") + (actH ? (actNo ? " actable actused" : " actable") : "") + (atkr || (mine && atkFrom === i) ? " attacking" : "") + (atkd ? " atk-tgt" : ""), attrs + (zz ? ` title="召喚酔い：次の自分のターンから攻撃できる"` : ttl), { mod: modOf(z), done: stt, eq: eqB, dmg: z.dmg || 0, ctr: z.ctr, vuln: z.vuln || 0, weak: z.weak || 0, ...mOpt(s) }), card(z.c), z))))));
   }).join("");
 
   // action bar
@@ -382,7 +421,16 @@ function renderBoard0(){
   }
   if (G.spectate && !st.winner){ hint = `観戦中：${esc(pm.name)} vs ${esc(po.name)}`; acts = `<button class="ghost" data-act="leave">観戦をやめる</button>`; manual = ""; }
   const last = st.log[st.log.length - 1];
-  const handCard = (id, i) => cardHTML(symView(st, me, card(id)), `pick ${sel && sel.z === "hand" && sel.i === i ? "sel" : ""} ${pm.exTemp && pm.exTemp.i === i && pm.exTemp.id === id ? "ex-temp" : ""} ${pm.mana && !canPay(st, me, card(id)) && cardType(card(id)) !== "trap" ? "dim" : ""}`, `data-z="hand" data-s="me" data-i="${i}" tabindex="0" role="button"`, mOpt(me));
+  // 今このまま使える手札（光らせる）
+  const handCan = i => { if (!myTurn || !free || G.spectate || st.winner || atkFrom != null) return false; try{
+    const id = pm.hand[i], c = card(id), t = cardType(c), af = canPay(st, me, c), out = m => !(typeof monCannotLeave === "function" && monCannotLeave(m));
+    if (t === "monster"){ const ss = ssOf(c), tn = tribOf(c, st, me);
+      if (af && canSummonNow(st, me) && !(ss && ss.only) && pm.grave.length >= massOf(c) && (isDmEvo(c) ? evoBases(st, me, c).length > 0 : tn ? pm.mz.filter(m => m && out(m)).length >= tn : pm.mz.some(m => !m) || !!pm.nolim)) return true;
+      return !!(ss && !ssBlock(st, me, i)); }
+    if (t === "magic") return af && !useWhyShort(st, me, c) && !(typeof isAtkReply === "function" && isAtkReply(normFx(c))) && !(isPersist(c) && !pm.sz.some(z => !z) && !pm.nolim);
+    if (t === "equip") return af && ["a", "b"].some(o => P(st, o).mz.some((m, j) => m && canEquipOn(st, id, o, j)));
+  }catch(e){} return false; };
+  const handCard = (id, i) => cardHTML(symView(st, me, card(id)), `pick ${sel && sel.z === "hand" && sel.i === i ? "sel" : ""} ${handCan(i) ? "can" : ""} ${pm.exTemp && pm.exTemp.i === i && pm.exTemp.id === id ? "ex-temp" : ""} ${pm.mana && !canPay(st, me, card(id)) && cardType(card(id)) !== "trap" ? "dim" : ""}`, `data-z="hand" data-s="me" data-i="${i}" tabindex="0" role="button"`, mOpt(me));
   const handHTML = G.spectate ? (pm.hand.map(() => backHTML("", "", pm.sleeve)).join("") || `<p class="muted">手札なし</p>`) : pm.hand.map(handCard).join("") || `<p class="muted">手札なし</p>`;
   const logHTML = st.log.slice(-60).reverse().map(l => `<li>${l.s ? `<b>${esc(nm(st, l.s))}</b>：` : ""}${logLinks(esc(l.m))}</li>`).join("");
   const prev = G.prevLp || {}; G.prevLp = { me: pm.lp, op: po.lp };
@@ -391,6 +439,20 @@ function renderBoard0(){
   const shieldBox = (p, key) => p.shieldOn ? `<div class="shieldz" data-shd="${key}" title="シールド（ブレイクされると手札へ。0枚のときに直接攻撃を受けると負け）"><span class="lbl">シールド</span><span class="shs">${(p.shields || []).map(() => `<i></i>`).join("") || `<span class="note">なし</span>`}</span><b>${(p.shields || []).length}</b></div>` : "";
   const lpv = (p, key) => p.shieldOn ? `<span class="lpv shd ${(p.shields || []).length ? "" : "low"}" title="シールドの枚数"><small>シールド</small>${(p.shields || []).length}</span>` : `<span class="lpv ${p.lp <= 300 ? "low" : ""}" data-lp="${key}"><small>LP</small>${p.lp}</span>`;
   const lpBox = (p, key) => p.shieldOn ? `<div id="lp-${key}" class="lp shd ${(p.shields || []).length ? "" : "low"}"><small>シールド</small><b>${(p.shields || []).length}</b></div>` : `<div id="lp-${key}" data-lp="${key}" class="lp ${p.lp <= 300 ? "low" : ""} ${prev[key] != null && p.lp < prev[key] ? "hurt" : ""}"><small>LP</small><b>${p.lp}</b></div>`;
+  // ---- メインボタン（アリーナ風）: 状況でラベルが変わる。PCは右下、スマホはバトルゾーンの右 ----
+  const atkL = atkReady(st, me);
+  if (G.atkMode && (!atkL.length || atkFrom != null)) G.atkMode = false;
+  if (G.atkMode) hint = "攻撃するモンスターをえらんでね（赤く光っているモンスター）";
+  const mBr = `<br class="mbr">`;
+  let mb = "";
+  if (!st.winner && !G.spectate){
+    if (!myTurn) mb = `<button type="button" class="mainbtn" disabled>相手の${mBr}ターン</button>`;
+    else if (!free) mb = `<button type="button" class="mainbtn" disabled>待って${mBr}います…</button>`;
+    else if (atkFrom != null) mb = G.atkTo != null && !mobUI() ? `<button type="button" class="mainbtn go" data-act="atkGo">攻撃${mBr}する</button><button type="button" class="mainsub" data-act="cancelAtk">やめる</button>` : `<button type="button" class="mainbtn" data-act="cancelAtk">攻撃を${mBr}やめる</button>`;
+    else if (G.atkMode) mb = `<button type="button" class="mainbtn" data-act="endTurn">ターン${mBr}終了</button><button type="button" class="mainsub" data-act="atkModeOff">もどる</button>`;
+    else if (atkL.length) mb = `<button type="button" class="mainbtn go" data-act="atkMode">攻撃へ</button><button type="button" class="mainsub" data-act="endTurn">ターン終了</button>`;
+    else mb = `<button type="button" class="mainbtn" data-act="endTurn">ターン${mBr}終了</button>`;
+  }
   // ---- スマホ（640px以下）: 相手のバー・選んだカードの操作シート・扇形の手札・丸いターン終了（PCではCSSでかくす） ----
   const mAT = atkFrom != null && !st.winner ? atkTargets(st, me, atkFrom) : null, mDir = !!(mAT && mAT.direct);
   const mShd = p => p.shieldOn ? `<span class="mb-shd" aria-hidden="true">${(p.shields || []).map(() => "<i></i>").join("")}</span>` : "";
@@ -440,7 +502,7 @@ function renderBoard0(){
         ${(st.recent || []).length ? `<div class="recent"><span class="note">最近使われたカード</span><div class="rc-list">${st.recent.slice().reverse().map(r => `<div class="rc ${r.s === me ? "mine" : "theirs"}">${cardHTML(card(r.c), "xs pick", `data-cid="${esc(r.c)}" data-where="${r.s === me ? "あなた" : esc(P(st, r.s).name)}が使った" tabindex="0" role="button"`, mOpt(r.s))}<small>${r.s === me ? "あなた" : esc(P(st, r.s).name)}</small></div>`).join("")}</div></div>` : ""}
         <div id="turnTimer" class="turn-timer">${timerHTML()}</div>
         <div class="msg">${hint}</div>
-        ${mEnd}
+        <div class="mainbar">${mb}</div>
         <div class="actions">${acts}</div>
         ${manual}
       </div>
@@ -476,6 +538,7 @@ function renderBoard0(){
         <div class="row" style="margin-top:8px"><button class="small danger" data-act="surrender" ${st.winner ? "disabled" : ""}>${G.surArm ? "本当に投了" : "投了"}</button><button class="small ghost" data-act="leave">ぬける</button></div>
       </div>` : `<div class="box"><div class="row"><button class="small danger" data-act="surrender" ${st.winner ? "disabled" : ""}>${G.surArm ? "本当に投了" : "投了"}</button><button class="small ghost" data-act="leave">ぬける</button><button class="small ghost" data-act="manualOn" title="LP±・1枚引く・墓地から手札へ・場のカードの手動ボタン">手動ボタンを出す</button></div></div>`}
       <div class="box"><h3>ログ</h3><ul class="log">${logHTML}</ul></div>
+      ${mb ? `<div class="mainbar pc">${mb}</div>` : ""}
     </aside>
   </div>`;
   renderDetail(currentDetail());
@@ -586,8 +649,9 @@ function animateEvent(e){
   }
   if (e.type === "attack"){
     const a = zoneEl(e.s, "mz", e.from);
-    const t = e.to === "direct" ? (sideOf(e.s) === "me" ? document.querySelector("#board .ohand") : document.querySelector("#board .hand")) : zoneEl(e.s === "a" ? "b" : "a", "mz", e.to);
+    const t = e.to === "direct" ? (sideOf(e.s) === "me" ? visEl(["#board .mbar", "#board .table>.mstat.op", "#lp-op", "#board .ohand"]) : visEl(["#board .table>.mstat:not(.op)", "#lp-me", "#board .hand"])) : zoneEl(e.s === "a" ? "b" : "a", "mz", e.to);
     if (!a || !t) return;
+    arrowFlash(a, t, sideOf(e.s) !== "me");
     const ca = center(a), ct = center(t), dx = (ct.x - ca.x) * .78, dy = (ct.y - ca.y) * .78;
     // a ghost copy flies, so the lunge still shows even if the attacker is already destroyed
     const g = fxEl("fxghost", cardHTML(card(e.c), "", "", mOpt(e.s)), ca.r.left, ca.r.top);
@@ -751,6 +815,7 @@ function battleChrome(peekOn){
   if (inB && !document.body.dataset.mtop && mobUI()){ document.body.dataset.mtop = "1"; scrollTo(0, 0); } if (!inB) delete document.body.dataset.mtop;
   let nb = $("#navTog"); if (!nb){ nb = document.createElement("button"); nb.id = "navTog"; nb.className = "ghost"; nb.textContent = "≡ メニュー"; nb.addEventListener("click", () => document.body.classList.toggle("navopen")); document.body.appendChild(nb); }
   nb.hidden = !inB; if (!inB) document.body.classList.remove("navopen");
+  if (!inB){ const ar = document.getElementById("atkArrow"); if (ar) ar.remove(); }
 }
 function renderOverlay(){
   const ov = $("#overlay");
@@ -1033,6 +1098,7 @@ $("#board").addEventListener("click", e => {
       G.sel = null; withDiscard(card(em.id), em.i, d => act(st => equip(st, me, em.i, ts, i, null, d))); return;
     }
     if (G.atkFrom != null && s === "op" && z === "mz" && P(st, O(me)).mz[i]){ const AT = atkTargets(st, me, G.atkFrom); if (!AT.L.includes(i)){ toast(AT.top && !AT.taunt ? "このモンスターは、相手の一番ATKが高いモンスターにしか攻撃できない" : "このモンスターには攻撃できない（ほかに狙わなきゃいけないモンスターがいる）"); return; } if (G.atkTo !== i && !mobUI()){ G.atkTo = i; renderAll(); return; } const from = G.atkFrom; G.atkFrom = null; G.atkTo = null; G.sel = null; act(st => declareAttack(st, me, from, i)); return; }
+    if (G.atkMode){ G.atkMode = false; if (s === "me" && z === "mz" && atkReady(st, me).includes(i)){ G.sel = { z, s, i }; G.atkFrom = i; G.atkTo = null; renderAll(); return; } }
     const occupied = z === "hand" || P(st, s === "me" ? me : O(me))[z][i];
     if (!occupied){
       const dk = s === "me" ? dropTarget(st, me) : null;
@@ -1088,8 +1154,10 @@ $("#board").addEventListener("click", e => {
   if (k === "mdetail"){ const x = G.atkFrom != null ? ["mz", "me", G.atkFrom] : sel ? [sel.z, sel.s, sel.i] : null; if (x){ G.detailBottom = false; openDetail(x); } return; }
   if (k === "mclose"){ G.sel = null; G.atkFrom = null; G.atkTo = null; renderAll(); return; }
   if (!canAct(st, me)) return;
-  if (k === "endTurn"){ G.sel = null; G.atkFrom = null; G.eqPlace = null; act(st => { exReturn(st); return endTurn(st, me); }); return; }
-  if (k === "cancelAtk"){ G.atkFrom = null; G.atkTo = null; renderAll(); return; }
+  if (k === "endTurn"){ G.sel = null; G.atkFrom = null; G.atkMode = false; G.eqPlace = null; act(st => { exReturn(st); return endTurn(st, me); }); return; }
+  if (k === "cancelAtk"){ G.atkFrom = null; G.atkTo = null; G.atkMode = false; renderAll(); return; }
+  if (k === "atkMode"){ const L = atkReady(st, me); if (L.length === 1){ G.sel = { z: "mz", s: "me", i: L[0] }; G.atkFrom = L[0]; G.atkTo = null; } else G.atkMode = L.length > 0; renderAll(); return; }
+  if (k === "atkModeOff"){ G.atkMode = false; renderAll(); return; }
   if (k === "atkGo"){ const from = G.atkFrom, to = G.atkTo; G.atkFrom = null; G.atkTo = null; G.sel = null; if (from == null || to == null) return; act(st => declareAttack(st, me, from, to)); return; }
   if (k === "cancelEq"){ G.equipFrom = null; renderAll(); return; }
   if (k === "direct"){ const from = G.atkFrom; G.atkFrom = null; G.sel = null; act(st => declareAttack(st, me, from, "direct")); return; }

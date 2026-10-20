@@ -2632,7 +2632,7 @@ function declareAttack(st, s, from, to, noRevo){
   const T = atkTargets(st, s, from);
   if (to === "direct" ? !T.direct : !T.L.includes(to)) return false;
   m.atkCount = (m.atkCount || 0) + 1; m.atkTotal = (m.atkTotal || 0) + 1; if (P(st, s).shieldOn && !hasAb(st, s, from, "vigil")) m.tap = true;
-  m.attacked = m.atkCount >= maxAttacks(st, s, from);
+  m.attacked = m.atkCount >= maxAttacks(st, s, from); if (m.attacked && !P(st, s).shieldOn && !hasAb(st, s, from, "vigil")) m.rest = true;
   glGroup(st, s, from).forEach(j => { const x = P(st, s).mz[j]; if (x && x !== m){ x.atkCount = m.atkCount; x.attacked = m.attacked; } });
   if (!m.revealed && hasAb(st, s, from, "stealth")){ m.revealed = true; log(st, s, `「${card(m.c).name}」の隠密がとけた`); }
   ev(st, { type: "attack", s, from, to, c: m.c });
@@ -2947,7 +2947,7 @@ function passTurn(st, s){
     const xt = P(st, s).extraTurns > 0; if (xt) P(st, s).extraTurns--;
     st.turn = xt ? s : O(s); st.turnNo++; st.summoned = false;
     const np = P(st, st.turn); zoneTrim(st.players.a); zoneTrim(st.players.b);
-    np.mz.forEach(m => { if (m){ m.age = (m.age || 0) + 1; delete m.tap; } }); evolveCheck(st, st.turn, "start");
+    np.mz.forEach(m => { if (m){ m.age = (m.age || 0) + 1; delete m.tap; delete m.rest; } }); evolveCheck(st, st.turn, "start");
     if (np.intang > 0){ np.intang--; if (!np.intang) log(st, st.turn, `${np.name}の霊体がとけた`); }
     if (np.vuln > 0){ np.vuln--; if (!np.vuln) log(st, st.turn, `${np.name}の弱体がとけた`); }
     np.mz.forEach(m => { if (m && m.vuln > 0){ m.vuln--; if (!m.vuln) log(st, st.turn, `「${card(m.c).name}」の弱体がとけた`); } });
