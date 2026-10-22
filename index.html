@@ -3658,7 +3658,10 @@ const PER_DEFS = {
   heads:    { label: "コインの表", u: "1枚", val: (st, s, c, t, ctx) => ctx && ctx.roll && ctx.roll.kind === "coin" ? ctx.roll.v : 0 },
   tails:    { label: "コインの裏", u: "1枚", val: (st, s, c, t, ctx) => ctx && ctx.roll && ctx.roll.kind === "coin" ? (ctx.roll.n || 1) - ctx.roll.v : 0 },
   myShield: { label: "自分のシールド", u: "1枚", val: (st, s) => (P(st, s).shields || []).length },
-  oppShield:{ label: "相手のシールド", u: "1枚", val: (st, s) => (P(st, O(s)).shields || []).length }
+  oppShield:{ label: "相手のシールド", u: "1枚", val: (st, s) => (P(st, O(s)).shields || []).length },
+  myGrave:  { label: "自分の墓地のカード", u: "1枚", val: (st, s) => (P(st, s).grave || []).length },
+  oppGrave: { label: "相手の墓地のカード", u: "1枚", val: (st, s) => (P(st, O(s)).grave || []).length },
+  bothGrave:{ label: "お互いの墓地のカード", u: "1枚", val: (st, s) => (P(st, s).grave || []).length + (P(st, O(s)).grave || []).length }
 };
 const PER_OK = { dmg: true, block: true, manaNow: true, heal: true, draw: true, oppDeckDraw: true, mill: true, discard: true, vuln: true, weak: true, loseLp: true, oppHeal: true, atkUp: true, selfAtk: true, atkAll: true, atkDown: true, str: true, oppDraw: true, exhaustRand: true, manaMax: true, plate: true };
 // 「ふえる」はほぼすべての効果で使える（数のない効果は「○1つにつき、もう1回」）

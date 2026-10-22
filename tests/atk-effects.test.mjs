@@ -114,3 +114,12 @@ test('効果の文は中身から作られる', () => {
   assert.equal(txt({ op: 'set', n: 0 }), '相手のモンスター1体のATKを0にする');
   assert.equal(vm.runInContext('fxNorm', ctx)({ kind: 'atkDownTmpAll', n: 100, side: 'me' }).to, 'all');
 });
+
+test('ふえる: 墓地のカードの枚数につきATKダウン（自分・相手・お互い）', () => {
+  let t = setup(); t.a.grave = ['spell', 'spell', 'spell']; t.b.grave = ['spell'];
+  t.run({ kind: 'atk', op: 'sub', to: 'all', n: 0, per: 'myGrave', pm: 100 }); assert.deepEqual(t.atks(t.b), [300, 600, 0]);
+  t = setup(); t.a.grave = ['spell', 'spell', 'spell']; t.b.grave = ['spell'];
+  t.run({ kind: 'atk', op: 'sub', to: 'all', n: 0, per: 'oppGrave', pm: 100 }); assert.deepEqual(t.atks(t.b), [500, 800, 200]);
+  t = setup(); t.a.grave = ['spell', 'spell', 'spell']; t.b.grave = ['spell'];
+  t.run({ kind: 'atk', op: 'sub', to: 'all', n: 0, per: 'bothGrave', pm: 100 }); assert.deepEqual(t.atks(t.b), [200, 500, 0]);
+});
