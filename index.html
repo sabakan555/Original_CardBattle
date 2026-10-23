@@ -2153,6 +2153,7 @@ div.f{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:13px}
         <label class="row" style="gap:6px;font-weight:700;font-size:14px;cursor:pointer"><input type="checkbox" id="deckSpire" style="flex:none;margin-top:4px"> スパイアデッキ（「選択の祭壇」が最初から場にあって、山札切れで負けない）</label>
         <label class="row" style="gap:6px;font-weight:700;font-size:14px;cursor:pointer"><input type="checkbox" id="deckShield" style="flex:none;margin-top:4px"> シールドデッキ（デュエマ式：山札の上5枚がシールド。0枚で直接攻撃を受けたら負け。LPは使わない）</label>
         <label class="row" style="gap:6px;font-weight:700;font-size:14px;cursor:pointer"><input type="checkbox" id="deckNolim" style="flex:none;margin-top:4px"> 盤面の上限なし（モンスター・魔法罠ゾーンがいっぱいでも、ふやして置ける）</label>
+        <label class="row" style="gap:6px;font-weight:700;font-size:14px;cursor:pointer"><input type="checkbox" id="deckMull" style="flex:none;margin-top:4px"> マリガンあり（最初の手札を1回だけ全部引き直せる。スパイアデッキでは使えない）</label>
         <label class="row" id="deckSpcRow" style="gap:6px;font-size:14px" hidden>キャラ<select id="deckSpc"><option value="">アイアンクラッド（#アイアンクラッドのカードが出る）</option><option value="silent">サイレント（#サイレントのカードが出る）</option></select></label>
       </div>
       <div class="row">
@@ -7185,7 +7186,7 @@ $("#btnDeckSheetX").addEventListener("click", e => { e.preventDefault(); e.stopP
 $("#deckSheetBg").addEventListener("click", () => deckSheet(false));
 $("#deckViewBox").open = ls.get("cb_dkv", true) !== false;
 $("#deckViewBox").addEventListener("toggle", () => ls.set("cb_dkv", $("#deckViewBox").open));
-$("#deckSpire").addEventListener("change", () => { if ($("#deckSpire").checked) $("#deckShield").checked = false; $("#deckSpcRow").hidden = !$("#deckSpire").checked; renderDeck(); });
+$("#deckSpire").addEventListener("change", () => { if ($("#deckSpire").checked){ $("#deckShield").checked = false; $("#deckMull").checked = false; } $("#deckSpcRow").hidden = !$("#deckSpire").checked; renderDeck(); });
 // シールドデッキとスパイアデッキはいっしょに使えない
 $("#deckShield").addEventListener("change", () => { if ($("#deckShield").checked){ $("#deckSpire").checked = false; $("#deckSpcRow").hidden = true; } renderDeck(); });
 $("#deckEditSel").addEventListener("change", e => {
@@ -7194,7 +7195,7 @@ $("#deckEditSel").addEventListener("change", e => {
   if (d) d.cards.forEach(id => S.deckEdit.cards[id] = (S.deckEdit.cards[id] || 0) + 1);
   $("#deckName").value = d ? d.name : "";
   $("#deckMana").checked = !!(d && d.mana); $("#deckZone").checked = !!(d && d.mz); $("#deckLand").checked = !!(d && d.landOnly); syncDeckZone(); $("#deckSpire").checked = !!(d && d.spire); $("#deckSpc").value = d && d.spc === "silent" ? "silent" : ""; $("#deckSpcRow").hidden = !$("#deckSpire").checked;
-  $("#deckShield").checked = !!(d && d.shield && !d.spire); $("#deckNolim").checked = !!(d && d.nolim);
+  $("#deckShield").checked = !!(d && d.shield && !d.spire); $("#deckNolim").checked = !!(d && d.nolim); $("#deckMull").checked = !!(d && d.mull && !d.spire);
   renderDeck();
 });
 // スキン違いは同じカードとして数える（枚数制限もまとめて）
@@ -7227,14 +7228,14 @@ $("#btnDeckSave").addEventListener("click", async () => {
   const limitIssue = deckLimitIssue(cards); if (limitIssue){ toast(limitIssue); return; }
   if (cards.some(id => !S.cards.has(id) || (!owns(id) && !isBorrowed(id)))){ toast("使えないカードが入っています。デッキを編集してね"); return; }
   const id = S.deckEdit.id || uid("d");
-  try{ await saveDeckDoc(id, { name, owner: S.name, ownerId: (S.decks.find(d => d.id === id) || {}).ownerId || S.uid || null, cards, mz: $("#deckMana").checked && $("#deckZone").checked ? true : null, landOnly: $("#deckMana").checked && $("#deckZone").checked && $("#deckLand").checked ? true : null, mana: $("#deckMana").checked, spire: $("#deckSpire").checked, spc: $("#deckSpire").checked && $("#deckSpc").value === "silent" ? "silent" : null, shield: $("#deckShield").checked && !$("#deckSpire").checked ? true : null, nolim: $("#deckNolim").checked ? true : null, key: S.deckEdit.key && S.deckEdit.cards[S.deckEdit.key] ? S.deckEdit.key : null, borrow: (b => b.length ? b : null)([...new Set(cards.filter(id => !owns(id)))]), updatedAt: Date.now() }); S.deckEdit.id = id; ls.set("cb_deck", id); toast("デッキを保存しました"); renderDeck(); }
+  try{ await saveDeckDoc(id, { name, owner: S.name, ownerId: (S.decks.find(d => d.id === id) || {}).ownerId || S.uid || null, cards, mz: $("#deckMana").checked && $("#deckZone").checked ? true : null, landOnly: $("#deckMana").checked && $("#deckZone").checked && $("#deckLand").checked ? true : null, mana: $("#deckMana").checked, spire: $("#deckSpire").checked, spc: $("#deckSpire").checked && $("#deckSpc").value === "silent" ? "silent" : null, shield: $("#deckShield").checked && !$("#deckSpire").checked ? true : null, nolim: $("#deckNolim").checked ? true : null, mull: $("#deckMull").checked && !$("#deckSpire").checked ? true : null, key: S.deckEdit.key && S.deckEdit.cards[S.deckEdit.key] ? S.deckEdit.key : null, borrow: (b => b.length ? b : null)([...new Set(cards.filter(id => !owns(id)))]), updatedAt: Date.now() }); S.deckEdit.id = id; ls.set("cb_deck", id); toast("デッキを保存しました"); renderDeck(); }
   catch(e){ writeErr(e); }
 });
 let deckDelArm = false;
 $("#btnDeckDel").addEventListener("click", async () => {
   if (!deckDelArm){ deckDelArm = true; $("#btnDeckDel").textContent = "本当に消す"; setTimeout(() => { deckDelArm = false; $("#btnDeckDel").textContent = "このデッキを消す"; }, 3000); return; }
   deckDelArm = false; $("#btnDeckDel").textContent = "このデッキを消す";
-  try{ await deleteDeckDoc(S.deckEdit.id); S.deckEdit = { id: null, cards: {} }; $("#deckName").value = ""; $("#deckMana").checked = false; $("#deckSpire").checked = false; $("#deckSpc").value = ""; $("#deckSpcRow").hidden = true; $("#deckShield").checked = false; $("#deckNolim").checked = false; toast("デッキを消しました"); renderDeck(); } catch(e){ writeErr(e); }
+  try{ await deleteDeckDoc(S.deckEdit.id); S.deckEdit = { id: null, cards: {} }; $("#deckName").value = ""; $("#deckMana").checked = false; $("#deckSpire").checked = false; $("#deckSpc").value = ""; $("#deckSpcRow").hidden = true; $("#deckShield").checked = false; $("#deckNolim").checked = false; $("#deckMull").checked = false; toast("デッキを消しました"); renderDeck(); } catch(e){ writeErr(e); }
 });
 
 /* ================= card viewer ================= */
@@ -7506,7 +7507,7 @@ function copyDeckToEditor(d){
   const cards = d.cards.filter(id => S.cards.has(id)), bor = [...new Set(cards.filter(id => !canUseCard(id)))], miss = bor.length;
   openDeckEditor("");
   S.deckEdit = { id: null, cards: {}, key: d.key && cards.includes(d.key) ? d.key : null, borrow: bor }; cards.forEach(id => S.deckEdit.cards[id] = (S.deckEdit.cards[id] || 0) + 1);
-  $("#deckName").value = d.name.replace(/【コスト】/, "") + "のコピー"; $("#deckMana").checked = !!d.mana; $("#deckZone").checked = !!d.mz; $("#deckLand").checked = !!d.landOnly; syncDeckZone(); $("#deckSpire").checked = !!d.spire; $("#deckSpc").value = d.spc === "silent" ? "silent" : ""; $("#deckSpcRow").hidden = !d.spire; $("#deckShield").checked = !!(d.shield && !d.spire); $("#deckNolim").checked = !!d.nolim; renderDeck();
+  $("#deckName").value = d.name.replace(/【コスト】/, "") + "のコピー"; $("#deckMana").checked = !!d.mana; $("#deckZone").checked = !!d.mz; $("#deckLand").checked = !!d.landOnly; syncDeckZone(); $("#deckSpire").checked = !!d.spire; $("#deckSpc").value = d.spc === "silent" ? "silent" : ""; $("#deckSpcRow").hidden = !d.spire; $("#deckShield").checked = !!(d.shield && !d.spire); $("#deckNolim").checked = !!d.nolim; $("#deckMull").checked = !!(d.mull && !d.spire); renderDeck();
   return miss;
 }
 function renderDeckList(){
@@ -7591,7 +7592,7 @@ $("#deckList").addEventListener("click", async e => {
     const issue = (typeof deckLimitIssue === "function" ? deckLimitIssue(cards) : "") || (!d.spire && (main.length < MIN_DECK || !mons) ? `このままだと${!mons ? "モンスターが入っていない" : `${MIN_DECK}枚に足りない`}ので、編集してから保存してね` : "");
     if (!cards.length || issue){ copyDeckToEditor(d); toast(issue || "使えるカードがありませんでした"); return; }
     const id = uid("d"), name = d.name.replace(/【コスト】/, "") + "のコピー";
-    try{ await saveDeckDoc(id, { name, owner: S.name, ownerId: S.uid || null, cards, mana: !!d.mana, mz: d.mz || null, landOnly: d.landOnly || null, spire: !!d.spire, spc: d.spire && d.spc === "silent" ? "silent" : null, shield: d.shield && !d.spire ? true : null, nolim: d.nolim ? true : null, key: d.key && cards.includes(d.key) ? d.key : null, borrow: bor.length ? bor : null, updatedAt: Date.now() }); S.deckPick = id; ls.set("cb_deck", id); toast(`「${name}」を自分のデッキに入れました${miss ? `（持っていないカード ${miss} 種類は借りています）` : ""}`); renderDeckList(); }
+    try{ await saveDeckDoc(id, { name, owner: S.name, ownerId: S.uid || null, cards, mana: !!d.mana, mz: d.mz || null, landOnly: d.landOnly || null, spire: !!d.spire, spc: d.spire && d.spc === "silent" ? "silent" : null, shield: d.shield && !d.spire ? true : null, nolim: d.nolim ? true : null, mull: d.mull && !d.spire ? true : null, key: d.key && cards.includes(d.key) ? d.key : null, borrow: bor.length ? bor : null, updatedAt: Date.now() }); S.deckPick = id; ls.set("cb_deck", id); toast(`「${name}」を自分のデッキに入れました${miss ? `（持っていないカード ${miss} 種類は借りています）` : ""}`); renderDeckList(); }
     catch(err){ writeErr(err); }
     return;
   }
@@ -7778,7 +7779,7 @@ $("#cpuDeckSel").addEventListener("change", e => ls.set("cb_cpudeck", e.target.v
 function cpuDeckOptions(){ return [...builtinDecks(), ...S.decks.filter(d => d && Array.isArray(d.cards) && d.cards.length)]; }
 function renderCpuDeckSel(){
   const sel = $("#cpuDeckSel"), want = ls.get("cb_cpudeck", "auto"), mine = myDecks(), others = S.decks.filter(d => d && Array.isArray(d.cards) && d.cards.length && !isMine(d, "owner"));
-  const opt = d => `<option value="${esc(d.id)}">${esc(d.name)}${d.mana && !d.builtin ? (d.mz ? "【デュエマ式】" : "【コスト】") : ""}${d.shield && !d.spire ? "【シールド】" : ""}${d.nolim ? "【上限なし】" : ""}（${d.cards.length}枚）${d.builtin || isMine(d, "owner") ? "" : "／" + esc(d.owner || "？")}</option>`;
+  const opt = d => `<option value="${esc(d.id)}">${esc(d.name)}${d.mana && !d.builtin ? (d.mz ? "【デュエマ式】" : "【コスト】") : ""}${d.shield && !d.spire ? "【シールド】" : ""}${d.nolim ? "【上限なし】" : ""}${d.mull && !d.spire ? "【マリガン】" : ""}（${d.cards.length}枚）${d.builtin || isMine(d, "owner") ? "" : "／" + esc(d.owner || "？")}</option>`;
   sel.innerHTML = `<option value="auto">おまかせ（自分と同じルールのサンプル）</option><optgroup label="はじめからあるデッキ">${builtinDecks().map(opt).join("")}</optgroup>`
     + (mine.length ? `<optgroup label="自分のデッキ">${mine.map(opt).join("")}</optgroup>` : "")
     + (others.length ? `<optgroup label="みんなのデッキ">${others.map(opt).join("")}</optgroup>` : "");
@@ -7792,7 +7793,7 @@ function chosenMana(){ const id = $("#deckSel").value; const d = allDeckOptions(
 const deckSpireVal = d => d && d.spire ? (d.spc === "silent" ? "silent" : true) : false;
 function chosenSpire(){ const id = $("#deckSel").value; const d = allDeckOptions().find(x => x.id === id); return deckSpireVal(d); }
 // デッキのルール: シールドデッキ（デュエマ式）・盤面上限なし
-const deckOptVal = d => ({ shield: !!(d && d.shield && !d.spire), nolim: !!(d && d.nolim) });
+const deckOptVal = d => ({ shield: !!(d && d.shield && !d.spire), nolim: !!(d && d.nolim), mull: !!(d && d.mull && !d.spire) });
 function chosenOpt(){ const id = $("#deckSel").value; return deckOptVal(allDeckOptions().find(x => x.id === id)); }
 function chosenDeckIds(){
   const id = $("#deckSel").value; const d = allDeckOptions().find(x => x.id === id) || starterDeck();
@@ -7810,7 +7811,7 @@ function deckOk(ids){
 function renderPlay(){
   if (document.activeElement !== $("#pname")) $("#pname").value = S.name;
   const opts = allDeckOptions(); const want = ls.get("cb_deck", "starter");
-  $("#deckSel").innerHTML = opts.map(d => `<option value="${esc(d.id)}">${esc(d.name)}${d.mana && !d.builtin ? (d.mz ? "【デュエマ式】" : "【コスト】") : ""}${d.shield && !d.spire ? "【シールド】" : ""}${d.nolim ? "【上限なし】" : ""}（${d.cards.length}枚）</option>`).join("");
+  $("#deckSel").innerHTML = opts.map(d => `<option value="${esc(d.id)}">${esc(d.name)}${d.mana && !d.builtin ? (d.mz ? "【デュエマ式】" : "【コスト】") : ""}${d.shield && !d.spire ? "【シールド】" : ""}${d.nolim ? "【上限なし】" : ""}${d.mull && !d.spire ? "【マリガン】" : ""}（${d.cards.length}枚）</option>`).join("");
   $("#deckSel").value = opts.some(d => d.id === want) ? want : "starter";
   if (document.activeElement !== $("#cpuDeckSel")) renderCpuDeckSel();
   $("#offlineNote").hidden = !!S.db;
@@ -7840,6 +7841,8 @@ function newPlayer(deckIds, name, mana, spire, opt){
   if (opt && opt.shield && !spire){ p.shieldOn = true; p.shields = p.deck.splice(0, 5); }
   // 盤面上限なし: ゾーンがいっぱいでも、ふやして置ける
   if (opt && opt.nolim) p.nolim = true;
+  // マリガンありのデッキ: 最初の手札を見て、1回だけ全部もどして引き直せる
+  if (opt && opt.mull && !spire){ p.mullOn = true; p.mullPick = true; }
   return p;
 }
 // 選択の祭壇 (face-up): turn start → draw up to 5 cards, turn end → the whole hand goes to the graveyard
@@ -7912,6 +7915,18 @@ function chooseRelic(st, s, key, target){
   if (p.openHand){ const want = p.openHand + (key === "conch" ? 2 : 0), k = Math.max(0, want - p.hand.length); p.openHand = 0; if (k) drawN(st, s, k, "最初の手札"); }
   return true;
 }
+// マリガン: yes = 手札を全部山札にもどして混ぜ、同じ枚数を引き直す（1回だけ） / no = このまま
+function mulligan(st, s, yes){
+  const p = P(st, s); if (!p || !p.mullPick) return false;
+  p.mullPick = null;
+  if (!yes){ log(st, s, "マリガンしなかった"); return true; }
+  const n = p.hand.length; p.deck = innateTop(shuffle([...p.hand, ...p.deck])); p.hand = [];
+  while (p.hand.length < n && p.deck.length) p.hand.push(p.deck.shift());
+  log(st, s, `マリガンした（手札${n}枚を引き直した）`);
+  return true;
+}
+// the CPU keeps its hand
+function autoMull(st, s){ const p = P(st, s); if (p && p.mullPick) p.mullPick = null; }
 // the CPU picks at random (若葉 turns its first 攻撃 into something else)
 function autoRelic(st, s){
   const p = P(st, s); if (!p.relicPick) return;
@@ -8106,7 +8121,7 @@ $("#btnCpu").addEventListener("click", () => {
   const cpuMana = cd ? deckManaVal(cd) : chosenMana(), cpuIds = (cd || (cpuMana ? sampleManaDeck() : starterDeck())).cards.filter(id => S.cards.has(id));
   if ((!(cd && cd.spire) && cpuIds.length < MIN_DECK) || (!(cd && cd.spire) && !cpuIds.some(id => cardType(S.cards.get(id)) === "monster"))){ toast("CPUのデッキのカードが足りません。別のデッキをえらんでね"); return; }
   G = { mode: "cpu", slot: "a", st: applyManaRule(startState(newPlayer(ids, null, chosenMana(), chosenSpire(), chosenOpt()), newPlayer(cpuIds, cd ? `CPU（${cd.name}）` : "CPU", cpuMana, deckSpireVal(cd), deckOptVal(cd))), chosenManaRule()), sel: null, atkFrom: null, chooseQ: [], evSeen: 0 };
-  autoRelic(G.st, "b");
+  autoRelic(G.st, "b"); autoMull(G.st, "b");
   after(false);
 });
 /* ---- rematch: same players, same decks, fresh game (online: both have to say yes) ---- */
@@ -8118,14 +8133,14 @@ function allCardsOf(st, s){
 }
 function freshFrom(st, s){
   const p = P(st, s), ids = p.deckIds && p.deckIds.length ? p.deckIds : allCardsOf(st, s);
-  const n = newPlayer(ids, p.name, p.manaZ ? (p.landOnly ? "land" : "zone") : !!p.mana, p.spire ? (p.spc === "silent" ? "silent" : true) : false, { shield: !!p.shieldOn, nolim: !!p.nolim }); n.sleeve = p.sleeve || null; return n;
+  const n = newPlayer(ids, p.name, p.manaZ ? (p.landOnly ? "land" : "zone") : !!p.mana, p.spire ? (p.spc === "silent" ? "silent" : true) : false, { shield: !!p.shieldOn, nolim: !!p.nolim, mull: !!p.mullOn }); n.sleeve = p.sleeve || null; return n;
 }
 function resetLocal(){ Object.assign(G, { costPick: null, potPick: null, sel: null, atkFrom: null, chooseQ: [], evSeen: 0, recorded: false, prevLp: null, eqPlace: null, ssPick: null, sxPick: null, view: null, graveHand: false, detailOpen: false, detailBack: null, lastDetail: null }); renderDetail(null); }
 function rematch(){
   if (!G || !G.st || !G.st.winner || G.spectate) return;
   if (G.mode !== "online"){
     const old = G.st; clearTimeout(G.cpuT); G.cpuT = null;
-    G.st = applyManaRule(startState(freshFrom(old, "a"), freshFrom(old, "b")), old.manaRule); autoRelic(G.st, "b"); resetLocal(); after(false); return;
+    G.st = applyManaRule(startState(freshFrom(old, "a"), freshFrom(old, "b")), old.manaRule); autoRelic(G.st, "b"); autoMull(G.st, "b"); resetLocal(); after(false); return;
   }
   const me = G.slot;
   act(st => {
@@ -11986,6 +12001,8 @@ function renderOverlay(){
     html = `<div class="box"><h2 style="margin:0">若葉：変えるカードをえらぶ</h2><p class="muted" style="margin:0">デッキの${L.length}枚からえらんだ1枚が、ランダムなスパイア風カードに変わります（手札はこのあと引きます）</p><div class="gallery">${list || '<p class="muted">カードがありません</p>'}</div></div>`;
   } else if (Array.isArray(rp)){
     html = `<div class="box"><h2 style="margin:0">ネオーの祝福：レリックを1つえらぶ</h2><p class="muted" style="margin:0">スパイアデッキのはじまりに、どれか1つだけ手に入る</p><div class="relic-pick">${rp.map(k => [k, relicDef(k)]).filter(x => x[1]).map(([k, d]) => `<button data-relic="${esc(k)}">${d.img ? `<img class="rl-img" alt="" src="${d.img}">` : ""}<b>${esc(d.name)}</b>${esc(d.text)}</button>`).join("")}</div></div>`;
+  } else if (myP && myP.mullPick && !st.winner){
+    html = `<div class="box"><h2 style="margin:0">マリガンする？</h2><p class="muted" style="margin:0">手札を全部山札にもどして混ぜ、同じ枚数を引き直せます（1回だけ）</p><div class="gallery">${myP.hand.map(id => cardHTML(card(id), "sm", "", mOpt(me))).join("")}</div><div class="row"><button class="primary" data-mull="no">このままでOK</button><button data-mull="yes">マリガンする</button><button class="ghost" data-peek>盤面を見る</button></div></div>`; peek = true;
   } else if (st.askQ && st.askQ.ans == null && st.askQ.to === me && !G.spectate && !st.winner){
     const aq = st.askQ;
     html = aq.opts ? `<div class="box"><h2 style="margin:0">${esc(P(st, aq.by).name)} の「${esc(aq.name)}」</h2><p style="margin:0;font-size:18px;font-weight:700">${esc(aq.text)}</p><div class="p1list">${aq.opts.map((o, k) => `<button type="button" class="p1" data-askpick="${k}"><b>【${esc(o.name)}】</b><span>${esc(o.text)}</span></button>`).join("")}</div><div class="row"><button class="ghost" data-peek>盤面を見る</button></div></div>`
@@ -12161,6 +12178,8 @@ $("#overlay").addEventListener("click", e => {
   if (rw && !rw.disabled){ const [w, ...v] = rw.dataset.rw.split(":"); act(st => rewardAct(st, G.slot, w, v.join(":"))); return; }
   const pu = e.target.closest("[data-potuse]");
   if (pu){ const i = +pu.dataset.potuse; G.potPick = null; act(st => usePotion(st, G.slot, i, () => {})); return; }
+  const mu = e.target.closest("[data-mull]");
+  if (mu){ const y = mu.dataset.mull === "yes"; act(st => mulligan(st, G.slot, y)); return; }
   const rl = e.target.closest("[data-relic]");
   if (rl){ const k = rl.dataset.relic; act(st => chooseRelic(st, G.slot, k)); return; }
   const sw = e.target.closest("[data-sprout]");

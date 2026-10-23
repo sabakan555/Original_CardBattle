@@ -6,7 +6,7 @@ $("#cpuDeckSel").addEventListener("change", e => ls.set("cb_cpudeck", e.target.v
 function cpuDeckOptions(){ return [...builtinDecks(), ...S.decks.filter(d => d && Array.isArray(d.cards) && d.cards.length)]; }
 function renderCpuDeckSel(){
   const sel = $("#cpuDeckSel"), want = ls.get("cb_cpudeck", "auto"), mine = myDecks(), others = S.decks.filter(d => d && Array.isArray(d.cards) && d.cards.length && !isMine(d, "owner"));
-  const opt = d => `<option value="${esc(d.id)}">${esc(d.name)}${d.mana && !d.builtin ? (d.mz ? "【デュエマ式】" : "【コスト】") : ""}${d.shield && !d.spire ? "【シールド】" : ""}${d.nolim ? "【上限なし】" : ""}（${d.cards.length}枚）${d.builtin || isMine(d, "owner") ? "" : "／" + esc(d.owner || "？")}</option>`;
+  const opt = d => `<option value="${esc(d.id)}">${esc(d.name)}${d.mana && !d.builtin ? (d.mz ? "【デュエマ式】" : "【コスト】") : ""}${d.shield && !d.spire ? "【シールド】" : ""}${d.nolim ? "【上限なし】" : ""}${d.mull && !d.spire ? "【マリガン】" : ""}（${d.cards.length}枚）${d.builtin || isMine(d, "owner") ? "" : "／" + esc(d.owner || "？")}</option>`;
   sel.innerHTML = `<option value="auto">おまかせ（自分と同じルールのサンプル）</option><optgroup label="はじめからあるデッキ">${builtinDecks().map(opt).join("")}</optgroup>`
     + (mine.length ? `<optgroup label="自分のデッキ">${mine.map(opt).join("")}</optgroup>` : "")
     + (others.length ? `<optgroup label="みんなのデッキ">${others.map(opt).join("")}</optgroup>` : "");
@@ -20,7 +20,7 @@ function chosenMana(){ const id = $("#deckSel").value; const d = allDeckOptions(
 const deckSpireVal = d => d && d.spire ? (d.spc === "silent" ? "silent" : true) : false;
 function chosenSpire(){ const id = $("#deckSel").value; const d = allDeckOptions().find(x => x.id === id); return deckSpireVal(d); }
 // デッキのルール: シールドデッキ（デュエマ式）・盤面上限なし
-const deckOptVal = d => ({ shield: !!(d && d.shield && !d.spire), nolim: !!(d && d.nolim) });
+const deckOptVal = d => ({ shield: !!(d && d.shield && !d.spire), nolim: !!(d && d.nolim), mull: !!(d && d.mull && !d.spire) });
 function chosenOpt(){ const id = $("#deckSel").value; return deckOptVal(allDeckOptions().find(x => x.id === id)); }
 function chosenDeckIds(){
   const id = $("#deckSel").value; const d = allDeckOptions().find(x => x.id === id) || starterDeck();
@@ -38,7 +38,7 @@ function deckOk(ids){
 function renderPlay(){
   if (document.activeElement !== $("#pname")) $("#pname").value = S.name;
   const opts = allDeckOptions(); const want = ls.get("cb_deck", "starter");
-  $("#deckSel").innerHTML = opts.map(d => `<option value="${esc(d.id)}">${esc(d.name)}${d.mana && !d.builtin ? (d.mz ? "【デュエマ式】" : "【コスト】") : ""}${d.shield && !d.spire ? "【シールド】" : ""}${d.nolim ? "【上限なし】" : ""}（${d.cards.length}枚）</option>`).join("");
+  $("#deckSel").innerHTML = opts.map(d => `<option value="${esc(d.id)}">${esc(d.name)}${d.mana && !d.builtin ? (d.mz ? "【デュエマ式】" : "【コスト】") : ""}${d.shield && !d.spire ? "【シールド】" : ""}${d.nolim ? "【上限なし】" : ""}${d.mull && !d.spire ? "【マリガン】" : ""}（${d.cards.length}枚）</option>`).join("");
   $("#deckSel").value = opts.some(d => d.id === want) ? want : "starter";
   if (document.activeElement !== $("#cpuDeckSel")) renderCpuDeckSel();
   $("#offlineNote").hidden = !!S.db;
@@ -68,6 +68,8 @@ function newPlayer(deckIds, name, mana, spire, opt){
   if (opt && opt.shield && !spire){ p.shieldOn = true; p.shields = p.deck.splice(0, 5); }
   // 盤面上限なし: ゾーンがいっぱいでも、ふやして置ける
   if (opt && opt.nolim) p.nolim = true;
+  // マリガンありのデッキ: 最初の手札を見て、1回だけ全部もどして引き直せる
+  if (opt && opt.mull && !spire){ p.mullOn = true; p.mullPick = true; }
   return p;
 }
 // 選択の祭壇 (face-up): turn start → draw up to 5 cards, turn end → the whole hand goes to the graveyard
@@ -140,6 +142,18 @@ function chooseRelic(st, s, key, target){
   if (p.openHand){ const want = p.openHand + (key === "conch" ? 2 : 0), k = Math.max(0, want - p.hand.length); p.openHand = 0; if (k) drawN(st, s, k, "最初の手札"); }
   return true;
 }
+// マリガン: yes = 手札を全部山札にもどして混ぜ、同じ枚数を引き直す（1回だけ） / no = このまま
+function mulligan(st, s, yes){
+  const p = P(st, s); if (!p || !p.mullPick) return false;
+  p.mullPick = null;
+  if (!yes){ log(st, s, "マリガンしなかった"); return true; }
+  const n = p.hand.length; p.deck = innateTop(shuffle([...p.hand, ...p.deck])); p.hand = [];
+  while (p.hand.length < n && p.deck.length) p.hand.push(p.deck.shift());
+  log(st, s, `マリガンした（手札${n}枚を引き直した）`);
+  return true;
+}
+// the CPU keeps its hand
+function autoMull(st, s){ const p = P(st, s); if (p && p.mullPick) p.mullPick = null; }
 // the CPU picks at random (若葉 turns its first 攻撃 into something else)
 function autoRelic(st, s){
   const p = P(st, s); if (!p.relicPick) return;
@@ -334,7 +348,7 @@ $("#btnCpu").addEventListener("click", () => {
   const cpuMana = cd ? deckManaVal(cd) : chosenMana(), cpuIds = (cd || (cpuMana ? sampleManaDeck() : starterDeck())).cards.filter(id => S.cards.has(id));
   if ((!(cd && cd.spire) && cpuIds.length < MIN_DECK) || (!(cd && cd.spire) && !cpuIds.some(id => cardType(S.cards.get(id)) === "monster"))){ toast("CPUのデッキのカードが足りません。別のデッキをえらんでね"); return; }
   G = { mode: "cpu", slot: "a", st: applyManaRule(startState(newPlayer(ids, null, chosenMana(), chosenSpire(), chosenOpt()), newPlayer(cpuIds, cd ? `CPU（${cd.name}）` : "CPU", cpuMana, deckSpireVal(cd), deckOptVal(cd))), chosenManaRule()), sel: null, atkFrom: null, chooseQ: [], evSeen: 0 };
-  autoRelic(G.st, "b");
+  autoRelic(G.st, "b"); autoMull(G.st, "b");
   after(false);
 });
 /* ---- rematch: same players, same decks, fresh game (online: both have to say yes) ---- */
@@ -346,14 +360,14 @@ function allCardsOf(st, s){
 }
 function freshFrom(st, s){
   const p = P(st, s), ids = p.deckIds && p.deckIds.length ? p.deckIds : allCardsOf(st, s);
-  const n = newPlayer(ids, p.name, p.manaZ ? (p.landOnly ? "land" : "zone") : !!p.mana, p.spire ? (p.spc === "silent" ? "silent" : true) : false, { shield: !!p.shieldOn, nolim: !!p.nolim }); n.sleeve = p.sleeve || null; return n;
+  const n = newPlayer(ids, p.name, p.manaZ ? (p.landOnly ? "land" : "zone") : !!p.mana, p.spire ? (p.spc === "silent" ? "silent" : true) : false, { shield: !!p.shieldOn, nolim: !!p.nolim, mull: !!p.mullOn }); n.sleeve = p.sleeve || null; return n;
 }
 function resetLocal(){ Object.assign(G, { costPick: null, potPick: null, sel: null, atkFrom: null, chooseQ: [], evSeen: 0, recorded: false, prevLp: null, eqPlace: null, ssPick: null, sxPick: null, view: null, graveHand: false, detailOpen: false, detailBack: null, lastDetail: null }); renderDetail(null); }
 function rematch(){
   if (!G || !G.st || !G.st.winner || G.spectate) return;
   if (G.mode !== "online"){
     const old = G.st; clearTimeout(G.cpuT); G.cpuT = null;
-    G.st = applyManaRule(startState(freshFrom(old, "a"), freshFrom(old, "b")), old.manaRule); autoRelic(G.st, "b"); resetLocal(); after(false); return;
+    G.st = applyManaRule(startState(freshFrom(old, "a"), freshFrom(old, "b")), old.manaRule); autoRelic(G.st, "b"); autoMull(G.st, "b"); resetLocal(); after(false); return;
   }
   const me = G.slot;
   act(st => {

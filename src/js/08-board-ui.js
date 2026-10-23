@@ -838,6 +838,8 @@ function renderOverlay(){
     html = `<div class="box"><h2 style="margin:0">若葉：変えるカードをえらぶ</h2><p class="muted" style="margin:0">デッキの${L.length}枚からえらんだ1枚が、ランダムなスパイア風カードに変わります（手札はこのあと引きます）</p><div class="gallery">${list || '<p class="muted">カードがありません</p>'}</div></div>`;
   } else if (Array.isArray(rp)){
     html = `<div class="box"><h2 style="margin:0">ネオーの祝福：レリックを1つえらぶ</h2><p class="muted" style="margin:0">スパイアデッキのはじまりに、どれか1つだけ手に入る</p><div class="relic-pick">${rp.map(k => [k, relicDef(k)]).filter(x => x[1]).map(([k, d]) => `<button data-relic="${esc(k)}">${d.img ? `<img class="rl-img" alt="" src="${d.img}">` : ""}<b>${esc(d.name)}</b>${esc(d.text)}</button>`).join("")}</div></div>`;
+  } else if (myP && myP.mullPick && !st.winner){
+    html = `<div class="box"><h2 style="margin:0">マリガンする？</h2><p class="muted" style="margin:0">手札を全部山札にもどして混ぜ、同じ枚数を引き直せます（1回だけ）</p><div class="gallery">${myP.hand.map(id => cardHTML(card(id), "sm", "", mOpt(me))).join("")}</div><div class="row"><button class="primary" data-mull="no">このままでOK</button><button data-mull="yes">マリガンする</button><button class="ghost" data-peek>盤面を見る</button></div></div>`; peek = true;
   } else if (st.askQ && st.askQ.ans == null && st.askQ.to === me && !G.spectate && !st.winner){
     const aq = st.askQ;
     html = aq.opts ? `<div class="box"><h2 style="margin:0">${esc(P(st, aq.by).name)} の「${esc(aq.name)}」</h2><p style="margin:0;font-size:18px;font-weight:700">${esc(aq.text)}</p><div class="p1list">${aq.opts.map((o, k) => `<button type="button" class="p1" data-askpick="${k}"><b>【${esc(o.name)}】</b><span>${esc(o.text)}</span></button>`).join("")}</div><div class="row"><button class="ghost" data-peek>盤面を見る</button></div></div>`
@@ -1013,6 +1015,8 @@ $("#overlay").addEventListener("click", e => {
   if (rw && !rw.disabled){ const [w, ...v] = rw.dataset.rw.split(":"); act(st => rewardAct(st, G.slot, w, v.join(":"))); return; }
   const pu = e.target.closest("[data-potuse]");
   if (pu){ const i = +pu.dataset.potuse; G.potPick = null; act(st => usePotion(st, G.slot, i, () => {})); return; }
+  const mu = e.target.closest("[data-mull]");
+  if (mu){ const y = mu.dataset.mull === "yes"; act(st => mulligan(st, G.slot, y)); return; }
   const rl = e.target.closest("[data-relic]");
   if (rl){ const k = rl.dataset.relic; act(st => chooseRelic(st, G.slot, k)); return; }
   const sw = e.target.closest("[data-sprout]");
