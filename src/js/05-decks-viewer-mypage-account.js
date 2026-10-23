@@ -19,7 +19,7 @@ function renderDeck(){
   const n = deckCount(), sp = $("#deckSpire").checked, ok = sp || (n >= MIN_DECK && deckMonsters() > 0);
   const m = $("#deckMeter"); m.textContent = (sp ? `${n}枚（スパイアデッキは枚数自由）` : `${n}枚（モンスター ${deckMonsters()}）`) + (deckExCount() ? `＋EX ${deckExCount()}枚` : ""); m.className = "meter " + (ok ? "ok" : "ng");
   $("#btnDeckDel").hidden = !S.deckEdit.id;
-  { const ids = []; for (const [id, k] of Object.entries(S.deckEdit.cards)) for (let i = 0; i < k; i++) ids.push(id); $("#deckView").innerHTML = deckViewHTML(ids, $("#deckMana").checked); $("#deckViewNote").textContent = `${ids.length}枚・押すとくわしく見られる`; }
+  { const ids = []; for (const [id, k] of Object.entries(S.deckEdit.cards)) for (let i = 0; i < k; i++) ids.push(id); $("#deckView").innerHTML = deckViewHTML(ids, $("#deckMana").checked); $("#deckStats").innerHTML = deckStatsHTML(ids, $("#deckMana").checked, $("#deckShield").checked && !$("#deckSpire").checked); $("#deckViewNote").textContent = `${ids.length}枚・押すとくわしく見られる`; }
   const pool0 = [...S.userCards].filter(c => owns(c.id) || S.deckEdit.cards[c.id] || isBorrowed(c.id)).sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0)).concat(S.starters).filter(c => !c.token || S.deckEdit.cards[c.id]);
   const pool = sortCards(pool0.filter(c => matchCard(c, S.filt.deck) && (fitsDeck(c, deckKindNow()) || S.deckEdit.cards[c.id])), S.filt.deck.sort);
   S.deckPoolIds = pool.map(c => c.id);
@@ -95,6 +95,13 @@ $("#btnDeckDel").addEventListener("click", async () => {
 const CV = { ctx: null, ids: [], i: 0 };
 function openCardView(ctx, ids, i){ if (!ids || !ids.length || i < 0 || i >= ids.length) return; Object.assign(CV, { ctx, ids: ids.slice(), i }); renderCardView(); }
 function closeCardView(){ const v = $("#cardView"); v.hidden = true; v.innerHTML = ""; CV.ctx = null; }
+// 変更履歴（カード工房で直して保存したときに残る、直す前のすがた）
+function histHTML(c){
+  const H = Array.isArray(c.hist) ? c.hist.filter(h => h && h.t) : []; if (!H.length) return "";
+  const day = t => { const d = new Date(t); return `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()}`; };
+  const rows = H.map(h => `<li><div class="note">${day(h.t)}${h.by ? `・${esc(h.by)}` : ""} より前</div><b>${esc(h.name)}</b>${h.atk != null ? `　ATK ${esc(String(h.atk))}` : ""}${h.cost != null ? `　コスト ${esc(String(h.cost))}` : ""}${h.text ? `<div class="cv-hist-t">${esc(h.text)}</div>` : ""}</li>`).join("");
+  return `<details class="cv-hist"><summary>変更履歴（${H.length}）</summary><ul>${rows}</ul></details>`;
+}
 function renderCardView(){
   const c = S.cards.get(CV.ids[CV.i]); if (!c){ closeCardView(); return; }
   const t = cardType(c), mana = CV.ctx === "deck" ? $("#deckMana").checked : CV.ctx === "list" && (S.filt.gal || {}).dm === "normal" ? false : undefined, ft = fxText(c, true), lim = cardLimit(c), rows = [];
@@ -125,7 +132,7 @@ function renderCardView(){
     <button class="cv-x ghost" data-cv="close" aria-label="とじる">×</button>
     <button class="cv-nav prev" data-cv="prev" ${CV.i ? "" : "disabled"} aria-label="前のカード">‹</button>
     <div class="cv-card">${cardHTML(c, "", "", mana === undefined ? {} : { mana })}</div>
-    <div class="cv-info"><div class="row" style="justify-content:space-between;align-items:center;gap:8px"><h2>${rubyHTML(c.nameRuby || c.name)}</h2><button class="small" data-cv="shot" title="このカードを画像（PNG）で保存">📷 画像で保存</button></div><dl class="cv-dl">${lvAttrRowsIn(rows, c).map(([k, v, h]) => `<dt>${k}</dt><dd>${h || tkLink(esc(v))}</dd>`).join("")}</dl><h3>テキスト</h3><div class="cv-text">${text}</div>${foot}</div>
+    <div class="cv-info"><div class="row" style="justify-content:space-between;align-items:center;gap:8px"><h2>${rubyHTML(c.nameRuby || c.name)}</h2><button class="small" data-cv="shot" title="このカードを画像（PNG）で保存">📷 画像で保存</button></div><dl class="cv-dl">${lvAttrRowsIn(rows, c).map(([k, v, h]) => `<dt>${k}</dt><dd>${h || tkLink(esc(v))}</dd>`).join("")}</dl><h3>テキスト</h3><div class="cv-text">${text}</div>${histHTML(c)}${foot}</div>
     <button class="cv-nav next" data-cv="next" ${CV.i < CV.ids.length - 1 ? "" : "disabled"} aria-label="次のカード">›</button>
     <div class="cv-pos">${CV.i + 1} / ${CV.ids.length}</div></div>`;
   $("#cardView").hidden = false;
@@ -355,6 +362,40 @@ function otherDecks(){ return S.decks.filter(d => d && !d.builtin && !isMine(d, 
 const canUseCard = id => S.cards.has(id) && (typeof owns !== "function" || owns(id));
 const dkQText = x => `${x.name || ""} ${x.owner || ""}`.toLowerCase();
 const dkQHit = x => !S.dkQ || dkQText(x).includes(S.dkQ.toLowerCase());
+// デッキ分析（種類の内訳とコストの分布は deckViewHTML にあるので、ここは足りない数字だけ）: モンスターの平均ATK、S・トリガーの枚数
+function deckStatsHTML(ids, mana, shield){
+  const cs = ids.map(id => card(id)).filter(Boolean); if (!cs.length) return "";
+  const fin = cs.filter(c => cardType(c) === "monster" && !c.atkInf), avg = fin.length ? Math.round(fin.reduce((s, c) => s + (+baseAtk(c) || 0), 0) / fin.length) : null;
+  const L = [avg != null ? `モンスターの平均ATK <b>${fmtN(avg)}</b>` : "", shield ? `S・トリガー <b>${cs.filter(c => c.strig).length}</b>枚` : ""].filter(Boolean);
+  return L.length ? `<div class="row dks-row">${L.map(x => `<span class="dks-chip">${x}</span>`).join("")}</div>` : "";
+}
+// デッキコード: デッキを1行の文字にして、LINEなどで送れるようにする（受け取った人は「コードから読み込む」）
+const DK_CODE = "OCB1-";
+function deckCode(){
+  const d = { name: $("#deckName").value.trim() || "デッキ", cards: Object.entries(S.deckEdit.cards).filter(([, k]) => k > 0), key: S.deckEdit.key || null, mana: $("#deckMana").checked || null, mz: $("#deckMana").checked && $("#deckZone").checked || null, landOnly: $("#deckMana").checked && $("#deckZone").checked && $("#deckLand").checked || null, spire: $("#deckSpire").checked || null, spc: $("#deckSpire").checked && $("#deckSpc").value === "silent" ? "silent" : null, shield: $("#deckShield").checked && !$("#deckSpire").checked || null, nolim: $("#deckNolim").checked || null, mull: $("#deckMull").checked && !$("#deckSpire").checked || null };
+  Object.keys(d).forEach(k => d[k] == null && delete d[k]);
+  return DK_CODE + btoa(unescape(encodeURIComponent(JSON.stringify(d)))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+function readDeckCode(s){
+  const t = String(s || "").trim().replace(/\s+/g, ""); if (!t.startsWith(DK_CODE)) return null;
+  try{
+    let b = t.slice(DK_CODE.length).replace(/-/g, "+").replace(/_/g, "/"); while (b.length % 4) b += "=";
+    const d = JSON.parse(decodeURIComponent(escape(atob(b)))); if (!d || !Array.isArray(d.cards)) return null;
+    const cards = []; d.cards.forEach(x => { const [id, k] = Array.isArray(x) ? x : [x, 1]; for (let i = 0; i < Math.min(99, Math.max(0, +k || 0)); i++) cards.push(String(id)); });
+    return { ...d, name: String(d.name || "デッキ").slice(0, 20), cards };
+  } catch(e){ return null; }
+}
+$("#btnDeckCode").addEventListener("click", () => {
+  if (!Object.values(S.deckEdit.cards).some(k => k > 0)){ toast("デッキにカードが入っていません"); return; }
+  const code = deckCode();
+  navigator.clipboard?.writeText(code).then(() => toast("デッキコードをコピーしました。送りたい人に貼りつけてね"), () => prompt("このデッキコードをコピーしてね", code)) ?? prompt("このデッキコードをコピーしてね", code);
+});
+$("#btnDeckImport").addEventListener("click", () => {
+  const s = prompt("デッキコード（OCB1-…）を貼りつけてください"); if (!s) return;
+  const d = readDeckCode(s); if (!d){ toast("デッキコードが読めませんでした"); return; }
+  const gone = d.cards.filter(id => !S.cards.has(id)).length, miss = copyDeckToEditor(d);
+  toast(`「${d.name}」を読み込みました。保存すると自分のデッキになります${gone ? `（見つからないカード${gone}枚は入れていません）` : ""}${miss ? `（持っていないカード${miss}種類は借りています）` : ""}`);
+});
 function copyDeckToEditor(d){
   const cards = d.cards.filter(id => S.cards.has(id)), bor = [...new Set(cards.filter(id => !canUseCard(id)))], miss = bor.length;
   openDeckEditor("");

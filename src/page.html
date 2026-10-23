@@ -127,6 +127,7 @@
       </div>
       <div class="tools-col">
         <h2 id="mkTitle">カードを描く</h2>
+        <div class="row mk-draft" id="mkDraft" hidden></div>
         <div class="mk-kindbox"><h3>つくるもの</h3><div class="seg" id="mkKind"><button data-k="card" aria-pressed="true">カード</button><button data-k="potion" aria-pressed="false">カード以外</button></div>
           <div class="row" id="mkKindSub" hidden style="margin-top:8px;gap:8px;align-items:center"><span class="note">なにを：</span><div class="seg" id="mkKind2"><button data-k2="potion" aria-pressed="true">ポーション</button><button data-k2="relic" aria-pressed="false">レリック</button><button data-k2="counter" aria-pressed="false">カウンター</button></div><span class="note" id="mkKindNote">選択の祭壇を使うデッキで、モンスターを倒すと手に入ることがある</span></div>
           <div id="ctrPanel"><div id="ctrList"></div></div>
@@ -379,7 +380,7 @@
           <label class="f" style="flex-direction:row;align-items:center;gap:10px">デッキに入れられる枚数<select id="mkLimit"><option value="1">1枚まで</option><option value="2">2枚まで</option><option value="3" selected>3枚まで</option><option value="0">制限なし</option></select></label>
         </div>
 
-        <div class="row mk-save"><button class="primary" id="btnSave">カードを保存</button><button id="btnTest" title="保存しないで、対戦画面でこのカードの効果を試す">🧪 この内容でテストする</button><button id="btnShot" title="いま作っているカードを画像（PNG）で保存">📷 画像で保存</button><button class="ghost" id="btnNew" hidden>新しく描く</button></div>
+        <div class="row mk-save"><button class="primary" id="btnSave">カードを保存</button><button id="btnTest" title="保存しないで、対戦画面でこのカードの効果を試す">🧪 この内容でテストする</button><button id="btnShot" title="いま作っているカードを画像（PNG）で保存">📷 画像で保存</button><button class="ghost" id="btnCopy" hidden title="いまの内容のまま、新しいカードとして保存できるようにする">コピーして新しく作る</button><button class="ghost" id="btnNew" hidden>新しく描く</button></div>
       </div>
     </div>
     <div id="galWrap" hidden>
@@ -417,6 +418,7 @@
         <span class="meter" id="deckMeter">0枚</span>
         <span class="note">20枚以上なら何枚でもOK。1枚ごとの上限はカードを作った人が決めます。</span>
         <button class="primary" id="btnDeckSave">デッキを保存</button>
+        <button class="small" id="btnDeckCode" title="このデッキを1行の文字にしてコピーする">デッキコードをコピー</button><button class="small ghost" id="btnDeckImport" title="もらったデッキコードからデッキを作る">コードから読み込む</button>
         <button class="danger small" id="btnDeckDel" hidden>このデッキを消す</button>
       </div>
     </div>
@@ -425,7 +427,7 @@
     <div class="filters" id="deckFilters"></div>
     <div class="deck-pool" id="deckPool"></div>
     </div>
-    <details class="box dkv-box dk-side" id="deckViewBox" open><summary><b>デッキの中身</b> <span class="note" id="deckViewNote"></span><button type="button" class="small ghost dk-sheet-x" id="btnDeckSheetX">とじる</button></summary><div id="deckView"></div></details>
+    <details class="box dkv-box dk-side" id="deckViewBox" open><summary><b>デッキの中身</b> <span class="note" id="deckViewNote"></span><button type="button" class="small ghost dk-sheet-x" id="btnDeckSheetX">とじる</button></summary><div id="deckStats"></div><div id="deckView"></div></details>
     </div>
     <div class="deck-float" id="deckFloat"><span id="deckFloatMeter"></span><button class="small" id="btnDeckSheet" type="button">中身を見る ▲</button><button class="primary small" id="btnDeckSave2">デッキを保存</button></div>
     <div class="dk-sheet-bg" id="deckSheetBg" hidden></div>

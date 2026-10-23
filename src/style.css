@@ -1741,3 +1741,15 @@ div.f{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:13px}
 .pop-install ol{margin:0;padding-left:1.3em;display:flex;flex-direction:column;gap:6px;line-height:1.55}
 .pop-install button{align-self:flex-end}
 @media (display-mode:standalone){.install-btn{display:none!important}}
+
+/* カード詳細の変更履歴・カード工房の下書き */
+.cv-hist{margin-top:10px;font-size:13px}
+.cv-hist summary{cursor:pointer;font-weight:700}
+.cv-hist ul{list-style:none;margin:6px 0 0;padding:0;display:flex;flex-direction:column;gap:8px}
+.cv-hist li{border-left:3px solid var(--line);padding-left:8px}
+.cv-hist-t{white-space:pre-wrap;color:var(--muted)}
+.mk-draft{gap:6px;align-items:center;flex-wrap:wrap;font-size:13px;border:2px dashed var(--line);border-radius:12px;padding:6px 10px;margin:0 0 8px}
+
+/* デッキ分析 */
+.dks-row{gap:6px;margin:2px 0 8px}
+.dks-chip{font-size:12px;border:1.5px solid var(--line);border-radius:999px;padding:1px 8px}

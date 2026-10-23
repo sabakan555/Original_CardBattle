@@ -1475,7 +1475,7 @@ applyFxMode();
 function resetMaker(){
   S.editId = null; setUseConds(null); mkSkinReset(null); $("#mkStartOnField").checked = false; $("#mkCannotLeave").checked = false; $("#mkNoNeg").checked = false; $("#mkInnate").checked = false; $("#mkRetain").checked = false; $("#mkEthereal").checked = false; $("#mkSly").checked = false; $("#mkHf").checked = false; $("#mkHfM").value = "tag"; $("#mkHfW").value = ""; syncHfUI(); $("#mkCascade").checked = false; $("#mkGl").checked = false; $("#mkGlSide").value = "r"; $("#mkGlW").value = ""; $("#mkGlSide").hidden = $("#mkGlW").hidden = true; setFrameless(false); setFlAlpha(FL_ALPHA_DEF); setTEdge(false); setShine("", ""); setColor(null, null); if (typeof mkSetLvAttr === "function") mkSetLvAttr(null); $("#mkFxRows").checked = MK.fxRows = false; $("#mkHideText").checked = false; $("#mkName").value = ""; $("#mkEff").value = ""; $("#mkFlv").value = ""; $("#mkNameSize").value = $("#mkTextSize").value = "m"; syncSizes(); $("#mkAtk").value = 300; $("#mkEq").value = 200; $("#mkEqAb").value = "none"; $("#mkEqCost").value = "0"; $("#mkEqCap").value = ""; $("#mkFrame").value = ""; syncFrame(); $("#mkFont").value = "klee"; syncFont(); $("#mkQuick").checked = false; $("#mkWhen").value = ""; $("#mkFusion").checked = false; MK.fusion = null; renderFusion(); $("#mkExhaust").checked = false; $("#mkNoUse").checked = false; $("#mkFlash").checked = $("#mkStrig").checked = false; $("#mkKick").value = 0; $("#mkKickAuto").checked = false; $("#mkMass").value = 0; $("#mkFMass").value = 0; $("#mkLand").checked = $("#mkAnySum").checked = $("#mkFieldMine").checked = false; $("#mkToken").checked = false; $("#mkEx").checked = false; $("#mkNeow").checked = false; $("#mkPayLp").value = "0"; $("#mkPayDisc").value = "0"; $("#mkPayDiscTag").value = ""; setPayCtr(null); setCostMech(null); $("#mkTags").value = ""; $("#mkShowTags").checked = false; syncTribe(); $("#mkTribTag").value = ""; $("#mkPayDiscAll").checked = false; $("#mkPayDisc").disabled = false; $("#mkPayMax").value = "0"; $("#mkPersist").checked = false; $("#mkField").checked = false; MK.sk = null; $("#mkRarity").value = "common"; $("#mkSpc").value = ""; $("#mkCost").value = "1"; setMkDeck("normal"); $("#mkLimit").value = "3"; clearCanvas(); undoStack = [];
   setMkType("monster"); loadFxForm(null); loadAbs([]); loadSS(null); mkLoadVars(null);
-  $("#mkTitle").textContent = "カードを描く"; $("#btnNew").hidden = true; $("#btnSave").textContent = "カードを保存"; potionModeUI();
+  $("#mkTitle").textContent = "カードを描く"; $("#btnNew").hidden = true; $("#btnCopy").hidden = true; $("#btnSave").textContent = "カードを保存"; potionModeUI(); MK.draftDirty = false; setTimeout(() => typeof syncDraftNote === "function" && syncDraftNote());
 }
 setMkType("monster"); loadFxForm(null);
 /* ---- maker tabs + folding effect boxes (a line on each box says what's set) ---- */
@@ -1590,7 +1590,7 @@ $("#btnAddAtkCond").addEventListener("click", () => { (MK.atkConds = MK.atkConds
 $("#mkAbs").addEventListener("change", updateSecs);
 setMkPane(["draw", "look", "fx", "deck"].includes(ls.get("cb_mkpane", "draw")) ? ls.get("cb_mkpane", "draw") : "draw");
 updateSecs();
-$("#btnNew").addEventListener("click", resetMaker);
+$("#btnNew").addEventListener("click", () => { clearDraft(); resetMaker(); });
 /* ---- スキン（同じカードの別の見た目） ---- */
 const lookOf = d => { const o = {}; LOOK_KEYS.forEach(k => { o[k] = d && d[k] !== undefined ? d[k] : null; }); return o; };
 function mkCurLook(){ MK.skinRaw = true; let B = null; try{ B = mkBuildDoc(); } finally { MK.skinRaw = false; } return B ? lookOf(B.doc) : null; }
@@ -1619,6 +1619,14 @@ function switchSkin(to){
 $("#mkSkin").addEventListener("change", e => switchSkin(e.target.value));
 $("#mkSkinName").addEventListener("input", e => { const s = MK.skins && MK.skins[MK.skinCur]; if (s) s.name = e.target.value.slice(0, 20); });
 $("#mkSkinDel").addEventListener("click", () => { if (!(MK.skinCur >= 0)) return; MK.skins.splice(MK.skinCur, 1); MK.skinCur = -1; mkApplyLook(MK.baseLook); renderSkinUI(); });
+// 変更履歴: カードを直して保存したとき、直す前の名前・数値・効果の文を残す（新しい順に最大10件）
+const HIST_MAX = 10;
+function histSnap(c){ return { name: c.name || "", atk: c.atkInf ? "∞" : (c.type === "monster" ? +c.atk || 0 : null), cost: c.cost != null && c.cost !== "" ? c.cost : null, text: (typeof fxText === "function" ? fxText(c) : "") || c.effect || "" }; }
+function cardHist(prev, next){
+  const old = Array.isArray(prev.hist) ? prev.hist.filter(h => h && h.t) : [], a = histSnap(prev), b = histSnap(next);
+  if (JSON.stringify(a) === JSON.stringify(b)) return old.length ? old : null; // 絵や枠だけ変えたときは残さない
+  return [{ t: Date.now(), by: S.name || "", ...a }, ...old].slice(0, HIST_MAX);
+}
 // 保存するときのカードの中身（テストモードでも使う）
 function mkBuildDoc(){
   if (MK.twSide) mkTwSide(false);
@@ -1670,11 +1678,12 @@ $("#btnTest").addEventListener("click", () => {
 });
 $("#btnSave").addEventListener("click", async () => {
   const B = mkBuildDoc(); if (!B) return; const { id, prev, doc } = B;
+  if (prev && (MK.kind || "card") === "card") doc.hist = cardHist(prev, doc);
   $("#btnSave").disabled = true;
   try{
     if (prev && prev.starter){ await saveBuiltinDoc(id, { ...doc, author: prev.author, ownerId: null }); toast(`はじめからある${prev.builtinRelic ? "レリック" : prev.builtinPotion ? "ポーション" : "カード"}を更新しました（みんなに反映されます）`); }
     else { await saveCardDoc(id, doc); toast(MK.kind === "potion" || MK.kind === "relic" ? (MK.kind === "relic" ? "レリック" : "ポーション") + (S.editId ? "を更新しました" : "を保存しました！") : S.editId ? "カードを更新しました" : "カードを保存しました！"); }
-    resetMaker();
+    clearDraft(); resetMaker();
   }
   catch(e){ writeErr(e); }
   finally{ $("#btnSave").disabled = false; }
@@ -1785,7 +1794,7 @@ function renderGallery(){
   const items2 = list.map(c => {
     if (c.starter) return `<div class="g-item">${cardHTML(c, "sm", "", galOpt)}<div class="meta">${esc(c.author)}</div>${isAdmin() ? `<div class="row g-btns"><button class="small" data-edit="${esc(c.id)}" title="はじめからあるカードを編集（管理者）">編集</button></div>` : ""}</div>`;
     const mine = isMine(c);
-    return `<div class="g-item">${cardHTML(c, "sm", "", galOpt)}<div class="meta">by ${authorOf(c) ? `<button type="button" class="by-link" data-by="${esc(authorOf(c))}" title="この人のカードだけ見る">${esc(authorOf(c))}</button>` : "？"}</div>${!mine && S.db ? tradeBtnHTML(c) : ""}${mine ? `<div class="row" style="gap:6px"><button class="small" data-edit="${esc(c.id)}">編集</button><button class="small danger" data-del="${esc(c.id)}">${delArm === c.id ? "本当に消す" : "消す"}</button></div>${isAdmin() && S.starters.some(b => b.name === c.name) ? `<button class="small g-wide" data-toBuiltin="${esc(c.id)}">${delArm === "b:" + c.id ? "本当に？（このカードは消えます）" : "はじめからあるカードと入れ替え"}</button>` : ""}` : ""}</div>`;
+    return `<div class="g-item">${cardHTML(c, "sm", "", galOpt)}<div class="meta">by ${authorOf(c) ? `<button type="button" class="by-link" data-by="${esc(authorOf(c))}" title="この人のカードだけ見る">${esc(authorOf(c))}</button>` : "？"}</div>${!mine && S.db ? tradeBtnHTML(c) : ""}${mine ? `<div class="row" style="gap:6px"><button class="small" data-edit="${esc(c.id)}">編集</button><button class="small" data-copy="${esc(c.id)}" title="このカードをもとに新しいカードを作る">コピー</button><button class="small danger" data-del="${esc(c.id)}">${delArm === c.id ? "本当に消す" : "消す"}</button></div>${isAdmin() && S.starters.some(b => b.name === c.name) ? `<button class="small g-wide" data-toBuiltin="${esc(c.id)}">${delArm === "b:" + c.id ? "本当に？（このカードは消えます）" : "はじめからあるカードと入れ替え"}</button>` : ""}` : ""}</div>`;
   });
   renderPotGallery();
   if ((S.filt.gal || {}).type === "counter"){ const L = ctrGalList(); setCount("gal", L.length, L.length); $("#gallery").innerHTML = L.map(ctrTileHTML).join("") + `<div class="ctr-tile ctr-new"><button type="button" class="primary" data-ctrnewg>＋ 新しいカウンターを作る</button><span class="note">カード工房の「カード以外 → カウンター」で作れます</span></div>`; return; }
@@ -1799,8 +1808,56 @@ $("#gallery").addEventListener("click", e => {
 }, true);
 { const q = $("#rulesKwQ"); if (q) q.addEventListener("input", renderRulesKw); }
 $("#makeView").addEventListener("click", e => { const b = e.target.closest("[data-mv]"); if (!b) return; setMakeView(b.dataset.mv); renderAll(); window.scrollTo(0, 0); });
+// カードをカード工房に読みこむ（図鑑の「編集」「コピー」、下書きの続き）
+function mkLoadCard(c){
+    setMkKind("card"); S.editId = c.id; mkSkinReset(c); setFrameless(!!c.frameless); setFlAlpha(c.flAlpha ?? FL_ALPHA_DEF); setTEdge(!!c.textEdge); setShine(c.holo, ""); setColor(c.colF, c.colB, c.colF2, c.colB2, c.colGd); mkSetLvAttr(c); $("#mkFxRows").checked = MK.fxRows = !!c.fxRows; $("#mkHideText").checked = !!c.hideText; MK.artDirty = false; $("#mkName").value = foilName(c.nameRuby || c.name, c.foil); $("#mkEff").value = c.effect || ""; $("#mkFlv").value = c.flavor || ""; $("#mkNameSize").value = SIZES_T[c.nameSize] ? c.nameSize : "m"; $("#mkTextSize").value = SIZES_T[c.textSize] ? c.textSize : "m"; syncSizes(); $("#mkAtk").value = c.atkInf ? "∞" : (c.atk || 0); $("#mkLimit").value = String(cardLimit(c));
+    mkLoadVars(c); setUseConds(c); $("#mkFusion").checked = !!(Array.isArray(c.fusion) && c.fusion.length); MK.fusion = Array.isArray(c.fusion) && c.fusion.length ? JSON.parse(JSON.stringify(c.fusion)) : null; renderFusion(); $("#mkQuick").checked = !!c.quick; $("#mkStartOnField").checked = !!c.startOnField; $("#mkCannotLeave").checked = !!c.cannotLeave; $("#mkNoNeg").checked = !!c.noNeg; $("#mkInnate").checked = !!c.innate; $("#mkRetain").checked = !!c.retain; $("#mkEthereal").checked = !!c.ethereal; $("#mkSly").checked = !!c.sly; { const g = hfOf(c); $("#mkHf").checked = !!g; $("#mkHfM").value = g ? g.m : "tag"; $("#mkHfW").value = g && g.w || ""; syncHfUI(); } $("#mkCascade").checked = !!c.cascade; { const g = glOf(c); $("#mkGl").checked = !!g; $("#mkGlSide").value = g ? (g.l && g.r ? "lr" : g.r ? "r" : "l") : "r"; $("#mkGlW").value = g && g.w || ""; $("#mkGlSide").hidden = $("#mkGlW").hidden = !g; } $("#mkWhen").value = WHEN_LABEL[c.when] ? c.when : ""; $("#mkExhaust").checked = !!c.exhaust; $("#mkNoUse").checked = !!c.noUse; $("#mkFlash").checked = !!c.flashback; $("#mkMass").value = Math.max(0, +c.mass || 0); $("#mkFMass").value = c.field ? Math.max(0, +c.mass || 0) : 0; $("#mkLand").checked = !!c.land; $("#mkFieldMine").checked = !!c.fieldMine; $("#mkAnySum").checked = !!c.anySum; $("#mkStrig").checked = !!c.strig; $("#mkKick").value = Math.max(0, +c.kick || 0); $("#mkKickAuto").checked = !!c.kickAuto; $("#mkToken").checked = !!c.token; $("#mkEx").checked = !!c.ex; $("#mkPayLp").value = String(payLpOf(c)); $("#mkPayDisc").value = String(payDiscOf(c)); $("#mkPayDiscTag").value = c.payDiscTag || ""; setPayCtr(c.payCtr); setCostMech(c); $("#mkTags").value = tagsOf(c).join(" "); $("#mkShowTags").checked = !!c.showTags; syncTribe(); $("#mkTribTag").value = c.tribTag || ""; $("#mkPayDiscAll").checked = payDiscAll(c); $("#mkPayDisc").disabled = payDiscAll(c); $("#mkPayMax").value = String(payMaxOf(c)); $("#mkPersist").checked = !!c.persist; $("#mkField").checked = !!c.field; MK.sk = c.sk || null; $("#mkRarity").value = rarityOf(c); $("#mkSpc").value = c.spc === "silent" ? "silent" : ""; setMkType(cardType(c)); loadFxForm(c); $("#mkFont").value = FONTS[c.font] ? c.font : "klee"; syncFont(); $("#mkCost").value = c.costX ? "X" : c.costInf && hasCost(c) ? "∞" : hasCost(c) ? String(costOf(c)) : "1"; if (!$("#mkCost").value && hasCost(c)) $("#mkCost").insertAdjacentHTML("beforeend", `<option value="${costOf(c)}">${costOf(c)}</option>`), $("#mkCost").value = String(costOf(c)); setMkDeck(deckModeOf(c)); $("#mkEq").value = c.eqN || 0; $("#mkEqAb").value = "none"; $("#mkEqCost").value = String(eqCostOf(c)); $("#mkEqCap").value = hasEqCap(c) ? String(+c.eqCap) : ""; loadAbs(absOf(c)); syncEqLine(); $("#mkFrame").value = [...$("#mkFrame").options].some(o => o.value && o.value === c.frame) ? c.frame : ""; syncFrame(); loadSS(c);
+    if (!c.img){ clearCanvas(); undoStack = []; MK.artDirty = false; }
+    else { const im = new Image(); im.onload = () => { clearCanvas(); setPhoto(im); setMode("draw"); composite(); undoStack = []; MK.artDirty = !!MK.keepDirty; MK.keepDirty = false; }; artFullSrc(c).then(src => { im.src = src; }); }
+    $("#mkTitle").textContent = "カードを編集中"; $("#btnNew").hidden = false; $("#btnCopy").hidden = false; $("#btnSave").textContent = "変更を保存";
+}
+// コピーして新しく作る: いまの内容のまま「新しいカード」にする（元のカードは変わらない）
+function mkAsCopy(){
+  if (!S.editId) return;
+  S.editId = null; MK.keepDirty = true; MK.artDirty = true; MK.draftDirty = true;
+  const nm = $("#mkName"); if (!/のコピー$/.test(nm.value)) nm.value = (nm.value + "のコピー").slice(0, +nm.maxLength > 0 ? +nm.maxLength : 40);
+  $("#mkTitle").textContent = "コピーから描く"; $("#btnCopy").hidden = true; $("#btnNew").hidden = false; $("#btnSave").textContent = "カードを保存";
+  toast("コピーしました。保存すると新しいカードになります");
+}
+$("#btnCopy").addEventListener("click", mkAsCopy);
+// 下書き: 描きかけのカードを、この端末に20秒ごとに保存（保存・新しく描くで消える）
+const DRAFT_KEY = "cb_mkdraft";
+const mkDraft = () => ls.get(DRAFT_KEY, null);
+function clearDraft(){ ls.set(DRAFT_KEY, null); MK.draftDirty = false; syncDraftNote(); }
+$("#tab-make").addEventListener("input", e => { if (e.target.closest(".maker")) MK.draftDirty = true; });
+$("#tab-make").addEventListener("change", e => { if (e.target.closest(".maker")) MK.draftDirty = true; });
+$("#tab-make").addEventListener("pointerup", e => { if (e.target.closest(".maker") && MK.artDirty) MK.draftDirty = true; });
+function saveDraft(){
+  if (!MK.draftDirty || MK.twSide || (MK.kind || "card") !== "card" || !$("#mkName").value.trim()) return;
+  const B = mkBuildDoc(); if (!B) return;
+  ls.set(DRAFT_KEY, { t: Date.now(), editId: S.editId || null, art: !!MK.artDirty, doc: B.doc }); MK.draftDirty = false;
+}
+function syncDraftNote(){
+  const el = $("#mkDraft"); if (!el) return; const d = mkDraft();
+  const show = !!(d && d.doc && !S.editId && !MK.draftDirty && !MK.artDirty && !$("#mkName").value.trim());
+  el.hidden = !show; if (!show) return;
+  const when = new Date(d.t), hm = `${when.getMonth() + 1}/${when.getDate()} ${when.getHours()}:${String(when.getMinutes()).padStart(2, "0")}`;
+  el.innerHTML = `<span>下書きがあります：「${esc(d.doc.name || "？")}」${d.editId ? "（編集中だったカード）" : ""}・${hm}</span><button type="button" class="small primary" data-draft="load">続きから描く</button><button type="button" class="small ghost" data-draft="del">捨てる</button>`;
+}
+$("#mkDraft").addEventListener("click", e => {
+  const b = e.target.closest("[data-draft]"); if (!b) return; const d = mkDraft();
+  if (b.dataset.draft === "del" || !d){ clearDraft(); return; }
+  const base = d.editId ? S.cards.get(d.editId) : null;
+  if (d.editId && !base) toast("編集していたカードが見つからないので、新しいカードとして開きます");
+  MK.keepDirty = !!d.art || !base;
+  mkLoadCard({ ...(base || {}), ...d.doc, id: base ? base.id : "__draft" });
+  if (!base){ S.editId = null; $("#mkTitle").textContent = "下書きから描く"; $("#btnCopy").hidden = true; $("#btnSave").textContent = "カードを保存"; }
+  MK.draftDirty = false; syncDraftNote();
+});
+setInterval(() => { if (S.tab === "make" && !document.hidden) saveDraft(); syncDraftNote(); }, 20000);
+document.addEventListener("visibilitychange", () => { if (document.hidden && S.tab === "make") saveDraft(); });
 // 図鑑の「編集」: カードを描く画面にもどってから読みこむ
-$("#gallery").addEventListener("click", e => { if (e.target.closest("[data-edit]")) setMakeView("draw"); }, true);
+$("#gallery").addEventListener("click", e => { if (e.target.closest("[data-edit],[data-copy]")) setMakeView("draw"); }, true);
 $("#gallery").addEventListener("click", async e => {
   { const f = S.filt.gal, cc = e.target.closest("[data-ctrcards]");
     if (cc){ f.ctr = cc.dataset.ctrcards; f.type = "all"; document.querySelectorAll("#galType button").forEach(x => x.setAttribute("aria-pressed", x.dataset.v === "all")); renderGallery(); return; }
@@ -1810,14 +1867,10 @@ $("#gallery").addEventListener("click", async e => {
     if ((ce || cn) && S.editId){ toast("いま編集中のカードを保存するか、新しく描くを押してからね"); return; } }
   if (e.target.closest("[data-pedit],[data-pdel],[data-preset]")){ potGalClick(e); return; }
   const tb = e.target.closest("[data-trade]"); if (tb){ openTradeDlg(tb.dataset.trade); return; }
-  const ed = e.target.closest("[data-edit]"), del = e.target.closest("[data-del]");
+  const ed = e.target.closest("[data-edit],[data-copy]"), del = e.target.closest("[data-del]");
   if (ed){
-    const c = S.cards.get(ed.dataset.edit); if (!c || !(isMine(c) || (c.starter && isAdmin()))) return;
-    setMkKind("card"); S.editId = c.id; mkSkinReset(c); setFrameless(!!c.frameless); setFlAlpha(c.flAlpha ?? FL_ALPHA_DEF); setTEdge(!!c.textEdge); setShine(c.holo, ""); setColor(c.colF, c.colB, c.colF2, c.colB2, c.colGd); mkSetLvAttr(c); $("#mkFxRows").checked = MK.fxRows = !!c.fxRows; $("#mkHideText").checked = !!c.hideText; MK.artDirty = false; $("#mkName").value = foilName(c.nameRuby || c.name, c.foil); $("#mkEff").value = c.effect || ""; $("#mkFlv").value = c.flavor || ""; $("#mkNameSize").value = SIZES_T[c.nameSize] ? c.nameSize : "m"; $("#mkTextSize").value = SIZES_T[c.textSize] ? c.textSize : "m"; syncSizes(); $("#mkAtk").value = c.atkInf ? "∞" : (c.atk || 0); $("#mkLimit").value = String(cardLimit(c));
-    mkLoadVars(c); setUseConds(c); $("#mkFusion").checked = !!(Array.isArray(c.fusion) && c.fusion.length); MK.fusion = Array.isArray(c.fusion) && c.fusion.length ? JSON.parse(JSON.stringify(c.fusion)) : null; renderFusion(); $("#mkQuick").checked = !!c.quick; $("#mkStartOnField").checked = !!c.startOnField; $("#mkCannotLeave").checked = !!c.cannotLeave; $("#mkNoNeg").checked = !!c.noNeg; $("#mkInnate").checked = !!c.innate; $("#mkRetain").checked = !!c.retain; $("#mkEthereal").checked = !!c.ethereal; $("#mkSly").checked = !!c.sly; { const g = hfOf(c); $("#mkHf").checked = !!g; $("#mkHfM").value = g ? g.m : "tag"; $("#mkHfW").value = g && g.w || ""; syncHfUI(); } $("#mkCascade").checked = !!c.cascade; { const g = glOf(c); $("#mkGl").checked = !!g; $("#mkGlSide").value = g ? (g.l && g.r ? "lr" : g.r ? "r" : "l") : "r"; $("#mkGlW").value = g && g.w || ""; $("#mkGlSide").hidden = $("#mkGlW").hidden = !g; } $("#mkWhen").value = WHEN_LABEL[c.when] ? c.when : ""; $("#mkExhaust").checked = !!c.exhaust; $("#mkNoUse").checked = !!c.noUse; $("#mkFlash").checked = !!c.flashback; $("#mkMass").value = Math.max(0, +c.mass || 0); $("#mkFMass").value = c.field ? Math.max(0, +c.mass || 0) : 0; $("#mkLand").checked = !!c.land; $("#mkFieldMine").checked = !!c.fieldMine; $("#mkAnySum").checked = !!c.anySum; $("#mkStrig").checked = !!c.strig; $("#mkKick").value = Math.max(0, +c.kick || 0); $("#mkKickAuto").checked = !!c.kickAuto; $("#mkToken").checked = !!c.token; $("#mkEx").checked = !!c.ex; $("#mkPayLp").value = String(payLpOf(c)); $("#mkPayDisc").value = String(payDiscOf(c)); $("#mkPayDiscTag").value = c.payDiscTag || ""; setPayCtr(c.payCtr); setCostMech(c); $("#mkTags").value = tagsOf(c).join(" "); $("#mkShowTags").checked = !!c.showTags; syncTribe(); $("#mkTribTag").value = c.tribTag || ""; $("#mkPayDiscAll").checked = payDiscAll(c); $("#mkPayDisc").disabled = payDiscAll(c); $("#mkPayMax").value = String(payMaxOf(c)); $("#mkPersist").checked = !!c.persist; $("#mkField").checked = !!c.field; MK.sk = c.sk || null; $("#mkRarity").value = rarityOf(c); $("#mkSpc").value = c.spc === "silent" ? "silent" : ""; setMkType(cardType(c)); loadFxForm(c); $("#mkFont").value = FONTS[c.font] ? c.font : "klee"; syncFont(); $("#mkCost").value = c.costX ? "X" : c.costInf && hasCost(c) ? "∞" : hasCost(c) ? String(costOf(c)) : "1"; if (!$("#mkCost").value && hasCost(c)) $("#mkCost").insertAdjacentHTML("beforeend", `<option value="${costOf(c)}">${costOf(c)}</option>`), $("#mkCost").value = String(costOf(c)); setMkDeck(deckModeOf(c)); $("#mkEq").value = c.eqN || 0; $("#mkEqAb").value = "none"; $("#mkEqCost").value = String(eqCostOf(c)); $("#mkEqCap").value = hasEqCap(c) ? String(+c.eqCap) : ""; loadAbs(absOf(c)); syncEqLine(); $("#mkFrame").value = [...$("#mkFrame").options].some(o => o.value && o.value === c.frame) ? c.frame : ""; syncFrame(); loadSS(c);
-    if (!c.img){ clearCanvas(); undoStack = []; MK.artDirty = false; }
-    else { const im = new Image(); im.onload = () => { clearCanvas(); setPhoto(im); setMode("draw"); composite(); undoStack = []; MK.artDirty = false; }; artFullSrc(c).then(src => { im.src = src; }); }
-    $("#mkTitle").textContent = "カードを編集中"; $("#btnNew").hidden = false; $("#btnSave").textContent = "変更を保存";
+    const c = S.cards.get(ed.dataset.edit || ed.dataset.copy); if (!c || !(isMine(c) || (c.starter && isAdmin()))) return;
+    mkLoadCard(c); if (ed.dataset.copy) mkAsCopy();
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
   // admin: a card you drew takes the place of the built-in card with the same name (your copy is then removed)
