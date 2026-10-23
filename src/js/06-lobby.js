@@ -327,19 +327,24 @@ async function joinRoom(code){
     startOnline(code, "b", full);
   } catch(e){ writeErr(e); }
 }
+// 2つの部屋データが live 以外おなじか（キーの順番はくらべない）
+function stableJSON(v){ return Array.isArray(v) ? "[" + v.map(stableJSON).join(",") + "]" : v && typeof v === "object" ? "{" + Object.keys(v).sort().filter(k => v[k] !== undefined).map(k => JSON.stringify(k) + ":" + stableJSON(v[k])).join(",") + "}" : JSON.stringify(v === undefined ? null : v); }
+function liveOnlyChange(a, b){ if (JSON.stringify(a.live || null) === JSON.stringify(b.live || null)) return false; return stableJSON({ ...a, live: null }) === stableJSON({ ...b, live: null }); }
 function startOnline(code, slot, st){
   leaveGame();
   ls.set("cb_slot3_" + code, slot); ls.set("cb_last3", { code, t: Date.now() });
   G = { mode: "online", code, slot, st, sel: null, atkFrom: null, chooseQ: [], q: Promise.resolve(), evSeen: st.evn || 0 };
   G.unsub = S.db.doc("rooms/" + code).onSnapshot(snap => {
     if (!G || G.code !== code || !snap.exists) return;
-    const prevNo = (G.st && G.st.gameNo) || 1;
-    G.st = clone(snap.data());
+    const prevNo = (G.st && G.st.gameNo) || 1, nd = clone(snap.data());
+    // 接続の合図（live）だけが変わったときは、選択中の操作をこわさないように盤面を描きなおさない
+    if (G.st && liveOnlyChange(G.st, nd)){ G.st.live = nd.live; return; }
+    G.st = nd;
     if ((G.st.gameNo || 1) !== prevNo){ resetLocal(); G.evSeen = G.st.evn || 0; }
     if (maybeTurnStart()) return;
     after(false);
   }, () => toast("通信が切れました。「部屋にもどる」で再接続してね"));
-  S.tab = "play"; renderAll();
+  S.tab = "play"; renderAll(); setTimeout(beat, 800);
 }
 $("#btnCpu").addEventListener("click", () => {
   const ids = chosenDeckIds(); if (!deckOk(ids)) return;

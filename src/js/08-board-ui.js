@@ -16,7 +16,25 @@ function idleInfo(){
   const st = G.st, w = st.askQ && st.askQ.ans == null ? st.askQ.to : st.pending ? (st.pending.wait ? O(st.pending.by) : null) : st.turn; if (!w) return null;
   return { w, left: TURN_IDLE - Math.max(0, Math.floor((Date.now() - st.updatedAt) / 1000)) };
 }
-function timerHTML(){
+// 切断の検知: オンライン対戦中は LIVE_BEAT 秒ごとに room.live.<slot> へ時刻を書く。
+// 相手の値が LIVE_LOST 秒変わらなければ表示、LIVE_WIN 秒で「勝ちにする」を押せる（時計のずれを避けるため、変わった時刻は自分の時計で測る）
+const LIVE_BEAT = 20, LIVE_LOST = 60, LIVE_WIN = 180;
+function beat(){ if (!G || G.mode !== "online" || G.spectate || !S.db || document.hidden || !G.st || !G.st.started || G.st.winner) return; S.db.doc("rooms/" + G.code).update({ ["live." + G.slot]: Date.now() }).catch(() => {}); }
+setInterval(beat, LIVE_BEAT * 1000);
+document.addEventListener("visibilitychange", () => { if (!document.hidden) beat(); });
+function liveInfo(){
+  if (!G || G.mode !== "online" || G.spectate || !G.st || !G.st.started || G.st.winner) return null;
+  const t = (G.st.live || {})[O(G.slot)]; if (!t) return null; // 相手が古いページ（live を書かない）なら何もしない
+  if (!G.liveSeen || G.liveSeen.v !== t) G.liveSeen = { v: t, at: Date.now() };
+  const gone = Math.floor((Date.now() - G.liveSeen.at) / 1000);
+  return gone >= LIVE_LOST ? { gone, left: LIVE_WIN - gone } : null;
+}
+function liveHTML(){
+  const l = liveInfo(); if (!l) return "";
+  return l.left <= 0 ? `<button class="small danger" data-act="liveWin">相手が${LIVE_WIN / 60}分もどらないので勝ちにする</button>` : `<span class="tmr warn">相手の接続が切れているみたい（${l.gone}秒）…あと${l.left}秒で勝ちにできます</span>`;
+}
+function timerHTML(){ return liveHTML() + idleHTML(); }
+function idleHTML(){
   const i = idleInfo(); if (!i || i.left > 60) return "";
   if (G.spectate) return `<span class="tmr">${esc(P(G.st, i.w).name)} の操作待ち（${Math.max(0, i.left)}秒）</span>`;
   if (i.w === G.slot) return `<span class="tmr warn">あと${Math.max(0, i.left)}秒動かないと、相手が進められるようになります</span>`;
@@ -1153,6 +1171,11 @@ $("#board").addEventListener("click", e => {
       st.askQ = null;
       if (st.pending && st.pending.wait) respond(st, w, null); else { exReturnP(st, w); endTurn(st, w); }
     });
+    return;
+  }
+  if (k === "liveWin"){
+    const l = liveInfo(); if (!l || l.left > 0) return;
+    act(st => { if (st.winner) return false; const o = O(me); st.winner = me; st.why = `${nm(st, o)} の接続が${LIVE_WIN / 60}分切れていた`; log(st, me, `${nm(st, o)} がもどらなかったので勝ちにした`); });
     return;
   }
   if (k === "surrender"){ if (!G.surArm){ G.surArm = true; renderAll(); setTimeout(() => { if (G){ G.surArm = false; renderAll(); } }, 3000); return; } act(st => { st.winner = O(me); st.why = `${nm(st, me)} が投了`; log(st, me, "投了した"); }); return; }
