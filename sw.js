@@ -41,3 +41,18 @@ self.addEventListener("fetch", e => {
   // Google Fonts と Firebase の読みこみ（スクリプト）は保存しておく: オフラインで起動しても、電波が戻ったらすぐつなげるように
   if (u.hostname === "fonts.googleapis.com" || u.hostname === "fonts.gstatic.com" || (u.hostname === "www.gstatic.com" && u.pathname.startsWith("/firebasejs/"))) e.respondWith(staleWhileRevalidate(req, e));
 });
+
+// ターン通知（Web Push）: 中身なしのプッシュが来たら「あなたのターンです」。画面を見ているときは出さない
+self.addEventListener("push", e => {
+  e.waitUntil(self.clients.matchAll({ type: "window", includeUncontrolled: true }).then(cs => {
+    if (cs.some(c => c.visibilityState === "visible" && c.focused)) return;
+    return self.registration.showNotification("カードバトルしようぜ", { body: "あなたのターンです", icon: "icons/icon-192.png", badge: "icons/favicon-48.png", tag: "ocb-turn", renotify: true });
+  }));
+});
+self.addEventListener("notificationclick", e => {
+  e.notification.close();
+  e.waitUntil(self.clients.matchAll({ type: "window", includeUncontrolled: true }).then(cs => {
+    const c = cs.find(x => new URL(x.url).pathname.startsWith(new URL(self.registration.scope).pathname));
+    return c ? c.focus() : self.clients.openWindow("./");
+  }));
+});

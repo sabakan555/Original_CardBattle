@@ -29,3 +29,18 @@
 JSのファイルは名前の順番どおりにひとつにつなげられるので、ファイルをまたいで関数を呼んでも、これまでと同じように動きます。
 
 ※ Firestoreのルール（firestore.rules）はこのリポジトリには置かず、Firebaseコンソールで管理しています。
+
+## ターン通知（Web Push）の準備
+
+オンライン対戦で相手がターンを終えたら、通知をオンにしている人の端末に「あなたのターンです」と届く。送るのはパック用のWorker。
+
+1. 鍵を作る: `node tools/vapid-keys.mjs`（PUBLIC と PRIVATE が出る）
+2. Workerに登録する（`pack-worker/` で）:
+   - `npx wrangler secret put VAPID_PUBLIC`（PUBLIC を貼る）
+   - `npx wrangler secret put VAPID_PRIVATE`（PRIVATE を貼る。ほかの場所には書かない）
+   - `npx wrangler secret put VAPID_SUB`（`mailto:自分のメールアドレス`）
+3. テーブルを足す: `npx wrangler d1 execute original-cardbattle-packs --remote --file=schema.sql`（`IF NOT EXISTS` なので今のデータは消えない）
+4. Workerを公開: `npx wrangler deploy`
+5. サイトの `pack-config.js` の `pushPublicKey` に PUBLIC を入れてpush
+
+マイページに「ターン通知」が出るので、そこでオンにする（IDでログインしている人だけ）。iPhone・iPadはホーム画面に追加したアプリから開いたときだけ使える。

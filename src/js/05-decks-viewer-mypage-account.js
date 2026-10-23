@@ -300,6 +300,7 @@ function slEncode(){
 $("#slSave").addEventListener("click", () => { ls.set("cb_sleeve", slEncode()); if (typeof saveProfile === "function") saveProfile(); renderMe(); toast("スリーブを保存しました（次の対戦から使われます）"); });
 $("#slReset").addEventListener("click", () => { ls.set("cb_sleeve", ""); if (typeof saveProfile === "function") saveProfile(); SL.undo = []; slDefault(); renderMe(); toast("いつものスリーブに戻しました"); });
 function renderMe(){
+  renderPushBox();
   if (!SL.ready){ SL.ready = true; slTools(); slLoad(); }
   $("#slNow").innerHTML = backHTML("", "", mySleeve());
   renderAcct();

@@ -2223,6 +2223,7 @@ div.f{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:13px}
       <div class="box" style="display:flex;flex-direction:column;gap:10px"><h2 style="margin:0">戦績</h2><div class="me-stats" id="mpStats"></div></div>
     </div>
     <div class="box" id="mpAcct" style="margin-bottom:22px"></div>
+    <div class="box" id="mpPush" style="margin-bottom:22px" hidden></div>
     <div class="box" style="display:flex;flex-direction:column;gap:12px;margin-bottom:22px">
       <div class="row" style="justify-content:space-between"><h2 style="margin:0">スリーブ（カードの裏）</h2><div class="sl-now"><span class="note">いまのスリーブ</span><span id="slNow"></span></div></div>
       <p class="note" style="margin:0">対戦で相手に見える、自分のカードの裏がわ（相手から見た手札やセットしたカード）。描いたり写真を読みこんだりして「スリーブを保存」してね。</p>
@@ -7515,6 +7516,7 @@ function slEncode(){
 $("#slSave").addEventListener("click", () => { ls.set("cb_sleeve", slEncode()); if (typeof saveProfile === "function") saveProfile(); renderMe(); toast("スリーブを保存しました（次の対戦から使われます）"); });
 $("#slReset").addEventListener("click", () => { ls.set("cb_sleeve", ""); if (typeof saveProfile === "function") saveProfile(); SL.undo = []; slDefault(); renderMe(); toast("いつものスリーブに戻しました"); });
 function renderMe(){
+  renderPushBox();
   if (!SL.ready){ SL.ready = true; slTools(); slLoad(); }
   $("#slNow").innerHTML = backHTML("", "", mySleeve());
   renderAcct();
@@ -7879,6 +7881,58 @@ function deckLimitIssue(ids){
   for (const [id,n] of counts){ const c = S.cards.get(id), limit = cardLimit(c); if(c && limit > 0 && n > limit) return `「${c.name}」は${limit}枚までです（今は${n}枚）。デッキを編集してね`; }
   return "";
 }
+/* ターン通知（Web Push）: オンライン対戦で相手がターンを終えたら、この端末に「あなたのターンです」と通知する。
+   送るのはパック用のWorker（pack-config.js の packApiUrl）。鍵（pushPublicKey）が空のあいだは何も出さない。 */
+S.push = { key: typeof pushPublicKey === "string" ? pushPublicKey.trim() : "", on: false, busy: false, err: "", checked: false };
+const pushSupported = () => "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
+const pushReady = () => !!(S.push.key && S.pack && S.pack.url && pushSupported());
+const isIOS = () => /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+const isStandalone = () => matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
+const pushKeyBytes = s => Uint8Array.from(atob(s.replace(/-/g, "+").replace(/_/g, "/") + "===".slice((s.length + 3) % 4)), c => c.charCodeAt(0));
+async function pushReq(path, body){
+  const u = typeof firebase !== "undefined" && firebase.auth().currentUser; if (!u || u.isAnonymous) throw Error("通知を使うにはIDを登録してログインしてね");
+  const r = await fetch(S.pack.url + path, { method: "POST", headers: { Authorization: "Bearer " + await u.getIdToken(), "Content-Type": "application/json" }, body: JSON.stringify(body || {}), signal: AbortSignal.timeout(15000) });
+  const d = await r.json().catch(() => ({})); if (!r.ok) throw Error(d.error || "通信できませんでした。もう一度ためしてね"); return d;
+}
+async function pushSync(){
+  if (!pushReady()) return;
+  try{ const reg = await navigator.serviceWorker.ready, sub = await reg.pushManager.getSubscription(); S.push.on = !!sub && Notification.permission === "granted"; } catch(e){ S.push.on = false; }
+  S.push.checked = true; renderPushBox();
+}
+async function pushSet(on){
+  if (S.push.busy) return; S.push.busy = true; S.push.err = ""; renderPushBox();
+  try{
+    const reg = await navigator.serviceWorker.ready; let sub = await reg.pushManager.getSubscription();
+    if (on){
+      if (await Notification.requestPermission() !== "granted") throw Error("通知が許可されませんでした。端末やブラウザの設定で、このサイトの通知を許可してね");
+      if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: pushKeyBytes(S.push.key) });
+      await pushReq("/push/sub", { endpoint: sub.endpoint }); S.push.on = true; toast("ターン通知をオンにしました");
+    } else {
+      if (sub){ await pushReq("/push/unsub", { endpoint: sub.endpoint }).catch(() => {}); await sub.unsubscribe().catch(() => {}); }
+      S.push.on = false; toast("ターン通知をオフにしました");
+    }
+  } catch(e){ S.push.err = e.message || "うまくいきませんでした"; }
+  finally{ S.push.busy = false; renderPushBox(); }
+}
+function renderPushBox(){
+  const el = $("#mpPush"); if (!el) return;
+  if (!S.push.key || !(S.pack && S.pack.url)){ el.hidden = true; return; }
+  el.hidden = false;
+  const login = typeof firebase !== "undefined" && firebase.auth().currentUser && !firebase.auth().currentUser.isAnonymous;
+  let body;
+  if (!pushSupported()) body = isIOS() && !isStandalone() ? `<p class="note" style="margin:0">iPhone・iPadでは、Safariの共有ボタンから「ホーム画面に追加」して、そこから開くと使えます。</p>` : `<p class="note" style="margin:0">このブラウザは通知に対応していません。</p>`;
+  else if (!login) body = `<p class="note" style="margin:0">IDを登録してログインすると使えます。</p>`;
+  else body = `<div class="row"><button class="${S.push.on ? "" : "primary"}" data-push="${S.push.on ? "off" : "on"}" ${S.push.busy ? "disabled" : ""}>${S.push.busy ? "設定中…" : S.push.on ? "オフにする" : "オンにする"}</button><span class="note">${S.push.on ? "この端末に届きます" : "オフ"}</span></div>`;
+  el.innerHTML = `<h2 style="margin:0 0 6px">ターン通知</h2><p class="note" style="margin:0 0 8px">オンライン対戦で相手がターンを終えたら、この端末に「あなたのターンです」と通知します（画面を見ているときは出ません）。</p>${body}${S.push.err ? `<p class="warn" style="margin:6px 0 0">${esc(S.push.err)}</p>` : ""}`;
+  if (pushSupported() && login && !S.push.checked){ S.push.checked = true; pushSync(); }
+}
+$("#mpPush").addEventListener("click", e => { const b = e.target.closest("[data-push]"); if (b) pushSet(b.dataset.push === "on"); });
+// 相手のターンになったことを、Workerに知らせる（相手が通知をオンにしていれば届く）
+function pushTurn(code){
+  if (!S.pack || !S.pack.url || !S.push.key) return Promise.resolve();
+  const u = typeof firebase !== "undefined" && firebase.auth().currentUser; if (!u || u.isAnonymous) return Promise.resolve();
+  return pushReq("/push/turn", { room: code }).catch(() => {});
+}
 /* ================= lobby ================= */
 $("#pname").addEventListener("change", e => { S.name = e.target.value.trim() || "プレイヤー"; e.target.value = S.name; ls.set("cb_name", S.name); saveProfile(); renderAll(); });
 $("#deckSel").addEventListener("change", e => ls.set("cb_deck", e.target.value));
@@ -7941,7 +7995,7 @@ $("#rejoin").addEventListener("click", e => { if (e.target.closest("#btnRejoin")
 function isEx(c){ return !!(c && (c.ex || c.psychic || sxOf(c))); }
 function newPlayer(deckIds, name, mana, spire, opt){
   const deck = shuffle(deckIds.filter(id => !isEx(card(id)))); deck.splice(0, deck.length, ...innateTop(deck)); const hand = deck.splice(0, 5), ex = deckIds.filter(id => isEx(card(id)));
-  const p = { name: name || S.name, lp: START_LP, deck, hand, grave: [], mz: Array(ZONES).fill(null), sz: Array(ZONES).fill(null), mana: mana ? { max: 0, cur: 0 } : null, ...(mana === "zone" || mana === "land" ? { manaZ: [], charged: false, ...(mana === "land" ? { landOnly: true } : {}) } : {}), sleeve: name ? null : (mySleeve() || null), deckIds: [...deckIds], ex };
+  const p = { name: name || S.name, lp: START_LP, deck, hand, grave: [], mz: Array(ZONES).fill(null), sz: Array(ZONES).fill(null), mana: mana ? { max: 0, cur: 0 } : null, ...(mana === "zone" || mana === "land" ? { manaZ: [], charged: false, ...(mana === "land" ? { landOnly: true } : {}) } : {}), sleeve: name ? null : (mySleeve() || null), uid: name ? null : (S.uid || null), deckIds: [...deckIds], ex };
   // スパイアデッキ: the altar starts on the field, and the deck never runs out (the graveyard is shuffled back in)
   // スパイアデッキ: the opening hand is drawn only after the relic is picked (若葉 can change any card of the deck)
   if (spire){ p.spire = true; p.relicPick = neowChoices(); p.deck = innateTop(shuffle([...p.hand, ...p.deck])); p.hand = []; p.openHand = 5; if (!p.mana) p.mana = { max: 0, cur: 0 }; p.spc = spire === "silent" ? "silent" : null; p.relics = [p.spc ? "snake" : "blood"]; if (p.spc) p.openHand += 2; p.sz[0] = { c: p.spc ? SPIRE_ALTAR_S.id : SPIRE_ALTAR.id, turn: 0, face: true, u: -1 }; }
@@ -8246,7 +8300,7 @@ function allCardsOf(st, s){
 }
 function freshFrom(st, s){
   const p = P(st, s), ids = p.deckIds && p.deckIds.length ? p.deckIds : allCardsOf(st, s);
-  const n = newPlayer(ids, p.name, p.manaZ ? (p.landOnly ? "land" : "zone") : !!p.mana, p.spire ? (p.spc === "silent" ? "silent" : true) : false, { shield: !!p.shieldOn, nolim: !!p.nolim, mull: !!p.mullOn }); n.sleeve = p.sleeve || null; return n;
+  const n = newPlayer(ids, p.name, p.manaZ ? (p.landOnly ? "land" : "zone") : !!p.mana, p.spire ? (p.spc === "silent" ? "silent" : true) : false, { shield: !!p.shieldOn, nolim: !!p.nolim, mull: !!p.mullOn }); n.sleeve = p.sleeve || null; n.uid = p.uid || null; return n;
 }
 function resetLocal(){ Object.assign(G, { costPick: null, potPick: null, sel: null, atkFrom: null, chooseQ: [], evSeen: 0, recorded: false, prevLp: null, eqPlace: null, ssPick: null, sxPick: null, view: null, graveHand: false, detailOpen: false, detailBack: null, lastDetail: null }); renderDetail(null); }
 function rematch(){
@@ -11319,6 +11373,7 @@ function idleHTML(){
 setInterval(() => { const el = document.getElementById("turnTimer"); if (el){ const h = timerHTML(); if (el.innerHTML !== h) el.innerHTML = h; } }, 2000);
 function act(fn){
   if (!G || G.spectate) return;
+  const t0 = G.st.turn, n0 = G.st.turnNo;
   const ok = fn(G.st);
   if (ok === false) return;
   mugRun(G.st);
@@ -11326,6 +11381,8 @@ function act(fn){
   if (!G.st.winner && !G.chooseQ.length) flushTurnEndRequest(G.st);
   checkEnd(G.st);
   persist();
+  // ターンが相手に移ったら、相手の端末にターン通知（書きこみが終わってから。通知をオンにしている人にだけ届く）
+  if (G.mode === "online" && !G.st.winner && G.st.turn !== G.slot && (G.st.turn !== t0 || G.st.turnNo !== n0)){ const code = G.code; G.q = G.q.then(() => pushTurn(code)); }
   after(true);
 }
 function after(){

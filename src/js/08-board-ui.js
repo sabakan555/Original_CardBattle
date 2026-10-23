@@ -43,6 +43,7 @@ function idleHTML(){
 setInterval(() => { const el = document.getElementById("turnTimer"); if (el){ const h = timerHTML(); if (el.innerHTML !== h) el.innerHTML = h; } }, 2000);
 function act(fn){
   if (!G || G.spectate) return;
+  const t0 = G.st.turn, n0 = G.st.turnNo;
   const ok = fn(G.st);
   if (ok === false) return;
   mugRun(G.st);
@@ -50,6 +51,8 @@ function act(fn){
   if (!G.st.winner && !G.chooseQ.length) flushTurnEndRequest(G.st);
   checkEnd(G.st);
   persist();
+  // ターンが相手に移ったら、相手の端末にターン通知（書きこみが終わってから。通知をオンにしている人にだけ届く）
+  if (G.mode === "online" && !G.st.winner && G.st.turn !== G.slot && (G.st.turn !== t0 || G.st.turnNo !== n0)){ const code = G.code; G.q = G.q.then(() => pushTurn(code)); }
   after(true);
 }
 function after(){
