@@ -73,6 +73,9 @@ function after(){
 const CPU_SPD = { fast: [.5, "はやい"], normal: [1, "ふつう"], slow: [2, "ゆっくり"] };
 function cpuSpd(){ const v = ls.get("cb_cpuspd", "normal"); return CPU_SPD[v] ? v : "normal"; }
 function cpuDelay(){ return Math.round(900 * CPU_SPD[cpuSpd()][0]); }
+// CPUのつよさ: ふつう = これまでどおり（ときどき気まぐれ）、つよい = 使えるカードは迷わず使い、攻撃の順番も考える
+const CPU_LV = { normal: "ふつう", hard: "つよい" };
+function cpuLv(){ const v = ls.get("cb_cpulv", "normal"); return CPU_LV[v] ? v : "normal"; }
 const manualPanelOn = () => !!ls.get("cb_manualPanel", false);
 const manualOn = () => !!ls.get("cb_manual", false) && (manualPanelOn() || !!(typeof G !== "undefined" && G && G.test));
 function scheduleCpu(){
@@ -80,7 +83,7 @@ function scheduleCpu(){
   const st = G.st, c = "b";
   // CPU as defender
   if (st.pending && st.pending.wait && st.pending.by !== c) {
-    G.cpuT = setTimeout(() => { G.cpuT = null; act(st => { const win = chainWindow(st); const o = G.test && G.test.cpu === "idle" ? [] : responseOptions(st, c, win); const top = st.chain && st.chain[st.chain.length - 1]; const nb = o.filter(x => x.from !== "blk" && !(x.rev != null && P(st, c).mana && Math.min(MAX_MANA, P(st, c).mana.max + 1) < revDue(st, c) + x.rev)), pick = cpuBlock(st, c, o) || (nb.length && Math.random() < (win === "attack" ? .75 : top && top.summon ? .6 : .5) ? nb[Math.floor(Math.random() * nb.length)] : null); respond(st, c, pick && { from: pick.from, i: pick.i }); }); }, 900);
+    G.cpuT = setTimeout(() => { G.cpuT = null; act(st => cpuDefend(st, c, G.test && G.test.cpu === "idle")); }, 900);
     return;
   }
   if (st.turn !== c || st.pending) return;
@@ -93,33 +96,115 @@ function manaZoneHTML(p, who){
   const cards = p.manaZ.map(x => `<button type="button" class="mzc${x.tap ? " tap" : ""}" data-cid="${esc(x.c)}" title="${esc(card(x.c).name)}${x.tap ? "（タップ）" : ""}">${attrsOf(card(x.c)).map(a => attrOrb(a, card(x.c))).join("") || '<i class="mzc-none"></i>'}<span>${esc(card(x.c).name)}</span></button>`).join("");
   return `<div class="manazone" title="${who}のマナゾーン"><div class="mz-head"><span class="lbl">${who}のマナゾーン</span><b>${p.mana.cur}<small>/${p.mana.max}</small></b>${Object.entries(civ).map(([a, n]) => `<span class="mz-civ" title="${esc(a)}属性 ${n}枚">${attrOrb(a, null)}${n}</span>`).join("")}${p.charged ? '<span class="mz-done">チャージ済み</span>' : ""}</div><div class="mz-cards">${cards || '<span class="mz-empty">まだ空っぽ（手札のカードを「マナに置く」）</span>'}</div></div>`;
 }
+/* ---- CPU「つよい」: 打てる手をひとつずつ盤面のコピーで試して、点数がいちばん上がる手を選ぶ（1手先読み） ---- */
+const AI_INF = 5000;
+function cpuScore(st, s){
+  if (st.winner) return st.winner === s ? 1e9 : st.winner === "draw" ? 0 : -1e9;
+  const side = k => {
+    const p = P(st, k); let v = 0;
+    v += (p.shieldOn ? (p.shields || []).length * 320 : Math.max(0, p.lp) * 1.4);
+    p.mz.forEach(m => { if (!m) return; const a = atkOf(m); v += 160 + Math.min(AI_INF, a === Infinity ? AI_INF : Math.max(0, +a || 0)) * 1.05 + eqsOf(m).length * 40; });
+    v += p.sz.filter(Boolean).length * 70 + p.hand.length * 55 + Math.min(8, (p.ex || []).length) * 10 + (p.block || 0) * .8;
+    if (p.mana) v += p.mana.max * 30;
+    if (!p.spire && p.deck.length <= 2) v -= (3 - p.deck.length) * 150;
+    return v;
+  };
+  // 次のターンに相手のモンスターでどれだけやられそうか（盤面をからっぽにしない・弱いモンスターをさらさない）
+  const threat = (atkSide, defSide) => {
+    const A = P(st, atkSide), D = P(st, defSide), mine = D.mz.filter(Boolean).map(m => Math.max(0, Math.min(AI_INF, +atkOf(m) || 0))).sort((a, b) => b - a);
+    let v = 0; A.mz.filter(Boolean).map(m => Math.min(AI_INF, Math.max(0, +atkOf(m) || 0))).sort((a, b) => b - a).forEach(a => {
+      if (!mine.length){ v += D.shieldOn ? 320 : a * 1.4; return; }
+      const k = mine.findIndex(x => x < a); if (k >= 0){ v += 160 + mine[k] * 1.05; mine.splice(k, 1); }
+    });
+    return v;
+  };
+  return side(s) - side(O(s)) - threat(O(s), s) * .6 + threat(s, O(s)) * .25;
+}
+function cpuSim(st, s, fn){
+  const saveG = { ...G }, copy = clone(st);
+  G.st = copy; G.chooseQ = [];
+  try{
+    if (fn(copy) === false) return null;
+    for (let k = 0; k < 40 && !copy.winner; k++){
+      if (copy.askQ && copy.askQ.ans == null){ copy.askQ.ans = copy.askQ.opts ? 0 : false; copy.askQ = null; continue; }
+      if (copy.pending && copy.pending.wait){ respond(copy, O(copy.pending.by), null); continue; }
+      if (G.chooseQ.length){ const q = G.chooseQ.shift(); if (q && q.then) q.then(copy); continue; }
+      break;
+    }
+    mugRun(copy); checkEnd(copy);
+    return cpuScore(copy, s);
+  }catch(e){ return null; }
+  finally{ for (const k of Object.keys(G)) if (!(k in saveG)) delete G[k]; Object.assign(G, saveG); }
+}
+function cpuMoves(st, s){
+  const p = P(st, s), M = [];
+  if (!mainSkipped(st, s)){
+    p.hand.forEach((id, i) => {
+      const c = card(id), t = cardType(c); if (!c) return;
+      if (t === "magic" && canPay(st, s, c) && !useBlockedWhy(st, s, c)) M.push(x => activate(x, s, "hand", i));
+      if (twOf(c) && !twinWhy(st, s, i)) M.push(x => castTwin(x, s, i));
+      if (t === "trap" && freeZone(p.sz, p) >= 0) M.push(x => setCard(x, s, i));
+      if (t === "equip" && canPay(st, s, c)) for (const side of [s, O(s)]) P(st, side).mz.forEach((m, j) => { if (m && canEquipOn(st, id, side, j)) M.push(x => equip(x, s, i, side, j)); });
+      if (t === "monster" && canSummonNow(st, s) && canPay(st, s, c) && !(ssOf(c) || {}).only && massOf(c) <= p.grave.length && !isDmEvo(c) && !tribOf(c, st, s) && freeZone(p.mz, p) >= 0) M.push(x => summon(x, s, i));
+    });
+    p.mz.forEach((m, i) => { if (!m) return; if (!actWhy(st, s, i)) M.push(x => activateMon(x, s, i)); if (!evoWhy(st, s, i)) M.push(x => evolveMon(x, s, i)); });
+  }
+  if (st.turnNo > 1) p.mz.forEach((m, i) => {
+    if (!m || !canAttack(st, s, i)) return; const T = atkTargets(st, s, i);
+    if (T.direct) M.push(x => declareAttack(x, s, i, "direct"));
+    T.L.forEach(j => M.push(x => declareAttack(x, s, i, j)));
+  });
+  return M;
+}
+// いちばん得な手をその場で打つ（得な手がなければ false）
+function cpuBest(st, s){
+  const base = cpuScore(st, s), M = cpuMoves(st, s); let best = null, bv = base + 8;
+  for (const fn of M){ const v = cpuSim(st, s, fn); if (v != null && v > bv){ bv = v; best = fn; } }
+  if (!best) return false;
+  return best(st) !== false;
+}
+// CPUが守る側: 罠・速攻魔法・ブロックで応じるか（つよい: 応じる／応じないを盤面のコピーで試してくらべる）
+function cpuDefend(st, c, idle){
+  const win = chainWindow(st), o = idle ? [] : responseOptions(st, c, win), top = st.chain && st.chain[st.chain.length - 1];
+  const nb = o.filter(x => x.from !== "blk" && !(x.rev != null && P(st, c).mana && Math.min(MAX_MANA, P(st, c).mana.max + 1) < revDue(st, c) + x.rev));
+  let pick = cpuBlock(st, c, o);
+  if (!pick && nb.length){
+    if (cpuLv() === "hard"){
+      let bv = cpuSim(st, c, x => respond(x, c, null)); if (bv == null) bv = -Infinity;
+      for (const x of nb){ const v = cpuSim(st, c, y => respond(y, c, { from: x.from, i: x.i })); if (v != null && v > bv + 8){ bv = v; pick = x; } }
+    } else if (Math.random() < (win === "attack" ? .75 : top && top.summon ? .6 : .5)) pick = nb[Math.floor(Math.random() * nb.length)];
+  }
+  respond(st, c, pick && { from: pick.from, i: pick.i });
+}
 function cpuStep(st, s){
-  const p = P(st, s), op = P(st, O(s));
+  const p = P(st, s), op = P(st, O(s)), hard = cpuLv() === "hard", R = q => hard || Math.random() < q;
   // メインステップが飛ばされているときは、手札・場の起動効果などは使わずに攻撃へ
   if (!mainSkipped(st, s)){
   // マナチャージ: 土地があれば土地、なければすぐには使えない重いカードから
   if (p.manaZ && !p.charged && p.hand.length && (p.hand.length > 1 || p.manaZ.length < 5)){ const L = p.hand.map((id, i) => i).filter(i => !chargeWhy(st, s, i)); if (L.length){ const lands = L.filter(i => card(p.hand[i]).mland), pick = lands.length ? lands[0] : L.sort((a, b) => cmpNum(costOf(card(p.hand[b])), costOf(card(p.hand[a]))))[0]; if (manaCharge(st, s, pick)) return; } }
   if (p.spire && cpuPotion(st, s, "main")) return;
+  // つよい: まず1手先読みで得な手を打つ。なければ下の「特殊な召喚」だけ見て、ターンを終える
+  if (hard && cpuBest(st, s)) return;
   // 1. magic from hand (only if it has a useful target / effect)
-  for (let i = 0; i < p.hand.length; i++){
+  if (!hard) for (let i = 0; i < p.hand.length; i++){
     const c = card(p.hand[i]); if (cardType(c) !== "magic" || !canPay(st, s, c) || useBlockedWhy(st, s, c)) continue;
     const fx = normFx(c); const opts = useTargets(st, s, fx);
     if (fx && opts !== null && !opts.length) continue;
     if (fx && fx.kind === "atkUp" && !p.mz.some(Boolean)) continue;
-    if (Math.random() < .7){ activate(st, s, "hand", i); return; }
+    if (R(.7)){ activate(st, s, "hand", i); return; }
   }
   // 1a. ツインパクトの魔法側
-  for (let i = 0; i < p.hand.length; i++){ const c = card(p.hand[i]); if (!twOf(c) || twinWhy(st, s, i) || Math.random() > .4) continue; if (castTwin(st, s, i)) return; }
+  if (!hard) for (let i = 0; i < p.hand.length; i++){ const c = card(p.hand[i]); if (!twOf(c) || twinWhy(st, s, i) || !R(.4)) continue; if (castTwin(st, s, i)) return; }
   // 1b. equip (bad ones go on the opponent)
-  for (let ei = 0; ei < p.hand.length; ei++){
-    const id = p.hand[ei], c = card(id); if (cardType(c) !== "equip" || !canPay(st, s, c) || Math.random() > .75) continue;
+  if (!hard) for (let ei = 0; ei < p.hand.length; ei++){
+    const id = p.hand[ei], c = card(id); if (cardType(c) !== "equip" || !canPay(st, s, c) || !R(.75)) continue;
     const bad = (c.eqN || 0) < 0 || absOf(c).some(a => a.k === "noAttack"), side = bad ? O(s) : s;
     const ms = P(st, side).mz.map((m, j) => m && canEquipOn(st, id, side, j) ? j : -1).filter(j => j >= 0).sort((a, b) => atkOf(P(st, side).mz[b]) - atkOf(P(st, side).mz[a]));
     if (ms.length){ equip(st, s, ei, side, ms[0]); return; }
   }
   // 1c. special summon (only when it's worth what it costs)
   for (let i = 0; i < p.hand.length; i++){
-    if (!canSpecial(st, s, i) || Math.random() > .8) continue;
+    if (!canSpecial(st, s, i) || !R(.8)) continue;
     const c = card(p.hand[i]), ss = ssOf(c); let picks = [];
     if (ss.cost === "tribute"){
       picks = p.mz.map((m, j) => m && !monCannotLeave(m) ? j : -1).filter(j => j >= 0).sort((a, b) => atkOf(p.mz[a]) - atkOf(p.mz[b])).slice(0, ss.cn);
@@ -129,7 +214,7 @@ function cpuStep(st, s){
     if (specialSummon(st, s, i, picks)) return;
   }
   // シンクロ・エクシーズ: 素材より強くなるなら出す
-  for (const id of [...new Set(p.ex || [])]){ const c = card(id); if (!sxK(c) || sxWhy(st, s, c) || Math.random() > .85) continue; const L = sxAuto(st, s, c); if (!L || L.some(i => cmpNum(atkOf(p.mz[i]), baseAtk(c)) >= 0)) continue; if (sxSummon(st, s, id, L)) return; }
+  for (const id of [...new Set(p.ex || [])]){ const c = card(id); if (!sxK(c) || sxWhy(st, s, c) || !R(.85)) continue; const L = sxAuto(st, s, c); if (!L || L.some(i => cmpNum(atkOf(p.mz[i]), baseAtk(c)) >= 0)) continue; if (sxSummon(st, s, id, L)) return; }
   // フュージョン: フュージョンできるカードがあれば、条件に合う手札をぜんぶフュージョンする
   for (let i = 0; i < p.hand.length; i++){ if (!hfOf(card(p.hand[i])) || hfWhy(st, s, i)) continue; const o = hfOpts(st, s, i); if (o.length && fuseHand(st, s, i, o)) return; }
   // 2. summon strongest
@@ -138,7 +223,7 @@ function cpuStep(st, s){
     for (const [i, c] of mons){
       if (isDmEvo(c)){ const B = evoBases(st, s, c).filter(j => cmpNum(atkOf(p.mz[j]), baseAtk(c)) < 0); if (B.length && summon(st, s, i, B.sort((a, b) => cmpNum(atkOf(p.mz[a]), atkOf(p.mz[b])))[0])) return; continue; }
       const need = tribOf(c, st, s);
-      if (!need){ if (freeZone(p.mz, p) >= 0){ summon(st, s, i); return; } continue; }
+      if (!need){ if (!hard && freeZone(p.mz, p) >= 0){ summon(st, s, i); return; } continue; }
       // 生贄召喚: only when the weakest ones it gives up are all weaker than it
       const mine = p.mz.map((m, j) => m && !monCannotLeave(m) && (!c.tribTag || hasTag(m.c, c.tribTag)) ? j : -1).filter(j => j >= 0).sort((a, b) => cmpNum(atkOf(p.mz[a]), atkOf(p.mz[b])));
       if (mine.length < need) continue;
@@ -147,21 +232,25 @@ function cpuStep(st, s){
     }
   }
   // 2a. エボルヴ（一番強いモンスターから）
-  { const ev2 = p.mz.map((m, i) => m && !evoWhy(st, s, i) ? i : -1).filter(i => i >= 0).sort((a, b) => cmpNum(atkOf(p.mz[b]), atkOf(p.mz[a]))); if (ev2.length && Math.random() < .8){ evolveMon(st, s, ev2[0]); return; } }
+  if (!hard){ const ev2 = p.mz.map((m, i) => m && !evoWhy(st, s, i) ? i : -1).filter(i => i >= 0).sort((a, b) => cmpNum(atkOf(p.mz[b]), atkOf(p.mz[a]))); if (ev2.length && R(.8)){ evolveMon(st, s, ev2[0]); return; } }
   // 2b. 起動効果（使えるときはだいたい使う）
-  for (let i = 0; i < p.mz.length; i++){ if (p.mz[i] && !actWhy(st, s, i) && Math.random() < .7){ activateMon(st, s, i); return; } }
+  if (!hard) for (let i = 0; i < p.mz.length; i++){ if (p.mz[i] && !actWhy(st, s, i) && R(.7)){ activateMon(st, s, i); return; } }
   // 3. set traps
   const ti = p.hand.findIndex(id => cardType(card(id)) === "trap");
-  if (ti >= 0 && freeZone(p.sz, p) >= 0){ setCard(st, s, ti); return; }
+  if (!hard && ti >= 0 && freeZone(p.sz, p) >= 0){ setCard(st, s, ti); return; }
   }
   // 4. attack
-  if (st.turnNo > 1){
-    for (let i = 0; i < p.mz.length; i++){
+  if (st.turnNo > 1 && !hard){
+    // つよい: 弱いモンスターから順に攻撃して、強いモンスターは大物にとっておく。相手のいちばん強いモンスターとは相打ちもねらう
+    const order = p.mz.map((m, i) => i).filter(i => p.mz[i]); if (hard) order.sort((a, b) => cmpNum(atkOf(p.mz[a]), atkOf(p.mz[b])));
+    const mine = p.mz.filter(Boolean).length;
+    for (const i of order){
       const m = p.mz[i]; if (!m || !canAttack(st, s, i)) continue;
       const T = atkTargets(st, s, i), opMons = T.L;
       if (T.direct){ declareAttack(st, s, i, "direct"); return; }
       const beat = opMons.filter(j => atkOf(op.mz[j]) < atkOf(m)).sort((a, b) => atkOf(op.mz[b]) - atkOf(op.mz[a]));
       if (beat.length){ declareAttack(st, s, i, beat[0]); return; }
+      if (hard && mine >= 2 && opMons.length){ const top = Math.max(...opMons.map(j => atkOf(op.mz[j]))), tie = opMons.find(j => atkOf(op.mz[j]) === atkOf(m) && atkOf(op.mz[j]) === top && atkOf(m) > 0); if (tie != null){ declareAttack(st, s, i, tie); return; } }
     }
   }
   if (p.spire && cpuPotion(st, s, "end")) return;
@@ -549,7 +638,7 @@ function renderBoard0(){
         <div class="pl"><div><div class="nm">${esc(po.name)}</div><div class="pile">山札 ${po.deck.length}${(po.ex || []).length ? ` EX ${po.ex.length}` : ""}<button class="chip" data-grave="op:grave">墓地 ${po.grave.length}</button>${(po.exile || []).length ? `<button class="chip" data-grave="op:exile">廃棄 ${po.exile.length}</button>` : ""}</div></div>${lpBox(po, "op")}</div>${potRow(po, false)}
         <div class="pl"><div><div class="nm">${esc(pm.name)}${G.spectate ? "" : "（あなた）"}</div><div class="pile"><button class="chip" data-grave="me:deck">山札 ${pm.deck.length}</button>${(pm.ex || []).length ? `<button class="chip exchip" data-exopen>EX ${pm.ex.length}</button>` : ""}<button class="chip" data-grave="me:grave">墓地 ${pm.grave.length}</button>${(pm.exile || []).length ? `<button class="chip" data-grave="me:exile">廃棄 ${pm.exile.length}</button>` : ""}</div></div>${lpBox(pm, "me")}</div>${potRow(pm, !G.spectate, !G.spectate)}
         ${G.mode === "online" ? `<div class="note">部屋 ${esc(G.code)}</div>` : ""}
-        ${G.mode === "cpu" ? `<label class="row cpuspd" style="gap:8px">CPUの速さ<select data-cpuspd aria-label="CPUの速さ">${Object.entries(CPU_SPD).map(([k, v]) => `<option value="${k}"${cpuSpd() === k ? " selected" : ""}>${v[1]}</option>`).join("")}</select></label>` : ""}
+        ${G.mode === "cpu" ? `<label class="row cpuspd" style="gap:8px">CPUの速さ<select data-cpuspd aria-label="CPUの速さ">${Object.entries(CPU_SPD).map(([k, v]) => `<option value="${k}"${cpuSpd() === k ? " selected" : ""}>${v[1]}</option>`).join("")}</select></label><label class="row cpuspd" style="gap:8px">CPUのつよさ<select data-cpulv aria-label="CPUのつよさ">${Object.entries(CPU_LV).map(([k, v]) => `<option value="${k}"${cpuLv() === k ? " selected" : ""}>${v}</option>`).join("")}</select></label>` : ""}
       </div>
       ${G.test ? testBoxHTML(st, pm) : ""}
       ${manualPanelOn() || G.test ? `<div class="box">
@@ -560,8 +649,8 @@ function renderBoard0(){
         </div>
         <div class="row" style="margin-top:10px"><button class="small" data-act="draw" ${st.winner ? "disabled" : ""}>1枚引く</button><button class="small" data-act="graveHand" ${st.winner ? "disabled" : ""}>墓地から手札へ</button></div>
         <label class="row" style="gap:6px;margin-top:8px;cursor:pointer;flex-wrap:nowrap;align-items:center"><input type="checkbox" style="flex:none;width:auto" data-manualtog ${manualOn() ? "checked" : ""}> 場のカードに手動ボタン（ATK±・墓地へ送る）を出す</label>
-        <div class="row" style="margin-top:8px"><button class="small danger" data-act="surrender" ${st.winner ? "disabled" : ""}>${G.surArm ? "本当に投了" : "投了"}</button><button class="small ghost" data-act="leave">ぬける</button></div>
-      </div>` : `<div class="box"><div class="row"><button class="small danger" data-act="surrender" ${st.winner ? "disabled" : ""}>${G.surArm ? "本当に投了" : "投了"}</button><button class="small ghost" data-act="leave">ぬける</button><button class="small ghost" data-act="manualOn" title="LP±・1枚引く・墓地から手札へ・場のカードの手動ボタン">手動ボタンを出す</button></div></div>`}
+        <div class="row" style="margin-top:8px"><button class="small danger" data-act="surrender" ${st.winner ? "disabled" : ""}>${G.surArm ? "本当に投了" : "投了"}</button><button class="small ghost" data-act="leave">ぬける</button>${soundBtnHTML()}</div>
+      </div>` : `<div class="box"><div class="row"><button class="small danger" data-act="surrender" ${st.winner ? "disabled" : ""}>${G.surArm ? "本当に投了" : "投了"}</button><button class="small ghost" data-act="leave">ぬける</button>${soundBtnHTML()}<button class="small ghost" data-act="manualOn" title="LP±・1枚引く・墓地から手札へ・場のカードの手動ボタン">手動ボタンを出す</button></div></div>`}
       <div class="box"><h3>ログ</h3><ul class="log">${logHTML}</ul></div>
       ${mb ? `<div class="mainbar pc">${mb}</div>` : ""}
     </aside>
@@ -597,11 +686,12 @@ function playEvents(prevLp, nowLp){
       setTimeout(() => fxEl("fxfloat " + (d < 0 ? "neg" : "pos"), (d > 0 ? "+" : "−") + Math.abs(d), c.x, c.r.top), reduceMotion ? 0 : list.length * 200);
     }
   }
-  if (reduceMotion) return;
+  if (reduceMotion){ const s = list.map(sfxFor).find(Boolean); if (s) sfx(s); sfxEnd(); return; }
   // one after another: a spell banner gets time to show before its hits, each hit gets its own beat (ツインストライク → 2 hits)
   const GAP = { shieldBreak: 2400, spell: 900, summon: 900, attack: 560, hit: 420, fusion: 2800, turn: 1250, gj: 1500 };
   let t = 0;
-  list.forEach(e => { setTimeout(() => { try{ animateEvent(e); }catch(err){} }, t); t += e.type === "ace" ? (aceShown(e) ? 1950 : 0) : GAP[e.type] || 320; });
+  list.forEach(e => { setTimeout(() => { try{ animateEvent(e); }catch(err){} try{ const s = sfxFor(e); if (s) sfx(s); }catch(err){} }, t); t += e.type === "ace" ? (aceShown(e) ? 1950 : 0) : GAP[e.type] || 320; });
+  setTimeout(sfxEnd, t);
 }
 // 融合召喚の演出: 素材がうずを巻いて中心に吸いこまれ、光って、融合モンスターが現れる
 function fusionFx(e){
@@ -1162,6 +1252,7 @@ $("#board").addEventListener("click", e => {
   }
   const a = e.target.closest("[data-act]"); if (!a) return;
   const k = a.dataset.act, sel = G.sel;
+  if (k === "sound"){ setSoundVol(SND.vol > 0 ? 0 : .6); renderAll(); return; }
   if (k === "leave"){ leaveGame(); renderAll(); return; }
   if (k === "rematch"){ rematch(); return; }
   if (k === "skipIdle"){
@@ -1224,6 +1315,7 @@ $("#board").addEventListener("click", e => {
 });
 $("#board").addEventListener("change", e => {
   const sp = e.target.closest("[data-cpuspd]"); if (sp){ ls.set("cb_cpuspd", sp.value); return; }
+  const lv = e.target.closest("[data-cpulv]"); if (lv){ ls.set("cb_cpulv", lv.value); toast(`CPUのつよさ：${CPU_LV[cpuLv()]}`); return; }
   const tc = e.target.closest("[data-testcpu]"); if (tc && G && G.test){ G.test.cpu = tc.value; scheduleCpu(); return; }
   const mt = e.target.closest("[data-manualtog]"); if (mt){ ls.set("cb_manual", mt.checked); renderAll(); }
 });

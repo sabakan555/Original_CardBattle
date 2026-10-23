@@ -367,7 +367,7 @@ function freshFrom(st, s){
   const p = P(st, s), ids = p.deckIds && p.deckIds.length ? p.deckIds : allCardsOf(st, s);
   const n = newPlayer(ids, p.name, p.manaZ ? (p.landOnly ? "land" : "zone") : !!p.mana, p.spire ? (p.spc === "silent" ? "silent" : true) : false, { shield: !!p.shieldOn, nolim: !!p.nolim, mull: !!p.mullOn }); n.sleeve = p.sleeve || null; n.uid = p.uid || null; return n;
 }
-function resetLocal(){ Object.assign(G, { costPick: null, potPick: null, sel: null, atkFrom: null, chooseQ: [], evSeen: 0, recorded: false, prevLp: null, eqPlace: null, ssPick: null, sxPick: null, view: null, graveHand: false, detailOpen: false, detailBack: null, lastDetail: null }); renderDetail(null); }
+function resetLocal(){ Object.assign(G, { costPick: null, potPick: null, sel: null, atkFrom: null, chooseQ: [], evSeen: 0, recorded: false, sfxEnd: false, prevLp: null, eqPlace: null, ssPick: null, sxPick: null, view: null, graveHand: false, detailOpen: false, detailBack: null, lastDetail: null }); renderDetail(null); }
 function rematch(){
   if (!G || !G.st || !G.st.winner || G.spectate) return;
   if (G.mode !== "online"){
