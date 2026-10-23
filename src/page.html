@@ -84,6 +84,7 @@
           <h2>対戦のじゅんび</h2>
           <label class="f">プレイヤー名<input type="text" id="pname" maxlength="16"></label>
           <label class="f">使うデッキ<select id="deckSel"></select></label>
+          <div class="row sealed-row"><button type="button" id="btnSealed">📦 開封バトル</button><span class="note">パックを開けて出た40枚だけでデッキを作って対戦（CPUも別のパックを開けます）</span></div>
           <label class="row" style="gap:6px;font-size:13px;cursor:pointer;flex-wrap:nowrap;align-items:flex-start"><input type="checkbox" id="optManual" style="flex:none;margin-top:3px"> 対戦中に「手動で効果を処理」のボタンを出す（LP±・1枚引く・墓地から手札へなど。自由に書いた効果を手で処理するとき用）</label>
           <div id="offlineNote" class="offline" hidden>サーバーにつながっていないので、オンライン対戦とカードの共有は使えません（config.js の設定を確認してね）。いまはこのブラウザだけに保存され、CPU練習ができます。</div>
         </div>
@@ -588,6 +589,7 @@
 <div id="potTray" hidden></div>
 <div id="cardView" class="overlay" hidden></div>
 <div id="tradeDlg" class="overlay" hidden></div>
+<div id="sealedDlg" class="overlay" hidden></div>
 <div id="detailPop" class="pop" role="dialog" aria-label="カード詳細" hidden></div>
 <div id="toast" hidden></div>
 

@@ -1784,6 +1784,12 @@ div.f{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:13px}
 .mh-res{font-weight:700;min-width:4.5em}
 .mh-w .mh-res{color:var(--good)} .mh-l .mh-res{color:var(--hit)}
 .code-in.invited{outline:3px solid var(--gold);outline-offset:2px}
+
+/* 開封バトル */
+.overlay .box.sl-dlg{max-width:1100px;max-height:92vh;gap:10px}
+.sl-bar{gap:8px;position:sticky;top:-16px;z-index:2;padding:8px 0;background:inherit}
+.sl-item.out{opacity:.35}
+.sl-deck .card,.sl-pool .card{cursor:pointer}
 </style>
 <style>html,body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
 </head>
@@ -1850,6 +1856,7 @@ div.f{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:13px}
           <h2>対戦のじゅんび</h2>
           <label class="f">プレイヤー名<input type="text" id="pname" maxlength="16"></label>
           <label class="f">使うデッキ<select id="deckSel"></select></label>
+          <div class="row sealed-row"><button type="button" id="btnSealed">📦 開封バトル</button><span class="note">パックを開けて出た40枚だけでデッキを作って対戦（CPUも別のパックを開けます）</span></div>
           <label class="row" style="gap:6px;font-size:13px;cursor:pointer;flex-wrap:nowrap;align-items:flex-start"><input type="checkbox" id="optManual" style="flex:none;margin-top:3px"> 対戦中に「手動で効果を処理」のボタンを出す（LP±・1枚引く・墓地から手札へなど。自由に書いた効果を手で処理するとき用）</label>
           <div id="offlineNote" class="offline" hidden>サーバーにつながっていないので、オンライン対戦とカードの共有は使えません（config.js の設定を確認してね）。いまはこのブラウザだけに保存され、CPU練習ができます。</div>
         </div>
@@ -2354,6 +2361,7 @@ div.f{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:13px}
 <div id="potTray" hidden></div>
 <div id="cardView" class="overlay" hidden></div>
 <div id="tradeDlg" class="overlay" hidden></div>
+<div id="sealedDlg" class="overlay" hidden></div>
 <div id="detailPop" class="pop" role="dialog" aria-label="カード詳細" hidden></div>
 <div id="toast" hidden></div>
 
@@ -7230,7 +7238,7 @@ $("#btnArtMig").addEventListener("click", async () => {
 /* ================= decks ================= */
 S.deckEdit = { id: null, cards: {} };
 function myDecks(){ return S.decks.filter(d => isMine(d, "owner")); }
-function allDeckOptions(){ return [...builtinDecks(), ...myDecks()]; }
+function allDeckOptions(){ const sd = typeof sealedDeckObj === "function" ? sealedDeckObj() : null; return [...builtinDecks(), ...myDecks(), ...(sd ? [sd] : [])]; }
 // デッキのマナ: false / true（毎ターン増える）/ "zone"（デュエマ式）/ "land"（MTG式）
 const deckManaVal = d => !(d && d.mana) ? false : d.mz ? (d.landOnly ? "land" : "zone") : true;
 function deckKindNow(){ const m = $("#deckMana"), z = $("#deckZone"), l = $("#deckLand"); return !(m && m.checked) ? false : z && z.checked ? (l && l.checked ? "land" : "zone") : true; }
@@ -7993,12 +8001,12 @@ const deckOptVal = d => ({ shield: !!(d && d.shield && !d.spire), nolim: !!(d &&
 function chosenOpt(){ const id = $("#deckSel").value; return deckOptVal(allDeckOptions().find(x => x.id === id)); }
 function chosenDeckIds(){
   const id = $("#deckSel").value; const d = allDeckOptions().find(x => x.id === id) || starterDeck();
-  return d.cards.filter(c => S.cards.has(c) && (!S.tradesReady || owns(c) || (Array.isArray(d.borrow) && d.borrow.includes(c))));
+  return d.cards.filter(c => S.cards.has(c) && (d.sealed || !S.tradesReady || owns(c) || (Array.isArray(d.borrow) && d.borrow.includes(c))));
 }
 function deckOk(ids){
   const limitIssue = deckLimitIssue(ids); if (limitIssue){ toast(limitIssue); return false; }
   const selectedDeck = allDeckOptions().find(d => d.id === $("#deckSel").value);
-  if (S.pack && S.pack.url && packAccount() && !S.pack.ready && selectedDeck && selectedDeck.cards.some(id => S.cards.has(id) && !owns(id) && !(Array.isArray(selectedDeck.borrow) && selectedDeck.borrow.includes(id)))){ toast("このデッキの所持カードを確認中です。パック画面で再読み込みしてね"); return false; }
+  if (S.pack && S.pack.url && packAccount() && !S.pack.ready && selectedDeck && !selectedDeck.sealed && selectedDeck.cards.some(id => S.cards.has(id) && !owns(id) && !(Array.isArray(selectedDeck.borrow) && selectedDeck.borrow.includes(id)))){ toast("このデッキの所持カードを確認中です。パック画面で再読み込みしてね"); return false; }
   ids = ids.filter(id => !isEx(S.cards.get(id)));
   if (!chosenSpire() && ids.length < MIN_DECK){ toast(`デッキのカードが足りません（${MIN_DECK}枚以上）`); return false; }
   if (!chosenSpire() && !ids.some(id => cardType(S.cards.get(id)) === "monster")){ toast("デッキにモンスターが入っていません"); return false; }
@@ -8319,9 +8327,10 @@ $("#btnCpu").addEventListener("click", () => {
   const ids = chosenDeckIds(); if (!deckOk(ids)) return;
   leaveGame();
   const cid = $("#cpuDeckSel").value, cd = cid && cid !== "auto" ? cpuDeckOptions().find(d => d.id === cid) : null;
-  const cpuMana = cd ? deckManaVal(cd) : chosenMana(), cpuIds = (cd || (cpuMana ? sampleManaDeck() : starterDeck())).cards.filter(id => S.cards.has(id));
+  const meSealed = (allDeckOptions().find(d => d.id === $("#deckSel").value) || {}).sealed;
+  const cpuMana = cd ? deckManaVal(cd) : chosenMana(), cpuIds = !cd && meSealed ? sealedCpuIds() : (cd || (cpuMana ? sampleManaDeck() : starterDeck())).cards.filter(id => S.cards.has(id));
   if ((!(cd && cd.spire) && cpuIds.length < MIN_DECK) || (!(cd && cd.spire) && !cpuIds.some(id => cardType(S.cards.get(id)) === "monster"))){ toast("CPUのデッキのカードが足りません。別のデッキをえらんでね"); return; }
-  G = { mode: "cpu", slot: "a", st: applyManaRule(startState(newPlayer(ids, null, chosenMana(), chosenSpire(), chosenOpt()), newPlayer(cpuIds, cd ? `CPU（${cd.name}）` : "CPU", cpuMana, deckSpireVal(cd), deckOptVal(cd))), chosenManaRule()), sel: null, atkFrom: null, chooseQ: [], evSeen: 0 };
+  G = { mode: "cpu", slot: "a", st: applyManaRule(startState(newPlayer(ids, null, chosenMana(), chosenSpire(), chosenOpt()), newPlayer(cpuIds, cd ? `CPU（${cd.name}）` : meSealed ? "CPU（開封デッキ）" : "CPU", cpuMana, deckSpireVal(cd), deckOptVal(cd))), chosenManaRule()), sel: null, atkFrom: null, chooseQ: [], evSeen: 0 };
   autoRelic(G.st, "b"); autoMull(G.st, "b");
   after(false);
 });
@@ -8369,6 +8378,90 @@ $("#waiting").addEventListener("click", e => {
   if (e.target.closest("#btnLeave1")){ const code = G && !G.spectate && G.st && !G.st.started && G.slot === "a" ? G.code : null; leaveGame(); if (code && S.db) S.db.doc("rooms/" + code).delete().catch(() => {}); renderAll(); }
 });
 
+/* ================= 開封バトル（シールド戦） =================
+   パックを開けて出た40枚（図鑑のカードからランダム）だけでデッキを作り、そのデッキでCPU戦・オンライン対戦をする。
+   開封デッキは「使うデッキ」に 📦 開封デッキ として出る（持っていないカードでも使える。この端末に保存） */
+const SEALED_N = 40, SEALED_MON = 22, SEALED_ID = "__sealed";
+S.sealed = (() => { const v = ls.get("cb_sealed", null); return v && Array.isArray(v.pool) ? { pool: v.pool, cards: Array.isArray(v.cards) ? v.cards : [], t: v.t || 0 } : null; })();
+S.sealedEdit = null;
+// 開封で出るカード: ふつうのデッキで使える、ふつうのカード（トークン・EX・スパイア・ポーションなどは出ない）
+function sealedEligible(){
+  return [...S.cards.values()].filter(c => c && c.id && !String(c.id).includes("~") && !c.skinOf && !c.tut && !c.token && !c.ctrCard && !c.potionView && !c.relicView && c.type !== "potion" && c.type !== "relic" && c.frame !== "spire" && !isEx(c) && ["normal", "both"].includes(deckModeOf(c)) && ["monster", "magic", "trap", "equip"].includes(cardType(c)));
+}
+function sealedPool(){
+  const E = sealedEligible(), mons = E.filter(c => cardType(c) === "monster"), rest = E.filter(c => cardType(c) !== "monster");
+  if (mons.length < 3) return null;
+  const out = [], cnt = {};
+  const draw = (L, n) => { let g = 0; while (n > 0 && L.length && g++ < 4000){ const c = L[Math.floor(Math.random() * L.length)], lim = cardLimit(c) || 99; if ((cnt[c.id] || 0) >= lim) continue; cnt[c.id] = (cnt[c.id] || 0) + 1; out.push(c.id); n--; } };
+  draw(mons, rest.length ? SEALED_MON : SEALED_N); draw(rest, SEALED_N - out.length); draw(mons, SEALED_N - out.length);
+  return out;
+}
+// おまかせで組む（CPUも使う）: 強いモンスター14枚まで＋魔法・罠・装備で22枚に
+function sealedAuto(pool){
+  const cs = pool.map(id => card(id)).filter(Boolean), atk = c => c.atkInf ? Infinity : +c.atk || 0;
+  const mons = cs.filter(c => cardType(c) === "monster").sort((a, b) => cmpNum(atk(b), atk(a))), rest = cs.filter(c => cardType(c) !== "monster");
+  const pick = [...mons.slice(0, 14), ...rest.slice(0, 22 - Math.min(14, mons.length))];
+  for (const c of mons.slice(14)) if (pick.length < 22) pick.push(c);
+  return pick.map(c => c.id);
+}
+const sealedCount = ids => ids.reduce((o, id) => (o[id] = (o[id] || 0) + 1, o), {});
+function sealedDeckObj(){
+  const s = S.sealed; if (!s || !s.cards.length) return null;
+  const cards = s.cards.filter(id => S.cards.has(id)); if (!cards.length) return null;
+  return { id: SEALED_ID, name: "📦 開封デッキ", cards, sealed: true, builtin: true };
+}
+function sealedSave(){ ls.set("cb_sealed", S.sealed); }
+// いまのデッキの問題（なければ ""）
+function sealedIssue(ids){
+  if (ids.length < MIN_DECK) return `あと${MIN_DECK - ids.length}枚（${MIN_DECK}枚以上）`;
+  if (!ids.some(id => cardType(card(id)) === "monster")) return "モンスターを1枚以上入れてね";
+  return "";
+}
+function openSealed(fresh){
+  if (fresh || !S.sealed){
+    const pool = sealedPool(); if (!pool){ toast("開封できるカードがまだ足りません"); return; }
+    S.sealed = { pool, cards: [], t: Date.now() }; sealedSave();
+  }
+  S.sealedEdit = { cards: S.sealed.cards.slice(), fresh: !!fresh };
+  renderSealed(); $("#sealedDlg").hidden = false;
+}
+function closeSealed(){ $("#sealedDlg").hidden = true; $("#sealedDlg").innerHTML = ""; S.sealedEdit = null; }
+function renderSealed(){
+  const box = $("#sealedDlg"), E = S.sealedEdit; if (!E || !S.sealed) return;
+  const pool = S.sealed.pool.filter(id => S.cards.has(id)), have = sealedCount(pool), used = sealedCount(E.cards);
+  const order = id => { const c = card(id), t = cardType(c); return [t === "monster" ? 0 : t === "magic" ? 1 : t === "trap" ? 2 : 3, -(c.atkInf ? 1e9 : +c.atk || 0), c.name]; };
+  const uniq = [...new Set(pool)].sort((a, b) => { const x = order(a), y = order(b); for (let k = 0; k < 3; k++){ if (x[k] < y[k]) return -1; if (x[k] > y[k]) return 1; } return 0; });
+  const item = id => { const left = have[id] - (used[id] || 0); return `<div class="g-item sl-item${left ? "" : " out"}">${cardHTML(card(id), "sm pick", `data-sladd="${esc(id)}" tabindex="0" role="button" aria-label="${esc(card(id).name)}をデッキに入れる"`, {})}<div class="meta">${used[id] ? `<b>${used[id]}</b> / ` : ""}${have[id]}枚</div></div>`; };
+  const deck = [...new Set(E.cards)].sort((a, b) => { const x = order(a), y = order(b); for (let k = 0; k < 3; k++){ if (x[k] < y[k]) return -1; if (x[k] > y[k]) return 1; } return 0; });
+  const issue = sealedIssue(E.cards), nMon = E.cards.filter(id => cardType(card(id)) === "monster").length;
+  box.innerHTML = `<div class="box sl-dlg" role="dialog" aria-modal="true" aria-label="開封バトル">
+    <div class="row" style="justify-content:space-between;align-items:center"><h2 style="margin:0">📦 開封バトル${E.fresh ? "：パックを開けた！" : ""}</h2><button class="ghost" data-sl="close" aria-label="とじる">×</button></div>
+    <p class="note" style="margin:0">出た${pool.length}枚の中から、${MIN_DECK}枚以上でデッキを作ろう。カードを押すとデッキに入る／デッキのカードを押すと外れる。</p>
+    <div class="row sl-bar"><span class="meter ${issue ? "ng" : "ok"}">${E.cards.length}枚（モンスター ${nMon}）${issue ? "・" + esc(issue) : ""}</span><button class="small" data-sl="auto">おまかせで組む</button><button class="small ghost" data-sl="clear">ぜんぶ外す</button><button class="small ghost" data-sl="reroll">${E.reroll ? "本当に開け直す？（いまのカードは消えます）" : "パックを開け直す"}</button><button class="primary" data-sl="ok" ${issue ? "disabled" : ""}>このデッキで対戦する</button></div>
+    <h3 style="margin:4px 0 0">デッキ</h3>
+    <div class="gallery sl-deck">${deck.map(id => `<div class="g-item">${cardHTML(card(id), "sm pick", `data-slrm="${esc(id)}" tabindex="0" role="button" aria-label="${esc(card(id).name)}を外す"`, {})}<div class="meta">×${used[id]}</div></div>`).join("") || '<p class="muted">まだ入っていません</p>'}</div>
+    <h3 style="margin:4px 0 0">開けたカード</h3>
+    <div class="gallery sl-pool">${uniq.map(item).join("")}</div>
+  </div>`;
+}
+$("#sealedDlg").addEventListener("click", e => {
+  const E = S.sealedEdit; if (!E) return;
+  if (e.target === $("#sealedDlg")){ closeSealed(); return; }
+  const add = e.target.closest("[data-sladd]"), rm = e.target.closest("[data-slrm]"), b = e.target.closest("[data-sl]");
+  if (add){ const id = add.dataset.sladd, have = S.sealed.pool.filter(x => x === id).length, used = E.cards.filter(x => x === id).length; if (used < have) E.cards.push(id); else toast("この枚数までしか入れられません"); renderSealed(); return; }
+  if (rm){ const k = E.cards.indexOf(rm.dataset.slrm); if (k >= 0) E.cards.splice(k, 1); renderSealed(); return; }
+  if (!b) return; const k = b.dataset.sl;
+  if (k !== "reroll") E.reroll = false;
+  if (k === "close"){ closeSealed(); return; }
+  if (k === "auto"){ E.cards = sealedAuto(S.sealed.pool.filter(id => S.cards.has(id))); renderSealed(); return; }
+  if (k === "clear"){ E.cards = []; renderSealed(); return; }
+  if (k === "reroll"){ if (!E.reroll){ E.reroll = true; renderSealed(); return; } closeSealed(); openSealed(true); return; }
+  if (k === "ok"){ if (sealedIssue(E.cards)) return; S.sealed.cards = E.cards.slice(); sealedSave(); ls.set("cb_deck", SEALED_ID); closeSealed(); S.tab = "play"; renderAll(); toast("開封デッキにしました。CPU戦か部屋を作って対戦してね"); return; }
+});
+$("#sealedDlg").addEventListener("keydown", e => { if (e.key === "Escape") closeSealed(); if ((e.key === "Enter" || e.key === " ") && e.target.matches("[data-sladd],[data-slrm]")){ e.preventDefault(); e.target.click(); } });
+$("#btnSealed").addEventListener("click", () => openSealed(false));
+// CPUの開封デッキ（自分とは別のパックを開ける）
+function sealedCpuIds(){ const pool = sealedPool(); return pool ? sealedAuto(pool) : []; }
 /* ================= game engine (pure-ish over st) ================= */
 const O = s => s === "a" ? "b" : "a";
 const P = (st, s) => st.players[s];

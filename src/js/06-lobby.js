@@ -24,12 +24,12 @@ const deckOptVal = d => ({ shield: !!(d && d.shield && !d.spire), nolim: !!(d &&
 function chosenOpt(){ const id = $("#deckSel").value; return deckOptVal(allDeckOptions().find(x => x.id === id)); }
 function chosenDeckIds(){
   const id = $("#deckSel").value; const d = allDeckOptions().find(x => x.id === id) || starterDeck();
-  return d.cards.filter(c => S.cards.has(c) && (!S.tradesReady || owns(c) || (Array.isArray(d.borrow) && d.borrow.includes(c))));
+  return d.cards.filter(c => S.cards.has(c) && (d.sealed || !S.tradesReady || owns(c) || (Array.isArray(d.borrow) && d.borrow.includes(c))));
 }
 function deckOk(ids){
   const limitIssue = deckLimitIssue(ids); if (limitIssue){ toast(limitIssue); return false; }
   const selectedDeck = allDeckOptions().find(d => d.id === $("#deckSel").value);
-  if (S.pack && S.pack.url && packAccount() && !S.pack.ready && selectedDeck && selectedDeck.cards.some(id => S.cards.has(id) && !owns(id) && !(Array.isArray(selectedDeck.borrow) && selectedDeck.borrow.includes(id)))){ toast("このデッキの所持カードを確認中です。パック画面で再読み込みしてね"); return false; }
+  if (S.pack && S.pack.url && packAccount() && !S.pack.ready && selectedDeck && !selectedDeck.sealed && selectedDeck.cards.some(id => S.cards.has(id) && !owns(id) && !(Array.isArray(selectedDeck.borrow) && selectedDeck.borrow.includes(id)))){ toast("このデッキの所持カードを確認中です。パック画面で再読み込みしてね"); return false; }
   ids = ids.filter(id => !isEx(S.cards.get(id)));
   if (!chosenSpire() && ids.length < MIN_DECK){ toast(`デッキのカードが足りません（${MIN_DECK}枚以上）`); return false; }
   if (!chosenSpire() && !ids.some(id => cardType(S.cards.get(id)) === "monster")){ toast("デッキにモンスターが入っていません"); return false; }
@@ -350,9 +350,10 @@ $("#btnCpu").addEventListener("click", () => {
   const ids = chosenDeckIds(); if (!deckOk(ids)) return;
   leaveGame();
   const cid = $("#cpuDeckSel").value, cd = cid && cid !== "auto" ? cpuDeckOptions().find(d => d.id === cid) : null;
-  const cpuMana = cd ? deckManaVal(cd) : chosenMana(), cpuIds = (cd || (cpuMana ? sampleManaDeck() : starterDeck())).cards.filter(id => S.cards.has(id));
+  const meSealed = (allDeckOptions().find(d => d.id === $("#deckSel").value) || {}).sealed;
+  const cpuMana = cd ? deckManaVal(cd) : chosenMana(), cpuIds = !cd && meSealed ? sealedCpuIds() : (cd || (cpuMana ? sampleManaDeck() : starterDeck())).cards.filter(id => S.cards.has(id));
   if ((!(cd && cd.spire) && cpuIds.length < MIN_DECK) || (!(cd && cd.spire) && !cpuIds.some(id => cardType(S.cards.get(id)) === "monster"))){ toast("CPUのデッキのカードが足りません。別のデッキをえらんでね"); return; }
-  G = { mode: "cpu", slot: "a", st: applyManaRule(startState(newPlayer(ids, null, chosenMana(), chosenSpire(), chosenOpt()), newPlayer(cpuIds, cd ? `CPU（${cd.name}）` : "CPU", cpuMana, deckSpireVal(cd), deckOptVal(cd))), chosenManaRule()), sel: null, atkFrom: null, chooseQ: [], evSeen: 0 };
+  G = { mode: "cpu", slot: "a", st: applyManaRule(startState(newPlayer(ids, null, chosenMana(), chosenSpire(), chosenOpt()), newPlayer(cpuIds, cd ? `CPU（${cd.name}）` : meSealed ? "CPU（開封デッキ）" : "CPU", cpuMana, deckSpireVal(cd), deckOptVal(cd))), chosenManaRule()), sel: null, atkFrom: null, chooseQ: [], evSeen: 0 };
   autoRelic(G.st, "b"); autoMull(G.st, "b");
   after(false);
 });

@@ -1,7 +1,7 @@
 /* ================= decks ================= */
 S.deckEdit = { id: null, cards: {} };
 function myDecks(){ return S.decks.filter(d => isMine(d, "owner")); }
-function allDeckOptions(){ return [...builtinDecks(), ...myDecks()]; }
+function allDeckOptions(){ const sd = typeof sealedDeckObj === "function" ? sealedDeckObj() : null; return [...builtinDecks(), ...myDecks(), ...(sd ? [sd] : [])]; }
 // デッキのマナ: false / true（毎ターン増える）/ "zone"（デュエマ式）/ "land"（MTG式）
 const deckManaVal = d => !(d && d.mana) ? false : d.mz ? (d.landOnly ? "land" : "zone") : true;
 function deckKindNow(){ const m = $("#deckMana"), z = $("#deckZone"), l = $("#deckLand"); return !(m && m.checked) ? false : z && z.checked ? (l && l.checked ? "land" : "zone") : true; }
