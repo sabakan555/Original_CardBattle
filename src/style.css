@@ -1770,3 +1770,13 @@ div.f{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:13px}
 .sl-bar{gap:8px;position:sticky;top:-16px;z-index:2;padding:8px 0;background:inherit}
 .sl-item.out{opacity:.35}
 .sl-deck .card,.sl-pool .card{cursor:pointer}
+
+/* スマホで横にはみ出さない: 長い選択肢の select が中身の幅まで広がって、ページ全体が画面より広くなるのを防ぐ */
+select,input,textarea{max-width:100%}
+.filters,.flt-more,.flt-more-in{min-width:0;max-width:100%}
+.flt-more-in > *{min-width:0;max-width:100%}
+.flt-more-in select{flex:1 1 150px;width:100%;min-width:0;text-overflow:ellipsis}
+@media (max-width:640px){
+  .flt-more-in select{flex-basis:100%}
+  .filters select{font-size:16px} /* iPhoneで選ぶときに画面が拡大されないように */
+}
