@@ -1773,6 +1773,17 @@ div.f{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:13px}
 /* デッキ分析 */
 .dks-row{gap:6px;margin:2px 0 8px}
 .dks-chip{font-size:12px;border:1.5px solid var(--line);border-radius:999px;padding:1px 8px}
+
+/* 対戦履歴（マイページ）・招待 */
+.mh-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px}
+.mh-tbl{width:100%;border-collapse:collapse;font-size:14px}
+.mh-tbl th,.mh-tbl td{text-align:left;padding:4px 6px;border-bottom:1px solid var(--line)}
+.mh-tbl th{font-size:12px;color:var(--muted);font-weight:700}
+.mh-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px;font-size:14px}
+.mh-list li{display:flex;flex-wrap:wrap;gap:4px 10px;align-items:baseline;padding:3px 0;border-bottom:1px solid var(--line)}
+.mh-res{font-weight:700;min-width:4.5em}
+.mh-w .mh-res{color:var(--good)} .mh-l .mh-res{color:var(--hit)}
+.code-in.invited{outline:3px solid var(--gold);outline-offset:2px}
 </style>
 <style>html,body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
 </head>
@@ -2223,6 +2234,7 @@ div.f{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:13px}
       <div class="box" style="display:flex;flex-direction:column;gap:10px"><h2 style="margin:0">戦績</h2><div class="me-stats" id="mpStats"></div></div>
     </div>
     <div class="box" id="mpAcct" style="margin-bottom:22px"></div>
+    <div class="box" id="mpHist" style="margin-bottom:22px"></div>
     <div class="box" id="mpPush" style="margin-bottom:22px" hidden></div>
     <div class="box" style="display:flex;flex-direction:column;gap:12px;margin-bottom:22px">
       <div class="row" style="justify-content:space-between"><h2 style="margin:0">スリーブ（カードの裏）</h2><div class="sl-now"><span class="note">いまのスリーブ</span><span id="slNow"></span></div></div>
@@ -7391,6 +7403,22 @@ const DEFAULT_AV = `<svg width="60%" height="60%" viewBox="0 0 24 24" aria-hidde
 // icon: the art of one of your own cards (kept in this browser), else the account picture
 function myIcon(){ const c = S.cards && S.cards.get(ls.get("cb_icon", "")); return (c && c.img) || S.avatar || ""; }
 // wins / losses are kept in this browser; an online game is counted once even if you come back to the room
+// マイページ: デッキごとの勝率と、最近の対戦
+const RES_LABEL = { w: "勝ち", l: "負け", d: "引き分け" };
+function deckWinRows(H){
+  const by = new Map();
+  H.forEach(h => { const k = h.deck || "（名前のわからないデッキ）", x = by.get(k) || { name: k, n: 0, w: 0, l: 0 }; x.n++; if (h.res === "w") x.w++; if (h.res === "l") x.l++; by.set(k, x); });
+  return [...by.values()].sort((a, b) => b.n - a.n || b.w - a.w);
+}
+function renderMatchHist(r){
+  const el = $("#mpHist"); if (!el) return;
+  const H = Array.isArray(r && r.hist) ? r.hist : [];
+  if (!H.length){ el.innerHTML = `<h2 style="margin:0 0 6px">対戦履歴</h2><p class="muted" style="margin:0">これからの対戦が、ここに記録されます。</p>`; return; }
+  const day = t => { const d = new Date(t); return `${d.getMonth() + 1}/${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2, "0")}`; };
+  const rows = deckWinRows(H).map(x => `<tr><td>${esc(x.name)}</td><td>${x.n}</td><td>${x.w}勝 ${x.l}敗</td><td><b>${Math.round(x.w / x.n * 100)}%</b></td></tr>`).join("");
+  const recent = H.slice(0, 15).map(h => `<li class="mh-${h.res}"><span class="mh-res">${RES_LABEL[h.res] || "？"}</span><span>${day(h.t)}</span><span>${h.mode === "online" ? "vs " + esc(h.opp) : "CPU戦"}</span><span class="note">${esc(h.deck || "")}${h.turns ? `・${h.turns}ターン` : ""}</span></li>`).join("");
+  el.innerHTML = `<h2 style="margin:0 0 6px">対戦履歴</h2><div class="mh-grid"><div><h3>デッキごとの勝率</h3><table class="mh-tbl"><thead><tr><th>デッキ</th><th>対戦</th><th>勝敗</th><th>勝率</th></tr></thead><tbody>${rows}</tbody></table></div><div><h3>最近の対戦</h3><ul class="mh-list">${recent}</ul></div></div><p class="note" style="margin:6px 0 0">直近${H.length}戦ぶん（最大50戦）</p>`;
+}
 function recordResult(){
   if (!G || !G.st || !G.st.winner || G.recorded || G.spectate) return;
   G.recorded = true;
@@ -7400,6 +7428,10 @@ function recordResult(){
   const res = G.st.winner === "draw" ? "d" : G.st.winner === G.slot ? "w" : "l";
   r[G.mode === "online" ? "online" : "cpu"][res]++;
   if (key){ r.seen.push(key); r.seen = r.seen.slice(-60); }
+  // 対戦履歴（新しい順に50件）: 使ったデッキは中身が同じデッキから名前を探す
+  { const me = P(G.st, G.slot), op = P(G.st, O(G.slot)), ids = (me.deckIds || []).slice().sort().join("|");
+    const dk = ids ? allDeckOptions().find(d => Array.isArray(d.cards) && d.cards.slice().sort().join("|") === ids) : null;
+    r.hist = [{ t: Date.now(), mode: G.mode === "online" ? "online" : "cpu", opp: String(op.name || "？").slice(0, 20), deck: dk ? String(dk.name).slice(0, 20) : "", deckId: dk ? dk.id : "", res, turns: G.st.turnNo || 0 }, ...(Array.isArray(r.hist) ? r.hist : [])].slice(0, 50); }
   ls.set("cb_record", r); saveProfile();
 }
 /* ---- sleeve editor (My page): background colour + movable photo + pen layer ---- */
@@ -7538,6 +7570,7 @@ function renderMe(){
   ];
   if (S.owned && S.db) tiles.push(["持ってるカード", S.owned.size, "スターター込み"]);
   if (typeof allTrades === "function" && S.db) tiles.push(["交換", allTrades().filter(t => t.status === "accepted").length, "成立した回数"]);
+  renderMatchHist(r);
   $("#mpStats").innerHTML = tiles.map(([k, v, s]) => `<div class="me-stat"><div class="k">${k}</div><div class="v">${esc(v)}</div><div class="s">${esc(s)}</div></div>`).join("");
   const decks = myDecks();
   $("#mpDecks").innerHTML = decks.map(dk => {
@@ -8323,9 +8356,14 @@ function rematch(){
 function leaveGame(){ if (G){ G.unsub && G.unsub(); clearTimeout(G.cpuT); } G = null; renderDetail(null); }
 function renderWaiting(){
   if (G.spectate){ $("#waiting").innerHTML = `<h2 style="margin:0">観戦の準備中…</h2><button class="small ghost" id="btnLeave1">やめる</button>`; return; }
-  $("#waiting").innerHTML = `<h2 style="margin:0">友達を待っています…</h2><p class="muted" style="margin:0">この部屋コードを伝えてね</p><div class="code">${esc(G.code)}</div><div class="row" style="justify-content:center"><button class="small" id="btnCopy">コードをコピー</button><button class="small ghost" id="btnLeave1">やめる</button></div><p class="note" style="margin:0">相手はこのページを開いて「部屋に入る」にコードを入力します。</p>`;
+  $("#waiting").innerHTML = `<h2 style="margin:0">友達を待っています…</h2><p class="muted" style="margin:0">この部屋コードを伝えてね</p><div class="code">${esc(G.code)}</div><div class="row" style="justify-content:center"><button class="small primary" id="btnInvite">招待リンクを送る</button><button class="small" id="btnCopy">コードをコピー</button><button class="small ghost" id="btnLeave1">やめる</button></div><p class="note" style="margin:0">招待リンクを開くとコードが入った状態になります。コードだけ伝えて「部屋に入る」に入力してもらってもOK。</p>`;
 }
 $("#waiting").addEventListener("click", e => {
+  if (e.target.closest("#btnInvite")){
+    const url = inviteURL(G.code), text = `カードバトルしようぜ！部屋 ${G.code} で待ってるよ`;
+    if (navigator.share) navigator.share({ title: "カードバトルしようぜ", text, url }).catch(() => {});
+    else navigator.clipboard?.writeText(url).then(() => toast("招待リンクをコピーしました。LINEなどに貼ってね"), () => toast(url));
+  }
   if (e.target.closest("#btnCopy")){ const t = G.code; navigator.clipboard?.writeText(t).then(() => toast("コピーしました"), () => toast("コード: " + t)); }
   if (e.target.closest("#btnLeave1")){ const code = G && !G.spectate && G.st && !G.st.started && G.slot === "a" ? G.code : null; leaveGame(); if (code && S.db) S.db.doc("rooms/" + code).delete().catch(() => {}); renderAll(); }
 });
@@ -12916,6 +12954,8 @@ function passGate(fs){
   });
 }
 
+function inviteCode(){ try{ const c = (new URLSearchParams(location.search).get("room") || "").trim().toUpperCase(); return /^[A-Z0-9]{4}$/.test(c) ? c : ""; }catch(e){ return ""; } }
+const inviteURL = code => location.origin + location.pathname + "?room=" + encodeURIComponent(code);
 async function boot(){
   buildStarters(); rebuildCards();
   initFilters("gal", () => renderGallery());
@@ -12923,9 +12963,13 @@ async function boot(){
   initFilters("trade", () => renderTrade());
   S.name = ls.get("cb_name", "") || "プレイヤー";
   S.tab = "home";
+  // 招待リンク（…/?room=ABCD）: 対戦タブを開いて部屋コードを入れておく（デッキを選んでから自分で入る）
+  const inv = inviteCode();
+  if (inv){ S.tab = "play"; try{ history.replaceState(null, "", location.pathname + location.hash); }catch(e){} }
   buildTheme();
   showIdx = Math.floor(Math.random() * 1000);
   renderAll();
+  if (inv){ const el = $("#joinCode"); if (el){ el.value = inv; el.classList.add("invited"); } toast(`部屋 ${inv} に招待されています。デッキを選んで「部屋に入る」を押してね`); }
   await connectFirebase();
   subscribeData(); refreshPack(); renderAll();
 }

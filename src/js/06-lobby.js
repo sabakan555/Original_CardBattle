@@ -388,9 +388,14 @@ function rematch(){
 function leaveGame(){ if (G){ G.unsub && G.unsub(); clearTimeout(G.cpuT); } G = null; renderDetail(null); }
 function renderWaiting(){
   if (G.spectate){ $("#waiting").innerHTML = `<h2 style="margin:0">観戦の準備中…</h2><button class="small ghost" id="btnLeave1">やめる</button>`; return; }
-  $("#waiting").innerHTML = `<h2 style="margin:0">友達を待っています…</h2><p class="muted" style="margin:0">この部屋コードを伝えてね</p><div class="code">${esc(G.code)}</div><div class="row" style="justify-content:center"><button class="small" id="btnCopy">コードをコピー</button><button class="small ghost" id="btnLeave1">やめる</button></div><p class="note" style="margin:0">相手はこのページを開いて「部屋に入る」にコードを入力します。</p>`;
+  $("#waiting").innerHTML = `<h2 style="margin:0">友達を待っています…</h2><p class="muted" style="margin:0">この部屋コードを伝えてね</p><div class="code">${esc(G.code)}</div><div class="row" style="justify-content:center"><button class="small primary" id="btnInvite">招待リンクを送る</button><button class="small" id="btnCopy">コードをコピー</button><button class="small ghost" id="btnLeave1">やめる</button></div><p class="note" style="margin:0">招待リンクを開くとコードが入った状態になります。コードだけ伝えて「部屋に入る」に入力してもらってもOK。</p>`;
 }
 $("#waiting").addEventListener("click", e => {
+  if (e.target.closest("#btnInvite")){
+    const url = inviteURL(G.code), text = `カードバトルしようぜ！部屋 ${G.code} で待ってるよ`;
+    if (navigator.share) navigator.share({ title: "カードバトルしようぜ", text, url }).catch(() => {});
+    else navigator.clipboard?.writeText(url).then(() => toast("招待リンクをコピーしました。LINEなどに貼ってね"), () => toast(url));
+  }
   if (e.target.closest("#btnCopy")){ const t = G.code; navigator.clipboard?.writeText(t).then(() => toast("コピーしました"), () => toast("コード: " + t)); }
   if (e.target.closest("#btnLeave1")){ const code = G && !G.spectate && G.st && !G.st.started && G.slot === "a" ? G.code : null; leaveGame(); if (code && S.db) S.db.doc("rooms/" + code).delete().catch(() => {}); renderAll(); }
 });

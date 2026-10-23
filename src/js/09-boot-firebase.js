@@ -173,6 +173,8 @@ function passGate(fs){
   });
 }
 
+function inviteCode(){ try{ const c = (new URLSearchParams(location.search).get("room") || "").trim().toUpperCase(); return /^[A-Z0-9]{4}$/.test(c) ? c : ""; }catch(e){ return ""; } }
+const inviteURL = code => location.origin + location.pathname + "?room=" + encodeURIComponent(code);
 async function boot(){
   buildStarters(); rebuildCards();
   initFilters("gal", () => renderGallery());
@@ -180,9 +182,13 @@ async function boot(){
   initFilters("trade", () => renderTrade());
   S.name = ls.get("cb_name", "") || "プレイヤー";
   S.tab = "home";
+  // 招待リンク（…/?room=ABCD）: 対戦タブを開いて部屋コードを入れておく（デッキを選んでから自分で入る）
+  const inv = inviteCode();
+  if (inv){ S.tab = "play"; try{ history.replaceState(null, "", location.pathname + location.hash); }catch(e){} }
   buildTheme();
   showIdx = Math.floor(Math.random() * 1000);
   renderAll();
+  if (inv){ const el = $("#joinCode"); if (el){ el.value = inv; el.classList.add("invited"); } toast(`部屋 ${inv} に招待されています。デッキを選んで「部屋に入る」を押してね`); }
   await connectFirebase();
   subscribeData(); refreshPack(); renderAll();
 }

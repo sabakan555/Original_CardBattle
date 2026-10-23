@@ -175,6 +175,22 @@ const DEFAULT_AV = `<svg width="60%" height="60%" viewBox="0 0 24 24" aria-hidde
 // icon: the art of one of your own cards (kept in this browser), else the account picture
 function myIcon(){ const c = S.cards && S.cards.get(ls.get("cb_icon", "")); return (c && c.img) || S.avatar || ""; }
 // wins / losses are kept in this browser; an online game is counted once even if you come back to the room
+// マイページ: デッキごとの勝率と、最近の対戦
+const RES_LABEL = { w: "勝ち", l: "負け", d: "引き分け" };
+function deckWinRows(H){
+  const by = new Map();
+  H.forEach(h => { const k = h.deck || "（名前のわからないデッキ）", x = by.get(k) || { name: k, n: 0, w: 0, l: 0 }; x.n++; if (h.res === "w") x.w++; if (h.res === "l") x.l++; by.set(k, x); });
+  return [...by.values()].sort((a, b) => b.n - a.n || b.w - a.w);
+}
+function renderMatchHist(r){
+  const el = $("#mpHist"); if (!el) return;
+  const H = Array.isArray(r && r.hist) ? r.hist : [];
+  if (!H.length){ el.innerHTML = `<h2 style="margin:0 0 6px">対戦履歴</h2><p class="muted" style="margin:0">これからの対戦が、ここに記録されます。</p>`; return; }
+  const day = t => { const d = new Date(t); return `${d.getMonth() + 1}/${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2, "0")}`; };
+  const rows = deckWinRows(H).map(x => `<tr><td>${esc(x.name)}</td><td>${x.n}</td><td>${x.w}勝 ${x.l}敗</td><td><b>${Math.round(x.w / x.n * 100)}%</b></td></tr>`).join("");
+  const recent = H.slice(0, 15).map(h => `<li class="mh-${h.res}"><span class="mh-res">${RES_LABEL[h.res] || "？"}</span><span>${day(h.t)}</span><span>${h.mode === "online" ? "vs " + esc(h.opp) : "CPU戦"}</span><span class="note">${esc(h.deck || "")}${h.turns ? `・${h.turns}ターン` : ""}</span></li>`).join("");
+  el.innerHTML = `<h2 style="margin:0 0 6px">対戦履歴</h2><div class="mh-grid"><div><h3>デッキごとの勝率</h3><table class="mh-tbl"><thead><tr><th>デッキ</th><th>対戦</th><th>勝敗</th><th>勝率</th></tr></thead><tbody>${rows}</tbody></table></div><div><h3>最近の対戦</h3><ul class="mh-list">${recent}</ul></div></div><p class="note" style="margin:6px 0 0">直近${H.length}戦ぶん（最大50戦）</p>`;
+}
 function recordResult(){
   if (!G || !G.st || !G.st.winner || G.recorded || G.spectate) return;
   G.recorded = true;
@@ -184,6 +200,10 @@ function recordResult(){
   const res = G.st.winner === "draw" ? "d" : G.st.winner === G.slot ? "w" : "l";
   r[G.mode === "online" ? "online" : "cpu"][res]++;
   if (key){ r.seen.push(key); r.seen = r.seen.slice(-60); }
+  // 対戦履歴（新しい順に50件）: 使ったデッキは中身が同じデッキから名前を探す
+  { const me = P(G.st, G.slot), op = P(G.st, O(G.slot)), ids = (me.deckIds || []).slice().sort().join("|");
+    const dk = ids ? allDeckOptions().find(d => Array.isArray(d.cards) && d.cards.slice().sort().join("|") === ids) : null;
+    r.hist = [{ t: Date.now(), mode: G.mode === "online" ? "online" : "cpu", opp: String(op.name || "？").slice(0, 20), deck: dk ? String(dk.name).slice(0, 20) : "", deckId: dk ? dk.id : "", res, turns: G.st.turnNo || 0 }, ...(Array.isArray(r.hist) ? r.hist : [])].slice(0, 50); }
   ls.set("cb_record", r); saveProfile();
 }
 /* ---- sleeve editor (My page): background colour + movable photo + pen layer ---- */
@@ -322,6 +342,7 @@ function renderMe(){
   ];
   if (S.owned && S.db) tiles.push(["持ってるカード", S.owned.size, "スターター込み"]);
   if (typeof allTrades === "function" && S.db) tiles.push(["交換", allTrades().filter(t => t.status === "accepted").length, "成立した回数"]);
+  renderMatchHist(r);
   $("#mpStats").innerHTML = tiles.map(([k, v, s]) => `<div class="me-stat"><div class="k">${k}</div><div class="v">${esc(v)}</div><div class="s">${esc(s)}</div></div>`).join("");
   const decks = myDecks();
   $("#mpDecks").innerHTML = decks.map(dk => {
