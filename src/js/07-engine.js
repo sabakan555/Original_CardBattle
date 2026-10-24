@@ -1630,10 +1630,18 @@ function applyEffect(st, s, c, target, ctx = {}, fx = normFx(c)){
     case "dblNext": (me.dblNext = me.dblNext || []).push({ pf: fx.pf || "any", pfn: fx.pfn || "", n: Math.max(1, n || 1) }); log(st, s, `${src}：このターン、次に使う${usedPfText(fx)}はもう1回発動する`); break;
     case "freeNext": (me.freeNext = me.freeNext || []).push({ pf: fx.pf || "any", pfn: fx.pfn || "", n: Math.max(1, n || 1) }); log(st, s, `${src}：次に使う${usedPfText(fx)}のコストが0になる`); break;
     case "drawTo": { const k = Math.max(0, n - me.hand.length); if (k) drawN(st, s, k, src); else log(st, s, `${src}：手札はもう${me.hand.length}枚ある`); break; }
-    case "setCost": { const v = Math.max(0, Math.round(fx.n ?? n ?? 0)), until = fx.sd === "used" ? 0 : st.turnNo;
-      const ids = fx.sp === "pick" ? (me.hand[target] != null ? [me.hand[target]] : []) : [...new Set(me.hand.filter(id => usedMatch(card(id), fx.pf, fx.pfn)))];
-      ids.forEach(id => (me.costSet = me.costSet || []).push({ id, v, until, once: fx.sd === "used" }));
-      log(st, s, ids.length ? `${src}で${ids.map(id => `「${card(id).name}」`).join("")}のコストが${v}になった（${fx.sd === "used" ? "使うまで" : "このターン"}）` : `${src}：コストを変えるカードがない`); break; }
+    case "setCost": { const fixed = Math.max(0, Math.round(fx.n ?? n ?? 0)), until = fx.sd === "turn" || !COST_SD[fx.sd] ? st.turnNo : 0, once = fx.sd === "used", rnd = fx.sv === "rand", lo = costLo(fx), hi = costHi(fx);
+      const pool = fx.sp === "pick" ? (me.hand[target] != null ? [me.hand[target]] : []) : fx.sw === "deck" ? me.deck : fx.sw === "both" ? [...me.hand, ...me.deck] : me.hand;
+      // 同じカード（同じ名前）は同じコストになる。コストXのカードは変わらない
+      const ids = [...new Set(pool.filter(id => card(id) && !card(id).costX && (fx.sp === "pick" || fx.sp === "all" || usedMatch(card(id), fx.pf, fx.pfn))))];
+      const L = ids.map(id => ({ id, v: rnd ? lo + Math.floor(Math.random() * (hi - lo + 1)) : fixed }));
+      L.forEach(x => (me.costSet = me.costSet || []).push({ id: x.id, v: x.v, until, once }));
+      if (me.costSet && me.costSet.length > 400) me.costSet = me.costSet.slice(-400);
+      const when = COST_SD[fx.sd] || "このターン";
+      if (!L.length) log(st, s, `${src}：コストを変えるカードがない`);
+      else if (!rnd) log(st, s, `${src}で${L.length > 8 ? `${L.length}種類のカード` : L.map(x => `「${card(x.id).name}」`).join("")}のコストが${fixed}になった（${when}）`);
+      else { const hand = L.filter(x => me.hand.includes(x.id)), rest = L.length - hand.length; log(st, s, `${src}で${L.length}種類のカードのコストがランダムに${lo}〜${hi}になった（${when}）${hand.length ? "：" + hand.slice(0, 10).map(x => `「${card(x.id).name}」${x.v}`).join("・") : ""}${rest ? `${hand.length ? "、" : ""}山札の${rest}種類も` : ""}`); }
+      break; }
     case "seal": { const m = opT.mz[target]; if (!m) break; let k = 0;
       for (let r = 0; r < Math.max(1, n || 1); r++){ if (!me.deck.length) refill(st, s); const id = me.deck.shift(); if (id == null) break; (m.seals = m.seals || []).push({ c: id, o: s }); k++; }
       log(st, s, k ? `${src}で「${card(m.c).name}」に封印を${k}つつけた（ないものとして扱う）` : `${src}：山札がないので封印をつけられない`); break; }
