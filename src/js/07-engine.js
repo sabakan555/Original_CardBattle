@@ -2039,7 +2039,8 @@ function sbCut(st, s, c, base){ const n = +(c && c.sbCost) || 0, k = c ? ((P(st,
 function gzOk(st, s, c){ const g = c && c.gz; if (g && g.where === "none") return hasCost(c); if (!g || !String(g.name || "").trim() || !hasCost(c)) return false; return condMet(st, s, c, { k: "card", name: g.name, where: ["field", "grave", "hand"].includes(g.where) ? g.where : "field", match: ["tag", "part", "exact"].includes(g.match) ? g.match : "tag", cnt: Math.max(1, +g.cnt || 1), op: "ge" }, {}); }
 // シンパシー: 自分の場の「タグ／名前に○○が入る」モンスター1体につきコストが下がる（1より下にはならない。もとが0ならそのまま）
 // 手札では、シンパシーで下がったあとのコストを見せる
-const symView = (st, s, c) => { if (!P(st, s).mana || !c || !hasCost(c) || c.costX || c.costInf) return c; const b = costOf(c), e = effCost(st, s, c); return e < b ? { ...c, cost: e } : c; };
+// 手札・詳細に出すカード: 効果で上がった／下がったいまのコストを、コストの数字に出す（もとのコストは costWas）
+const symView = (st, s, c) => { if (!P(st, s).mana || !c || !hasCost(c) || c.costX || c.costInf) return c; const b = costOf(c), e = effCost(st, s, c); return isFinite(e) && e !== b ? { ...c, cost: e, costWas: b, costChg: e < b ? "dn" : "up" } : c; };
 function symCount(st, s, a, self){
   const w = String(a.name || "").trim(), t = symT(a), wh = symW(a);
   const ok = id => { const c = card(id); if (!c) return false; if (t !== "any" && cardType(c) !== t) return false; return !w || tagsOf(c).includes(w) || normQ(c.name || "").includes(normQ(w)); };

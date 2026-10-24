@@ -1780,3 +1780,9 @@ select,input,textarea{max-width:100%}
   .flt-more-in select{flex-basis:100%}
   .filters select{font-size:16px} /* iPhoneで選ぶときに画面が拡大されないように */
 }
+
+/* 効果でコストが変わったカード: 上がった＝赤、下がった＝緑（ATKの上下と同じ色） */
+.c-cost.up{background:#ffd9d1;color:#b3261e}
+.c-cost.dn{background:#d3f5df;color:#1d7a45}
+.card.spire .p-gem.up{color:#ffab99}
+.card.spire .p-gem.dn{color:#8fe6b4}
