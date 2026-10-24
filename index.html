@@ -6367,7 +6367,7 @@ function bkNormalize(){
     b.conds = b.conds || []; b.else = b.else || []; b.join = b.join === "or" ? "or" : "and";
     const unLegacy = e => {
       // まとめた効果（atk・remove）: 前の効果名はここで新しい形に直す（保存も新しい形になる）
-      if (FX_FORMS[FX_FROM[e.kind] || e.kind]) return formFix(fxNorm(b.trig === "while" && e.kind === "atkUp" && e.to !== "all" ? { ...e, kind: "selfAtk" } : e), b.trig);
+      if (FX_FORMS[FX_FROM[e.kind] || e.kind]) return formFix(setG(fxNorm(b.trig === "while" && e.kind === "atkUp" && e.to !== "all" ? { ...e, kind: "selfAtk" } : e), e._g), b.trig); // えらんだグループ（_g）はのこす
       const lg = TO_LEGACY[e.kind]; return lg && kinds.includes(lg[0]) ? { ...e, kind: lg[0], to: lg[1] } : e; };
     b.then = (b.then || []).map(unLegacy).filter(e => kinds.includes(e.kind)); b.else = b.else.map(unLegacy).filter(e => kinds.includes(e.kind));
     if (b.trig === "act" || b.trig === "while") delete b.lim;
@@ -6746,7 +6746,7 @@ function bkEvent(e, rerenderOnInput){
   if (f === "cpw"){ b.cost = v ? { id: (b.cost && b.cost.id) || ctrDefault(), n: (b.cost && b.cost.n) || 1, w: v } : null; return renderBlocksUI(); }
   if (f === "cpc" || f === "cpn"){ if (!b.cost) return; if (f === "cpc") b.cost.id = v; else b.cost.n = Math.max(1, Math.min(99, Math.round(+v || 1))); return updateBkText(); }
   if (f === "coins"){ b.coins = Math.max(1, Math.min(10, Math.round(+v || 1))); if (b.coins < 2) delete b.coins; return updateBkText(); }
-  if (f === "faces"){ b.faces = Math.max(2, Math.min(100, Math.round(+v || 6))); return b.dieBr ? renderBlocksUI() : updateBkText(); }
+  if (f === "faces"){ b.faces = Math.max(2, Math.min(100, Math.round(+v || 6))); return b.dieBr && e.type === "change" ? renderBlocksUI() : updateBkText(); }
   if (f === "split"){ b.dieBr = v ? dieBrDefault(b.faces || 6) : null; return renderBlocksUI(); }
   if (f === "brwin"){ const x = b.dieBr && b.dieBr[+el.dataset.k]; if (x){ if (el.checked) x.win = true; else delete x.win; } return updateBkText(); }
   if (f === "brlo" || f === "brhi"){ const x = b.dieBr && b.dieBr[+el.dataset.k]; if (!x) return; const n = Math.max(1, Math.min(b.faces || 6, Math.round(+v || 1))); if (f === "brlo"){ x.lo = n; if (x.hi < n) x.hi = n; } else { x.hi = n; if (x.lo > n) x.lo = n; } return e.type === "change" ? renderBlocksUI() : updateBkText(); }
@@ -6760,10 +6760,11 @@ function bkEvent(e, rerenderOnInput){
   }
   const list = bkList(b, part), x0 = list && list[j]; if (!x0) return;
   const sub = row.dataset.sub === "ge", x = sub ? (x0.ge = x0.ge || { kind: "draw", n: 1 }) : x0, put = o => { if (sub) x0.ge = o; else list[j] = o; };
-  if (f === "g"){ const pick = gs => gs.find(q => q.g === v) || (superGroups(gs).find(q => q.g === v) || { subs: [] }).subs[0]; const g = (MK.easy && pick(kindGroups(easyKinds()))) || pick(kindGroups(mkKinds())); if (g){ const k0 = g.v[0][0], pre = FX_FORMS[k0] && FX_FORMS[k0].preset && FX_FORMS[k0].preset[g.g]; put(setG({ kind: k0, n: defN(k0), ...(pre || {}) }, g.g)); } return renderBlocksUI(); }
+  if (f === "g"){ const pick = gs => gs.find(q => q.g === v) || (superGroups(gs).find(q => q.g === v) || { subs: [] }).subs[0]; const g = (MK.easy && pick(kindGroups(easyKinds()))) || pick(kindGroups(mkKinds())); if (g){ const home = k => { const F = FX_FORMS[k]; return F && F.group ? F.group({ ...((F.preset && F.preset[g.g]) || {}) }) : g.g; }, k0 = (g.v.find(([k]) => home(k) === g.g) || g.v[0])[0], pre = FX_FORMS[k0] && FX_FORMS[k0].preset && FX_FORMS[k0].preset[g.g]; put(setG({ kind: k0, n: defN(k0), ...(pre || {}) }, g.g)); } return renderBlocksUI(); }
   if (f === "kind" && String(v).includes("|")){ const [sg, k] = String(v).split("|"); setG(x, sg); v = k; }
   if (f === "kind"){ const pre = FX_FORMS[v] && FX_FORMS[v].preset && FX_FORMS[v].preset[x._g]; put(setG({ ...(pre || {}), kind: v, n: x.n != null && smallN(v) === smallN(x.kind) ? x.n : defN(v), to: x.to, ...(x.side ? { side: x.side } : {}), ...(x.tn ? { tn: x.tn } : {}), ...(x.times > 1 ? { times: x.times } : {}), ...(KINDS[v] && KINDS[v].name && x.into ? { into: x.into } : {}), ...(perOk(v) && x.per ? { per: x.per, pm: x.pm, hits: KINDS[v] && KINDS[v].n ? !!x.hits : true } : {}), ...(KINDS[v] && KINDS[v].mod && (x.ms || x.mt) ? { mt: x.mt, ms: x.ms, mpl: x.mpl, mc: x.mc, mn: x.mn, gk: x.gk, gn: x.gn, nm: x.nm, into: x.into, ge: x.ge } : {}) }, x._g)); return renderBlocksUI(); }
-  if (FORM_F[f]){ put(formFix(fxNorm(FORM_F[f](x, v)), b.trig)); return renderBlocksUI(); }
+  // 数の欄は打っているあいだは作り直さない（スマホで「2」が「12」→上限の10になっていた）。決まったら（change）作り直す
+  if (FORM_F[f]){ if (e.type === "input" && el.matches('input[type="number"], input[type="text"]')){ if (v === "") return; put(formFix(fxNorm(FORM_F[f](x, v)), b.trig)); return updateBkText(); } put(formFix(fxNorm(FORM_F[f](x, v)), b.trig)); return renderBlocksUI(); }
   if (f === "ctn"){ x.ctn = Math.max(1, Math.min(10, Math.round(+v || 1))); return updateBkText(); }
   if (f === "ctr" || f === "cw" || f === "pctr" || f === "pcw" || f === "pattr" || f === "rside" || f === "rm"){ x[f] = v; return renderBlocksUI(); }
   if (f === "mfA"){ x.mfA = v; return updateBkText(); }
