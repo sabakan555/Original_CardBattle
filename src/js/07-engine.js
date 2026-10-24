@@ -27,7 +27,7 @@ function modCardOf(id){
   const bs = m.clear || m.rep ? [] : blocksOf(base).map(b => ({ ...b }));
   if (m.rep && m.rep.length) bs.push({ trig, join: "and", conds: [], then: m.rep, else: [] });
   if (m.add && m.add.length) bs.push({ trig, join: "and", conds: [], then: m.add, else: [] });
-  const c = { ...base, id, name: m.name || base.name, nameRuby: m.name ? null : base.nameRuby, fx: null, combo: null, blocks: bs, effect: m.clear || m.rep || (m.add && m.add.length) ? "" : base.effect, modded: true, modOf: base.id };
+  const c = { ...base, id, name: m.name || base.name, nameRuby: m.name ? null : base.nameRuby, fx: null, combo: null, blocks: bs, effect: m.clear || m.rep || (m.add && m.add.length) ? "" : base.effect, modded: !!(m.clear || m.rep || (m.add && m.add.length) || m.name), modOf: base.id };
   cache.set(id, { k: key, c }); return c;
 }
 // カードを書きかえる（new id を返す。書きかえ済みのカードはもとのカードから作りなおす）
@@ -1631,16 +1631,24 @@ function applyEffect(st, s, c, target, ctx = {}, fx = normFx(c)){
     case "freeNext": (me.freeNext = me.freeNext || []).push({ pf: fx.pf || "any", pfn: fx.pfn || "", n: Math.max(1, n || 1) }); log(st, s, `${src}：次に使う${usedPfText(fx)}のコストが0になる`); break;
     case "drawTo": { const k = Math.max(0, n - me.hand.length); if (k) drawN(st, s, k, src); else log(st, s, `${src}：手札はもう${me.hand.length}枚ある`); break; }
     case "setCost": { const fixed = Math.max(0, Math.round(fx.n ?? n ?? 0)), until = fx.sd === "turn" || !COST_SD[fx.sd] ? st.turnNo : 0, once = fx.sd === "used", rnd = fx.sv === "rand", lo = costLo(fx), hi = costHi(fx);
-      const pool = fx.sp === "pick" ? (me.hand[target] != null ? [me.hand[target]] : []) : fx.sw === "deck" ? me.deck : fx.sw === "both" ? [...me.hand, ...me.deck] : me.hand;
-      // 同じカード（同じ名前）は同じコストになる。コストXのカードは変わらない
-      const ids = [...new Set(pool.filter(id => card(id) && !card(id).costX && (fx.sp === "pick" || fx.sp === "all" || usedMatch(card(id), fx.pf, fx.pfn))))];
-      const L = ids.map(id => ({ id, v: rnd ? lo + Math.floor(Math.random() * (hi - lo + 1)) : fixed }));
+      const ok = id => card(id) && !card(id).costX && (fx.sp === "pick" || fx.sp === "all" || usedMatch(card(id), fx.pf, fx.pfn));
+      let L;
+      if (rnd){
+        // ランダム: 1枚ずつちがうコストにする（その1枚を対戦中だけの別のカードにしてから、コストを決める）
+        const zones = fx.sp === "pick" ? [[me.hand, [target]]] : [fx.sw === "deck" ? null : [me.hand], fx.sw === "deck" || fx.sw === "both" ? [me.deck] : null].filter(Boolean);
+        L = [];
+        zones.forEach(([arr, only]) => (only || arr.map((_, i) => i)).forEach(i => { if (arr[i] == null || !ok(arr[i])) return; const nid = modId(st, arr[i], {}); arr[i] = nid; L.push({ id: nid, v: lo + Math.floor(Math.random() * (hi - lo + 1)), hand: arr === me.hand }); }));
+      } else {
+        // 決まった数: 同じカードはまとめて同じコスト
+        const pool = fx.sp === "pick" ? (me.hand[target] != null ? [me.hand[target]] : []) : fx.sw === "deck" ? me.deck : fx.sw === "both" ? [...me.hand, ...me.deck] : me.hand;
+        L = [...new Set(pool.filter(ok))].map(id => ({ id, v: fixed }));
+      }
       L.forEach(x => (me.costSet = me.costSet || []).push({ id: x.id, v: x.v, until, once }));
       if (me.costSet && me.costSet.length > 400) me.costSet = me.costSet.slice(-400);
       const when = COST_SD[fx.sd] || "このターン";
       if (!L.length) log(st, s, `${src}：コストを変えるカードがない`);
       else if (!rnd) log(st, s, `${src}で${L.length > 8 ? `${L.length}種類のカード` : L.map(x => `「${card(x.id).name}」`).join("")}のコストが${fixed}になった（${when}）`);
-      else { const hand = L.filter(x => me.hand.includes(x.id)), rest = L.length - hand.length; log(st, s, `${src}で${L.length}種類のカードのコストがランダムに${lo}〜${hi}になった（${when}）${hand.length ? "：" + hand.slice(0, 10).map(x => `「${card(x.id).name}」${x.v}`).join("・") : ""}${rest ? `${hand.length ? "、" : ""}山札の${rest}種類も` : ""}`); }
+      else { const hand = L.filter(x => x.hand), rest = L.length - hand.length; log(st, s, `${src}で${L.length}枚のカードのコストがランダムに${lo}〜${hi}になった（${when}）${hand.length ? "：手札は" + hand.slice(0, 10).map(x => `「${card(x.id).name}」${x.v}`).join("・") : ""}${rest ? `${hand.length ? "、" : "："}山札の${rest}枚も1枚ずつ` : ""}`); }
       break; }
     case "seal": { const m = opT.mz[target]; if (!m) break; let k = 0;
       for (let r = 0; r < Math.max(1, n || 1); r++){ if (!me.deck.length) refill(st, s); const id = me.deck.shift(); if (id == null) break; (m.seals = m.seals || []).push({ c: id, o: s }); k++; }

@@ -43,7 +43,7 @@ const costHi = e => Math.max(costLo(e), Math.min(99, Math.round(e.hi == null || 
 function costSetText(n, m){
   const sp = m.sp === "pick" ? "pick" : m.sp === "all" ? "all" : "filter", w = COST_SW[m.sw] || "手札", rnd = m.sv === "rand";
   const what = sp === "pick" ? "手札を1枚えらび、そのコスト" : sp === "all" ? `自分の${w}のカードすべてのコスト` : `自分の${w}の${usedPfText(m)}のコスト`;
-  return `${what}を${rnd ? `${sp === "pick" ? "" : "それぞれ"}ランダムに${costLo(m)}〜${costHi(m)}` : n}にする（${COST_SD[m.sd] || "このターン"}）`;
+  return `${what}を${rnd ? `${sp === "pick" ? "" : "1枚ずつ"}ランダムに${costLo(m)}〜${costHi(m)}` : n}にする（${COST_SD[m.sd] || "このターン"}）`;
 }
 const KINDS = {
   none:       { label: "なし" },
