@@ -1123,7 +1123,9 @@ function ctrBkPark(){ const u = document.getElementById("bkUI"), home = document
 function ctrBkSync(){
   const ed = S.ctrEdit, host = document.getElementById("ctrBkHost"), u = document.getElementById("bkUI");
   if (ed && host && u){
-    if (!MK.ctrBk){ MK._cardBk = { blocks: MK.blocks, type: MK.type, easy: MK.easy }; MK.ctrBk = true; S.ctrBkOn = true; MK.type = "monster"; MK.easy = false; MK.blocks = ed.blocks = ed.blocks || []; }
+    if (!MK.ctrBk){ MK._cardBk = { blocks: MK.blocks, type: MK.type, easy: MK.easy }; MK.ctrBk = true; S.ctrBkOn = true; MK.type = "monster"; MK.easy = false; }
+    // 編集中のカウンターの効果を出す（別のカウンターに切りかえたときも、そのカウンターの効果に入れかえる）
+    if (MK.blocks !== ed.blocks) MK.blocks = ed.blocks = ed.blocks || [];
     host.appendChild(u); renderBlocksUI(); return;
   }
   if (MK.ctrBk){ MK.ctrBk = false; S.ctrBkOn = false; const sv = MK._cardBk || {}; MK.blocks = sv.blocks || []; MK.type = sv.type || MK.type; MK.easy = sv.easy ?? MK.easy; MK._cardBk = null; ctrBkPark(); renderBlocksUI(); }
@@ -1865,7 +1867,7 @@ $("#gallery").addEventListener("click", async e => {
     if (cc){ f.ctr = cc.dataset.ctrcards; f.type = "all"; document.querySelectorAll("#galType button").forEach(x => x.setAttribute("aria-pressed", x.dataset.v === "all")); renderGallery(); return; }
     if (e.target.closest("[data-ctrclear]")){ f.ctr = ""; renderGallery(); return; }
     const ce = e.target.closest("[data-ctreditg]"), cn = e.target.closest("[data-ctrnewg]");
-    if ((ce || cn) && !S.editId){ setMkKind("counter"); const d = ce ? ctrDef(ce.dataset.ctreditg) : null; S.ctrEdit = d && ctrCanEdit(d) ? { id: d.id, name: d.name, color: d.color || "#7a4fd0", icon: d.icon || "" } : { id: null, name: "", color: "#7a4fd0", icon: "" }; renderCtrBox(); const t = $("#mkTitle"); if (t) t.scrollIntoView({ block: "start", behavior: "smooth" }); return; }
+    if ((ce || cn) && !S.editId){ setMkKind("counter"); const d = ce ? ctrDef(ce.dataset.ctreditg) : null; S.ctrEdit = ctrEditState(d && ctrCanEdit(d) ? d : null); renderCtrBox(); const t = $("#mkTitle"); if (t) t.scrollIntoView({ block: "start", behavior: "smooth" }); return; }
     if ((ce || cn) && S.editId){ toast("いま編集中のカードを保存するか、新しく描くを押してからね"); return; } }
   if (e.target.closest("[data-pedit],[data-pdel],[data-preset]")){ potGalClick(e); return; }
   const tb = e.target.closest("[data-trade]"); if (tb){ openTradeDlg(tb.dataset.trade); return; }

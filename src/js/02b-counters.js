@@ -337,7 +337,7 @@ function ctrIconFrom(file){
   box.addEventListener("click", async e => {
     const t = e.target.closest("button"); if (!t) return;
     if (t.matches("[data-ctrnew]")){ S.ctrEdit = { id: null, name: "", color: "#7a4fd0", icon: "" }; renderCtrBox(); const n = document.getElementById("ctrName"); if (n) n.focus(); return; }
-    if (t.matches("[data-ctred]")){ const d = ctrDef(t.dataset.ctred); if (!d || !ctrCanEdit(d)) return; S.ctrEdit = { id: d.id, name: d.name, color: d.color || "#7a4fd0", icon: d.icon || "", fx: ctrFxOf(d).map(f => ({ ...f })), blocks: JSON.parse(JSON.stringify(ctrBlocksOf(d))) }; renderCtrBox(); return; }
+    if (t.matches("[data-ctred]")){ const d = ctrDef(t.dataset.ctred); if (!d || !ctrCanEdit(d)) return; S.ctrEdit = ctrEditState(d); renderCtrBox(); return; }
     const ed = S.ctrEdit; if (!ed) return;
     if (t.matches("[data-cfadd]")){ (ed.fx = ed.fx || []).push({ at: "end", k: "dmg", n: 20, per: true }); renderCtrBox(); return; }
     if (t.matches("[data-cfdel]")){ (ed.fx || []).splice(+t.dataset.cfdel, 1); renderCtrBox(); return; }
@@ -393,6 +393,11 @@ function mkPayCtrVal(){ const nEl = document.getElementById("mkPayCtrN"); if (!n
 function setPayCtr(x){ const p = payCtrOf({ payCtr: x }), sel = document.getElementById("mkPayCtr"); if (!sel) return; sel.dataset.want = p ? p.id : ""; sel.innerHTML = ctrOptsHTML(p ? p.id : ctrDefault()); $("#mkPayCtrN").value = p ? String(p.n) : "0"; $("#mkPayCtrW").value = p ? p.w : "me"; }
 ["mkPayCtr", "mkPayCtrN", "mkPayCtrW"].forEach(id => { const el = document.getElementById(id); if (el) el.addEventListener("input", () => { if (id === "mkPayCtr") el.dataset.want = el.value; if (typeof updateBkText === "function") updateBkText(); }); });
 renderCtrBox();
+// カウンターを編集するときの中身（名前・色・アイコン・効果）。どこから開いても、かならずこれで読みこむ
+function ctrEditState(d){
+  if (!d) return { id: null, name: "", color: "#7a4fd0", icon: "", fx: [], blocks: [] };
+  return { id: d.id, name: d.name, color: d.color || "#7a4fd0", icon: d.icon || "", fx: ctrFxOf(d).map(f => ({ ...f })), blocks: JSON.parse(JSON.stringify(ctrBlocksOf(d))) };
+}
 /* ---- カード図鑑の「カウンター」 ---- */
 function ctrUseCount(){ const cnt = {}; S.cards.forEach(c => { if (!c || c.tut || c.skinOf) return; cardCtrIds(c).forEach(id => { cnt[id] = (cnt[id] || 0) + 1; }); }); return cnt; }
 function ctrGalList(){ const cnt = ctrUseCount(), ids = [...new Set([...ctrList().map(d => d.id), ...Object.keys(cnt)])]; return ids.map(id => ({ ...(ctrDef(id) || { id, name: "？" }), id, uses: cnt[id] || 0 })); }

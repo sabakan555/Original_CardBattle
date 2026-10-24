@@ -4895,7 +4895,7 @@ function ctrIconFrom(file){
   box.addEventListener("click", async e => {
     const t = e.target.closest("button"); if (!t) return;
     if (t.matches("[data-ctrnew]")){ S.ctrEdit = { id: null, name: "", color: "#7a4fd0", icon: "" }; renderCtrBox(); const n = document.getElementById("ctrName"); if (n) n.focus(); return; }
-    if (t.matches("[data-ctred]")){ const d = ctrDef(t.dataset.ctred); if (!d || !ctrCanEdit(d)) return; S.ctrEdit = { id: d.id, name: d.name, color: d.color || "#7a4fd0", icon: d.icon || "", fx: ctrFxOf(d).map(f => ({ ...f })), blocks: JSON.parse(JSON.stringify(ctrBlocksOf(d))) }; renderCtrBox(); return; }
+    if (t.matches("[data-ctred]")){ const d = ctrDef(t.dataset.ctred); if (!d || !ctrCanEdit(d)) return; S.ctrEdit = ctrEditState(d); renderCtrBox(); return; }
     const ed = S.ctrEdit; if (!ed) return;
     if (t.matches("[data-cfadd]")){ (ed.fx = ed.fx || []).push({ at: "end", k: "dmg", n: 20, per: true }); renderCtrBox(); return; }
     if (t.matches("[data-cfdel]")){ (ed.fx || []).splice(+t.dataset.cfdel, 1); renderCtrBox(); return; }
@@ -4951,6 +4951,11 @@ function mkPayCtrVal(){ const nEl = document.getElementById("mkPayCtrN"); if (!n
 function setPayCtr(x){ const p = payCtrOf({ payCtr: x }), sel = document.getElementById("mkPayCtr"); if (!sel) return; sel.dataset.want = p ? p.id : ""; sel.innerHTML = ctrOptsHTML(p ? p.id : ctrDefault()); $("#mkPayCtrN").value = p ? String(p.n) : "0"; $("#mkPayCtrW").value = p ? p.w : "me"; }
 ["mkPayCtr", "mkPayCtrN", "mkPayCtrW"].forEach(id => { const el = document.getElementById(id); if (el) el.addEventListener("input", () => { if (id === "mkPayCtr") el.dataset.want = el.value; if (typeof updateBkText === "function") updateBkText(); }); });
 renderCtrBox();
+// カウンターを編集するときの中身（名前・色・アイコン・効果）。どこから開いても、かならずこれで読みこむ
+function ctrEditState(d){
+  if (!d) return { id: null, name: "", color: "#7a4fd0", icon: "", fx: [], blocks: [] };
+  return { id: d.id, name: d.name, color: d.color || "#7a4fd0", icon: d.icon || "", fx: ctrFxOf(d).map(f => ({ ...f })), blocks: JSON.parse(JSON.stringify(ctrBlocksOf(d))) };
+}
 /* ---- カード図鑑の「カウンター」 ---- */
 function ctrUseCount(){ const cnt = {}; S.cards.forEach(c => { if (!c || c.tut || c.skinOf) return; cardCtrIds(c).forEach(id => { cnt[id] = (cnt[id] || 0) + 1; }); }); return cnt; }
 function ctrGalList(){ const cnt = ctrUseCount(), ids = [...new Set([...ctrList().map(d => d.id), ...Object.keys(cnt)])]; return ids.map(id => ({ ...(ctrDef(id) || { id, name: "？" }), id, uses: cnt[id] || 0 })); }
@@ -6464,7 +6469,9 @@ function ctrBkPark(){ const u = document.getElementById("bkUI"), home = document
 function ctrBkSync(){
   const ed = S.ctrEdit, host = document.getElementById("ctrBkHost"), u = document.getElementById("bkUI");
   if (ed && host && u){
-    if (!MK.ctrBk){ MK._cardBk = { blocks: MK.blocks, type: MK.type, easy: MK.easy }; MK.ctrBk = true; S.ctrBkOn = true; MK.type = "monster"; MK.easy = false; MK.blocks = ed.blocks = ed.blocks || []; }
+    if (!MK.ctrBk){ MK._cardBk = { blocks: MK.blocks, type: MK.type, easy: MK.easy }; MK.ctrBk = true; S.ctrBkOn = true; MK.type = "monster"; MK.easy = false; }
+    // 編集中のカウンターの効果を出す（別のカウンターに切りかえたときも、そのカウンターの効果に入れかえる）
+    if (MK.blocks !== ed.blocks) MK.blocks = ed.blocks = ed.blocks || [];
     host.appendChild(u); renderBlocksUI(); return;
   }
   if (MK.ctrBk){ MK.ctrBk = false; S.ctrBkOn = false; const sv = MK._cardBk || {}; MK.blocks = sv.blocks || []; MK.type = sv.type || MK.type; MK.easy = sv.easy ?? MK.easy; MK._cardBk = null; ctrBkPark(); renderBlocksUI(); }
@@ -7206,7 +7213,7 @@ $("#gallery").addEventListener("click", async e => {
     if (cc){ f.ctr = cc.dataset.ctrcards; f.type = "all"; document.querySelectorAll("#galType button").forEach(x => x.setAttribute("aria-pressed", x.dataset.v === "all")); renderGallery(); return; }
     if (e.target.closest("[data-ctrclear]")){ f.ctr = ""; renderGallery(); return; }
     const ce = e.target.closest("[data-ctreditg]"), cn = e.target.closest("[data-ctrnewg]");
-    if ((ce || cn) && !S.editId){ setMkKind("counter"); const d = ce ? ctrDef(ce.dataset.ctreditg) : null; S.ctrEdit = d && ctrCanEdit(d) ? { id: d.id, name: d.name, color: d.color || "#7a4fd0", icon: d.icon || "" } : { id: null, name: "", color: "#7a4fd0", icon: "" }; renderCtrBox(); const t = $("#mkTitle"); if (t) t.scrollIntoView({ block: "start", behavior: "smooth" }); return; }
+    if ((ce || cn) && !S.editId){ setMkKind("counter"); const d = ce ? ctrDef(ce.dataset.ctreditg) : null; S.ctrEdit = ctrEditState(d && ctrCanEdit(d) ? d : null); renderCtrBox(); const t = $("#mkTitle"); if (t) t.scrollIntoView({ block: "start", behavior: "smooth" }); return; }
     if ((ce || cn) && S.editId){ toast("いま編集中のカードを保存するか、新しく描くを押してからね"); return; } }
   if (e.target.closest("[data-pedit],[data-pdel],[data-preset]")){ potGalClick(e); return; }
   const tb = e.target.closest("[data-trade]"); if (tb){ openTradeDlg(tb.dataset.trade); return; }
