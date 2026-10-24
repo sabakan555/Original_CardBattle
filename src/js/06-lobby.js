@@ -351,7 +351,7 @@ $("#btnCpu").addEventListener("click", () => {
   leaveGame();
   const cid = $("#cpuDeckSel").value, cd = cid && cid !== "auto" ? cpuDeckOptions().find(d => d.id === cid) : null;
   const meSealed = (allDeckOptions().find(d => d.id === $("#deckSel").value) || {}).sealed;
-  const cpuMana = cd ? deckManaVal(cd) : chosenMana(), cpuIds = !cd && meSealed ? sealedCpuIds() : (cd || (cpuMana ? sampleManaDeck() : starterDeck())).cards.filter(id => S.cards.has(id));
+  const cpuMana = cd ? deckManaVal(cd) : chosenMana(), cpuIds = !cd && meSealed ? sealedCpuIds(!!cpuMana) : (cd || (cpuMana ? sampleManaDeck() : starterDeck())).cards.filter(id => S.cards.has(id));
   if ((!(cd && cd.spire) && cpuIds.length < MIN_DECK) || (!(cd && cd.spire) && !cpuIds.some(id => cardType(S.cards.get(id)) === "monster"))){ toast("CPUのデッキのカードが足りません。別のデッキをえらんでね"); return; }
   G = { mode: "cpu", slot: "a", st: applyManaRule(startState(newPlayer(ids, null, chosenMana(), chosenSpire(), chosenOpt()), newPlayer(cpuIds, cd ? `CPU（${cd.name}）` : meSealed ? "CPU（開封デッキ）" : "CPU", cpuMana, deckSpireVal(cd), deckOptVal(cd))), chosenManaRule()), sel: null, atkFrom: null, chooseQ: [], evSeen: 0 };
   autoRelic(G.st, "b"); autoMull(G.st, "b");
