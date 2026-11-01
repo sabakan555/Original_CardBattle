@@ -1289,9 +1289,12 @@ function applyRemove(st, s, c, target, ctx, f, n, src){
   for (const x of L){
     if (x.k === "mz"){
       const X = P(st, x.o), m = X.mz[x.i]; if (!m || m.u !== x.u) continue; const nm = card(m.c).name;
-      if (f.how === "destroy") destroyMonster(st, x.o, x.i, src);
-      else if (f.how === "grave"){ if (!exLifeSave(st, x.o, x.i) && sendToGrave(st, x.o, x.i) !== false && f.to !== "all" && f.to !== "others") log(st, s, `${src}で「${nm}」を${verb}`); }
-      else { const out = moveMonOut(st, x.o, x.i, f.how === "exile" ? "exile" : f.how === "deck" ? "deck" : f.how === "shield" ? "shield" : "hand", { pos: f.pos }); if (out && f.to !== "all" && f.to !== "others") log(st, s, `${src}で「${nm}」を${verb}`); }
+      // 除去したときのATKをおぼえておく（「除去したモンスターのATKぶんのダメージ」＝破壊輪 用）
+      const a0 = ctx && ctx.hit ? Math.max(0, +atkOf(m) || 0) : 0; let gone = false;
+      if (f.how === "destroy") gone = destroyMonster(st, x.o, x.i, src) !== false;
+      else if (f.how === "grave"){ if (!exLifeSave(st, x.o, x.i) && sendToGrave(st, x.o, x.i) !== false){ gone = true; if (f.to !== "all" && f.to !== "others") log(st, s, `${src}で「${nm}」を${verb}`); } }
+      else { const out = moveMonOut(st, x.o, x.i, f.how === "exile" ? "exile" : f.how === "deck" ? "deck" : f.how === "shield" ? "shield" : "hand", { pos: f.pos }); gone = !!out; if (out && f.to !== "all" && f.to !== "others") log(st, s, `${src}で「${nm}」を${verb}`); }
+      if (gone && ctx && ctx.hit){ ctx.hit.rmAtk = (ctx.hit.rmAtk || 0) + a0; ctx.hit.rmAny = true; }
       continue;
     }
     if (x.k === "field"){ const fl = st.field; if (!fl || cannotLeave(fl.c)) continue; st.field = null; removeCardTo(st, fl.o, fl.c, f.how, f.pos, fl.mats); if (f.to !== "others") log(st, s, `${src}でフィールド魔法「${card(fl.c).name}」を${verb}`); else log(st, s, `フィールド「${card(fl.c).name}」も${verb}`); continue; }
@@ -1773,6 +1776,14 @@ function applyEffect(st, s, c, target, ctx = {}, fx = normFx(c)){
     case "negate": if (ctx.attack){ st.pending.negated = true; log(st, s, `${src}で攻撃を無効にした`); } else log(st, s, `${src}：無効にする攻撃がない`); break;
     case "atkDownAtk": { const am = ctx.attack && P(st, ctx.attack.by).mz[ctx.attack.from]; if (am && fxImmune(st, s, am)) log(st, s, `「${card(am.c).name}」は相手の効果を受けない！`); else if (am){ am.mod = (am.mod || 0) - n; log(st, s, `${src}で攻撃してきた「${card(am.c).name}」のATK−${n}`); } else log(st, s, `${src}：攻撃してきたモンスターがいない`); break; }
     case "dmgAtkAtk": { const am = ctx.attack && P(st, ctx.attack.by).mz[ctx.attack.from], d = am ? Math.max(0, +atkOf(am) || 0) : 0; if (am && d > 0 && isFinite(d)){ log(st, s, `${src}：攻撃してきた「${card(am.c).name}」のATK ${fmtN(d)}ぶんのダメージを${P(st, ctx.attack.by).name}に与えた`); dealDmg(st, ctx.attack.by, d); } else log(st, s, `${src}：攻撃してきたモンスターがいない`); break; }
+    case "dmgRmAtk": case "dmgRmAtkMe": case "dmgRmAtkBoth": {
+      const h = ctx.hit || {}, d = h.rmAtk || 0, who = fx.kind === "dmgRmAtkMe" ? [s] : fx.kind === "dmgRmAtkBoth" ? [O(s), s] : [O(s)];
+      if (!h.rmAny){ log(st, s, `${src}：除去したモンスターがいないので、ダメージはない`); break; }
+      if (!(d > 0)){ log(st, s, `${src}：除去したモンスターのATKが0なので、ダメージはない`); break; }
+      log(st, s, `${src}：除去したモンスターのATK ${d === Infinity ? "∞" : fmtN(d)}ぶんのダメージを${who.map(o => P(st, o).name).join("と")}に与えた`);
+      who.forEach(o => dealDmg(st, o, d));
+      break;
+    }
     case "noLoseTurn": me.noLoseT = st.turnNo; me.noLoseSrc = c.name; log(st, s, `${src}：このターン、${me.name}はゲームに負けない！`); break;
     case "noLoseWhile": log(st, s, `${src}：このカードが場にいる限り、${me.name}はゲームに負けない`); break;
     case "win": {

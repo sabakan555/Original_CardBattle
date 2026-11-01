@@ -217,6 +217,10 @@ const KINDS = {
   negate:     { label: "攻撃を無効にする（罠）", trap: true, text: () => `相手の攻撃を無効にする` },
   atkDownAtk: { label: "攻撃してきたモンスターのATKダウン", n: true, trap: true, text: n => `攻撃してきたモンスターのATK−${n}` },
   dmgAtkAtk:  { label: "攻撃してきたモンスターのATKぶんのダメージを相手に与える（罠）", trap: true, text: () => `攻撃してきたモンスターのATKぶんのダメージを相手に与える` },
+  // 破壊輪など: この効果で場から除去したモンスターのATK（除去したときのATK。何体かいれば合計）ぶんのダメージ
+  dmgRmAtk:     { label: "除去したモンスターのATKぶんのダメージを相手に与える", text: () => `除去したモンスターのATKぶんのダメージを相手に与える` },
+  dmgRmAtkMe:   { label: "除去したモンスターのATKぶんのダメージを自分が受ける", text: () => `除去したモンスターのATKぶんのダメージを自分が受ける` },
+  dmgRmAtkBoth: { label: "除去したモンスターのATKぶんのダメージをお互いが受ける", text: () => `除去したモンスターのATKぶんのダメージをお互いが受ける` },
   killAtk:    { label: "攻撃モンスターを破壊（罠）", trap: true, text: () => `攻撃してきたモンスターを破壊` },
   manaNow:    { label: "マナを回復（このターン）", n: true, text: n => `マナを${n}回復する` },
   manaMax:    { label: "最大マナを増やす", n: true, text: n => `最大マナを${n}増やす` },
@@ -1385,7 +1389,9 @@ const MF_BY = {
   maxMana:  { label: "自分の最大マナ", val: (st, s) => { const m = P(st, s).mana; return m ? m.max : 0; } },
   oppHand:  { label: "相手の手札の枚数", val: (st, s) => P(st, O(s)).hand.length },
   oppGrave: { label: "相手の墓地の枚数", val: (st, s) => P(st, O(s)).grave.length },
-  oppMon:   { label: "相手のモンスターの数", val: (st, s) => P(st, O(s)).mz.filter(Boolean).length }
+  oppMon:   { label: "相手のモンスターの数", val: (st, s) => P(st, O(s)).mz.filter(Boolean).length },
+  myLp:     { label: "自分のLP", val: (st, s) => Math.max(0, P(st, s).lp) },
+  oppLp:    { label: "相手のLP", val: (st, s) => Math.max(0, P(st, O(s)).lp) }
 };
 const mfAble = m => !!(m && !(FX_FORMS[m.kind] && FX_FORMS[m.kind].noMf && FX_FORMS[m.kind].noMf(m)) && (MF_KINDS.includes(m.kind) || (!!FX_FORMS[m.kind] && m.to === "all") || m.kind === "revive" || m.kind === "reborn" || (TO_ALL[m.kind] && (m.to === "all" || m.to === "mons")) || (m.kind === "giveAttr" && m.aw !== "self")
   || ((!m.to || m.to === "one" || m.to === "two" || m.to === "random") && !hitsPlayer(m.kind) && (TARGETABLE[m.kind] || ["opp", "mine"].includes((KINDS[m.kind] || {}).target)))));

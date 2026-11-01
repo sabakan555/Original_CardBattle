@@ -574,7 +574,7 @@ function readCombo(){
    The original <select> stays as the value everything else reads; these two just drive it. ---- */
 const KIND_GROUPS = [
   { g: "none",    label: "なし", v: [["none", "なし"]] },
-  { g: "dmg",     label: "ダメージを与える", v: [["dmg", "ふつうのダメージ"], ["pctDmg", "割合ダメージ（相手のLPの○%）"]] },
+  { g: "dmg",     label: "ダメージを与える", v: [["dmg", "ふつうのダメージ"], ["pctDmg", "割合ダメージ（相手のLPの○%）"], ["dmgRmAtk", "除去したモンスターのATKぶんを相手に"], ["dmgRmAtkMe", "除去したモンスターのATKぶんを自分が受ける"], ["dmgRmAtkBoth", "除去したモンスターのATKぶんをお互いが受ける（破壊輪）"]] },
   { g: "destroy", label: "破壊・除去する（モンスター・魔法・罠・フィールド）", v: [["destroy", "相手のモンスターを破壊"], ["removeBoard", "場のカードを1枚えらんで除去（モンスター・魔法・罠・フィールド）"], ["killAtk", "攻撃してきたモンスターを破壊（罠・速攻魔法）"], ["destroySt", "相手の魔法・罠をえらんで破壊"], ["destroyStRand", "相手の魔法・罠をランダムに破壊"], ["destroyStAll", "相手の魔法・罠をすべて破壊"], ["destroyField", "フィールド魔法を破壊"], ["blast", "自爆して、装備の枚数×○以下のATKを全部破壊"]] },
   { g: "debuff",  label: "相手を弱らせる（デバフ）", v: [["vuln", "弱体（受けるダメージ1.5倍）"], ["weak", "脱力（与えるダメージが減る）"], ["atkDown", "ATKを下げる"], ["atkDownTmp", "ATKを下げる（このターンだけ）"], ["atkDownAtk", "攻撃してきたモンスターのATKを下げる（罠・速攻魔法）"], ["charm", "魅了（攻撃できなくする）"], ["oppStrDown", "筋力を失わせる（相手の次のターンの終わりまで）"], ["oppNoAtk", "攻撃できなくする（相手の次のターンまで）"], ["oppNoUse", "魔法・罠を発動できなくする（相手の次のターンまで）"]] },
   { g: "hand",    label: "手札を捨てる・捨てさせる（ハンデス）", v: [["discard", "ランダムに捨てさせる"], ["discardPeek", "手札を見て、えらんで捨てさせる（ピーピングハンデス）"]] },
