@@ -2037,7 +2037,7 @@ function revDue(st, s){ return (P(st, s).revDebt || []).reduce((t, d) => t + (+d
 // コストを○にする（手札のカード）／次に使う○のコスト0
 const costSetOf = (st, s, c) => { if (!c) return null; const L = (P(st, s).costSet || []).filter(e => e.id === c.id && (!e.until || st.turnNo <= e.until)); return L.length ? L[L.length - 1] : null; };
 const freeNextIdx = (st, s, c) => c ? (P(st, s).freeNext || []).findIndex(e => e.n > 0 && usedMatch(c, e.pf, e.pfn)) : -1;
-function baseCost(st, s, c){ const cs = c && !c.costX ? costSetOf(st, s, c) : null; if (cs) return cs.v; return c && c.costX ? 0 : freeNextIdx(st, s, c) >= 0 ? 0 : freeKey(st, s, c) || freeId(st, s, c) || corrupted(st, s, c) || gzOk(st, s, c) || revOk(st, s, c) ? 0 : sbCut(st, s, c, symCost(st, s, c, costOf(c))); }
+function baseCost(st, s, c){ const cs = c && !c.costX ? costSetOf(st, s, c) : null; if (cs) return cs.v; return c && c.costX ? 0 : freeNextIdx(st, s, c) >= 0 ? 0 : freeKey(st, s, c) || freeId(st, s, c) || corrupted(st, s, c) || gzOk(st, s, c) || mggOk(st, s, c) || revOk(st, s, c) ? 0 : sbCut(st, s, c, symCost(st, s, c, costOf(c))); }
 function effCost(st, s, c){ const b = baseCost(st, s, c), d = c && c.delve && isFinite(b) ? Math.max(0, b - P(st, s).grave.length) : b; return isFinite(d) && P(st, s).mana ? d + taxOn(st, s, c) : d; }
 // コスト増加: 相手の場（モンスター・表向きの魔法罠）にあるカードの「相手の○のコスト+n」
 function taxOn(st, s, c){
@@ -2047,6 +2047,8 @@ function taxOn(st, s, c){
   return n;
 }
 function sbCut(st, s, c, base){ const n = +(c && c.sbCost) || 0, k = c ? ((P(st, s).sb || {})[c.id] || 0) : 0; return !n || !k || !isFinite(base) ? base : Math.max(0, base - n * k); }
+// マスターG・G・G: このカードが手札にあって、手札がこのカードをふくめて mgg 枚以下ならコスト0
+function mggOk(st, s, c){ const n = c ? Math.round(+c.mgg || 0) : 0; if (n < 1 || !hasCost(c)) return false; const h = P(st, s).hand; return h.includes(c.id) && h.length <= n; }
 function gzOk(st, s, c){ const g = c && c.gz; if (g && g.where === "none") return hasCost(c); if (!g || !String(g.name || "").trim() || !hasCost(c)) return false; return condMet(st, s, c, { k: "card", name: g.name, where: ["field", "grave", "hand"].includes(g.where) ? g.where : "field", match: ["tag", "part", "exact"].includes(g.match) ? g.match : "tag", cnt: Math.max(1, +g.cnt || 1), op: "ge" }, {}); }
 // シンパシー: 自分の場の「タグ／名前に○○が入る」モンスター1体につきコストが下がる（1より下にはならない。もとが0ならそのまま）
 // 手札では、シンパシーで下がったあとのコストを見せる

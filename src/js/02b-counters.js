@@ -419,6 +419,7 @@ function mkCostMech(save){
     cryst: g("mkCryst") && g("mkCryst").checked ? { n: nv("mkCrystN", 0, 20, 1), k: nv("mkCrystK", 1, 9, 2) } : null,
     countdown: g("mkCd") && g("mkCd").checked ? nv("mkCdK", 1, 9, 3) : null,
     psychic: g("mkPsy") && g("mkPsy").checked || null,
+    mgg: g("mkMgg") && g("mkMgg").checked ? nv("mkMggN", 1, 10, 1) : null,
     tax: g("mkTax") && g("mkTax").checked ? { n: nv("mkTaxN", 1, 9, 1), what: ["any", "magic", "monster", "trap"].includes(g("mkTaxWhat").value) ? g("mkTaxWhat").value : "any" } : null };
   const t = typeof MK !== "undefined" ? MK.type : "";
   if (t !== "monster"){ more.invade = null; more.graveSum = null; more.cryst = null; more.psychic = null; }
@@ -434,7 +435,7 @@ function syncCostUI(){
   if (r1) r1.hidden = t !== "magic"; if (r2) r2.hidden = t !== "monster"; if (r3) r3.hidden = t !== "monster"; if (r4) r4.hidden = t !== "monster"; if (g) g.hidden = !!(r1 && r1.hidden && r2 && r2.hidden);
   { const vis = (id, on) => { const el = document.getElementById(id); if (el) el.hidden = !on; }; vis("invadeLine", t === "monster"); vis("gsumLine", t === "monster"); vis("crystLine", t === "monster"); vis("psyLine", t === "monster"); vis("achLine", t === "magic"); vis("cdLine", t === "magic" || t === "trap"); vis("cycleLine", t !== "equip" || true); }
 }
-["mkGz", "mkRevG", "mkRevo", "mkDmEvo", "mkMug", "mkCycle", "mkInvade", "mkAch", "mkGSum", "mkCryst", "mkCd", "mkPsy", "mkTax"].forEach(id => { const el = document.getElementById(id); if (el) el.addEventListener("change", syncCostUI); });
+["mkGz", "mkMgg", "mkRevG", "mkRevo", "mkDmEvo", "mkMug", "mkCycle", "mkInvade", "mkAch", "mkGSum", "mkCryst", "mkCd", "mkPsy", "mkTax"].forEach(id => { const el = document.getElementById(id); if (el) el.addEventListener("change", syncCostUI); });
 function syncGz(){ const g = id => document.getElementById(id); if (!g("mkGzWhere")) return; const none = g("mkGzWhere").value === "none"; document.querySelectorAll(".gz-c").forEach(el => { el.hidden = none; }); const m = g("mkGzMatch").value; g("mkGzName").setAttribute("list", m === "tag" ? "tagNames" : "cardNames"); g("mkGzName").placeholder = m === "tag" ? "例: 竜" : m === "exact" ? "カード名" : "名前に入る文字"; }
 ["mkGzWhere", "mkGzMatch"].forEach(id => { const el = document.getElementById(id); if (el) el.addEventListener("change", syncGz); });
 function setCostMech(c){
@@ -443,6 +444,7 @@ function setCostMech(c){
   const gz = c && c.gz; g("mkGz").checked = !!(gz && (gz.name || gz.where === "none")); g("mkGzWhere").value = gz && ["field", "grave", "hand", "none"].includes(gz.where) ? gz.where : "field"; g("mkGzMatch").value = gz && ["tag", "part", "exact"].includes(gz.match) ? gz.match : "tag"; g("mkGzName").value = gz ? gz.name || "" : ""; g("mkGzCnt").value = String(gz ? Math.max(1, +gz.cnt || 1) : 1); syncGz(); setTimeout(syncCostUI);
   g("mkDelve").checked = !!(c && c.delve); if (g("mkRevG")){ g("mkRevG").checked = !!(c && c.revG != null); g("mkRevGN").value = String(c && c.revG != null ? Math.max(0, +c.revG || 0) : 3); }
   { const on = (id, v) => { if (g(id)) g(id).checked = !!v; }, val = (id, v) => { if (g(id)) g(id).value = String(v); };
+    on("mkMgg", c && c.mgg); val("mkMggN", c && c.mgg ? +c.mgg : 1);
     on("mkCycle", c && c.cycle); val("mkCycleN", c && c.cycle ? +c.cycle.n || 0 : 1);
     on("mkInvade", c && c.invade && c.invade.name); val("mkInvadeMatch", c && c.invade && c.invade.match || "tag"); val("mkInvadeName", c && c.invade ? c.invade.name || "" : ""); { const fr = c && c.invade && Array.isArray(c.invade.from) ? c.invade.from : ["hand"]; on("mkInvH", fr.includes("hand")); on("mkInvG", fr.includes("grave")); on("mkInvM", fr.includes("mana")); on("mkInvF", fr.includes("field")); }
     on("mkAch", c && c.atkChance && c.atkChance.name); val("mkAchMatch", c && c.atkChance && c.atkChance.match || "tag"); val("mkAchName", c && c.atkChance ? c.atkChance.name || "" : "");

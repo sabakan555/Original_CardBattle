@@ -2024,6 +2024,7 @@ select,input,textarea{max-width:100%}
                 <div class="cost-line" id="strigRow"><span class="cost-k">S・トリガー</span><div class="cost-in"><label class="row cost-on"><input type="checkbox" id="mkStrig">直接攻撃されるとき、山札の一番上にあればダメージ前にタダで使う</label><span class="note">モンスターは召喚、魔法・罠は発動</span></div></div>
                 <div class="cost-line"><span class="cost-k">スペルブースト</span><div class="cost-in"><span>魔法を使うたびにコスト−</span><input type="number" id="mkSbCost" min="0" max="20" step="1" value="0" style="width:56px" aria-label="下がる数"><span class="note">手札にある間・0ならなし</span></div></div>
                 <div class="cost-line"><span class="cost-k">G・ゼロ</span><div class="cost-in"><label class="row cost-on"><input type="checkbox" id="mkGz">あれば0コスト</label><span class="cost-sub" data-sub="mkGz"><select id="mkGzWhere" aria-label="どこに"><option value="field">自分の場に</option><option value="grave">自分の墓地に</option><option value="hand">自分の手札に</option><option value="none">条件なし（いつでも）</option></select><select id="mkGzMatch" class="gz-c" aria-label="合わせ方"><option value="tag">タグ</option><option value="exact">カード名</option><option value="part">名前に入る文字</option></select><input type="text" id="mkGzName" class="gz-c" list="tagNames" maxlength="40" placeholder="例: 竜" style="width:96px" aria-label="タグか名前"><input type="number" id="mkGzCnt" class="gz-c" min="1" max="20" value="1" style="width:52px" aria-label="枚数"><span class="gz-c">枚以上</span></span></div></div>
+                <div class="cost-line"><span class="cost-k">マスターG・G・G</span><div class="cost-in"><label class="row cost-on"><input type="checkbox" id="mkMgg">手札が少なければ0コスト</label><span class="cost-sub" data-sub="mkMgg"><span>手札がこのカードをふくめて</span><input type="number" id="mkMggN" min="1" max="10" value="1" style="width:52px" aria-label="手札の枚数"><span>枚以下</span><span class="note">1なら「このカードだけ」</span></span></div></div>
                 <div class="cost-line"><span class="cost-k">探査</span><div class="cost-in"><label class="row cost-on"><input type="checkbox" id="mkDelve">墓地を除外してコストを下げる</label><span class="note">払いきれないぶん、1枚につき−1</span></div></div>
               </div>
               <div class="cost-grp" id="costSpGrp"><div class="cost-gh">特別な出し方</div>
@@ -3615,6 +3616,7 @@ function costMechText(c){
   if (c.gz && c.gz.where === "none") L.push("【G・ゼロ】いつでもコストを払わずに使える");
   else if (c.gz && String(c.gz.name || "").trim()){ const g = c.gz, n = Math.max(1, +g.cnt || 1); L.push(`【G・ゼロ】自分の${WHERE[g.where] || WHERE.field}に${g.match === "part" ? `名前に「${g.name}」が入ったカード` : g.match === "exact" ? `「${g.name}」` : `タグ「${g.name}」のカード`}が${n > 1 ? n + "枚以上" : ""}あれば、コストを払わずに使える`); }
   if (c.revG != null && cardType(c) === "magic") L.push(`【逆転劇 ${+c.revG || 0}】相手のモンスターが自分に直接攻撃するとき、その攻撃中に1回、手札からこのカードをコストを払わずに使ってよい。そうしたら、次の自分のターンのはじめにマナを${+c.revG || 0}払う。払えなければ、自分はゲームに負ける`);
+  if (+c.mgg > 0) L.push(+c.mgg === 1 ? "【マスターG・G・G】自分の手札がこのカードだけなら、コストを払わずに使える" : `【マスターG・G・G】自分の手札がこのカードをふくめて${+c.mgg}枚以下なら、コストを払わずに使える`);
   if (c.delve) L.push("【探査】マナで払いきれないぶん、自分の墓地のカードを1枚除外するごとにコスト−1");
   const hit = r => r && r.match === "exact" ? `「${r.name}」` : r && r.match === "part" ? `名前に「${r.name}」が入った` : `タグ「${r && r.name}」の`;
   if (c.cycle) L.push(`【サイクリング ${+c.cycle.n || 0}】手札からこのカードを捨てて、カードを1枚引く${+c.cycle.n > 0 ? `（マナ${+c.cycle.n}）` : ""}`);
@@ -4996,6 +4998,7 @@ function mkCostMech(save){
     cryst: g("mkCryst") && g("mkCryst").checked ? { n: nv("mkCrystN", 0, 20, 1), k: nv("mkCrystK", 1, 9, 2) } : null,
     countdown: g("mkCd") && g("mkCd").checked ? nv("mkCdK", 1, 9, 3) : null,
     psychic: g("mkPsy") && g("mkPsy").checked || null,
+    mgg: g("mkMgg") && g("mkMgg").checked ? nv("mkMggN", 1, 10, 1) : null,
     tax: g("mkTax") && g("mkTax").checked ? { n: nv("mkTaxN", 1, 9, 1), what: ["any", "magic", "monster", "trap"].includes(g("mkTaxWhat").value) ? g("mkTaxWhat").value : "any" } : null };
   const t = typeof MK !== "undefined" ? MK.type : "";
   if (t !== "monster"){ more.invade = null; more.graveSum = null; more.cryst = null; more.psychic = null; }
@@ -5011,7 +5014,7 @@ function syncCostUI(){
   if (r1) r1.hidden = t !== "magic"; if (r2) r2.hidden = t !== "monster"; if (r3) r3.hidden = t !== "monster"; if (r4) r4.hidden = t !== "monster"; if (g) g.hidden = !!(r1 && r1.hidden && r2 && r2.hidden);
   { const vis = (id, on) => { const el = document.getElementById(id); if (el) el.hidden = !on; }; vis("invadeLine", t === "monster"); vis("gsumLine", t === "monster"); vis("crystLine", t === "monster"); vis("psyLine", t === "monster"); vis("achLine", t === "magic"); vis("cdLine", t === "magic" || t === "trap"); vis("cycleLine", t !== "equip" || true); }
 }
-["mkGz", "mkRevG", "mkRevo", "mkDmEvo", "mkMug", "mkCycle", "mkInvade", "mkAch", "mkGSum", "mkCryst", "mkCd", "mkPsy", "mkTax"].forEach(id => { const el = document.getElementById(id); if (el) el.addEventListener("change", syncCostUI); });
+["mkGz", "mkMgg", "mkRevG", "mkRevo", "mkDmEvo", "mkMug", "mkCycle", "mkInvade", "mkAch", "mkGSum", "mkCryst", "mkCd", "mkPsy", "mkTax"].forEach(id => { const el = document.getElementById(id); if (el) el.addEventListener("change", syncCostUI); });
 function syncGz(){ const g = id => document.getElementById(id); if (!g("mkGzWhere")) return; const none = g("mkGzWhere").value === "none"; document.querySelectorAll(".gz-c").forEach(el => { el.hidden = none; }); const m = g("mkGzMatch").value; g("mkGzName").setAttribute("list", m === "tag" ? "tagNames" : "cardNames"); g("mkGzName").placeholder = m === "tag" ? "例: 竜" : m === "exact" ? "カード名" : "名前に入る文字"; }
 ["mkGzWhere", "mkGzMatch"].forEach(id => { const el = document.getElementById(id); if (el) el.addEventListener("change", syncGz); });
 function setCostMech(c){
@@ -5020,6 +5023,7 @@ function setCostMech(c){
   const gz = c && c.gz; g("mkGz").checked = !!(gz && (gz.name || gz.where === "none")); g("mkGzWhere").value = gz && ["field", "grave", "hand", "none"].includes(gz.where) ? gz.where : "field"; g("mkGzMatch").value = gz && ["tag", "part", "exact"].includes(gz.match) ? gz.match : "tag"; g("mkGzName").value = gz ? gz.name || "" : ""; g("mkGzCnt").value = String(gz ? Math.max(1, +gz.cnt || 1) : 1); syncGz(); setTimeout(syncCostUI);
   g("mkDelve").checked = !!(c && c.delve); if (g("mkRevG")){ g("mkRevG").checked = !!(c && c.revG != null); g("mkRevGN").value = String(c && c.revG != null ? Math.max(0, +c.revG || 0) : 3); }
   { const on = (id, v) => { if (g(id)) g(id).checked = !!v; }, val = (id, v) => { if (g(id)) g(id).value = String(v); };
+    on("mkMgg", c && c.mgg); val("mkMggN", c && c.mgg ? +c.mgg : 1);
     on("mkCycle", c && c.cycle); val("mkCycleN", c && c.cycle ? +c.cycle.n || 0 : 1);
     on("mkInvade", c && c.invade && c.invade.name); val("mkInvadeMatch", c && c.invade && c.invade.match || "tag"); val("mkInvadeName", c && c.invade ? c.invade.name || "" : ""); { const fr = c && c.invade && Array.isArray(c.invade.from) ? c.invade.from : ["hand"]; on("mkInvH", fr.includes("hand")); on("mkInvG", fr.includes("grave")); on("mkInvM", fr.includes("mana")); on("mkInvF", fr.includes("field")); }
     on("mkAch", c && c.atkChance && c.atkChance.name); val("mkAchMatch", c && c.atkChance && c.atkChance.match || "tag"); val("mkAchName", c && c.atkChance ? c.atkChance.name || "" : "");
@@ -10564,7 +10568,7 @@ function revDue(st, s){ return (P(st, s).revDebt || []).reduce((t, d) => t + (+d
 // コストを○にする（手札のカード）／次に使う○のコスト0
 const costSetOf = (st, s, c) => { if (!c) return null; const L = (P(st, s).costSet || []).filter(e => e.id === c.id && (!e.until || st.turnNo <= e.until)); return L.length ? L[L.length - 1] : null; };
 const freeNextIdx = (st, s, c) => c ? (P(st, s).freeNext || []).findIndex(e => e.n > 0 && usedMatch(c, e.pf, e.pfn)) : -1;
-function baseCost(st, s, c){ const cs = c && !c.costX ? costSetOf(st, s, c) : null; if (cs) return cs.v; return c && c.costX ? 0 : freeNextIdx(st, s, c) >= 0 ? 0 : freeKey(st, s, c) || freeId(st, s, c) || corrupted(st, s, c) || gzOk(st, s, c) || revOk(st, s, c) ? 0 : sbCut(st, s, c, symCost(st, s, c, costOf(c))); }
+function baseCost(st, s, c){ const cs = c && !c.costX ? costSetOf(st, s, c) : null; if (cs) return cs.v; return c && c.costX ? 0 : freeNextIdx(st, s, c) >= 0 ? 0 : freeKey(st, s, c) || freeId(st, s, c) || corrupted(st, s, c) || gzOk(st, s, c) || mggOk(st, s, c) || revOk(st, s, c) ? 0 : sbCut(st, s, c, symCost(st, s, c, costOf(c))); }
 function effCost(st, s, c){ const b = baseCost(st, s, c), d = c && c.delve && isFinite(b) ? Math.max(0, b - P(st, s).grave.length) : b; return isFinite(d) && P(st, s).mana ? d + taxOn(st, s, c) : d; }
 // コスト増加: 相手の場（モンスター・表向きの魔法罠）にあるカードの「相手の○のコスト+n」
 function taxOn(st, s, c){
@@ -10574,6 +10578,8 @@ function taxOn(st, s, c){
   return n;
 }
 function sbCut(st, s, c, base){ const n = +(c && c.sbCost) || 0, k = c ? ((P(st, s).sb || {})[c.id] || 0) : 0; return !n || !k || !isFinite(base) ? base : Math.max(0, base - n * k); }
+// マスターG・G・G: このカードが手札にあって、手札がこのカードをふくめて mgg 枚以下ならコスト0
+function mggOk(st, s, c){ const n = c ? Math.round(+c.mgg || 0) : 0; if (n < 1 || !hasCost(c)) return false; const h = P(st, s).hand; return h.includes(c.id) && h.length <= n; }
 function gzOk(st, s, c){ const g = c && c.gz; if (g && g.where === "none") return hasCost(c); if (!g || !String(g.name || "").trim() || !hasCost(c)) return false; return condMet(st, s, c, { k: "card", name: g.name, where: ["field", "grave", "hand"].includes(g.where) ? g.where : "field", match: ["tag", "part", "exact"].includes(g.match) ? g.match : "tag", cnt: Math.max(1, +g.cnt || 1), op: "ge" }, {}); }
 // シンパシー: 自分の場の「タグ／名前に○○が入る」モンスター1体につきコストが下がる（1より下にはならない。もとが0ならそのまま）
 // 手札では、シンパシーで下がったあとのコストを見せる

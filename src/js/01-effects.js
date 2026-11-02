@@ -1162,6 +1162,7 @@ function costMechText(c){
   if (c.gz && c.gz.where === "none") L.push("【G・ゼロ】いつでもコストを払わずに使える");
   else if (c.gz && String(c.gz.name || "").trim()){ const g = c.gz, n = Math.max(1, +g.cnt || 1); L.push(`【G・ゼロ】自分の${WHERE[g.where] || WHERE.field}に${g.match === "part" ? `名前に「${g.name}」が入ったカード` : g.match === "exact" ? `「${g.name}」` : `タグ「${g.name}」のカード`}が${n > 1 ? n + "枚以上" : ""}あれば、コストを払わずに使える`); }
   if (c.revG != null && cardType(c) === "magic") L.push(`【逆転劇 ${+c.revG || 0}】相手のモンスターが自分に直接攻撃するとき、その攻撃中に1回、手札からこのカードをコストを払わずに使ってよい。そうしたら、次の自分のターンのはじめにマナを${+c.revG || 0}払う。払えなければ、自分はゲームに負ける`);
+  if (+c.mgg > 0) L.push(+c.mgg === 1 ? "【マスターG・G・G】自分の手札がこのカードだけなら、コストを払わずに使える" : `【マスターG・G・G】自分の手札がこのカードをふくめて${+c.mgg}枚以下なら、コストを払わずに使える`);
   if (c.delve) L.push("【探査】マナで払いきれないぶん、自分の墓地のカードを1枚除外するごとにコスト−1");
   const hit = r => r && r.match === "exact" ? `「${r.name}」` : r && r.match === "part" ? `名前に「${r.name}」が入った` : `タグ「${r && r.name}」の`;
   if (c.cycle) L.push(`【サイクリング ${+c.cycle.n || 0}】手札からこのカードを捨てて、カードを1枚引く${+c.cycle.n > 0 ? `（マナ${+c.cycle.n}）` : ""}`);
