@@ -358,6 +358,24 @@ function testAct(k){
 }
 document.addEventListener("click", e => { if (e.target.closest && e.target.closest("[data-testmode]")) startTest(null); });
 const ACT_ICON = `<svg viewBox="0 0 40 40" aria-hidden="true"><path d="M20 3l3.6 9.2 9.4-3.3-4.3 9 8.3 5.6-9.7 1.6.6 9.9L20 30.4 12.1 35l.6-9.9-9.7-1.6 8.3-5.6-4.3-9 9.4 3.3z" fill="#fde7c9" stroke="#e08a00" stroke-width="1.5" stroke-linejoin="round"/></svg>`;
+// 盤面上限なし: 見た目も状態も同じモンスターをまとめる（どれをえらんでも同じなので、代表の1枚で操作できる）
+// L = [{ z, i, html }]、open = ひろげているグループ。場のモンスターが MZ_GROUP_MIN 体より少ないときはまとめない
+const MZ_GROUP_MIN = 6;
+function mzGroups(L, open){
+  if (L.filter(x => x.z).length < MZ_GROUP_MIN) return L.map(x => ({ ...x, n: 1 }));
+  const look = h => h.replace(/ data-(i|actmon|evomon)="\d+"/g, "");
+  const state = z => JSON.stringify(z, (k, v) => k === "u" || k === "born" ? undefined : v);
+  const out = [], by = {}; let slot = false;
+  L.forEach(x => {
+    if (!x.z && /^<div class="slot/.test(x.html)){ if (!slot){ slot = true; out.push({ ...x, n: 1 }); } return; }
+    if (!x.z){ out.push({ ...x, n: 1 }); return; }
+    const key = state(x.z) + "|" + look(x.html), g = by[key];
+    if (g){ g.members.push(x.i); if (open[key]) out.push({ ...x, n: 1 }); return; }
+    out.push(by[key] = { ...x, key, members: [x.i] });
+  });
+  out.forEach(g => { if (g.members){ g.n = g.members.length; g.open = g.n > 1 && !!open[g.key]; } });
+  return out;
+}
 function renderBoard(){ const r = renderBoard0(); glJoin(); atkArrow(); return r; }
 // いま攻撃できる自分のモンスター（自分のターン・動けるときだけ）
 const atkReady = (st, me) => st.turn === me && canAct(st, me) && !st.winner && !(G && G.spectate) ? P(st, me).mz.map((m, i) => m && canAttack(st, me, i) ? i : -1).filter(i => i >= 0) : [];
@@ -424,8 +442,8 @@ function renderBoard0(){
   const atkNow = st.pending && (st.pending.type === "attack" ? st.pending : st.pending.type === "chain" && st.pending.resume && st.pending.resume.type === "attack" ? st.pending.resume : null);
   const WHEN_SHORT = { attacked: "攻撃時", oppSummon: "召喚時", oppUse: "発動時", oppEnd: "相手の終わり" };
   // phones: name (+ATK) under each field card, since the cards are tiny
-  const zcap = (html, c, m) => html.replace(/<\/div>$/, `<span class="zcap">${esc(c.name)}${m ? ` <b>${fmtN(atkOf(m))}</b>` : ""}</span></div>`);
-  const zoneHTML = (s, kind) => P(st, s)[kind].map((z, i) => {
+  const zcap = (html, c, m) => html.replace(/<\/div>$/, `<span class="zcap"><span class="zn">${esc(c.name)}</span>${m ? ` <b>${fmtN(atkOf(m))}</b>` : ""}</span></div>`);
+  const zoneItem = (s, kind, z, i) => {
     const mine = s === me;
     const attrs = `data-z="${kind}" data-s="${s === me ? "me" : "op"}" data-i="${i}"`;
     const tl = atkFrom != null ? atkTargets(st, me, atkFrom).L : [];
@@ -455,7 +473,24 @@ function renderBoard0(){
     const sealN = (z.seals || []).length;
     const rsx = !sealN && (hasAb(st, s, i, "noEffect") || hasAb(st, s, i, "unaffected") || hasAb(st, s, i, "ward") || hiddenMon(st, s, i)), rsxT = [hasAb(st, s, i, "unaffected") ? "相手の効果を受けない" : "", hasAb(st, s, i, "noEffect") ? "効果では破壊されない" : "", hasAb(st, s, i, "ward") ? "護法" : "", jdOn(st, s, i) ? "ジャストダイバー中" : hiddenMon(st, s, i) ? "隠密中" : ""].filter(Boolean).join("・");
     return glBadge(st, s, i, (h => sealN ? h.replace(/<\/div>$/, `<span class="sealx" title="封印 ${sealN}（ないものとして扱う。持ち主が同じタグのモンスターを出すと1つはがれる）">封印${sealN > 1 ? " " + sealN : ""}</span></div>`) : h)((h => rsx ? h.replace(/<\/div>$/, `<span class="rsx" role="img" aria-label="除去耐性：${rsxT}" title="${rsxT}"></span></div>`) : h)((h => evH ? h.replace(/<\/div>$/, `<button type="button" class="evobtn" data-evomon="${i}" ${evNo ? "disabled" : ""} title="${esc(evNo || `エボルヴする（エボルヴポイント あと${EVO_MAX - (P(st, s).evoUsed || 0)}）`)}" aria-label="「${esc(card(z.c).name)}」をエボルヴさせる">エボルヴ</button></div>`) : h)((h => actH ? h.replace(/<\/div>$/, `<button type="button" class="actbtn" data-actmon="${i}" ${actNo ? "disabled" : ""} title="${actNo ? esc(actNo) : "能力を発動する"}" aria-label="「${esc(card(z.c).name)}」の能力を発動する">${ACT_ICON}</button></div>`) : h)(zcap(cardHTML((A => A.join() === attrsOf(card(z.c)).join() ? card(z.c) : { ...card(z.c), attrs: A })(monAttrs(z)), cls + zz + zx + (z.tap || z.rest ? " tapped" : "") + (actH ? (actNo ? " actable actused" : " actable") : "") + (atkr || (mine && atkFrom === i) ? " attacking" : "") + (atkd ? " atk-tgt" : ""), attrs + (zz ? ` title="召喚酔い：次の自分のターンから攻撃できる"` : ttl), { mod: modOf(z), done: stt, eq: eqB, dmg: z.dmg || 0, ctr: z.ctr, vuln: z.vuln || 0, weak: z.weak || 0, ...mOpt(s) }), card(z.c), z))))));
-  }).join("");
+  };
+  const zoneHTML = (s, kind) => P(st, s)[kind].map((z, i) => zoneItem(s, kind, z, i)).join("");
+  // 盤面上限なし（A＋C）: 同じモンスターを「×N」にまとめ、数が多いときはゾーンを縮めて列をふやす
+  G.grpKeys = G.grpKeys || {};
+  const mzBox = s => {
+    const p = P(st, s), side = sideOf(s);
+    const L = p.mz.map((z, i) => ({ z, i, html: zoneItem(s, "mz", z, i) }));
+    const items = (p.nolim ? mzGroups(L, G.grpOpen || {}) : L.map(x => ({ ...x, n: 1 }))).map(g => {
+      if (g.n < 2) return g.html;
+      const id = side + g.i; G.grpKeys[id] = g.key;
+      const nm0 = esc(card(g.z.c).name);
+      const badge = `<button type="button" class="grpx${g.open ? " open" : ""}" data-grpx="${id}" aria-expanded="${g.open}" aria-label="${g.open ? `「${nm0}」${g.n}体をまとめる` : `「${nm0}」${g.n}体をひろげる`}">${g.open ? "▲" : "×" + g.n}</button>`;
+      return g.html.replace(`data-i="${g.i}"`, `data-i="${g.i}" data-grpm=" ${g.members.join(" ")} "`).replace(/<\/div>$/, badge + "</div>");
+    });
+    const n = items.length, cls = !p.nolim || n <= ZONES ? "" : n > 7 ? " dense denser" : " dense";
+    return `<div class="zones${cls}"${cls ? ` style="--cols:${Math.min(n, 7)}"` : ""}>${items.join("")}</div>`;
+  };
+  const mzCount = p => p.nolim ? `（${p.mz.filter(Boolean).length}体）` : "";
 
   // action bar
   let acts = "", hint = "", handActs = "";
@@ -605,8 +640,8 @@ function renderBoard0(){
       <span class="zlabel">相手の魔法・罠ゾーン</span>
       <div class="zones st">${zoneHTML(op, "sz")}</div>
       ${standingEqHTML(st, op, false)}
-      <span class="zlabel">相手のモンスターゾーン</span>
-      <div class="zones">${zoneHTML(op, "mz")}</div>
+      <span class="zlabel">相手のモンスターゾーン${mzCount(po)}</span>
+      ${mzBox(op)}
       <div class="bz">
         ${st.field ? `<div class="fieldz" data-field title="フィールド（${fieldMine(card(st.field.c)) ? "出した人にだけ効く" : "お互いに効く"}）"><span class="flbl">フィールド</span>${cardHTML(card(st.field.c), "xs pick", `data-field tabindex="0" role="button"`)}<span class="note">${esc(P(st, st.field.o).name)} が出した${(st.field.mats || []).length ? `・質量${st.field.mats.length}` : ""}</span></div>` : ""}
         <h2>バトルゾーン</h2>
@@ -620,8 +655,8 @@ function renderBoard0(){
         <div class="actions">${acts}</div>
         ${manual}
       </div>
-      <span class="zlabel">自分のモンスターゾーン</span>
-      <div class="zones">${zoneHTML(me, "mz")}</div>
+      <span class="zlabel">自分のモンスターゾーン${mzCount(pm)}</span>
+      ${mzBox(me)}
       <span class="zlabel">自分の魔法・罠ゾーン</span>
       <div class="zones st">${zoneHTML(me, "sz")}</div>
       ${standingEqHTML(st, me, true)}
@@ -662,7 +697,8 @@ function renderBoard0(){
 /* ================= animations ================= */
 const reduceMotion = (() => { try{ return matchMedia("(prefers-reduced-motion: reduce)").matches; }catch(e){ return false; } })();
 const sideOf = s => s === G.slot ? "me" : "op";
-const zoneEl = (s, kind, i) => document.querySelector(`#board [data-z="${kind}"][data-s="${sideOf(s)}"][data-i="${i}"]`);
+// まとめて表示しているモンスターは、代表の1枚（data-grpm にまとめた番号が入っている）を返す
+const zoneEl = (s, kind, i) => document.querySelector(`#board [data-z="${kind}"][data-s="${sideOf(s)}"][data-i="${i}"]`) || (kind === "mz" ? document.querySelector(`#board [data-z="mz"][data-s="${sideOf(s)}"][data-grpm~="${i}"]`) : null);
 const center = el => { const r = el.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2, r }; };
 function fxEl(cls, html, x, y){
   const d = document.createElement("div"); d.className = "fxa " + cls; d.innerHTML = html;
@@ -1203,6 +1239,7 @@ $("#board").addEventListener("click", e => {
   if (pb){ if (canAct(st, me)){ G.potPick = +pb.dataset.potion; renderAll(); } return; }
   { const ci = e.target.closest("[data-cid]"); if (ci){ G.detailBottom = ci.getBoundingClientRect().top < innerHeight / 2; openDetail(["id", ci.dataset.cid, ci.dataset.where || undefined]); return; } }
   { const cn = e.target.closest("[data-cname]"); if (cn){ const id = findCardIdByName(cn.dataset.cname); if (!id){ toast("そのカードが見つかりません"); return; } G.detailBottom = cn.getBoundingClientRect().top < innerHeight / 2; openDetail(["id", id, "ログに出たカード"]); return; } }
+  { const gx = e.target.closest("[data-grpx]"); if (gx){ const k = (G.grpKeys || {})[gx.dataset.grpx]; if (k){ G.grpOpen = G.grpOpen || {}; G.grpOpen[k] = !G.grpOpen[k]; renderAll(); } return; } }
   { const eb = e.target.closest("[data-evomon]"); if (eb){ if (!eb.disabled) act(st => evolveMon(st, G.slot, +eb.dataset.evomon)); return; } }
   { const ab = e.target.closest("[data-actmon]"); if (ab){ if (!ab.disabled){ G.actAsk = +ab.dataset.actmon; renderAll(); } return; } }
   const zc = e.target.closest("[data-z]");

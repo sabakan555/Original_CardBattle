@@ -1786,3 +1786,16 @@ select,input,textarea{max-width:100%}
 .c-cost.dn{background:#d3f5df;color:#1d7a45}
 .card.spire .p-gem.up{color:#ffab99}
 .card.spire .p-gem.dn{color:#8fe6b4}
+
+/* 盤面上限なし: 同じモンスターのまとめ（×N）と、数が多いときの縮小 */
+.zones.dense{grid-template-columns:repeat(var(--cols),minmax(0,1fr));gap:clamp(4px,1vw,10px)}
+.zones.dense .card,.zones.dense .slot{--w:clamp(34px,calc(60vw / var(--cols)),92px)}
+.zones .grpx{position:absolute;top:34%;right:-9px;z-index:7;min-width:26px;height:22px;padding:0 6px;border-radius:11px;border:1.5px solid #1e2328;background:var(--gold);color:#1e2328;font:800 12px/1 var(--ui);display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,.35)}
+.zones .grpx::after{content:"";position:absolute;inset:-10px}
+.zones .grpx.open{background:#1e2338;color:var(--gold);border-color:var(--gold)}
+.zones .card.tapped .grpx{transform:rotate(-90deg)}
+@media (max-width:640px){
+  .zones.dense .card,.zones.dense .slot{--w:min(66px,calc((100vw - 64px) / var(--cols)))}
+  .zones.denser{row-gap:12px}
+  .zones.denser .zcap .zn{display:none}
+}
