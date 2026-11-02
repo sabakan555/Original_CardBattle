@@ -3273,12 +3273,12 @@ function removeText(f){
    how: grave（捨てる）/ exhaust（廃棄）/ deck（持ち主の山札。pos: top・bottom・shuffle）
    捨てるだけが「捨てた枚数」や《スライ》を起こし、廃棄だけが「廃棄されるたび」を起こすのは前と同じ */
 const HO_HOW = { grave: "捨てる", exhaust: "廃棄する", deck: "山札に戻す" };
-const HO_TO = new Set(["one", "random", "all"]);
+const HO_TO = new Set(["one", "random", "all", "upto"]);
 fxForm("handOut", {
   label: "手札をどかす（捨てる・廃棄・山札に戻す）", menu: "手札をどかす（捨てる・捨てさせる・廃棄・山札に戻す）", n: true, text: f => handOutText(f),
   groups: ["hand", "exhaust", "minus"], group: e => e.how === "exhaust" ? "exhaust" : e.side === "me" ? "minus" : "hand",
   preset: { minus: { side: "me" }, exhaust: { side: "me", how: "exhaust" } },
-  split: f => f.to === "one", fix(e){ if (e.to === "one") delete e.only; if (e.to !== "all" && !(e.n > 0)) e.n = 1; },
+  split: f => f.to === "one", fix(e){ if (e.to === "one" || e.to === "upto") delete e.only; if (e.to === "upto") delete e.n; else if (e.to !== "all" && !(e.n > 0)) e.n = 1; },
   // 前からある9種類
   legacy: {
     selfDisc: { side: "me" }, selfDiscRand: { side: "me", to: "random" }, selfDiscAll: { side: "me", to: "all" },
@@ -3289,16 +3289,16 @@ fxForm("handOut", {
   fields: {
     how: v => HO_HOW[v] ? v : "grave", pos: (v, e) => e.how === "deck" ? (RM_POS[v] ? v : "shuffle") : undefined,
     only: v => v === "nonAtk" ? v : undefined, side: v => v === "me" ? v : undefined,
-    to: v => v === "random" || v === "all" ? v : undefined,
+    to: v => v === "random" || v === "all" || v === "upto" ? v : undefined,
   },
   norm(f, L){
     L = L || {};
     const to = L.to || (HO_TO.has(f.to) ? f.to : "one"), how = L.how || f.how, side = L.side || f.side, only = L.only || f.only;
     const out = { ...f, to, how: HO_HOW[how] ? how : "grave" };
     if (side === "me") out.side = "me"; else delete out.side;
-    if (only === "nonAtk" && to !== "one") out.only = "nonAtk"; else delete out.only;
+    if (only === "nonAtk" && to !== "one" && to !== "upto") out.only = "nonAtk"; else delete out.only;
     if (out.how === "deck") out.pos = RM_POS[f.pos] ? f.pos : "shuffle"; else delete out.pos;
-    if (to !== "all" && !(out.n > 0)) out.n = 1;
+    if (to === "upto") delete out.n; else if (to !== "all" && !(out.n > 0)) out.n = 1;
     delete out.tn;
     return out;
   },
@@ -3308,9 +3308,10 @@ fxForm("handOut", {
 function handOutText(f){
   const h = fxNorm({ ...f, kind: "handOut" }), me = h.side === "me", n = Math.max(1, +h.n || 1);
   const w = `${me ? "自分" : "相手"}の手札${h.only === "nonAtk" ? "のアタック以外" : ""}`;
-  const which = h.to === "all" ? "をすべて" : h.to === "random" ? `をランダムに${n}枚` : me ? `を${n}枚えらんで` : `を見て、その中から${n}枚えらんで`;
+  const which = h.to === "upto" ? (me ? "を好きな枚数えらんで" : "を見て、その中から好きな枚数えらんで") : h.to === "all" ? "をすべて" : h.to === "random" ? `をランダムに${n}枚` : me ? `を${n}枚えらんで` : `を見て、その中から${n}枚えらんで`;
   // 手札のカードは、その手札の持ち主の山札へ（「持ち主の」はいらない）
   const v = h.how === "exhaust" ? "廃棄する" : h.how === "deck" ? (h.pos === "top" ? "山札の一番上に置く" : h.pos === "bottom" ? "山札の一番下に置く" : "山札に戻してシャッフルする") : me ? "捨てる" : "捨てさせる";
+  if (h.to === "upto"){ const te = v.replace(/する$/, "して").replace(/置く$/, "置いて").replace(/捨てさせる$/, "捨てさせて").replace(/捨てる$/, "捨てて"); return w + which + te + (me ? "もよい（0枚でもよい）" : "もよい"); }
   return w + which + v;
 }
 /* ---- カードを生む: 1つの効果「gen」= なにを（what）× だれの（who）× どこへ（dest）× 枚数（n） ----
@@ -3752,7 +3753,7 @@ const perOk = k => !!KINDS[k] && !PER_NO.includes(k);
 const perVal = (st, s, c, fx, t, ctx) => PER_DEFS[fx.per] ? PER_DEFS[fx.per].val(st, s, c, t, ctx, fx) : 0;
 // amt: 数そのもの（「○の合計」「払ったLP」）。「○につき」ではなく「＋○」と読む
 const perAmt = m => PER_DEFS[m.per].label + ((m.pm ?? 1) !== 1 ? `×${m.pm}` : "");
-const perText = m => !m.per || !PER_DEFS[m.per] ? "" : PER_DEFS[m.per].amt && !m.hits ? `（＋${perAmt(m)}）` : m.hits ? `（${perLab(m)}につき、もう1回）` : `（${perLab(m)}につき+${m.pm ?? 1}）`;
+const perText = m => !m.per || !PER_DEFS[m.per] ? "" : PER_DEFS[m.per].amt && !m.hits ? `（＋${perAmt(m)}）` : m.hits ? (m.hx ? `（${perLab(m)}につき1回。0なら0回）` : `（${perLab(m)}につき、もう1回）`) : `（${perLab(m)}につき+${m.pm ?? 1}）`;
 const isNumCond = k => !!(COND_DEFS[k] && COND_DEFS[k].val);
 const usedWhat = x => x.match === "magic" ? "魔法" : x.match === "trap" ? "罠" : x.match === "monster" ? "モンスター" : x.match === "equip" ? "装備" : x.match === "tag" ? `タグ「${x.name || "？"}」のカード` : x.match === "part" ? `名前に「${x.name || "？"}」が入ったカード` : x.match === "name" ? `「${x.name || "？"}」` : "なんでも";
 function condPhrase(x){
@@ -3860,7 +3861,7 @@ const mfLimit = (st, s, fx) => { const by = MF_BY[fx.mfBy] ? fx.mfBy : "n"; retu
 // 墓地のカード（場にいないので、カードに書いてある元の数字・属性でしぼる）
 function mfCardOk(st, s, fx, id){ const c = card(id); if (!c || !mfOn(fx)) return !!c; if (fx.mfK === "attr") return attrsOf(c).includes(fx.mfA); const lim = mfLimit(st, s, fx), v = fx.mfK === "atk" ? baseAtk(c) : fx.mfK === "lv" ? lvOf(c) : costOf(c); return fx.mfOp === "ge" ? cmpNum(v, lim) >= 0 : cmpNum(v, lim) <= 0; }
 function mfOk(st, s, fx, m){ if (m && fxImmune(st, s, m)) return false; if (!m || !mfOn(fx)) return !!m; if (fx.mfK === "attr") return monAttrs(m).includes(fx.mfA); const lim = mfLimit(st, s, fx), v = fx.mfK === "atk" ? atkOf(m) : fx.mfK === "lv" ? lvOf(card(m.c)) : costOf(card(m.c)); return fx.mfOp === "ge" ? cmpNum(v, lim) >= 0 : cmpNum(v, lim) <= 0; }
-const cleanEff = e => e && KINDS[e.kind] && e.kind !== "none" ? { kind: e.kind, ...(e.dn ? { dn: String(e.dn).slice(0, 20) } : {}), ...(e.di ? { di: String(e.di).slice(0, 12) } : {}), ...(e.dd ? { dd: String(e.dd).slice(0, 80) } : {}), ...(e.n != null ? { n: e.n } : {}), ...(e.to && e.to !== "one" && TARGETABLE[e.kind] ? { to: e.to } : {}), ...(TARGETABLE[e.kind] && e.side === "me" ? { side: "me" } : {}), ...(TARGETABLE[e.kind] && (e.to === "n" || e.to === "random" || e.to === "oppPick") && e.tn > 1 ? { tn: Math.min(10, Math.round(+e.tn)) } : {}), ...(KINDS[e.kind].name && e.into ? { into: String(e.into).slice(0, 40) } : {}), ...(KINDS[e.kind].name && e.into && e.intoId && pickCardKind(e.kind) ? { intoId: String(e.intoId).slice(0, 80) } : {}), ...(e.times > 1 ? { times: Math.min(20, Math.round(e.times)) } : {}), ...(e.timesDie ? { timesDie: true } : {}), ...(e.timesCoin === "h" || e.timesCoin === "t" ? { timesCoin: e.timesCoin } : {}), ...(KINDS[e.kind].mod && (e.kind === "modAdd" || e.kind === "modRep") && e.ge && KINDS[e.ge.kind] && !KINDS[e.ge.kind].mod ? { ge: cleanEff(e.ge) } : {}), ...(KINDS[e.kind].mod ? { ms: modT(e).side, mpl: modT(e).place, mc: modT(e).scope, ...(e.mn > 1 ? { mn: Math.min(40, Math.round(+e.mn)) } : {}), ...(e.gk && KINDS[e.gk] && !KINDS[e.gk].mod ? { gk: e.gk, gn: Math.max(1, Math.round(+e.gn || 1)) } : {}), ...(e.nm ? { nm: String(e.nm).slice(0, 20) } : {}), ...(modT(e).scope === "named" && e.into ? { into: String(e.into).slice(0, 40) } : {}) } : {}), ...(e.per && PER_DEFS[e.per] && perOk(e.kind) ? { per: e.per, pm: e.pm ?? 1, ...(e.hits || !KINDS[e.kind].n ? { hits: true } : {}), ...(e.per === "ctr" ? { pctr: String(e.pctr || ctrDefault()), pcw: CTR_AT[e.pcw] ? e.pcw : "self" } : {}), ...(e.per === "attrMon" ? { pattr: String(e.pattr || "火").slice(0, 20) } : {}), ...(e.per === "usedNow" || e.per === "handF" ? { pf: USED_PF[e.pf] ? e.pf : "any", ...(["name", "part", "tag"].includes(e.pf) && e.pfn ? { pfn: String(e.pfn).slice(0, 40) } : {}) } : {}) } : {}), ...(["dblNext", "freeNext", "setCost"].includes(e.kind) ? { pf: USED_PF[e.pf] ? e.pf : "any", ...(["name", "part", "tag"].includes(e.pf) && e.pfn ? { pfn: String(e.pfn).slice(0, 40) } : {}) } : {}), ...(e.kind === "copyPick" && e.cpw === "next" ? { cpw: "next" } : {}), ...(e.kind === "setCost" ? { sp: e.sp === "pick" || e.sp === "all" ? e.sp : "filter", sd: COST_SD[e.sd] ? e.sd : "turn", ...(e.sp === "pick" ? {} : { sw: COST_SW[e.sw] ? e.sw : "hand" }), ...(e.sv === "rand" ? { sv: "rand", lo: costLo(e), hi: costHi(e) } : {}) } : {}), ...(e.kind === "dieWin" ? (lo => ({ wl: lo, wh: Math.max(lo, Math.min(100, Math.round(+e.wh || lo))) }))(Math.max(1, Math.min(100, Math.round(+e.wl || 1)))) : {}), ...(e.kind === "giveAttr" ? { aw: GAT_W[e.aw] ? e.aw : "opp1", ga: String(e.ga || "火").slice(0, 20), gm: e.gm === "set" ? "set" : "add" } : {}), ...(e.kind === "loseAb" ? { ab: labKey(e), gw: GAB_W[e.gw] ? e.gw : "self", ...(GAB_D[e.gd] != null && e.gd ? { gd: e.gd } : {}) } : {}), ...(e.kind === "giveAb" ? { ab: gabKey(e), gw: GAB_W[e.gw] ? e.gw : "self", ...(GAB_D[e.gd] != null && e.gd ? { gd: e.gd } : {}), ...(ABS[gabKey(e)].name && e.into ? { into: String(e.into).slice(0, 40) } : {}) } : {}), ...(e.kind === "removeBoard" ? { rside: RB_SIDE[e.rside] ? e.rside : "op", rm: RB_MODE[e.rm] ? e.rm : "destroy" } : {}), ...(mfOn(e) ? { mfK: e.mfK, mfOp: e.mfOp === "ge" ? "ge" : "le", mfBy: MF_BY[e.mfBy] ? e.mfBy : "n", mfN: Math.max(-99, Math.min(9999, Math.round(+e.mfN || 0))), ...(e.mfK === "attr" ? { mfA: String(e.mfA || "火").slice(0, 20) } : {}) } : {}), ...(KINDS[e.kind].ctr ? { ctr: String(e.ctr || ctrDefault()), cw: CTR_CW[e.cw] ? e.cw : "pick", ...(e.cw === "rand" && e.ctn > 1 ? { ctn: Math.min(10, Math.round(+e.ctn)) } : {}), ...(e.side === "me" ? { side: "me" } : {}) } : {}), ...fxFields(e) } : null;
+const cleanEff = e => e && KINDS[e.kind] && e.kind !== "none" ? { kind: e.kind, ...(e.dn ? { dn: String(e.dn).slice(0, 20) } : {}), ...(e.di ? { di: String(e.di).slice(0, 12) } : {}), ...(e.dd ? { dd: String(e.dd).slice(0, 80) } : {}), ...(e.n != null ? { n: e.n } : {}), ...(e.to && e.to !== "one" && TARGETABLE[e.kind] ? { to: e.to } : {}), ...(TARGETABLE[e.kind] && e.side === "me" ? { side: "me" } : {}), ...(TARGETABLE[e.kind] && (e.to === "n" || e.to === "random" || e.to === "oppPick") && e.tn > 1 ? { tn: Math.min(10, Math.round(+e.tn)) } : {}), ...(KINDS[e.kind].name && e.into ? { into: String(e.into).slice(0, 40) } : {}), ...(KINDS[e.kind].name && e.into && e.intoId && pickCardKind(e.kind) ? { intoId: String(e.intoId).slice(0, 80) } : {}), ...(e.times > 1 ? { times: Math.min(20, Math.round(e.times)) } : {}), ...(e.timesDie ? { timesDie: true } : {}), ...(e.timesCoin === "h" || e.timesCoin === "t" ? { timesCoin: e.timesCoin } : {}), ...(KINDS[e.kind].mod && (e.kind === "modAdd" || e.kind === "modRep") && e.ge && KINDS[e.ge.kind] && !KINDS[e.ge.kind].mod ? { ge: cleanEff(e.ge) } : {}), ...(KINDS[e.kind].mod ? { ms: modT(e).side, mpl: modT(e).place, mc: modT(e).scope, ...(e.mn > 1 ? { mn: Math.min(40, Math.round(+e.mn)) } : {}), ...(e.gk && KINDS[e.gk] && !KINDS[e.gk].mod ? { gk: e.gk, gn: Math.max(1, Math.round(+e.gn || 1)) } : {}), ...(e.nm ? { nm: String(e.nm).slice(0, 20) } : {}), ...(modT(e).scope === "named" && e.into ? { into: String(e.into).slice(0, 40) } : {}) } : {}), ...(e.per && PER_DEFS[e.per] && perOk(e.kind) ? { per: e.per, pm: e.pm ?? 1, ...(e.hits || !KINDS[e.kind].n ? { hits: true, ...(e.hx ? { hx: true } : {}) } : {}), ...(e.per === "ctr" ? { pctr: String(e.pctr || ctrDefault()), pcw: CTR_AT[e.pcw] ? e.pcw : "self" } : {}), ...(e.per === "attrMon" ? { pattr: String(e.pattr || "火").slice(0, 20) } : {}), ...(e.per === "usedNow" || e.per === "handF" ? { pf: USED_PF[e.pf] ? e.pf : "any", ...(["name", "part", "tag"].includes(e.pf) && e.pfn ? { pfn: String(e.pfn).slice(0, 40) } : {}) } : {}) } : {}), ...(["dblNext", "freeNext", "setCost"].includes(e.kind) ? { pf: USED_PF[e.pf] ? e.pf : "any", ...(["name", "part", "tag"].includes(e.pf) && e.pfn ? { pfn: String(e.pfn).slice(0, 40) } : {}) } : {}), ...(e.kind === "copyPick" && e.cpw === "next" ? { cpw: "next" } : {}), ...(e.kind === "setCost" ? { sp: e.sp === "pick" || e.sp === "all" ? e.sp : "filter", sd: COST_SD[e.sd] ? e.sd : "turn", ...(e.sp === "pick" ? {} : { sw: COST_SW[e.sw] ? e.sw : "hand" }), ...(e.sv === "rand" ? { sv: "rand", lo: costLo(e), hi: costHi(e) } : {}) } : {}), ...(e.kind === "dieWin" ? (lo => ({ wl: lo, wh: Math.max(lo, Math.min(100, Math.round(+e.wh || lo))) }))(Math.max(1, Math.min(100, Math.round(+e.wl || 1)))) : {}), ...(e.kind === "giveAttr" ? { aw: GAT_W[e.aw] ? e.aw : "opp1", ga: String(e.ga || "火").slice(0, 20), gm: e.gm === "set" ? "set" : "add" } : {}), ...(e.kind === "loseAb" ? { ab: labKey(e), gw: GAB_W[e.gw] ? e.gw : "self", ...(GAB_D[e.gd] != null && e.gd ? { gd: e.gd } : {}) } : {}), ...(e.kind === "giveAb" ? { ab: gabKey(e), gw: GAB_W[e.gw] ? e.gw : "self", ...(GAB_D[e.gd] != null && e.gd ? { gd: e.gd } : {}), ...(ABS[gabKey(e)].name && e.into ? { into: String(e.into).slice(0, 40) } : {}) } : {}), ...(e.kind === "removeBoard" ? { rside: RB_SIDE[e.rside] ? e.rside : "op", rm: RB_MODE[e.rm] ? e.rm : "destroy" } : {}), ...(mfOn(e) ? { mfK: e.mfK, mfOp: e.mfOp === "ge" ? "ge" : "le", mfBy: MF_BY[e.mfBy] ? e.mfBy : "n", mfN: Math.max(-99, Math.min(9999, Math.round(+e.mfN || 0))), ...(e.mfK === "attr" ? { mfA: String(e.mfA || "火").slice(0, 20) } : {}) } : {}), ...(KINDS[e.kind].ctr ? { ctr: String(e.ctr || ctrDefault()), cw: CTR_CW[e.cw] ? e.cw : "pick", ...(e.cw === "rand" && e.ctn > 1 ? { ctn: Math.min(10, Math.round(+e.ctn)) } : {}), ...(e.side === "me" ? { side: "me" } : {}) } : {}), ...fxFields(e) } : null;
 const LEGACY_COND = { lp: { k: "lp", op: "le" }, grave: { k: "grave", op: "ge" }, hand: { k: "sameHand", op: "ge" } };
 function blocksOf(c){
   if (!c) return [];
@@ -6427,7 +6428,7 @@ function renderBlocksUI(){
       + (e.kind === "removeBoard" ? `<select data-f="rside" aria-label="どちらの場">${Object.entries(RB_SIDE).map(([k, l]) => opt(k, l + "の場", e.rside || "op")).join("")}</select><select data-f="rm" aria-label="どうする">${Object.entries(RB_MODE).map(([k, l]) => opt(k, l, e.rm || "destroy")).join("")}</select>` : "")
       + (KINDS[e.kind] && KINDS[e.kind].n && !(e.kind === "setCost" && e.sv === "rand") && (!FX_FORMS[e.kind] || (FX_FORMS[e.kind].genericN && FX_FORMS[e.kind].genericN(e))) ? `<span class="bk-n"><input type="number" data-f="n" min="${e.per || ZERO_N(e.kind, e) ? 0 : 1}" max="9999" value="${esc(e.n ?? defN(e.kind))}" aria-label="${esc(nUnit(e.kind) || "数")}">${nUnit(e.kind) ? `<span class="note">${esc(nUnit(e.kind))}</span>` : ""}</span>` : "")
       + (KINDS[e.kind] && KINDS[e.kind].name && !FX_FORMS[e.kind] ? `<input type="text" data-f="into" list="${KINDS[e.kind] && KINDS[e.kind].tag ? "tagNames" : "cardNames"}" maxlength="40" value="${esc(e.into || "")}" placeholder="${KINDS[e.kind].tag ? "タグ（例: アイアンクラッド）" : KINDS[e.kind].need ? (e.kind === "autoPlay" ? "名前に入る文字（例: ストライク）" : "カード名") : "カード名（空ならランダム）"}" aria-label="カード名">` + pickHTML(e) : "") + modRowHTML(e) + ((e.kind === "modAdd" || e.kind === "modRep") && !sub ? effRow(bi, part, e.ge || (e.ge = { kind: e.gk && KINDS[e.gk] && !KINDS[e.gk].mod ? e.gk : "draw", n: e.gn || 1 }), j, e.kind === "modRep" ? "rep" : "add") : "")
-      + (perOk(e.kind) && ((KINDS[e.kind] && KINDS[e.kind].n) || (MK.blocks[bi] || {}).trig !== "while") && (!easy || e.per) ? `<select data-f="per" aria-label="ふえる">${opt("", "ふえない", e.per || "")}${Object.entries(PER_DEFS).filter(([k, d]) => (!d.old || e.per === k) && (!d.hf || e.per === k || mkHfVal()) && (e.per === k || perShow(k, bi))).map(([k, d]) => opt(k, d.amt ? "＋" + d.label : d.label + d.u + "につき", e.per || "")).join("")}</select>` + (e.per === "usedNow" || e.per === "handF" ? usedPfUI(e, opt) : "") + `` + (e.per === "ctr" ? ctrPerUI(e, opt) : "") + (e.per === "attrMon" ? `<select data-f="pattr" aria-label="属性">${attrList().map(a => opt(a, a + "属性", e.pattr || "火")).join("")}</select>` : "") + (e.per ? (!KINDS[e.kind].n ? `<span class="note">もう1回（くり返す）</span>` : ((MK.blocks[bi] || {}).trig !== "while" ? `<select data-f="hits" aria-label="ふえかた">${opt("", "数が＋", e.hits ? "1" : "")}${opt("1", "もう1回（くり返す）", e.hits ? "1" : "")}</select>` : "") + (e.hits ? "" : `<input type="number" data-f="pm" min="1" max="9999" value="${esc(e.pm ?? 1)}" aria-label="1つにつき増える数">`)) : "") : "")
+      + (perOk(e.kind) && ((KINDS[e.kind] && KINDS[e.kind].n) || (MK.blocks[bi] || {}).trig !== "while") && (!easy || e.per) ? `<select data-f="per" aria-label="ふえる">${opt("", "ふえない", e.per || "")}${Object.entries(PER_DEFS).filter(([k, d]) => (!d.old || e.per === k) && (!d.hf || e.per === k || mkHfVal()) && (e.per === k || perShow(k, bi))).map(([k, d]) => opt(k, d.amt ? "＋" + d.label : d.label + d.u + "につき", e.per || "")).join("")}</select>` + (e.per === "usedNow" || e.per === "handF" ? usedPfUI(e, opt) : "") + `` + (e.per === "ctr" ? ctrPerUI(e, opt) : "") + (e.per === "attrMon" ? `<select data-f="pattr" aria-label="属性">${attrList().map(a => opt(a, a + "属性", e.pattr || "火")).join("")}</select>` : "") + (e.per ? (!KINDS[e.kind].n ? `<select data-f="hx" aria-label="何回">${opt("", "1回＋1つにつきもう1回", e.hx ? "1" : "")}${opt("1", "1つにつき1回（0なら0回）", e.hx ? "1" : "")}</select>` : ((MK.blocks[bi] || {}).trig !== "while" ? `<select data-f="hits" aria-label="ふえかた">${opt("", "数が＋", e.hits ? "1" : "")}${opt("1", "もう1回（くり返す）", e.hits ? "1" : "")}</select>` : "") + (e.hits ? "" : `<input type="number" data-f="pm" min="1" max="9999" value="${esc(e.pm ?? 1)}" aria-label="1つにつき増える数">`)) : "") : "")
       + ((MK.blocks[bi] || {}).roll === "coin" ? `<select data-f="timesCoin" aria-label="くり返し">${opt("", "1回", e.timesCoin || "")}${opt("h", "×コインの表の枚数", e.timesCoin || "")}${opt("t", "×コインの裏の枚数", e.timesCoin || "")}</select>` : "")
       + ((MK.blocks[bi] || {}).roll === "die" ? `<select data-f="timesDie" aria-label="くり返し">${opt("", "1回", e.timesDie ? "1" : "")}${opt("1", "×出た目の回数", e.timesDie ? "1" : "")}</select>` : "")
       + (!e.timesDie && !e.timesCoin && (!easy || e.times > 1) ? `<label class="bk-times" title="同じ効果を何回くり返すか">×<input type="number" data-f="times" min="1" max="20" value="${esc(e.times || 1)}" aria-label="回数">回</label>` : "")
@@ -6576,7 +6577,7 @@ const FORM_F = {
   fPick: (x, v) => ({ ...x, pick: v }),
   fDest: (x, v) => ({ ...x, dest: v }),
   hSide: (x, v) => ({ ...x, side: v === "me" ? "me" : undefined }),
-  hWho: (x, v) => ({ ...x, to: v, ...(v === "all" ? {} : { n: x.n > 0 ? x.n : 1 }) }),
+  hWho: (x, v) => { const o = { ...x, to: v, ...(v === "all" || v === "upto" ? {} : { n: x.n > 0 ? x.n : 1 }) }; if (v === "upto"){ delete o.n; delete o.only; } return o; },
   hOnly: (x, v) => ({ ...x, only: v === "nonAtk" ? v : undefined }),
   hHow: (x, v) => ({ ...x, how: v }),
   fTn: (x, v) => { const tn = Math.max(1, Math.min(10, Math.round(+v || 1))); const o = { ...x, tn }; if (o.to !== "random") o.to = tn > 1 ? "n" : "one"; return o; },
@@ -6679,9 +6680,9 @@ function fetchUI(e, opt){
 function handOutUI(e, opt){
   const me = e.side === "me";
   return `<select data-f="hSide" aria-label="だれの手札">${opt("", "相手の手札を", me ? "me" : "")}${opt("me", "自分の手札を", me ? "me" : "")}</select>`
-    + `<select data-f="hWho" aria-label="どれを">${opt("one", me ? "えらんで" : "見てえらんで", e.to)}${opt("random", "ランダムに", e.to)}${opt("all", "すべて", e.to)}</select>`
-    + (e.to !== "all" ? `<span class="bk-n"><input type="number" data-f="n" min="1" max="40" value="${esc(e.n || 1)}" aria-label="枚数"><span class="note">枚</span></span>` : "")
-    + (e.to !== "one" ? `<select data-f="hOnly" aria-label="しぼる">${opt("", "どのカードでも", e.only || "")}${opt("nonAtk", "アタック以外だけ", e.only || "")}</select>` : "")
+    + `<select data-f="hWho" aria-label="どれを">${opt("one", me ? "えらんで" : "見てえらんで", e.to)}${opt("random", "ランダムに", e.to)}${opt("all", "すべて", e.to)}${opt("upto", "好きな枚数えらんで（0枚もOK）", e.to)}</select>`
+    + (e.to !== "all" && e.to !== "upto" ? `<span class="bk-n"><input type="number" data-f="n" min="1" max="40" value="${esc(e.n || 1)}" aria-label="枚数"><span class="note">枚</span></span>` : "")
+    + (e.to !== "one" && e.to !== "upto" ? `<select data-f="hOnly" aria-label="しぼる">${opt("", "どのカードでも", e.only || "")}${opt("nonAtk", "アタック以外だけ", e.only || "")}</select>` : "")
     + `<select data-f="hHow" aria-label="どうする">${opt("grave", me ? "捨てる" : "捨てさせる", e.how)}${opt("exhaust", "廃棄する", e.how)}${opt("deck", "山札に戻す", e.how)}</select>`
     + (e.how === "deck" ? `<select data-f="rPos" aria-label="山札のどこ">${Object.keys(RM_POS).map(k => opt(k, { top: "一番上に", bottom: "一番下に", shuffle: "混ぜてシャッフル" }[k], e.pos || "shuffle")).join("")}</select>` : "");
 }
@@ -6812,8 +6813,9 @@ function bkEvent(e, rerenderOnInput){
   if (f === "dn" || f === "di" || f === "dd"){ if (v) x[f] = v.slice(0, f === "dd" ? 80 : 20); else delete x[f]; return updateBkText(); }
   if (f === "nm"){ x.nm = v.slice(0, 20); return updateBkText(); }
   if (f === "times"){ x.times = Math.max(1, Math.min(20, Math.round(+v || 1))); return updateBkText(); }
-  if (f === "per"){ x.per = v || null; if (!v){ x.hits = false; } else if (!(KINDS[x.kind] && KINDS[x.kind].n)) x.hits = true; else if (x.pm == null) x.pm = x.kind === "dmg" || x.kind === "block" ? (v === "myBlock" ? 1 : 40) : 1; return renderBlocksUI(); }
+  if (f === "per"){ x.per = v || null; if (!v){ x.hits = false; x.hx = false; } else if (!(KINDS[x.kind] && KINDS[x.kind].n)) x.hits = true; else if (x.pm == null) x.pm = x.kind === "dmg" || x.kind === "block" ? (v === "myBlock" ? 1 : 40) : 1; return renderBlocksUI(); }
   if (f === "hits"){ x.hits = v === "1"; return renderBlocksUI(); }
+  if (f === "hx"){ x.hx = v === "1"; return renderBlocksUI(); }
   if (f === "pm"){ x.pm = Math.max(1, Math.round(+v || 1)); return updateBkText(); }
   if (f === "to"){ x.to = v; return updateBkText(); }
   if (f === "side"){ x.side = v === "me" ? "me" : undefined; return updateBkText(); }
@@ -10340,6 +10342,17 @@ function runEffect(st, s, c, ctx = {}, then, fx = normFx(c)){
     if (!yes){ then && then(st); return; }
     fx = { ...fx, ask: "" };
   }
+  // 手札を好きな枚数えらんで（0枚でもよい）: 「1枚○○する？」と聞いて、はいなら1枚えらぶ。いいえ・手札がなくなったらおわり
+  if (fx.kind === "handOut" && fx.to === "upto"){
+    const o = fx.side === "me" ? s : O(s), one = { ...fx, to: "one", n: 1, per: null, hits: false, hx: false, eachN: false };
+    const verb = fx.how === "exhaust" ? "廃棄する" : fx.how === "deck" ? "山札に戻す" : fx.side === "me" ? "捨てる" : "捨てさせる", whose = fx.side === "me" ? "" : "相手の";
+    const go = (st2, k, before) => {
+      const L = P(st2, o).hand.length;
+      if (st2.winner || !L || (before != null && L >= before)){ then && then(st2); return; }
+      runEffect(st2, s, c, ctx, st3 => go(st3, k + 1, L), { ...one, ask: k ? `もう1枚${verb}？（いま${k}枚）` : `${whose}手札を1枚${verb}？` });
+    };
+    go(st, 0, null); return;
+  }
   if (fx.per && !fx.hits && fx.per !== "tgtVuln" && PER_DEFS[fx.per]) fx = { ...fx, n: (+fx.n || 0) + (fx.pm ?? 1) * perVal(st, s, c, fx, null, ctx), per: null };
   if (fx.eachN){ const k = Math.max(0, Math.min(40, Math.round(+fx.n || 0))), one = { ...fx, n: 1, eachN: false }, go = (st2, r) => { if (r <= 0 || st2.winner){ then && then(st2); return; } runEffect(st2, s, c, ctx, st3 => go(st3, r - 1), one); }; go(st, k); return; }
   // 合成: 手札のカード → 付けるモンスターの順にえらぶ
@@ -10357,7 +10370,7 @@ function runEffect(st, s, c, ctx = {}, then, fx = normFx(c)){
     if (cw === "rand" && !fx.rand){ const one = { ...fx, rand: true }, go = (st2, r) => { if (r <= 0 || st2.winner){ then && then(st2); return; } runEffect(st2, s, c, ctx, st3 => go(st3, r - 1), one); }; go(st, Math.max(1, Math.min(10, Math.round(+fx.ctn || 1)))); return; } }
   if (KINDS[fx.kind] && KINDS[fx.kind].mod) ctx = { ...ctx, modPick: modT(fx).scope === "pick" };
   // 「○1つにつき、もう1回」: the hit is repeated (each one is a normal hit)
-  if (fx.hits && fx.per){ const k = 1 + Math.max(0, perVal(st, s, c, fx, null, ctx)), one = { ...fx, per: null, hits: false }, go = (st2, r) => { if (r <= 0 || st2.winner){ then && then(st2); return; } runEffect(st2, s, c, ctx, st3 => go(st3, r - 1), one); }; go(st, Math.min(k, 30)); return; }
+  if (fx.hits && fx.per){ const k = (fx.hx ? 0 : 1) + Math.max(0, perVal(st, s, c, fx, null, ctx)), one = { ...fx, per: null, hits: false }, go = (st2, r) => { if (r <= 0 || st2.winner){ then && then(st2); return; } runEffect(st2, s, c, ctx, st3 => go(st3, r - 1), one); }; go(st, Math.min(k, 30)); return; }
   if (fx.kind === "playHandAtk"){ const go = (st2, r) => { if (r <= 0 || st2.winner){ then && then(st2); return; } const p = P(st2, s), L = p.hand.map((id, j) => j).filter(j => isAttackCard(card(p.hand[j])) && cardType(card(p.hand[j])) === "magic"); if (!L.length){ log(st2, s, `「${c.name}」：手札にアタックがない`); then && then(st2); return; } const id = p.hand.splice(L[Math.floor(Math.random() * L.length)], 1)[0]; p.deck.unshift(id); playTopCard(st2, s, `「${c.name}」`, false, st3 => go(st3, r - 1)); }; go(st, Math.max(1, fx.n || 1)); return; }
   if (fx.kind === "playTop" || fx.kind === "playTopEx"){ const ex = fx.kind === "playTopEx", go = (st2, r) => { if (r <= 0 || st2.winner){ then && then(st2); return; } playTopCard(st2, s, `「${c.name}」`, ex, st3 => go(st3, r - 1)); }; go(st, Math.max(1, fx.n || 1)); return; }
   if ((c && c.frame === "spire" || fx.rand || fx.distinct) && (fx.kind === "dmg" || fx.kind === "bash" || fx.kind === "vuln" || fx.kind === "weak")) ctx = { ...ctx, spireAtk: true };
@@ -10541,9 +10554,9 @@ function runEffects(st, s, c, effs, ctx, then){
   (effs || []).forEach(e => {
     const one = [];
     // 1枚ずつの効果に「ふえる」: 枚数は使うときに決めてから1枚ずつおこなう（runEffect の eachN）
-    if (KINDS[e.kind] && KINDS[e.kind].each && e.per && PER_DEFS[e.per]) one.push({ kind: e.kind, n: e.n, ...(e.into ? { into: e.into } : {}), per: e.per, pm: e.pm, hits: e.hits, pf: e.pf, pfn: e.pfn, pctr: e.pctr, pcw: e.pcw, pattr: e.pattr, eachN: true });
+    if (KINDS[e.kind] && KINDS[e.kind].each && e.per && PER_DEFS[e.per]) one.push({ kind: e.kind, n: e.n, ...(e.into ? { into: e.into } : {}), per: e.per, pm: e.pm, hits: e.hits, pf: e.pf, pfn: e.pfn, pctr: e.pctr, pcw: e.pcw, pattr: e.pattr, ...(e.hx ? { hx: true } : {}), eachN: true });
     else if (KINDS[e.kind] && KINDS[e.kind].each && e.n > 1){ for (let r = 0; r < e.n; r++) one.push({ kind: e.kind, n: 1, ...(e.into ? { into: e.into } : {}) }); }
-    else one.push(...expandFx({ kind: e.kind, n: e.n, to: e.to, ...(e.into ? { into: e.into } : {}), ...(e.intoId ? { intoId: e.intoId } : {}), ...(e.per ? { per: e.per, pm: e.pm, hits: e.hits } : {}), ...(KINDS[e.kind] && KINDS[e.kind].mod ? { mt: e.mt, ms: e.ms, mpl: e.mpl, mc: e.mc, mn: e.mn, gk: e.gk, gn: e.gn, nm: e.nm, ge: e.ge } : {}), ...(e.side ? { side: e.side } : {}), ...fxFields(e), ...(e.tn ? { tn: e.tn } : {}), ...(e.kind === "removeBoard" ? { rside: e.rside, rm: e.rm } : {}), ...(mfOn(e) ? { mfK: e.mfK, mfOp: e.mfOp, mfBy: e.mfBy, mfN: e.mfN, mfA: e.mfA } : {}), ...(KINDS[e.kind] && KINDS[e.kind].ctr ? { ctr: e.ctr, cw: e.cw } : {}), ...(e.per === "ctr" ? { pctr: e.pctr, pcw: e.pcw } : {}), ...(e.per === "attrMon" ? { pattr: e.pattr } : {}), ...(e.per === "usedNow" || e.per === "handF" ? { pf: e.pf, pfn: e.pfn } : {}), ...(e.kind === "giveAb" || e.kind === "loseAb" ? { ab: e.ab, gw: e.gw, gd: e.gd } : {}), ...(e.kind === "giveAttr" ? { aw: e.aw, ga: e.ga, gm: e.gm } : {}), ...(["dblNext", "freeNext", "setCost", "copyPick"].includes(e.kind) ? { pf: e.pf, pfn: e.pfn, cpw: e.cpw, sp: e.sp, sd: e.sd } : {}), ...(e.kind === "setCost" ? { sw: e.sw, sv: e.sv, lo: e.lo, hi: e.hi } : {}) }));
+    else one.push(...expandFx({ kind: e.kind, n: e.n, to: e.to, ...(e.into ? { into: e.into } : {}), ...(e.intoId ? { intoId: e.intoId } : {}), ...(e.per ? { per: e.per, pm: e.pm, hits: e.hits, ...(e.hx ? { hx: true } : {}) } : {}), ...(KINDS[e.kind] && KINDS[e.kind].mod ? { mt: e.mt, ms: e.ms, mpl: e.mpl, mc: e.mc, mn: e.mn, gk: e.gk, gn: e.gn, nm: e.nm, ge: e.ge } : {}), ...(e.side ? { side: e.side } : {}), ...fxFields(e), ...(e.tn ? { tn: e.tn } : {}), ...(e.kind === "removeBoard" ? { rside: e.rside, rm: e.rm } : {}), ...(mfOn(e) ? { mfK: e.mfK, mfOp: e.mfOp, mfBy: e.mfBy, mfN: e.mfN, mfA: e.mfA } : {}), ...(KINDS[e.kind] && KINDS[e.kind].ctr ? { ctr: e.ctr, cw: e.cw } : {}), ...(e.per === "ctr" ? { pctr: e.pctr, pcw: e.pcw } : {}), ...(e.per === "attrMon" ? { pattr: e.pattr } : {}), ...(e.per === "usedNow" || e.per === "handF" ? { pf: e.pf, pfn: e.pfn } : {}), ...(e.kind === "giveAb" || e.kind === "loseAb" ? { ab: e.ab, gw: e.gw, gd: e.gd } : {}), ...(e.kind === "giveAttr" ? { aw: e.aw, ga: e.ga, gm: e.gm } : {}), ...(["dblNext", "freeNext", "setCost", "copyPick"].includes(e.kind) ? { pf: e.pf, pfn: e.pfn, cpw: e.cpw, sp: e.sp, sd: e.sd } : {}), ...(e.kind === "setCost" ? { sw: e.sw, sv: e.sv, lo: e.lo, hi: e.hi } : {}) }));
     // 「×○回」: the same effect again and again
     const cr = ctx && ctx.roll && ctx.roll.kind === "coin" ? ctx.roll : null;
     const reps = e.timesDie ? (ctx && ctx.roll && ctx.roll.kind === "die" ? ctx.roll.v : 0) : e.timesCoin ? (cr ? (e.timesCoin === "t" ? (cr.n || 1) - cr.v : cr.v) : 0) : Math.max(1, Math.min(20, e.times || 1));

@@ -1058,7 +1058,7 @@ function renderBlocksUI(){
       + (e.kind === "removeBoard" ? `<select data-f="rside" aria-label="どちらの場">${Object.entries(RB_SIDE).map(([k, l]) => opt(k, l + "の場", e.rside || "op")).join("")}</select><select data-f="rm" aria-label="どうする">${Object.entries(RB_MODE).map(([k, l]) => opt(k, l, e.rm || "destroy")).join("")}</select>` : "")
       + (KINDS[e.kind] && KINDS[e.kind].n && !(e.kind === "setCost" && e.sv === "rand") && (!FX_FORMS[e.kind] || (FX_FORMS[e.kind].genericN && FX_FORMS[e.kind].genericN(e))) ? `<span class="bk-n"><input type="number" data-f="n" min="${e.per || ZERO_N(e.kind, e) ? 0 : 1}" max="9999" value="${esc(e.n ?? defN(e.kind))}" aria-label="${esc(nUnit(e.kind) || "数")}">${nUnit(e.kind) ? `<span class="note">${esc(nUnit(e.kind))}</span>` : ""}</span>` : "")
       + (KINDS[e.kind] && KINDS[e.kind].name && !FX_FORMS[e.kind] ? `<input type="text" data-f="into" list="${KINDS[e.kind] && KINDS[e.kind].tag ? "tagNames" : "cardNames"}" maxlength="40" value="${esc(e.into || "")}" placeholder="${KINDS[e.kind].tag ? "タグ（例: アイアンクラッド）" : KINDS[e.kind].need ? (e.kind === "autoPlay" ? "名前に入る文字（例: ストライク）" : "カード名") : "カード名（空ならランダム）"}" aria-label="カード名">` + pickHTML(e) : "") + modRowHTML(e) + ((e.kind === "modAdd" || e.kind === "modRep") && !sub ? effRow(bi, part, e.ge || (e.ge = { kind: e.gk && KINDS[e.gk] && !KINDS[e.gk].mod ? e.gk : "draw", n: e.gn || 1 }), j, e.kind === "modRep" ? "rep" : "add") : "")
-      + (perOk(e.kind) && ((KINDS[e.kind] && KINDS[e.kind].n) || (MK.blocks[bi] || {}).trig !== "while") && (!easy || e.per) ? `<select data-f="per" aria-label="ふえる">${opt("", "ふえない", e.per || "")}${Object.entries(PER_DEFS).filter(([k, d]) => (!d.old || e.per === k) && (!d.hf || e.per === k || mkHfVal()) && (e.per === k || perShow(k, bi))).map(([k, d]) => opt(k, d.amt ? "＋" + d.label : d.label + d.u + "につき", e.per || "")).join("")}</select>` + (e.per === "usedNow" || e.per === "handF" ? usedPfUI(e, opt) : "") + `` + (e.per === "ctr" ? ctrPerUI(e, opt) : "") + (e.per === "attrMon" ? `<select data-f="pattr" aria-label="属性">${attrList().map(a => opt(a, a + "属性", e.pattr || "火")).join("")}</select>` : "") + (e.per ? (!KINDS[e.kind].n ? `<span class="note">もう1回（くり返す）</span>` : ((MK.blocks[bi] || {}).trig !== "while" ? `<select data-f="hits" aria-label="ふえかた">${opt("", "数が＋", e.hits ? "1" : "")}${opt("1", "もう1回（くり返す）", e.hits ? "1" : "")}</select>` : "") + (e.hits ? "" : `<input type="number" data-f="pm" min="1" max="9999" value="${esc(e.pm ?? 1)}" aria-label="1つにつき増える数">`)) : "") : "")
+      + (perOk(e.kind) && ((KINDS[e.kind] && KINDS[e.kind].n) || (MK.blocks[bi] || {}).trig !== "while") && (!easy || e.per) ? `<select data-f="per" aria-label="ふえる">${opt("", "ふえない", e.per || "")}${Object.entries(PER_DEFS).filter(([k, d]) => (!d.old || e.per === k) && (!d.hf || e.per === k || mkHfVal()) && (e.per === k || perShow(k, bi))).map(([k, d]) => opt(k, d.amt ? "＋" + d.label : d.label + d.u + "につき", e.per || "")).join("")}</select>` + (e.per === "usedNow" || e.per === "handF" ? usedPfUI(e, opt) : "") + `` + (e.per === "ctr" ? ctrPerUI(e, opt) : "") + (e.per === "attrMon" ? `<select data-f="pattr" aria-label="属性">${attrList().map(a => opt(a, a + "属性", e.pattr || "火")).join("")}</select>` : "") + (e.per ? (!KINDS[e.kind].n ? `<select data-f="hx" aria-label="何回">${opt("", "1回＋1つにつきもう1回", e.hx ? "1" : "")}${opt("1", "1つにつき1回（0なら0回）", e.hx ? "1" : "")}</select>` : ((MK.blocks[bi] || {}).trig !== "while" ? `<select data-f="hits" aria-label="ふえかた">${opt("", "数が＋", e.hits ? "1" : "")}${opt("1", "もう1回（くり返す）", e.hits ? "1" : "")}</select>` : "") + (e.hits ? "" : `<input type="number" data-f="pm" min="1" max="9999" value="${esc(e.pm ?? 1)}" aria-label="1つにつき増える数">`)) : "") : "")
       + ((MK.blocks[bi] || {}).roll === "coin" ? `<select data-f="timesCoin" aria-label="くり返し">${opt("", "1回", e.timesCoin || "")}${opt("h", "×コインの表の枚数", e.timesCoin || "")}${opt("t", "×コインの裏の枚数", e.timesCoin || "")}</select>` : "")
       + ((MK.blocks[bi] || {}).roll === "die" ? `<select data-f="timesDie" aria-label="くり返し">${opt("", "1回", e.timesDie ? "1" : "")}${opt("1", "×出た目の回数", e.timesDie ? "1" : "")}</select>` : "")
       + (!e.timesDie && !e.timesCoin && (!easy || e.times > 1) ? `<label class="bk-times" title="同じ効果を何回くり返すか">×<input type="number" data-f="times" min="1" max="20" value="${esc(e.times || 1)}" aria-label="回数">回</label>` : "")
@@ -1207,7 +1207,7 @@ const FORM_F = {
   fPick: (x, v) => ({ ...x, pick: v }),
   fDest: (x, v) => ({ ...x, dest: v }),
   hSide: (x, v) => ({ ...x, side: v === "me" ? "me" : undefined }),
-  hWho: (x, v) => ({ ...x, to: v, ...(v === "all" ? {} : { n: x.n > 0 ? x.n : 1 }) }),
+  hWho: (x, v) => { const o = { ...x, to: v, ...(v === "all" || v === "upto" ? {} : { n: x.n > 0 ? x.n : 1 }) }; if (v === "upto"){ delete o.n; delete o.only; } return o; },
   hOnly: (x, v) => ({ ...x, only: v === "nonAtk" ? v : undefined }),
   hHow: (x, v) => ({ ...x, how: v }),
   fTn: (x, v) => { const tn = Math.max(1, Math.min(10, Math.round(+v || 1))); const o = { ...x, tn }; if (o.to !== "random") o.to = tn > 1 ? "n" : "one"; return o; },
@@ -1310,9 +1310,9 @@ function fetchUI(e, opt){
 function handOutUI(e, opt){
   const me = e.side === "me";
   return `<select data-f="hSide" aria-label="だれの手札">${opt("", "相手の手札を", me ? "me" : "")}${opt("me", "自分の手札を", me ? "me" : "")}</select>`
-    + `<select data-f="hWho" aria-label="どれを">${opt("one", me ? "えらんで" : "見てえらんで", e.to)}${opt("random", "ランダムに", e.to)}${opt("all", "すべて", e.to)}</select>`
-    + (e.to !== "all" ? `<span class="bk-n"><input type="number" data-f="n" min="1" max="40" value="${esc(e.n || 1)}" aria-label="枚数"><span class="note">枚</span></span>` : "")
-    + (e.to !== "one" ? `<select data-f="hOnly" aria-label="しぼる">${opt("", "どのカードでも", e.only || "")}${opt("nonAtk", "アタック以外だけ", e.only || "")}</select>` : "")
+    + `<select data-f="hWho" aria-label="どれを">${opt("one", me ? "えらんで" : "見てえらんで", e.to)}${opt("random", "ランダムに", e.to)}${opt("all", "すべて", e.to)}${opt("upto", "好きな枚数えらんで（0枚もOK）", e.to)}</select>`
+    + (e.to !== "all" && e.to !== "upto" ? `<span class="bk-n"><input type="number" data-f="n" min="1" max="40" value="${esc(e.n || 1)}" aria-label="枚数"><span class="note">枚</span></span>` : "")
+    + (e.to !== "one" && e.to !== "upto" ? `<select data-f="hOnly" aria-label="しぼる">${opt("", "どのカードでも", e.only || "")}${opt("nonAtk", "アタック以外だけ", e.only || "")}</select>` : "")
     + `<select data-f="hHow" aria-label="どうする">${opt("grave", me ? "捨てる" : "捨てさせる", e.how)}${opt("exhaust", "廃棄する", e.how)}${opt("deck", "山札に戻す", e.how)}</select>`
     + (e.how === "deck" ? `<select data-f="rPos" aria-label="山札のどこ">${Object.keys(RM_POS).map(k => opt(k, { top: "一番上に", bottom: "一番下に", shuffle: "混ぜてシャッフル" }[k], e.pos || "shuffle")).join("")}</select>` : "");
 }
@@ -1443,8 +1443,9 @@ function bkEvent(e, rerenderOnInput){
   if (f === "dn" || f === "di" || f === "dd"){ if (v) x[f] = v.slice(0, f === "dd" ? 80 : 20); else delete x[f]; return updateBkText(); }
   if (f === "nm"){ x.nm = v.slice(0, 20); return updateBkText(); }
   if (f === "times"){ x.times = Math.max(1, Math.min(20, Math.round(+v || 1))); return updateBkText(); }
-  if (f === "per"){ x.per = v || null; if (!v){ x.hits = false; } else if (!(KINDS[x.kind] && KINDS[x.kind].n)) x.hits = true; else if (x.pm == null) x.pm = x.kind === "dmg" || x.kind === "block" ? (v === "myBlock" ? 1 : 40) : 1; return renderBlocksUI(); }
+  if (f === "per"){ x.per = v || null; if (!v){ x.hits = false; x.hx = false; } else if (!(KINDS[x.kind] && KINDS[x.kind].n)) x.hits = true; else if (x.pm == null) x.pm = x.kind === "dmg" || x.kind === "block" ? (v === "myBlock" ? 1 : 40) : 1; return renderBlocksUI(); }
   if (f === "hits"){ x.hits = v === "1"; return renderBlocksUI(); }
+  if (f === "hx"){ x.hx = v === "1"; return renderBlocksUI(); }
   if (f === "pm"){ x.pm = Math.max(1, Math.round(+v || 1)); return updateBkText(); }
   if (f === "to"){ x.to = v; return updateBkText(); }
   if (f === "side"){ x.side = v === "me" ? "me" : undefined; return updateBkText(); }
