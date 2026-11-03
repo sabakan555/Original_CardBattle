@@ -1799,3 +1799,17 @@ select,input,textarea{max-width:100%}
   .zones.denser{row-gap:12px}
   .zones.denser .zcap .zn{display:none}
 }
+
+/* カード工房: 効果をさがす・効果ブロックのコピー／貼りつけ */
+.fxs{display:flex;flex-direction:column;gap:6px;padding:10px 12px;border:1px solid var(--line);border-radius:12px}
+.fxs-l{font-weight:700;font-size:13px}
+.fxs input[type=search]{width:100%;box-sizing:border-box;min-height:40px}
+.fxs-to:empty{display:none}
+.fxs-res{display:flex;flex-direction:column;gap:4px;max-height:340px;overflow:auto}
+.fxs-res:empty{display:none}
+.fxs-it{display:flex;flex-direction:column;align-items:flex-start;gap:2px;text-align:left;padding:8px 10px;min-height:44px;width:100%}
+.fxs-it b{font-size:13.5px;line-height:1.35}
+.fxs-it .note{font-size:11.5px}
+.bk-clipbar,.bk-paste{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.bk-h .bk-copy{margin-left:auto}
+.bk-row.bk-new-row{outline:2px solid var(--accent,#4fd1c5);outline-offset:2px;border-radius:8px;transition:outline-color 1.4s}

@@ -1819,6 +1819,20 @@ select,input,textarea{max-width:100%}
   .zones.denser{row-gap:12px}
   .zones.denser .zcap .zn{display:none}
 }
+
+/* カード工房: 効果をさがす・効果ブロックのコピー／貼りつけ */
+.fxs{display:flex;flex-direction:column;gap:6px;padding:10px 12px;border:1px solid var(--line);border-radius:12px}
+.fxs-l{font-weight:700;font-size:13px}
+.fxs input[type=search]{width:100%;box-sizing:border-box;min-height:40px}
+.fxs-to:empty{display:none}
+.fxs-res{display:flex;flex-direction:column;gap:4px;max-height:340px;overflow:auto}
+.fxs-res:empty{display:none}
+.fxs-it{display:flex;flex-direction:column;align-items:flex-start;gap:2px;text-align:left;padding:8px 10px;min-height:44px;width:100%}
+.fxs-it b{font-size:13.5px;line-height:1.35}
+.fxs-it .note{font-size:11.5px}
+.bk-clipbar,.bk-paste{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.bk-h .bk-copy{margin-left:auto}
+.bk-row.bk-new-row{outline:2px solid var(--accent,#4fd1c5);outline-offset:2px;border-radius:8px;transition:outline-color 1.4s}
 </style>
 <style>html,body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
 </head>
@@ -6452,10 +6466,11 @@ function renderBlocksUI(){
   };
   const tpls = BK_TEMPLATES.filter(tp => [...(tp.then || []), ...(tp.else || [])].every(e => kinds.includes(e.kind)) && (!tp.trig || trigs.includes(tp.trig)) && (!easy || (!tp.conds && [...(tp.then || [])].every(e => ek.includes(e.kind)))));
   box.innerHTML = `<div class="bk-sentence"><div class="bk-cap">できあがる文</div><div id="bkText"></div></div>`
+    + (typeof fxToolsHTML === "function" ? fxToolsHTML() : "")
     + (tpls.length ? `<div class="bk-tpls"><span class="note">ひな形から始める：</span>${tpls.map((tp, i) => `<button type="button" class="small" data-tpl="${BK_TEMPLATES.indexOf(tp)}">${esc(tp.name)}</button>`).join("")}</div>` : "")
     + (trigs.length <= 1 && mkWhenOn() ? `<div class="bk bk-whenbox"><div class="bk-grid"><span class="bk-tag t-when">いつ</span><div class="row" style="gap:6px;flex-wrap:wrap"><select data-f="when" aria-label="いつ（発動できるとき）">${opt("", "いつでも", $("#mkWhen").value)}${WHEN_ORDER.map(k => opt(k, WHEN_LABEL[k], $("#mkWhen").value)).join("")}</select><span class="note">${$("#mkWhen").value ? "このときにしか発動できない" : "自分のターンでも、相手のターンでも発動できる"}</span></div></div></div>` : "")
     + MK.blocks.map((b, bi) => `<div class="bk" data-b="${bi}"><div class="bk-h"><b>効果 ${bi + 1}</b>${bi ? `<label class="row" style="gap:4px;font-size:12px;margin-left:8px;cursor:pointer" title="前の効果のつづきとして出す（「さらに、もし引いたカードが〜なら」など）"><input type="checkbox" data-f="cont"${b.cont ? " checked" : ""}>さらに（前の効果のつづき）</label>${!["act", "while"].includes(b.trig) && !["act", "while"].includes(MK.blocks[bi - 1].trig) ? `<label class="row" style="gap:4px;font-size:12px;margin-left:8px;cursor:pointer" title="前の効果ブロックと、どちらか1つを発動時に選ぶ"><input type="checkbox" data-f="alt"${b.alt ? " checked" : ""}>または（前の効果とどちらか選ぶ）</label>` : ""}` : ""}<span style="flex:1"></span>`
-      + `<button type="button" class="small ghost" data-bk="up" aria-label="上へ" ${bi ? "" : "disabled"}>↑</button><button type="button" class="small ghost" data-bk="down" aria-label="下へ" ${bi < MK.blocks.length - 1 ? "" : "disabled"}>↓</button><button type="button" class="small ghost danger" data-bk="del" aria-label="この効果を消す">×</button></div>`
+      + `<button type="button" class="small ghost bk-copy" data-bkcopy="${bi}" aria-label="効果 ${bi + 1}をコピー">コピー</button><button type="button" class="small ghost" data-bk="up" aria-label="上へ" ${bi ? "" : "disabled"}>↑</button><button type="button" class="small ghost" data-bk="down" aria-label="下へ" ${bi < MK.blocks.length - 1 ? "" : "disabled"}>↓</button><button type="button" class="small ghost danger" data-bk="del" aria-label="この効果を消す">×</button></div>`
       + `<div class="bk-grid">`
       + (trigs.length > 1 && !b.cont && !b.alt ? `<span class="bk-tag t-when">いつ</span><div class="row" style="gap:6px;align-items:center;flex-wrap:wrap"><select data-f="trig" aria-label="いつ">${trigs.map(k => opt(k, mkTrigLabel(k), b.trig)).join("")}</select>${MK.type === "monster" && TRIG_HELP[b.trig] ? `<span class="note">${TRIG_HELP[b.trig]}</span>` : ""}</div>` : "")
       + (MK.fxRows && b.trig !== "while" ? `<span class="bk-tag t-when">見出し</span><div class="row" style="gap:6px;flex-wrap:wrap"><input type="text" data-f="bn" maxlength="20" value="${esc(b.bn || "")}" placeholder="ブロック表示の見出し（例: 起爆）"><input type="text" data-f="bd" maxlength="40" value="${esc(b.bd || "")}" placeholder="見出しの説明（空なら自動）"><select data-f="bic" aria-label="見出しのアイコン">${opt("", "アイコン：爆弾", b.bic || "")}${Object.entries(FX_ICONS).filter(([k]) => k !== "flag" && k !== "bomb").map(([k, l]) => opt(k, l, b.bic || "")).join("")}</select></div>` : "")
@@ -6475,7 +6490,9 @@ function renderBlocksUI(){
       + `<span class="bk-tag t-do">なにを</span><div class="bk-col">${b.then.map((e, j) => (j > 0 ? `<div class="row bk-connect" style="gap:8px;margin:4px 0 8px 24px"><select data-f="one" aria-label="効果のつなぎ（この一覧すべてに適用）" title="そして：すべて順に発動／または：一覧から1つ選んで発動／○回えらぶ：一覧から○回えらぶ（同じものもOK・パーフェクト呪文）">${[["", "そして"], ["1", "または"], ["2", "2回えらぶ"], ["3", "3回えらぶ"]].map(([v, l]) => opt(v, l, b.one ? String(b.oneN > 1 ? b.oneN : 1) : "")).join("")}</select><span class="note">効果のつなぎ</span></div>` : "") + effRow(bi, "then", e, j)).join("")}<button type="button" class="small bk-add" data-bk="addEff" data-part="then">＋ ${b.then.length ? "つづけて効果を足す（同じタイミング）" : "効果を選ぶ"}</button></div>`
       + (b.conds.length ? `<span class="bk-tag t-else">ちがったら</span><div class="bk-col">${b.else.map((e, j) => effRow(bi, "else", e, j)).join("")}<button type="button" class="small bk-add" data-bk="addEff" data-part="else">＋ ${b.else.length ? "つづけて効果を足す" : "効果を選ぶ（なくてもいい）"}</button></div>` : "")
       + `</div></div>`).join("")
-    + `<button type="button" class="bk-new" data-bk="addBlock">${MK.blocks.length ? "＋ 効果ブロックを足す" + (trigs.length > 1 ? "（べつのタイミングの効果）" : "") : "＋ 効果を作る"}</button>`;
+    + `<button type="button" class="bk-new" data-bk="addBlock">${MK.blocks.length ? "＋ 効果ブロックを足す" + (trigs.length > 1 ? "（べつのタイミングの効果）" : "") : "＋ 効果を作る"}</button>`
+    + (typeof bkPasteHTML === "function" ? bkPasteHTML() : "");
+  if (typeof fxAfterRender === "function") fxAfterRender();
   updateBkText();
 }
 function updateBkText(){
@@ -7296,6 +7313,130 @@ $("#btnArtMig").addEventListener("click", async () => {
     msg.textContent = !ART_SPLIT_OK ? "cardArt に書きこめませんでした。Firestoreのルールに cardArt を追加してね" : `${r.done}枚を移しました${r.fail ? `（${r.fail}枚は失敗。ほかの人のカードは書きかえる権限がないかも）` : ""}`;
   } finally { btn.disabled = false; }
 });
+/* ================= カード工房: 効果をさがす・効果ブロックのコピー／貼りつけ =================
+   効果をさがす: 言葉で効果の種類をさがして、押すと「効果 ○」の「なにを」に足す（最後にさわった効果ブロック。なければ一番下）
+   コピー／貼りつけ: 効果ブロックをこの端末に覚えておき、ほかのカードに貼りつける。コード（OCBK1-…）にもなるので、LINEなどで送れる */
+
+// さがすときの言いかえ（左の言葉でさがすと、右の言葉が入っている効果も出す）
+const FX_SYN = {
+  "ドロー": ["引く", "引か"], "引く": ["ドロー"], "サーチ": ["山札から", "手札に加え"], "バウンス": ["手札に戻す"],
+  "除去": ["破壊", "除外", "除去"], "ハンデス": ["捨てさせ"], "火力": ["ダメージ"], "バーン": ["ダメージ"],
+  "トークン": ["生み出", "トークン"], "蘇生": ["墓地から"], "リアニメイト": ["墓地から"], "マナ加速": ["マナ"],
+  "パンプ": ["ATK"], "強化": ["ATK", "アップ"], "弱体化": ["ダウン", "弱体"], "ミル": ["墓地に送る", "墓地へ送る"],
+  "墓地肥やし": ["墓地に送る", "墓地へ送る"], "打ち消し": ["打ち消", "無効"], "ライフ": ["LP"], "踏み倒し": ["コストを払わずに", "タダ", "踏み倒"]
+};
+// よく使う組み合わせ（ふつうの一覧では作りにくい形を、そのまま足せるように）
+const FX_SEARCH_EXTRA = [
+  { label: "自分の手札を好きな枚数えらんで捨てる（0枚もOK）", words: "好きな枚数 任意 捨てる 手札 0枚", sg: "minus", e: { kind: "handOut", side: "me", to: "upto", how: "grave" } },
+  { label: "相手のモンスター1体を破壊（直前に捨てた手札1枚につき1回）", words: "捨てた 枚数 ぶん につき 破壊 除去", e: { kind: "destroy", per: "discN", hits: true, hx: true } }
+];
+// いま「足す先」になる効果ブロック
+function fxTargetBi(){ const L = MK.blocks || []; return L[MK.bkFocus] ? MK.bkFocus : L.length - 1; }
+// その効果ブロックで使える効果の一覧（「なにを」の大きな分け方 › 細かい分け方 つき）
+function fxSearchList(b){
+  const tb = b && b.trig, all = mkKinds();
+  const ks = tb === "while" ? all.filter(k => STATIC_KINDS.includes(k)) : !mkTrapOk(MK.type) && tb !== "oppAttack" ? all.filter(k => !ATK_REPLY.includes(k)) : all;
+  const out = [], seen = new Set();
+  superGroups(kindGroups(ks)).forEach(sup => sup.subs.forEach(sub => sub.v.forEach(([k, l]) => {
+    const key = k + "|" + sub.g; if (seen.has(key)) return; seen.add(key);
+    const f = famOf(k), fv = f && (f.v.find(x => x[0] === k) || [])[1];
+    const label = f && fv ? `${f.label}（${fv}）` : (l || (KINDS[k] || {}).label || k);
+    out.push({ k, sg: sub.g, label, path: sup.label === sub.label ? sup.label : `${sup.label} › ${sub.label}`, text: [label, l, (KINDS[k] || {}).label, sub.label, sup.label].filter(Boolean).join(" ") });
+  })));
+  FX_SEARCH_EXTRA.forEach((x, i) => { const e = fxNorm({ ...x.e }); if (ks.includes(e.kind)) out.push({ k: e.kind, sg: x.sg || null, label: x.label, path: "よく使う組み合わせ", text: x.label + " " + x.words, extra: i }); });
+  return out;
+}
+// ことばで しぼる（スペース区切りはぜんぶ入っているもの）。名前に入っているほど上に
+function fxSearch(q, list){
+  const terms = normQ(q).split(/[\s、,]+/).filter(Boolean); if (!terms.length) return [];
+  const syn = Object.entries(FX_SYN).map(([a, L]) => [normQ(a), L.map(normQ)]);
+  const hit = (t, txt) => txt.includes(t) || syn.some(([a, L]) => a === t && L.some(w => txt.includes(w)));
+  return list.map(x => { const lt = normQ(x.label), tt = normQ(x.text); if (!terms.every(t => hit(t, tt))) return null; return { ...x, sc: terms.filter(t => hit(t, lt)).length * 10 + (x.extra != null ? 5 : 0) - lt.length / 100 }; })
+    .filter(Boolean).sort((a, b) => b.sc - a.sc).slice(0, 12);
+}
+function fxToolsHTML(){
+  return `<div class="fxs"><label class="fxs-l" for="fxQ">効果をさがす</label>`
+    + `<input type="search" id="fxQ" placeholder="例: 捨てる・破壊・ドロー・好きな枚数" value="${esc(MK.fxQ || "")}" autocomplete="off" enterkeyhint="search">`
+    + `<div class="note fxs-to" id="fxsTo"></div><div class="fxs-res" id="fxRes"></div></div>`
+    + ((MK.blocks || []).length ? `<div class="bk-clipbar"><button type="button" class="small ghost" data-bkclip="copyAll">効果をぜんぶコピー</button></div>` : "");
+}
+function fxSearchRender(){
+  const box = $("#fxRes"), to = $("#fxsTo"); if (!box || !to) return;
+  const q = MK.fxQ || "";
+  if (!q.trim()){ box.innerHTML = ""; to.textContent = ""; MK._fxRes = []; return; }
+  const bi = fxTargetBi(), L = MK._fxRes = fxSearch(q, fxSearchList((MK.blocks || [])[bi]));
+  to.textContent = bi >= 0 ? `押すと「効果 ${bi + 1}」の「なにを」に足します` : "押すと新しい効果ブロックを作って足します";
+  box.innerHTML = L.length ? L.map((x, i) => `<button type="button" class="fxs-it" data-fxs="${i}"><b>${esc(x.label)}</b><span class="note">${esc(x.path)}</span></button>`).join("")
+    : `<p class="note" style="margin:0">見つかりませんでした。ちがう言葉でさがしてみてね（例: 「引く」「ドロー」）</p>`;
+}
+function fxAddFromSearch(x){
+  if (!MK.blocks.length) MK.blocks.push({ trig: mkTrigs()[0], join: "and", conds: [], then: [], else: [] });
+  const bi = fxTargetBi(), b = MK.blocks[bi];
+  const base = x.extra != null ? fxNorm(JSON.parse(JSON.stringify(FX_SEARCH_EXTRA[x.extra].e))) : { kind: x.k, n: defN(x.k) };
+  const pre = FX_FORMS[base.kind] && FX_FORMS[base.kind].preset && x.sg ? FX_FORMS[base.kind].preset[x.sg] : null;
+  b.then.push(setG({ ...(pre || {}), ...base }, x.sg || undefined));
+  const j = b.then.length - 1;
+  MK.fxQ = ""; MK.bkFocus = bi; renderBlocksUI();
+  const row = document.querySelector(`#bkUI .bk[data-b="${bi}"] .bk-row[data-part="then"][data-i="${j}"]`);
+  if (row){ row.classList.add("bk-new-row"); row.scrollIntoView({ block: "center", behavior: "smooth" }); setTimeout(() => row.classList.remove("bk-new-row"), 1600); }
+  toast(`「効果 ${bi + 1}」に「${x.label}」を足しました`);
+}
+
+/* ---- コピー／貼りつけ ---- */
+const BK_CODE = "OCBK1-";
+function bkClipGet(){ const c = ls.get("cb_bkClip", null); return c && Array.isArray(c.blocks) && c.blocks.length ? c : null; }
+const bkClipLabel = (bs, from) => `${from ? `「${from}」の` : ""}${bs.length > 1 ? `効果ブロック${bs.length}つ` : "効果ブロック"}`;
+const b64u = s => btoa(unescape(encodeURIComponent(s))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+const unb64u = s => { let b = s.replace(/-/g, "+").replace(/_/g, "/"); while (b.length % 4) b += "="; return decodeURIComponent(escape(atob(b))); };
+// コピー: この端末に覚える＋コード（OCBK1-…）をクリップボードに
+function bkClipSet(blocks, from){
+  const bs = JSON.parse(JSON.stringify(blocks || [])).filter(b => b && typeof b === "object"); if (!bs.length) return null;
+  const clip = { v: 1, blocks: bs, label: bkClipLabel(bs, from), t: Date.now() };
+  ls.set("cb_bkClip", clip);
+  try{ navigator.clipboard && navigator.clipboard.writeText(BK_CODE + b64u(JSON.stringify({ v: 1, blocks: bs, label: clip.label }))).catch(() => {}); }catch(e){}
+  return clip;
+}
+function bkReadCode(s){
+  const t = String(s || "").trim().replace(/\s+/g, ""); if (!t.startsWith(BK_CODE)) return null;
+  try{ const d = JSON.parse(unb64u(t.slice(BK_CODE.length))); return d && Array.isArray(d.blocks) && d.blocks.length ? { blocks: d.blocks, label: String(d.label || "効果ブロック").slice(0, 60) } : null; }catch(e){ return null; }
+}
+const bkFxCount = L => L.reduce((t, b) => t + (b.then || []).length + (b.else || []).length + (b.dieBr || []).reduce((s, x) => s + (x.then || []).length, 0), 0);
+// 貼りつけ: いまのカードの下に足す。このカードで使えない効果・いつ は、ふだんどおり直す（直したら知らせる）
+function bkPaste(clip){
+  const add = JSON.parse(JSON.stringify(clip.blocks)).filter(b => b && typeof b === "object");
+  if (!add.length){ toast("貼りつける効果がありません"); return; }
+  delete add[0].cont; delete add[0].alt;
+  const trig0 = add.map(b => b.trig), before = bkFxCount(add), start = MK.blocks.length;
+  MK.blocks.push(...add); bkNormalize();
+  const got = MK.blocks.slice(start), lost = before - bkFxCount(got), moved = got.filter((b, i) => b.trig !== trig0[i]).length;
+  MK.bkFocus = start; renderBlocksUI();
+  const first = document.querySelector(`#bkUI .bk[data-b="${start}"]`); if (first) first.scrollIntoView({ block: "start", behavior: "smooth" });
+  toast(`${clip.label}を貼りつけました${lost ? `。このカードでは使えない効果${lost}つは入れていません` : ""}${moved ? `。「いつ」を変えたブロックがあるので、たしかめてね` : ""}`);
+}
+function bkPasteHTML(){
+  const c = bkClipGet();
+  return `<div class="bk-paste">${c ? `<button type="button" class="small" data-bkclip="paste">📋 貼りつけ：${esc(c.label)}</button>` : ""}<button type="button" class="small ghost" data-bkclip="code">コードで貼りつけ</button></div>`;
+}
+function fxAfterRender(){ if (MK.fxQ) fxSearchRender(); }
+
+{ const box = $("#bkUI");
+  if (box){
+    // 最後にさわった効果ブロックを覚える（さがした効果の足し先）
+    const focus = e => { const bk = e.target.closest && e.target.closest(".bk[data-b]"); if (bk && MK.bkFocus !== +bk.dataset.b){ MK.bkFocus = +bk.dataset.b; if (MK.fxQ) fxSearchRender(); } };
+    box.addEventListener("focusin", focus); box.addEventListener("pointerdown", focus);
+    box.addEventListener("input", e => { if (e.target.id !== "fxQ") return; MK.fxQ = e.target.value; fxSearchRender(); });
+    box.addEventListener("keydown", e => { if (e.target.id === "fxQ" && e.key === "Enter"){ e.preventDefault(); const x = (MK._fxRes || [])[0]; if (x) fxAddFromSearch(x); } });
+    box.addEventListener("click", e => {
+      const it = e.target.closest("[data-fxs]"); if (it){ const x = (MK._fxRes || [])[+it.dataset.fxs]; if (x) fxAddFromSearch(x); return; }
+      const cp = e.target.closest("[data-bkcopy]"); if (cp){ const b = MK.blocks[+cp.dataset.bkcopy]; if (b && bkClipSet([b], ($("#mkName") || {}).value && $("#mkName").value.trim())){ renderBlocksUI(); toast(`「効果 ${+cp.dataset.bkcopy + 1}」をコピーしました。ほかのカードの「📋 貼りつけ」で使えます`); } return; }
+      const cb = e.target.closest("[data-bkclip]"); if (!cb) return;
+      const a = cb.dataset.bkclip;
+      if (a === "copyAll"){ if (bkClipSet(MK.blocks, ($("#mkName") || {}).value && $("#mkName").value.trim())){ renderBlocksUI(); toast("効果をぜんぶコピーしました。ほかのカードの「📋 貼りつけ」で使えます"); } return; }
+      if (a === "paste"){ const c = bkClipGet(); if (c) bkPaste(c); return; }
+      if (a === "code"){ const s = prompt("効果のコード（OCBK1-…）を貼りつけてください"); if (!s) return; const c = bkReadCode(s); if (!c){ toast("効果のコードが読めませんでした"); return; } bkPaste(c); }
+    });
+  }
+}
 /* ================= decks ================= */
 S.deckEdit = { id: null, cards: {} };
 function myDecks(){ return S.decks.filter(d => isMine(d, "owner")); }
@@ -7430,7 +7571,7 @@ function renderCardView(){
     <button class="cv-x ghost" data-cv="close" aria-label="とじる">×</button>
     <button class="cv-nav prev" data-cv="prev" ${CV.i ? "" : "disabled"} aria-label="前のカード">‹</button>
     <div class="cv-card">${cardHTML(c, "", "", mana === undefined ? {} : { mana })}</div>
-    <div class="cv-info"><div class="row" style="justify-content:space-between;align-items:center;gap:8px"><h2>${rubyHTML(c.nameRuby || c.name)}</h2><button class="small" data-cv="shot" title="このカードを画像（PNG）で保存">📷 画像で保存</button></div><dl class="cv-dl">${lvAttrRowsIn(rows, c).map(([k, v, h]) => `<dt>${k}</dt><dd>${h || tkLink(esc(v))}</dd>`).join("")}</dl><h3>テキスト</h3><div class="cv-text">${text}</div>${histHTML(c)}${foot}</div>
+    <div class="cv-info"><div class="row" style="justify-content:space-between;align-items:center;gap:8px"><h2>${rubyHTML(c.nameRuby || c.name)}</h2><div class="row" style="gap:6px">${blocksOf(c).length ? `<button class="small" data-cv="fxcopy" title="このカードの効果ブロックをコピーして、カード工房で貼りつける">効果をコピー</button>` : ""}<button class="small" data-cv="shot" title="このカードを画像（PNG）で保存">📷 画像で保存</button></div></div><dl class="cv-dl">${lvAttrRowsIn(rows, c).map(([k, v, h]) => `<dt>${k}</dt><dd>${h || tkLink(esc(v))}</dd>`).join("")}</dl><h3>テキスト</h3><div class="cv-text">${text}</div>${histHTML(c)}${foot}</div>
     <button class="cv-nav next" data-cv="next" ${CV.i < CV.ids.length - 1 ? "" : "disabled"} aria-label="次のカード">›</button>
     <div class="cv-pos">${CV.i + 1} / ${CV.ids.length}</div></div>`;
   $("#cardView").hidden = false;
@@ -7443,6 +7584,7 @@ $("#cardView").addEventListener("click", e => {
   if (k === "skin"){ const to = b.dataset.cvskin; famSkin(id, to); CV.ids[CV.i] = to; renderDeck(); renderCardView(); return; }
   if (k === "close"){ closeCardView(); return; }
   if (k === "shot"){ saveCardImage(card(id)); return; }
+  if (k === "fxcopy"){ const c = card(id); if (bkClipSet(blocksOf(c), c.name)){ bkSync(); toast("効果をコピーしました。カード工房の「📋 貼りつけ」で使えます"); } return; }
   if (k === "prev" && CV.i > 0){ CV.i--; renderCardView(); }
   if (k === "next" && CV.i < CV.ids.length - 1){ CV.i++; renderCardView(); }
   if (k === "key"){ S.deckEdit.key = id; renderDeck(); renderCardView(); toast("キーカードにしました（デッキを保存すると反映）"); return; }
