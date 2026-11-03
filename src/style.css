@@ -1813,3 +1813,44 @@ select,input,textarea{max-width:100%}
 .bk-clipbar,.bk-paste{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
 .bk-h .bk-copy{margin-left:auto}
 .bk-row.bk-new-row{outline:2px solid var(--accent,#4fd1c5);outline-offset:2px;border-radius:8px;transition:outline-color 1.4s}
+
+/* 攻撃の結果予告（攻撃先をえらんでいる間、相手のカードの上に） */
+.atkpv{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:8;display:flex;flex-direction:column;align-items:center;gap:1px;padding:3px 7px;border-radius:8px;font:800 12.5px/1.15 var(--ui);white-space:nowrap;pointer-events:none;box-shadow:0 2px 10px rgba(0,0,0,.55);border:1.5px solid #1e2328;color:#1e2328}
+.atkpv small{font-size:10.5px;font-weight:700}
+.atkpv.k-win{background:#ffd166}
+.atkpv.k-dmg{background:#ffe7a3}
+.atkpv.k-trade{background:#cdbdff}
+.atkpv.k-lose{background:#ff9a85}
+.atkpv.k-none{background:#d6dbe3}
+.atkpv.dir{position:static;transform:none;flex-direction:row;gap:6px;margin-left:6px;align-self:center}
+.zones .card.tapped .atkpv{transform:translate(-50%,-50%) rotate(-90deg)}
+@media (max-width:640px){.atkpv{font-size:11px;padding:2px 5px}.atkpv small{font-size:9.5px}}
+/* ターン終了のひと声 */
+#board [data-act="endTurn"].armed{background:#ffb454!important;color:#1e2328!important;border-color:#1e2328!important;line-height:1.2}
+/* 対戦の設定（スマホではたたむ） */
+.bopt summary{cursor:pointer;font-weight:700}
+.bopt-in{display:flex;flex-direction:column;gap:10px;margin-top:10px}
+/* 相手の行動に答える確認: 盤面をふさがないよう下にまとめる */
+#overlay.resp-dock{background:transparent;place-items:end center;pointer-events:none;padding:8px 8px calc(8px + env(safe-area-inset-bottom,0px))}
+#overlay.resp-dock .box{pointer-events:auto;max-width:820px;max-height:min(58vh,560px);gap:8px;border:2px solid var(--accent,#4fd1c5);box-shadow:0 -10px 34px rgba(0,0,0,.6)}
+#overlay.resp-dock .gallery{display:flex;flex-wrap:nowrap;overflow-x:auto;gap:10px;padding-bottom:4px}
+#overlay.resp-dock .g-item{flex:none}
+#overlay.resp-dock h2{font-size:17px}
+.resp-mode{display:flex;gap:8px;align-items:flex-start;font-size:12.5px;color:var(--muted);cursor:pointer}
+.resp-mode input{flex:none;width:auto;margin-top:2px}
+/* ドラッグ操作 */
+.zones .card.can{touch-action:none}
+.drag-ghost{position:fixed;left:0;top:0;z-index:60;pointer-events:none;margin:0;opacity:.94;filter:drop-shadow(0 12px 20px rgba(0,0,0,.6));transition:none!important;animation:none!important}
+.drag-tip{position:fixed;z-index:61;pointer-events:none;padding:5px 11px;border-radius:99px;background:rgba(14,16,36,.95);border:2px solid var(--accent,#4fd1c5);color:#fff;font:800 13px/1.2 var(--ui);white-space:nowrap;transform:translate(-50%,-100%)}
+.drag-tip.no{border-color:#9aa3ad;color:#c9d0da}
+body.dragging{user-select:none;-webkit-user-select:none;cursor:grabbing}
+body.dragging .msheet{visibility:hidden}
+body.dragging .mdock{pointer-events:none}
+body.dragging .mhand{opacity:.35}
+body.dragging .zoom-card{display:none!important}
+#board .card.drag-src{opacity:.35}
+#board .slot.drop-hover{background:rgba(79,209,197,.55)!important;outline:3px solid var(--accent,#4fd1c5);outline-offset:2px}
+#board .card.drop-hover{outline:3px solid #ffd166;outline-offset:3px}
+#board .drop-hover.mbar,#board .mstat.op.drop-hover,#lp-op.drop-hover{outline:3px solid var(--hit,#ff6b52);outline-offset:2px}
+#board .table.drop-field{outline:3px dashed var(--accent,#4fd1c5);outline-offset:-4px;border-radius:14px}
+#board .card img{-webkit-user-drag:none;user-select:none}

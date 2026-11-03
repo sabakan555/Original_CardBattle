@@ -376,7 +376,7 @@ function mzGroups(L, open){
   out.forEach(g => { if (g.members){ g.n = g.members.length; g.open = g.n > 1 && !!open[g.key]; } });
   return out;
 }
-function renderBoard(){ const r = renderBoard0(); glJoin(); atkArrow(); return r; }
+function renderBoard(){ const r = renderBoard0(); glJoin(); boardPost(); atkArrow(); return r; }
 // いま攻撃できる自分のモンスター（自分のターン・動けるときだけ）
 const atkReady = (st, me) => st.turn === me && canAct(st, me) && !st.winner && !(G && G.spectate) ? P(st, me).mz.map((m, i) => m && canAttack(st, me, i) ? i : -1).filter(i => i >= 0) : [];
 /* ---- 攻撃の矢印（アリーナ風）: 攻撃中（相手の攻撃も）・攻撃先をえらんでいる間。PCではマウスについてくる ---- */
@@ -515,7 +515,7 @@ function renderBoard0(){
   } else if (atkFrom != null){
     const noMons = !po.mz.some(Boolean), AT = atkTargets(st, me, atkFrom), tt = AT.taunt ? [1] : [], canDirect = AT.direct;
     if (G.atkTo != null && !AT.L.includes(G.atkTo)) G.atkTo = null;
-    if (G.atkTo != null){ const am = pm.mz[atkFrom], tm = po.mz[G.atkTo]; hint = `「${esc(card(am.c).name)}」（ATK ${fmtN(atkOf(am))}）で「${esc(card(tm.c).name)}」（ATK ${fmtN(atkOf(tm))}）に攻撃する？`; acts = `<button class="primary" data-act="atkGo">攻撃する！</button><button class="ghost" data-act="cancelAtk">やめる</button>`; }
+    if (G.atkTo != null){ const am = pm.mz[atkFrom], tm = po.mz[G.atkTo]; hint = `「${esc(card(am.c).name)}」（ATK ${fmtN(atkOf(am))}）で「${esc(card(tm.c).name)}」（ATK ${fmtN(atkOf(tm))}）に攻撃する？${atkPvHint(st, me, atkFrom, G.atkTo)}`; acts = `<button class="primary" data-act="atkGo">攻撃する！</button><button class="ghost" data-act="cancelAtk">やめる</button>`; }
     else hint = noMons ? "相手の場にモンスターがいない！" : AT.top ? "一番ATKが高いモンスターにしか攻撃できない！（光っているモンスター）" : tt.length ? "このモンスターにしか攻撃できない！（光っているモンスター）" : canDirect ? "攻撃する相手モンスターをえらぶか、直接攻撃！" : "攻撃する相手モンスターをえらんでね";
     if (G.atkTo == null) acts = (canDirect ? `<button class="primary" data-act="direct">直接攻撃！</button>` : "") + `<button class="ghost" data-act="cancelAtk">やめる</button>`;
   } else {
@@ -531,15 +531,15 @@ function renderBoard0(){
         if (twOf(c)){ const sp = card(c.id + "~tw"), why = twinWhy(st, me, sel.i); acts += `<button class="mg" data-act="twin" ${why ? "disabled" : ""}>魔法「${esc(sp.name)}」として使う${why ? `（${esc(why)}）` : ""}</button>`; }
         const tn = tribOf(c, st, me), mineN = pm.mz.filter(m => m && !monCannotLeave(m) && (!c.tribTag || hasTag(m.c, c.tribTag))).length;
         if (isDmEvo(c)){ const B = evoBases(st, me, c), ok = canSummonNow(st, me) && afford && B.length > 0; acts += `<button class="primary" data-act="summon" ${ok ? "" : "disabled"}>進化する${!canSummonNow(st, me) ? "（このターンは召喚ずみ）" : !B.length ? `（進化元がいない）` : short}</button>`; if (ok) hint = `自分の${DM_EVO_W(c.dmEvo)}モンスターの上に重ねて出します（出たターンから攻撃できる）`; }
-        else if (!(ss && ss.only)){ const ms = massOf(c), msOk = pm.grave.length >= ms, ok = canSummonNow(st, me) && afford && msOk && (tn ? mineN >= tn : freeZone(pm.mz, pm) >= 0); acts += `<button class="primary" data-act="summon" ${ok ? "" : "disabled"}>${tn ? "生贄召喚する" : ms ? `召喚する（質量${ms}）` : "召喚する"}${!canSummonNow(st, me) ? "（このターンは召喚ずみ）" : !msOk ? `（墓地のカードが${ms}枚いる）` : tn && mineN < tn ? `（生贄が${tn}体いる）` : short}</button>`; if (ok) hint = tn ? `自分のモンスター${tn}体を生贄にして召喚します` : "光っているモンスターゾーンをクリックしても召喚できます"; }
+        else if (!(ss && ss.only)){ const ms = massOf(c), msOk = pm.grave.length >= ms, ok = canSummonNow(st, me) && afford && msOk && (tn ? mineN >= tn : freeZone(pm.mz, pm) >= 0); acts += `<button class="primary" data-act="summon" ${ok ? "" : "disabled"}>${tn ? "生贄召喚する" : ms ? `召喚する（質量${ms}）` : "召喚する"}${!canSummonNow(st, me) ? "（このターンは召喚ずみ）" : !msOk ? `（墓地のカードが${ms}枚いる）` : tn && mineN < tn ? `（生贄が${tn}体いる）` : short}</button>`; if (ok) hint = tn ? `自分のモンスター${tn}体を生贄にして召喚します` : `光っているモンスターゾーンを${mobUI() ? "タップ" : "クリック"}しても召喚できます`; }
         else hint = "このカードは特殊召喚でしか出せません";
         if (ss){ const why = ssBlock(st, me, sel.i); acts += `<button class="mg" data-act="ssummon" ${why ? "disabled" : ""}>特殊召喚する${why ? `（${why}）` : ""}</button>`; }
       }
       if (!afford && t !== "monster") hint = `今は使えません${short}${c.frame === "spire" ? "" : "。セットはできます"}`;
-      else if (t === "magic" || t === "trap") hint = "光っている魔法・罠ゾーンをクリックしてもセットできます";
-      else if (t === "monster" && afford) hint = "光っているモンスターゾーンをクリックしても召喚できます";
+      else if (t === "magic" || t === "trap") hint = `光っている魔法・罠ゾーンを${mobUI() ? "タップ" : "クリック"}してもセットできます`;
+      else if (t === "monster" && afford) hint = `光っているモンスターゾーンを${mobUI() ? "タップ" : "クリック"}しても召喚できます`;
       if (t === "magic"){ const full = isPersist(c) && freeZone(pm.sz, pm) < 0, why = useWhyShort(st, me, c); acts += `<button class="mg" data-act="activateHand" ${afford && !full && !why ? "" : "disabled"}>発動する${full ? "（魔法・罠ゾーンがいっぱい）" : why ? `（${why}）` : short}</button>`; if (+c.kick > 0 && pm.mana && !c.kickAuto) acts += `<button class="mg" data-act="activateHandKick" ${afford && !full && !why && pm.mana.cur >= effCost(st, me, c) + +c.kick ? "" : "disabled"}>キッカー${+c.kick}も払って発動</button>`; }
-      if (t === "equip" && afford){ const any = ["a", "b"].some(o => P(st, o).mz.some((m, j) => m && canEquipOn(st, pm.hand[sel.i], o, j))); hint = any ? `光っているモンスターをクリックして装備（相手のでもOK）。装備コスト ${eqCostOf(c)}` : "装備できるモンスターがいません（キャパが足りない）"; }
+      if (t === "equip" && afford){ const any = ["a", "b"].some(o => P(st, o).mz.some((m, j) => m && canEquipOn(st, pm.hand[sel.i], o, j))); hint = any ? `光っているモンスターを${mobUI() ? "タップ" : "クリック"}して装備（相手のでもOK）。装備コスト ${eqCostOf(c)}` : "装備できるモンスターがいません（キャパが足りない）"; }
       if (t !== "monster" && t !== "equip" && c.frame !== "spire") acts += `<button class="${t === "trap" ? "tr" : ""}" data-act="set" ${freeZone(pm.sz, pm) < 0 ? "disabled" : ""}>セットする</button>`;
       if (hfOf(c)){ const why = hfWhy(st, me, sel.i), n = (pm.hf || {})[c.id] || 0; acts += `<button class="mg" data-act="hfuse" ${why ? "disabled" : ""}>フュージョンする${why ? `（${why}）` : ""}${n ? `［いま${n}枚］` : ""}</button>`; }
       if (c.cycle){ const why = cycleWhy(st, me, sel.i), n = +c.cycle.n || 0; acts += `<button data-act="cycle" ${why ? "disabled" : ""}>サイクリング${n > 0 && pm.mana ? `（マナ${n}）` : ""}${why ? `（${why}）` : ""}</button>`; }
@@ -627,7 +627,8 @@ function renderBoard0(){
   const msheet = `<div class="msheet"><div class="ms-grip" aria-hidden="true"></div>${mHead}<div class="ms-hint">${mHint}</div><div class="ms-acts">${mActs}${mExtra}${mSelC && atkFrom == null ? `<button type="button" class="ghost" data-act="mdetail">詳細</button>` : ""}${!st.winner && !G.spectate && sel && atkFrom == null ? `<button type="button" class="ghost" data-act="mclose">とじる</button>` : ""}</div></div>`;
   const mN = pm.hand.length, mR = Math.min(6, 36 / Math.max(1, mN)), mY = Math.min(2.5, 15 / Math.max(1, mN));
   const mhand = `<div class="hand mhand" style="--n:${mN};--d:${Math.max(1, mN - 1)}">${G.spectate ? pm.hand.map(() => backHTML("", "", pm.sleeve)).join("") : pm.hand.map((id, i) => { const k = i - (mN - 1) / 2; return `<div class="hslot" style="--r:${(k * mR).toFixed(1)}deg;--y:${(k * k * mY).toFixed(1)}px">${handCard(id, i)}</div>`; }).join("")}${mN ? "" : `<p class="muted">手札なし</p>`}</div>`;
-  const mdock = `<div class="mdock ${mSheetOn ? "sheet" : ""}">${mSheetOn ? msheet : `${fbActs || gsActs ? `<div class="mfb">${fbActs}${gsActs}</div>` : ""}${mN && myTurn && free ? `<div class="mhint">タップで選ぶ ・ 上にスワイプで使う</div>` : ""}${mhand}`}</div>`;
+  const mSh = mSheetOn && !dragging(); // ドラッグ中は手札の扇のまま（うすく）
+  const mdock = `<div class="mdock ${mSh ? "sheet" : ""}">${mSh ? msheet : `${fbActs || gsActs ? `<div class="mfb">${fbActs}${gsActs}</div>` : ""}${mN && myTurn && free ? `<div class="mhint">タップで選ぶ ・ 上にスワイプで使う</div>` : ""}${mhand}`}</div>`;
   const mEnd = !st.winner && !G.spectate && myTurn && free && atkFrom == null ? `<button type="button" class="mend" data-act="endTurn">ターン<br>終了</button>` : "";
 
   $("#board").innerHTML = `
@@ -647,7 +648,7 @@ function renderBoard0(){
         <h2>バトルゾーン</h2>
         <div class="turnline">ターン${st.turnNo}・${G.spectate ? `<span class="me">${esc(P(st, st.turn).name)} のターン</span>` : myTurn ? `<span class="me">あなたのターン</span>` : `<span class="op">${esc(po.name)} のターン</span>`}${myTurn && !pm.mana && !st.summoned ? "（召喚できる）" : ""}</div>
         ${st.chain && st.chain.length ? `<div class="chainrow onboard"><span class="note">チェーン中：</span>${st.chain.map((l, k) => `<button type="button" class="link ${l.s === me ? "mine" : ""}" data-cid="${esc(l.c)}" data-where="チェーン${k + 1}">${k + 1}. ${l.summon ? (l.special ? "特殊召喚：" : "召喚：") : ""}${esc(card(l.c).name)}<small>${l.s === me ? "あなた" : esc(P(st, l.s).name)}</small></button>`).join('<span class="arr">→</span>')}</div>` : ""}
-        <div class="lastlog">${st.log.slice(-3).reverse().map((l, k) => `<div class="${k ? "older" : ""}">${logLinks(esc((l.s ? nm(st, l.s) + "：" : "") + l.m))}</div>`).join("")}</div>
+        <div class="lastlog">${st.log.filter(l => !/^ターン\d+：/.test(l.m || "")).slice(-3).reverse().map((l, k) => `<div class="${k ? "older" : ""}">${logLinks(esc((l.s ? nm(st, l.s) + "：" : "") + l.m))}</div>`).join("")}</div>
         ${(st.recent || []).length ? `<div class="recent"><span class="note">最近使われたカード</span><div class="rc-list">${st.recent.slice().reverse().map(r => `<div class="rc ${r.s === me ? "mine" : "theirs"}">${cardHTML(card(r.c), "xs pick", `data-cid="${esc(r.c)}" data-where="${r.s === me ? "あなた" : esc(P(st, r.s).name)}が使った" tabindex="0" role="button"`, mOpt(r.s))}<small>${r.s === me ? "あなた" : esc(P(st, r.s).name)}</small></div>`).join("")}</div></div>` : ""}
         <div id="turnTimer" class="turn-timer">${timerHTML()}</div>
         <div class="msg">${hint}</div>
@@ -673,7 +674,7 @@ function renderBoard0(){
         <div class="pl"><div><div class="nm">${esc(po.name)}</div><div class="pile">山札 ${po.deck.length}${(po.ex || []).length ? ` EX ${po.ex.length}` : ""}<button class="chip" data-grave="op:grave">墓地 ${po.grave.length}</button>${(po.exile || []).length ? `<button class="chip" data-grave="op:exile">廃棄 ${po.exile.length}</button>` : ""}</div></div>${lpBox(po, "op")}</div>${potRow(po, false)}
         <div class="pl"><div><div class="nm">${esc(pm.name)}${G.spectate ? "" : "（あなた）"}</div><div class="pile"><button class="chip" data-grave="me:deck">山札 ${pm.deck.length}</button>${(pm.ex || []).length ? `<button class="chip exchip" data-exopen>EX ${pm.ex.length}</button>` : ""}<button class="chip" data-grave="me:grave">墓地 ${pm.grave.length}</button>${(pm.exile || []).length ? `<button class="chip" data-grave="me:exile">廃棄 ${pm.exile.length}</button>` : ""}</div></div>${lpBox(pm, "me")}</div>${potRow(pm, !G.spectate, !G.spectate)}
         ${G.mode === "online" ? `<div class="note">部屋 ${esc(G.code)}</div>` : ""}
-        ${G.mode === "cpu" ? `<label class="row cpuspd" style="gap:8px">CPUの速さ<select data-cpuspd aria-label="CPUの速さ">${Object.entries(CPU_SPD).map(([k, v]) => `<option value="${k}"${cpuSpd() === k ? " selected" : ""}>${v[1]}</option>`).join("")}</select></label><label class="row cpuspd" style="gap:8px">CPUのつよさ<select data-cpulv aria-label="CPUのつよさ">${Object.entries(CPU_LV).map(([k, v]) => `<option value="${k}"${cpuLv() === k ? " selected" : ""}>${v}</option>`).join("")}</select></label>` : ""}
+        ${boptOpenHTML()}${G.mode === "cpu" ? `<label class="row cpuspd" style="gap:8px">CPUの速さ<select data-cpuspd aria-label="CPUの速さ">${Object.entries(CPU_SPD).map(([k, v]) => `<option value="${k}"${cpuSpd() === k ? " selected" : ""}>${v[1]}</option>`).join("")}</select></label><label class="row cpuspd" style="gap:8px">CPUのつよさ<select data-cpulv aria-label="CPUのつよさ">${Object.entries(CPU_LV).map(([k, v]) => `<option value="${k}"${cpuLv() === k ? " selected" : ""}>${v}</option>`).join("")}</select></label>` : ""}${boptCloseHTML()}
       </div>
       ${G.test ? testBoxHTML(st, pm) : ""}
       ${manualPanelOn() || G.test ? `<div class="box">
@@ -972,7 +973,7 @@ function renderOverlay(){
   const ov = $("#overlay");
   if (!G || !G.st || !G.st.started || S.tab !== "play"){ ov.hidden = true; ov.innerHTML = ""; battleChrome(false); return; }
   const st = G.st, me = G.slot;
-  let html = "", peek = false;
+  let html = "", peek = false, dock = false;
   const myP = !G.spectate && st.players && st.players[me], rp = myP && !st.winner ? myP.relicPick : null;
   if (G.actAsk != null && (st.winner || G.spectate || actWhy(st, me, G.actAsk))) G.actAsk = null;
   if (G.actAsk != null){
@@ -1032,7 +1033,7 @@ function renderOverlay(){
     const cp = G.costPick, pm = P(st, me), L = pm.hand.map((id, j) => j).filter(j => j !== cp.hi && (!cp.tag || hasTag(pm.hand[j], cp.tag)));
     const list = L.map(j => { const on = cp.picked.includes(j); return cardHTML(card(pm.hand[j]), `sm pick ${on ? "sel" : ""}`, `data-cpick="${j}" tabindex="0" role="button" aria-pressed="${on}"`, mOpt(me)); }).join("");
     html = `<div class="box"><h2 style="margin:0">「${esc(cp.name)}」のコスト</h2><p class="muted" style="margin:0">捨てる手札を${cp.need}枚えらんでね（${cp.picked.length} / ${cp.need}）</p><div class="gallery">${list}</div><div class="row"><button class="primary" data-cpgo ${cp.picked.length === cp.need ? "" : "disabled"}>捨てて使う</button><button class="ghost" data-close="costpick">やめる</button></div></div>`;
-  } else if (st.pending && st.pending.wait && st.pending.by !== me && !st.winner && !G.spectate){
+  } else if (st.pending && st.pending.wait && st.pending.by !== me && !st.winner && !G.spectate && !respAuto(st)){
     const pd = st.pending, A = P(st, pd.by);
     const win = chainWindow(st);
     const opts = responseOptions(st, me, win);
@@ -1055,8 +1056,8 @@ function renderOverlay(){
     const fHTML = focus ? `<div class="resp-focus">${cardHTML(card(focus.id), "sm pick", `data-cid="${esc(focus.id)}" tabindex="0" role="button"`, { mod: focus.mod || 0, ...mOpt(focus.s) })}<div class="rf-txt"><span class="rf-lbl">${focus.lbl}</span><b>「${esc(card(focus.id).name)}」</b><p>${tkLink(esc(fxText(card(focus.id)) || plainRuby(card(focus.id).effect || "") || "効果なし"))}</p><span class="note">カードを押すとくわしく見られます</span></div></div>` : "";
     const chainHTML = st.chain && st.chain.length ? `<div class="chainrow">${st.chain.map((l, k) => `<button type="button" class="link ${l.s === me ? "mine" : ""}" data-cid="${esc(l.c)}" data-where="チェーン${k + 1}">${k + 1}. ${l.summon ? (l.special ? "特殊召喚：" : "召喚：") : ""}${esc(card(l.c).name)}<small>${l.s === me ? "あなた" : esc(P(st, l.s).name)}</small></button>`).join('<span class="arr">→</span>')}</div>` : "";
     const prevHTML = rs ? `<div class="resp-prev">${cardHTML(rs.c, "sm", "", mOpt(me))}<div class="rf-txt"><b>「${esc(rs.c.name)}」${rs.from === "blk" ? "でブロックする？" : "を使う？"}</b><p>${rs.from === "blk" ? "このモンスターが代わりに攻撃を受けて、バトルする" : tkLink(esc(fxText(rs.c) || plainRuby(rs.c.effect || "") || "効果なし"))}</p><div class="row"><button class="primary" data-respgo>${rs.from === "blk" ? "ブロックする" : "発動する"}</button><button class="ghost" data-respcancel>やめる</button></div></div></div>` : opts.length ? `<p class="note" style="margin:0">使うカードを押すと効果が出ます（押しただけでは発動しません）</p>` : "";
-    html = `<div class="box"><h2 style="margin:0">${esc(head)}</h2>${chainHTML}${fHTML}<p style="margin:0">${esc(msg)}</p><div class="gallery">${list}</div>${prevHTML}<div class="row"><button data-close="notrap">${win === "chain" || win === "chainAttack" ? "チェーンしない" : "使わない"}</button><button class="ghost" data-peek>盤面を見る</button></div></div>`;
-    peek = true;
+    html = `<div class="box"><h2 style="margin:0">${esc(head)}</h2>${chainHTML}${fHTML}<p style="margin:0">${esc(msg)}</p><div class="gallery">${list}</div>${prevHTML}<div class="row"><button data-close="notrap">${win === "chain" || win === "chainAttack" ? "チェーンしない" : "使わない"}</button></div>${respModeHTML(win)}</div>`;
+    dock = true;
   } else if (G.potPick != null && myP && potionDef((myP.potions || [])[G.potPick]) && canAct(st, me)){
     const k = myP.potions[G.potPick], d = potionDef(k);
     html = `<div class="box"><h2 style="margin:0">${esc(d.name)}</h2><div class="pi-big">${d.img ? `<img alt="" src="${d.img}">` : "🧪"}</div><p style="margin:0;font-size:17px">${esc(d.text)}</p><p class="muted" style="margin:0">マナはいらない。使うとなくなる</p><div class="row"><button class="primary" data-potuse="${G.potPick}">使う</button><button class="ghost" data-close="potion">やめる</button></div></div>`;
@@ -1124,7 +1125,7 @@ function renderOverlay(){
     html = `<div class="box"><h2 style="margin:0">墓地から手札に戻すカードをえらぶ（手動）</h2><div class="gallery">${ids.map(id => cardHTML(card(id), "sm pick", `data-gh="${esc(id)}" tabindex="0" role="button"`, mOpt(me))).join("") || '<p class="muted">墓地は空っぽ</p>'}</div><div class="row"><button class="ghost" data-close="gh">やめる</button></div></div>`;
   }
   const hideIt = !!(html && peek && G.ovHide);
-  ov.hidden = !html || hideIt; ov.innerHTML = hideIt ? "" : html;
+  ov.hidden = !html || hideIt; ov.innerHTML = hideIt ? "" : html; ov.classList.toggle("resp-dock", !!(html && dock));
   battleChrome(hideIt);
   if (!hideIt && G.respSel) requestAnimationFrame(() => { const pv = ov.querySelector(".resp-prev"); if (pv) pv.scrollIntoView({ block: "nearest", behavior: "smooth" }); });
 }
@@ -1316,7 +1317,8 @@ $("#board").addEventListener("click", e => {
   if (k === "mdetail"){ const x = G.atkFrom != null ? ["mz", "me", G.atkFrom] : sel ? [sel.z, sel.s, sel.i] : null; if (x){ G.detailBottom = false; openDetail(x); } return; }
   if (k === "mclose"){ G.sel = null; G.atkFrom = null; G.atkTo = null; renderAll(); return; }
   if (!canAct(st, me)) return;
-  if (k === "endTurn"){ G.sel = null; G.atkFrom = null; G.atkMode = false; G.eqPlace = null; act(st => { exReturn(st); return endTurn(st, me); }); return; }
+  if (k === "endTurn" && endTurnHold(st, me)) return;
+  if (k === "endTurn"){ G.endArm = 0; G.sel = null; G.atkFrom = null; G.atkMode = false; G.eqPlace = null; act(st => { exReturn(st); return endTurn(st, me); }); return; }
   if (k === "cancelAtk"){ G.atkFrom = null; G.atkTo = null; G.atkMode = false; renderAll(); return; }
   if (k === "atkMode"){ const L = atkReady(st, me); if (L.length === 1){ G.sel = { z: "mz", s: "me", i: L[0] }; G.atkFrom = L[0]; G.atkTo = null; } else G.atkMode = L.length > 0; renderAll(); return; }
   if (k === "atkModeOff"){ G.atkMode = false; renderAll(); return; }
