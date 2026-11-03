@@ -13,10 +13,11 @@ const list = [
   { k: 'remove', label: '場から除去する（破壊・手札に戻す）', path: '破壊・除去', text: '場から除去する（破壊・手札に戻す） 破壊' },
   { k: 'handOut', label: '自分の手札を好きな枚数えらんで捨てる（0枚もOK）', path: 'よく使う組み合わせ', text: '自分の手札を好きな枚数えらんで捨てる 好きな枚数 捨てる', extra: 0 },
 ];
-const ks = q => ctx.fxSearch(q, list).map(x => x.k);
+const ks = q => JSON.parse(JSON.stringify(ctx.fxSearch(q, list).map(x => x.k)));
 test('言葉で効果をさがせる（ひらがな・カタカナどちらでも）', () => {
   assert.deepEqual(ks('引く'), ['draw']);
-  assert.deepEqual(ks('はかい'), ['remove']);
+  assert.deepEqual(ks('ばうんす'), ['remove']);
+  assert.deepEqual(ks('どろー'), ['draw']);
   assert.deepEqual(ks('好きな枚数'), ['handOut']);
 });
 test('言いかえでもさがせる', () => {
